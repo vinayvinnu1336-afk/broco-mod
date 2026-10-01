@@ -1,0 +1,27 @@
+# Local development overrides example
+# Rename or copy to docker-compose.override.yml for local modifications
+# Note: docker-compose.override.yml is ignored by git to prevent accidental credential commits.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Logging__LogLevel__Default=Debug
+    volumes:
+      - ./src/backend:/src/src/backend:ro
+
+  frontend:
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./src/frontend:/app
+      - /app/node_modules
+      - /app/.next

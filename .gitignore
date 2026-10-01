@@ -1,0 +1,74 @@
+# ==============================================================================
+# BroCo Mod - Production .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Secrets & Credentials (CRITICAL SECURITY)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.pfx
+*.p12
+*.rsa
+id_rsa*
+secrets/
+appsettings.Production.json
+appsettings.*.local.json
+
+# ------------------------------------------------------------------------------
+# .NET / C#
+# ------------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.DotSettings.user
+*.nupkg
+TestResults/
+*.received.*
+*.verified.*
+
+# ------------------------------------------------------------------------------
+# Node / Frontend
+# ------------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+build/
+dist/
+.eslintcache
+.turbo/
+.vercel/
+
+# ------------------------------------------------------------------------------
+# Docker & Local Infrastructure
+# ------------------------------------------------------------------------------
+docker-compose.override.yml
+*.env.local
+postgres_data/
+redis_data/
+
+# ------------------------------------------------------------------------------
+# OS & Environment
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.swp
+*~

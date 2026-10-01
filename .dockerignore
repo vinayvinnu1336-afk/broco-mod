@@ -1,0 +1,30 @@
+# ==============================================================================
+# BroCo Mod - .dockerignore
+# ==============================================================================
+
+.git
+.github
+.vscode
+.vs
+docs/
+infra/
+
+# Ignore build artifacts and local caches
+**/bin/
+**/obj/
+**/node_modules/
+**/.next/
+**/out/
+**/TestResults/
+
+# Ignore secrets and local configs
+.env*
+!.env.example
+*.local.json
+docker-compose.override.yml
+docker-compose.yml
+
+# Temporary and OS files
+*.log
+.DS_Store
+Thumbs.db

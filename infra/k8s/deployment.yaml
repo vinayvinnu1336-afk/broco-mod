@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broco-mod-backend
+  labels:
+    app.kubernetes.io/name: broco-mod-backend
+    app.kubernetes.io/part-of: broco-mod
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: broco-mod-backend
+  template:
+    metadata:
+      labels:
+        app: broco-mod-backend
+    spec:
+      containers:
+        - name: backend
+          image: broco-mod/backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: broco-mod-secrets
+                  key: database-url
+            - name: ConnectionStrings__Redis
+              valueFrom:
+                secretKeyRef:
+                  name: broco-mod-secrets
+                  key: redis-url
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broco-mod-backend-svc
+spec:
+  selector:
+    app: broco-mod-backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP

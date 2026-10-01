@@ -1,0 +1,174 @@
+name: BroCo Mod CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Job 1: Backend CI (Restore, Build, Unit Tests, Integration Tests)
+  # ----------------------------------------------------------------------------
+  backend:
+    name: Backend CI (.NET 8 Clean Architecture)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_DB: broco_mod
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d broco_mod"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Backend Dependencies
+        run: dotnet restore BroCoMod.sln
+
+      - name: Build Backend (Release)
+        run: dotnet build BroCoMod.sln --no-restore -c Release
+
+      - name: Run Unit Tests
+        run: >
+          dotnet test tests/BroCoMod.UnitTests/BroCoMod.UnitTests.csproj
+          --no-build
+          -c Release
+          --logger "trx;LogFileName=unit-tests.trx"
+          --verbosity normal
+
+      - name: Run Integration Tests
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=broco_mod;Username=postgres;Password=postgres"
+          ConnectionStrings__Redis: "localhost:6379"
+        run: >
+          dotnet test tests/BroCoMod.IntegrationTests/BroCoMod.IntegrationTests.csproj
+          --no-build
+          -c Release
+          --logger "trx;LogFileName=integration-tests.trx"
+          --verbosity normal
+
+  # ----------------------------------------------------------------------------
+  # Job 2: Frontend CI (Restore, Lint, Build)
+  # ----------------------------------------------------------------------------
+  frontend:
+    name: Frontend CI (Next.js & TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package.json
+
+      - name: Restore Frontend Dependencies
+        run: npm install
+
+      - name: Run Static Checks & Linter
+        run: npm run lint
+
+      - name: Build Next.js Application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: "http://localhost:5000"
+
+  # ----------------------------------------------------------------------------
+  # Job 3: Docker Images Build
+  # ----------------------------------------------------------------------------
+  docker-build:
+    name: Docker Images Build Verification
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/backend/Dockerfile
+          push: false
+          tags: broco-mod/backend:ci-test
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend
+          file: docker/frontend/Dockerfile
+          push: false
+          tags: broco-mod/frontend:ci-test
+
+      - name: Build Nginx Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/nginx
+          file: docker/nginx/Dockerfile
+          push: false
+          tags: broco-mod/nginx:ci-test
+
+  # ----------------------------------------------------------------------------
+  # Job 4: Future CD Readiness (Staging/Production Gated - NO Automatic Deploy)
+  # ----------------------------------------------------------------------------
+  cd-readiness-gate:
+    name: Continuous Deployment Readiness Check
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: CD Validation Notice
+        run: |
+          echo "================================================================="
+          echo "CI Pipeline Passed all verification gates."
+          echo "Repository is prepared for Continuous Deployment."
+          echo "AUTOMATIC PRODUCTION DEPLOYMENT IS INTENTIONALLY DISABLED."
+          echo "Target Branch: ${{ github.ref }}"
+          echo "Release Tag / Commit: ${{ github.sha }}"
+          echo "================================================================="
