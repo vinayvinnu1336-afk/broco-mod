@@ -658,6 +658,7 @@ public class ServiceRequestService : IServiceRequestService
         ServiceRequestStatus.QuotesReceived => "QUOTES_RECEIVED",
         ServiceRequestStatus.CustomerQuotationSent => "CUSTOMER_QUOTATION_SENT",
         ServiceRequestStatus.CustomerAccepted => "CUSTOMER_ACCEPTED",
+        ServiceRequestStatus.BookingConfirmed => "BOOKING_CONFIRMED",
         ServiceRequestStatus.CustomerRejected => "CUSTOMER_REJECTED",
         ServiceRequestStatus.InProgress => "IN_PROGRESS",
         ServiceRequestStatus.Completed => "COMPLETED",

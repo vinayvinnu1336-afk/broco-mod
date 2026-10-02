@@ -419,13 +419,18 @@ public class CustomerQuotationService : ICustomerQuotationService
         Guid customerId,
         CancellationToken ct = default)
     {
-        // STRICT CUSTOMER VISIBILITY: Only quotations in 'Sent' state are visible
+        // STRICT CUSTOMER VISIBILITY: Customer can view Sent, Accepted, Rejected, and Expired quotations
         var quotations = await _context.CustomerQuotations
             .Include(cq => cq.ServiceRequest)
+            .Include(cq => cq.GarageAssignment)
+                .ThenInclude(ga => ga!.Garage)
             .Include(cq => cq.LineItems)
             .Where(cq => cq.ServiceRequest != null &&
                          cq.ServiceRequest.CustomerId == customerId &&
-                         cq.Status == CustomerQuotationStatus.Sent)
+                         (cq.Status == CustomerQuotationStatus.Sent ||
+                          cq.Status == CustomerQuotationStatus.Accepted ||
+                          cq.Status == CustomerQuotationStatus.Rejected ||
+                          cq.Status == CustomerQuotationStatus.Expired))
             .OrderByDescending(cq => cq.SentAtUtc ?? cq.CreatedAtUtc)
             .ToListAsync(ct);
 
@@ -440,6 +445,8 @@ public class CustomerQuotationService : ICustomerQuotationService
     {
         var quotation = await _context.CustomerQuotations
             .Include(cq => cq.ServiceRequest)
+            .Include(cq => cq.GarageAssignment)
+                .ThenInclude(ga => ga!.Garage)
             .Include(cq => cq.LineItems)
             .FirstOrDefaultAsync(cq => cq.Id == quotationId, ct);
 
@@ -454,8 +461,8 @@ public class CustomerQuotationService : ICustomerQuotationService
             return ApiResponse<CustomerFacingQuotationDto>.Fail("You do not have permission to view this quotation.");
         }
 
-        // Visibility constraint: must be in SENT status
-        if (quotation.Status != CustomerQuotationStatus.Sent)
+        // Visibility constraint: draft and ready to send are hidden from customer
+        if (quotation.Status == CustomerQuotationStatus.Draft || quotation.Status == CustomerQuotationStatus.ReadyToSend)
         {
             return ApiResponse<CustomerFacingQuotationDto>.Fail("This quotation is not currently available for customer review.");
         }
@@ -572,7 +579,10 @@ public class CustomerQuotationService : ICustomerQuotationService
                 li.DiscountAmount,
                 li.LineTotal,
                 li.SortOrder
-            )).ToList()
+            )).ToList(),
+            quotation.GarageAssignment?.Garage?.Name ?? "Partner Garage",
+            quotation.AcceptedAtUtc,
+            quotation.RejectedAtUtc
         );
     }
 }

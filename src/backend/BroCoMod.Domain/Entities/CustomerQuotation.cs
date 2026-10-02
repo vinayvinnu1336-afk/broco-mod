@@ -33,10 +33,13 @@ public class CustomerQuotation : BaseEntity
     public DateTime? RejectedAtUtc { get; private set; }
     public DateTime? CancelledAtUtc { get; private set; }
     public DateTime? CustomerRespondedAtUtc { get; private set; }
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+    public Guid? AcceptedVersionId { get; private set; }
 
     // Navigation properties
     public ServiceRequest? ServiceRequest { get; private set; }
     public GarageAssignment? GarageAssignment { get; private set; }
+    public CustomerQuotationDecision? Decision { get; private set; }
     public ICollection<CustomerQuotationLineItem> LineItems { get; private set; } = new List<CustomerQuotationLineItem>();
     public ICollection<CustomerQuotationVersion> Versions { get; private set; } = new List<CustomerQuotationVersion>();
 
@@ -178,6 +181,7 @@ public class CustomerQuotation : BaseEntity
         Status = CustomerQuotationStatus.ReadyToSend;
         AdvisorId = advisorId;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Send(Guid advisorId)
@@ -196,6 +200,7 @@ public class CustomerQuotation : BaseEntity
         SentAtUtc = DateTime.UtcNow;
         AdvisorId = advisorId;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void CreateRevision(Guid advisorId)
@@ -207,6 +212,7 @@ public class CustomerQuotation : BaseEntity
         VersionNumber++;
         AdvisorId = advisorId;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Expire()
@@ -216,6 +222,7 @@ public class CustomerQuotation : BaseEntity
 
         Status = CustomerQuotationStatus.Expired;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Cancel(string reason, Guid advisorId)
@@ -227,21 +234,34 @@ public class CustomerQuotation : BaseEntity
         CancelledAtUtc = DateTime.UtcNow;
         AdvisorRemarks = string.IsNullOrWhiteSpace(reason) ? AdvisorRemarks : $"{AdvisorRemarks} (Cancelled: {reason})";
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
-    public void Accept()
+    public void Accept(Guid? versionId = null)
     {
+        if (Status != CustomerQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot accept customer quotation in '{Status}' state. Allowed only when 'Sent'.");
+
+        if (ValidUntilUtc <= DateTime.UtcNow)
+            throw new InvalidOperationException("Cannot accept expired customer quotation.");
+
         Status = CustomerQuotationStatus.Accepted;
         AcceptedAtUtc = DateTime.UtcNow;
         CustomerRespondedAtUtc = DateTime.UtcNow;
+        AcceptedVersionId = versionId;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Reject()
     {
+        if (Status != CustomerQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot reject customer quotation in '{Status}' state. Allowed only when 'Sent'.");
+
         Status = CustomerQuotationStatus.Rejected;
         RejectedAtUtc = DateTime.UtcNow;
         CustomerRespondedAtUtc = DateTime.UtcNow;
         UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }

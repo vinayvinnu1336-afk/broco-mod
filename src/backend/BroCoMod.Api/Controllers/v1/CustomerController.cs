@@ -15,6 +15,7 @@ public class CustomerController : ControllerBase
     private readonly ICustomerVehicleService _customerVehicleService;
     private readonly IServiceRequestService _serviceRequestService;
     private readonly ICustomerQuotationService _customerQuotationService;
+    private readonly ICustomerDecisionService _customerDecisionService;
     private readonly ICurrentUserService _currentUserService;
 
     public CustomerController(
@@ -22,12 +23,14 @@ public class CustomerController : ControllerBase
         ICustomerVehicleService customerVehicleService,
         IServiceRequestService serviceRequestService,
         ICustomerQuotationService customerQuotationService,
+        ICustomerDecisionService customerDecisionService,
         ICurrentUserService currentUserService)
     {
         _customerPortalService = customerPortalService;
         _customerVehicleService = customerVehicleService;
         _serviceRequestService = serviceRequestService;
         _customerQuotationService = customerQuotationService;
+        _customerDecisionService = customerDecisionService;
         _currentUserService = currentUserService;
     }
 
@@ -277,6 +280,88 @@ public class CustomerController : ControllerBase
             {
                 return StatusCode(StatusCodes.Status403Forbidden, result);
             }
+            return NotFound(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("quotes/{id:guid}/accept")]
+    [ProducesResponseType(typeof(ApiResponse<BookingConfirmationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AcceptQuote(
+        Guid id,
+        [FromHeader(Name = "Idempotency-Key")] string? headerIdempotencyKey,
+        [FromBody] AcceptQuotationRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var effectiveRequest = request ?? new AcceptQuotationRequest();
+        if (string.IsNullOrWhiteSpace(effectiveRequest.IdempotencyKey) && !string.IsNullOrWhiteSpace(headerIdempotencyKey))
+        {
+            effectiveRequest = effectiveRequest with { IdempotencyKey = headerIdempotencyKey };
+        }
+
+        var result = await _customerDecisionService.AcceptQuotationAsync(id, customerId, effectiveRequest, clientIp, userAgent, cancellationToken);
+        if (!result.Success)
+        {
+            if (result.Message.Contains("not found")) return NotFound(result);
+            if (result.Message.Contains("permission")) return StatusCode(StatusCodes.Status403Forbidden, result);
+            if (result.Message.Contains("already") || result.Message.Contains("concurrently"))
+                return StatusCode(StatusCodes.Status409Conflict, result);
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("quotes/{id:guid}/reject")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerQuotationDecisionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RejectQuote(
+        Guid id,
+        [FromHeader(Name = "Idempotency-Key")] string? headerIdempotencyKey,
+        [FromBody] RejectQuotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var effectiveRequest = request;
+        if (string.IsNullOrWhiteSpace(effectiveRequest.IdempotencyKey) && !string.IsNullOrWhiteSpace(headerIdempotencyKey))
+        {
+            effectiveRequest = effectiveRequest with { IdempotencyKey = headerIdempotencyKey };
+        }
+
+        var result = await _customerDecisionService.RejectQuotationAsync(id, customerId, effectiveRequest, clientIp, userAgent, cancellationToken);
+        if (!result.Success)
+        {
+            if (result.Message.Contains("not found")) return NotFound(result);
+            if (result.Message.Contains("permission")) return StatusCode(StatusCodes.Status403Forbidden, result);
+            if (result.Message.Contains("already") || result.Message.Contains("concurrently"))
+                return StatusCode(StatusCodes.Status409Conflict, result);
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("quotes/{id:guid}/decision")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerQuotationDecisionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetQuoteDecision(Guid id, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        var result = await _customerDecisionService.GetDecisionAsync(id, customerId, AppRoles.Customer, cancellationToken);
+        if (!result.Success)
+        {
+            if (result.Message.Contains("permission")) return StatusCode(StatusCodes.Status403Forbidden, result);
             return NotFound(result);
         }
         return Ok(result);

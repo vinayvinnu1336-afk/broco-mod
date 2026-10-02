@@ -217,6 +217,7 @@ export interface CustomerFacingQuotationDto {
   id: string;
   serviceRequestId: string;
   requestNumber: string;
+  assignedGarageName?: string;
   quotationNumber: string;
   currency: string;
   customerSubtotal: number;
@@ -229,5 +230,63 @@ export interface CustomerFacingQuotationDto {
   scopeSummary: string;
   advisorRemarks?: string;
   sentAtUtc?: string;
+  acceptedAtUtc?: string;
+  rejectedAtUtc?: string;
   lineItems: CustomerFacingLineItemDto[];
+}
+
+export interface AcceptQuotationRequest {
+  idempotencyKey?: string;
+  customerRemarks?: string;
+}
+
+export interface RejectQuotationRequest {
+  reason: string;
+  category?: string;
+  idempotencyKey?: string;
+}
+
+export interface CustomerQuotationDecisionDto {
+  id: string;
+  customerQuotationId: string;
+  quotationNumber: string;
+  customerQuotationVersionId: string;
+  versionNumber: number;
+  customerId: string;
+  decision: string;
+  category?: string;
+  reason?: string;
+  decidedAtUtc: string;
+  idempotencyKey?: string;
+}
+
+export interface BookingConfirmationDto {
+  quotationId: string;
+  quotationNumber: string;
+  serviceRequestId: string;
+  requestNumber: string;
+  garageId: string;
+  garageName: string;
+  garageAddress: string;
+  garagePhone?: string;
+  confirmedTotal: number;
+  currency: string;
+  confirmedAtUtc: string;
+  status: string;
+  vehicleSummary: string;
+  message: string;
+}
+
+export interface GarageConfirmedBookingDto {
+  assignmentId: string;
+  serviceRequestId: string;
+  requestNumber: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  vehicleYear: number;
+  vehicleLicensePlate: string;
+  problemDescription: string;
+  confirmedAtUtc: string;
+  quotedAmount: number;
+  quoteNumber: string;
 }

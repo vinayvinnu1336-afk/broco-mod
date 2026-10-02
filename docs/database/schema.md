@@ -381,17 +381,17 @@ Binds a ServiceRequest to a selected partner workshop and their winning quote.
 | `SelectedQuoteId` | `UUID` | `FK -> GarageQuotes(Id), INDEX` | Selected workshop quotation |
 | `AssignedByAdvisorId` | `UUID` | `NOT NULL, INDEX` | Assigning advisor ID |
 | `AssignedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Assignment timestamp |
-| `Status` | `INTEGER` | `NOT NULL` | Enum: Assigned(1), Cancelled(2), Reassigned(3) |
+| `Status` | `INTEGER` | `NOT NULL` | Enum: Assigned(1), Cancelled(2), Reassigned(3), Confirmed(4) |
 | `AssignmentReason` | `VARCHAR(1000)` | `NULL` | Technical/operational selection rationale |
 | `CancelledAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Cancellation timestamp |
 | `CancellationReason` | `VARCHAR(1000)` | `NULL` | Cancellation rationale |
 | `ConcurrencyToken` | `UUID` | `NOT NULL` | Optimistic concurrency token |
 
-> **Single Active Assignment Unique Partial Index**:
+> **Single Active or Confirmed Assignment Unique Partial Index**:
 > ```sql
 > CREATE UNIQUE INDEX "IX_GarageAssignments_ServiceRequestId"
 > ON "GarageAssignments" ("ServiceRequestId")
-> WHERE "Status" = 1;
+> WHERE "Status" IN (1, 4); -- 1 = Assigned, 4 = Confirmed
 > ```
 
 ### 7.4. `CustomerQuotations`
@@ -416,6 +416,10 @@ The curated commercial quotation presented to the customer.
 | `ScopeSummary` | `VARCHAR(1000)` | `NOT NULL` | Customer-facing work package summary |
 | `AdvisorRemarks` | `VARCHAR(2000)` | `NULL` | Warranty and parts compliance remarks |
 | `SentAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Customer dispatch timestamp |
+| `AcceptedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Customer acceptance timestamp |
+| `RejectedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Customer rejection timestamp |
+| `AcceptedVersionId`| `UUID` | `FK -> CustomerQuotationVersions(Id) (NULL)` | Immutable accepted version binding |
+| `ConcurrencyToken` | `UUID` | `NOT NULL` | Optimistic locking token |
 | `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Audit creation timestamp |
 | `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Audit modification timestamp |
 
@@ -453,5 +457,26 @@ Immutable historical snapshot preserving financial and line item states upon `Re
 | `LineItemsJson` | `TEXT` | `NOT NULL` | Serialized JSON of all approved line items |
 | `CreatedByUserId` | `UUID` | `NOT NULL` | Snapshot user attribution |
 | `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot timestamp |
+
+### 7.7. `CustomerQuotationDecisions`
+Immutable audit and legal record of customer acceptance or decline decision.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique decision identifier |
+| `CustomerQuotationId` | `UUID` | `FK -> CustomerQuotations(Id), UNIQUE INDEX` | At most one decision per quotation |
+| `CustomerQuotationVersionId` | `UUID` | `FK -> CustomerQuotationVersions(Id), INDEX` | Binding snapshot version |
+| `VersionNumber` | `INTEGER` | `NOT NULL` | Version number reviewed by customer |
+| `CustomerId` | `UUID` | `FK -> Users(Id), INDEX` | Customer user account |
+| `Decision` | `INTEGER` | `NOT NULL, INDEX` | Enum: Accepted(1), Rejected(2) |
+| `DecisionCategory` | `VARCHAR(100)` | `NULL` | Feedback category (e.g. `PRICE_TOO_HIGH`) |
+| `DecisionReason` | `VARCHAR(1000)` | `NULL` | Mandatory explanation on rejection, optional on accept |
+| `IdempotencyKey` | `VARCHAR(128)` | `NULL, INDEX` | Idempotent replay key |
+| `ClientIpAddress` | `VARCHAR(45)` | `NULL` | IPv4/IPv6 client address for audit |
+| `UserAgent` | `VARCHAR(500)` | `NULL` | Client user agent string |
+| `DecidedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL, INDEX` | Decision timestamp |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Entity creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Modification timestamp |
+
 
 

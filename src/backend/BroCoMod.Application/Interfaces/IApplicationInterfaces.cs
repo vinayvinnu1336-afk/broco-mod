@@ -17,6 +17,7 @@ public interface IApplicationDbContext
     DbSet<CustomerQuotationVersion> CustomerQuotationVersions { get; }
     DbSet<GarageAssignment> GarageAssignments { get; }
     DbSet<AdvisorRequestNote> AdvisorRequestNotes { get; }
+    DbSet<CustomerQuotationDecision> CustomerQuotationDecisions { get; }
 
     // Identity & Authorization
     DbSet<BroCoMod.Domain.Entities.Identity.User> Users { get; }

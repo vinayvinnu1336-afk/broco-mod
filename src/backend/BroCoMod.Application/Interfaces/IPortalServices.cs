@@ -19,6 +19,7 @@ public interface IGaragePortalService
     Task<GarageProfileDto> GetProfileAsync(Guid garageId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GarageRequestSummaryDto>> GetRequestsAsync(Guid garageId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GarageQuoteSummaryDto>> GetQuotesAsync(Guid garageId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<GarageConfirmedBookingDto>> GetConfirmedBookingsAsync(Guid garageId, CancellationToken cancellationToken = default);
 }
 
 public interface IAdvisorPortalService
