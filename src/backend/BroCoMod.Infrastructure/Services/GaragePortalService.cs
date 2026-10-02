@@ -42,20 +42,22 @@ public class GaragePortalService : IGaragePortalService
         var submittedQuotesCount = await _context.GarageQuotes
             .CountAsync(q => q.GarageId == garageId, cancellationToken);
 
-        // In a real system, available requests are those dispatched/matched within radius.
-        // For portal foundation, query requests with quotes from this garage or pending quotes.
-        var requests = await _context.ServiceRequests
+        // Query incoming dispatched requests strictly belonging to this garage
+        var requests = await _context.GarageRequests
             .AsNoTracking()
+            .Include(gr => gr.ServiceRequest)
+            .Where(gr => gr.GarageId == garageId)
+            .OrderByDescending(gr => gr.CreatedAtUtc)
             .Take(5)
-            .Select(r => new GarageRequestSummaryDto(
-                r.Id,
-                r.VehicleMake,
-                r.VehicleModel,
-                r.VehicleYear,
-                r.Description,
-                4.2, // estimated distance placeholder
-                r.CreatedAtUtc,
-                r.Status.ToString()))
+            .Select(gr => new GarageRequestSummaryDto(
+                gr.ServiceRequestId,
+                gr.ServiceRequest.VehicleMake,
+                gr.ServiceRequest.VehicleModel,
+                gr.ServiceRequest.VehicleYear,
+                gr.ServiceRequest.ProblemDescription,
+                gr.DistanceKm,
+                gr.CreatedAtUtc,
+                gr.Status.ToString()))
             .ToListAsync(cancellationToken);
 
         var newRequestsCount = requests.Count;
@@ -109,20 +111,22 @@ public class GaragePortalService : IGaragePortalService
 
     public async Task<IReadOnlyList<GarageRequestSummaryDto>> GetRequestsAsync(Guid garageId, CancellationToken cancellationToken = default)
     {
-        // Enforce garage data boundary
-        return await _context.ServiceRequests
+        // Enforce garage data boundary: only requests dispatched to this garage
+        return await _context.GarageRequests
             .AsNoTracking()
-            .OrderByDescending(r => r.CreatedAtUtc)
-            .Take(20)
-            .Select(r => new GarageRequestSummaryDto(
-                r.Id,
-                r.VehicleMake,
-                r.VehicleModel,
-                r.VehicleYear,
-                r.Description,
-                3.5,
-                r.CreatedAtUtc,
-                r.Status.ToString()))
+            .Include(gr => gr.ServiceRequest)
+            .Where(gr => gr.GarageId == garageId)
+            .OrderByDescending(gr => gr.CreatedAtUtc)
+            .Take(50)
+            .Select(gr => new GarageRequestSummaryDto(
+                gr.ServiceRequestId,
+                gr.ServiceRequest.VehicleMake,
+                gr.ServiceRequest.VehicleModel,
+                gr.ServiceRequest.VehicleYear,
+                gr.ServiceRequest.ProblemDescription,
+                gr.DistanceKm,
+                gr.CreatedAtUtc,
+                gr.Status.ToString()))
             .ToListAsync(cancellationToken);
     }
 

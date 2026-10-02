@@ -206,3 +206,74 @@ Strict separation of concerns separating authentication from role domain attribu
 | `Color` | `VARCHAR(50)` | `NOT NULL` | Bodywork color |
 | `IsPrimary` | `BOOLEAN` | `NOT NULL` | Customer default vehicle flag |
 | `IsActive` | `BOOLEAN` | `NOT NULL` | Soft-delete / active status |
+
+---
+
+## 5. Service Requests, Locations & Dispatch (Milestone 4)
+
+### 5.1. `ServiceLocations`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Service location ID |
+| `AddressLine1` | `VARCHAR(250)` | `NOT NULL` | Street address or landmark |
+| `AddressLine2` | `VARCHAR(250)` | `NULL` | Suite/apartment details |
+| `City` | `VARCHAR(100)` | `NOT NULL` | City name |
+| `State` | `VARCHAR(100)` | `NOT NULL` | State/province |
+| `Pincode` | `VARCHAR(20)` | `NOT NULL` | Postal code |
+| `Country` | `VARCHAR(100)` | `NOT NULL` | Country name |
+| `Latitude` | `DOUBLE PRECISION` | `NOT NULL` | WGS84 latitude (-90 to 90) |
+| `Longitude` | `DOUBLE PRECISION` | `NOT NULL` | WGS84 longitude (-180 to 180) |
+| `Location` | `geography(Point, 4326)` | `NOT NULL, GIST INDEX` | PostGIS spatial point for geodetic distance |
+| `FormattedAddress` | `VARCHAR(500)` | `NOT NULL` | Standardized readable address |
+
+### 5.2. `ServiceRequests`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Service request ID |
+| `RequestNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Human-readable identifier (`BM-XXXXXX`) |
+| `CustomerId` | `UUID` | `FK -> CustomerProfiles(Id), INDEX` | Requesting customer ID |
+| `CustomerVehicleId` | `UUID` | `FK -> CustomerVehicles(Id), INDEX` | Selected customer vehicle |
+| `VehicleMake` | `VARCHAR(100)` | `NOT NULL` | Snapshot make |
+| `VehicleModel` | `VARCHAR(100)` | `NOT NULL` | Snapshot model |
+| `VehicleYear` | `INTEGER` | `NOT NULL` | Snapshot year |
+| `VehicleLicensePlate` | `VARCHAR(50)` | `NOT NULL` | Snapshot registration |
+| `ServiceLocationId` | `UUID` | `FK -> ServiceLocations(Id)` | Relational location entity |
+| `CustomerLocation` | `geography(Point, 4326)` | `NOT NULL, GIST INDEX` | Snapshot spatial location |
+| `ProblemDescription` | `VARCHAR(2000)` | `NOT NULL` | Customer reported symptoms/modifications |
+| `ServiceCategory` | `VARCHAR(100)` | `NOT NULL` | Category (Periodic, Brakes, Tuning, etc.) |
+| `PreferredServiceDate` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Customer preferred appointment date |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | `ServiceRequestStatus` enum |
+| `AssignedAdvisorId` | `UUID` | `FK -> AdvisorProfiles(Id) (NULL), INDEX` | Assigned technical advisor |
+| `RadiusKm` | `DOUBLE PRECISION` | `NOT NULL DEFAULT 10.0` | Dispatch matching radius (KM) |
+| `IdempotencyKey` | `VARCHAR(128)` | `NULL, INDEX(CustomerId, IdempotencyKey)` | Duplicate submission prevention key |
+| `SubmittedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Dispatch timestamp |
+| `CancelledAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Cancellation timestamp |
+| `CancellationReason` | `VARCHAR(1000)` | `NULL` | Customer cancellation rationale |
+
+### 5.3. `GarageRequests`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Dispatch record ID |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id), INDEX` | Parent service request |
+| `GarageId` | `UUID` | `FK -> Garages(Id), INDEX` | Target matched workshop |
+| `DistanceKm` | `DOUBLE PRECISION` | `NOT NULL` | PostGIS spheroid distance (KM) |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | `GarageRequestStatus` enum (Notified, Viewed, Accepted, Declined) |
+| `SentAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Dispatch timestamp |
+| `ViewedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Workshop first view timestamp |
+| `RespondedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Quote or decline response timestamp |
+
+> **Unique Constraint**: `(ServiceRequestId, GarageId)` is enforced as unique to prevent duplicate broadcasts.
+
+### 5.4. `Notifications`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Notification ID |
+| `UserId` | `UUID` | `FK -> Users(Id), INDEX` | Recipient user |
+| `Title` | `VARCHAR(200)` | `NOT NULL` | Notification subject |
+| `Message` | `VARCHAR(1000)` | `NOT NULL` | Body text |
+| `Channel` | `INTEGER` | `NOT NULL` | Enum: InApp(1), Email(2), Sms(3), WhatsApp(4) |
+| `ReferenceType` | `VARCHAR(100)` | `NULL` | Entity type link (`ServiceRequest`, `GarageRequest`) |
+| `ReferenceId` | `UUID` | `NULL` | Entity ID link |
+| `IsRead` | `BOOLEAN` | `NOT NULL DEFAULT false` | Read status |
+| `ReadAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Read receipt timestamp |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Delivery timestamp |

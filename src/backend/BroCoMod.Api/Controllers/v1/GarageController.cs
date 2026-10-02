@@ -12,13 +12,16 @@ namespace BroCoMod.Api.Controllers.v1;
 public class GarageController : ControllerBase
 {
     private readonly IGaragePortalService _garagePortalService;
+    private readonly IServiceRequestService _serviceRequestService;
     private readonly ICurrentUserService _currentUserService;
 
     public GarageController(
         IGaragePortalService garagePortalService,
+        IServiceRequestService serviceRequestService,
         ICurrentUserService currentUserService)
     {
         _garagePortalService = garagePortalService;
+        _serviceRequestService = serviceRequestService;
         _currentUserService = currentUserService;
     }
 
@@ -51,12 +54,32 @@ public class GarageController : ControllerBase
     }
 
     [HttpGet("requests")]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<GarageRequestSummaryDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetRequests(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<GarageIncomingRequestDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRequests(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
         var garageId = GetEffectiveGarageId();
-        var requests = await _garagePortalService.GetRequestsAsync(garageId, cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<GarageRequestSummaryDto>>.Ok(requests));
+        var requests = await _serviceRequestService.GetGarageRequestsAsync(garageId, page, pageSize, cancellationToken);
+        return Ok(ApiResponse<PagedResult<GarageIncomingRequestDto>>.Ok(requests));
+    }
+
+    [HttpGet("requests/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<GarageIncomingRequestDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRequestById(Guid id, CancellationToken cancellationToken)
+    {
+        var garageId = GetEffectiveGarageId();
+        try
+        {
+            var request = await _serviceRequestService.GetGarageRequestByIdAsync(garageId, id, cancellationToken);
+            return Ok(ApiResponse<GarageIncomingRequestDetailDto>.Ok(request));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 
     [HttpGet("quotes")]

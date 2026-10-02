@@ -13,16 +13,37 @@ public enum UserRole
 
 public enum ServiceRequestStatus
 {
-    Submitted = 1,
-    NotifiedGarages = 2,
-    QuotesReceived = 3,
-    AdvisorAssigned = 4,
-    CustomerQuotationSent = 5,
-    CustomerAccepted = 6,
-    CustomerRejected = 7,
-    InProgress = 8,
-    Completed = 9,
-    Cancelled = 10
+    New = 1,
+    Submitted = 1, // Backward compatibility alias with Milestone 1
+    AssignedToAdvisor = 2,
+    UnderReview = 3,
+    GarageMatching = 4,
+    GaragesNotified = 5,
+    QuotesReceived = 6,
+    CustomerQuotationSent = 7,
+    CustomerAccepted = 8,
+    CustomerRejected = 9,
+    InProgress = 10,
+    Completed = 11,
+    Cancelled = 12
+}
+
+public enum GarageRequestStatus
+{
+    Pending = 1,
+    Notified = 2,
+    Viewed = 3,
+    Accepted = 4,
+    Declined = 5,
+    Expired = 6
+}
+
+public enum NotificationChannel
+{
+    InApp = 1,
+    Email = 2,
+    Sms = 3,
+    WhatsApp = 4
 }
 
 public enum QuoteStatus

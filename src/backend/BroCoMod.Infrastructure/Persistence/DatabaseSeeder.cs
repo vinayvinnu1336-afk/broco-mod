@@ -222,6 +222,106 @@ public class DatabaseSeeder
                     await _context.SaveChangesAsync();
                 }
             }
+
+            // Seed additional test garages around Bangalore with varying distances & states
+            if (!await _context.Garages.AnyAsync(g => g.Name == "Indiranagar Auto Hub"))
+            {
+                _context.Garages.Add(new Garage(
+                    name: "Indiranagar Auto Hub",
+                    email: "indiranagar@autohub.com",
+                    phoneNumber: "+91 80 2520 1122",
+                    address: "12 100 Feet Road, Indiranagar, Bengaluru",
+                    longitude: 77.6412,
+                    latitude: 12.9784,
+                    isVerified: true,
+                    isOperational: true));
+            }
+
+            if (!await _context.Garages.AnyAsync(g => g.Name == "Koramangala Speed Works"))
+            {
+                _context.Garages.Add(new Garage(
+                    name: "Koramangala Speed Works",
+                    email: "koramangala@speedworks.in",
+                    phoneNumber: "+91 80 4110 3344",
+                    address: "88 80 Feet Road, 4th Block Koramangala, Bengaluru",
+                    longitude: 77.6200,
+                    latitude: 12.9352,
+                    isVerified: true,
+                    isOperational: true));
+            }
+
+            if (!await _context.Garages.AnyAsync(g => g.Name == "Whitefield Precision Garage"))
+            {
+                _context.Garages.Add(new Garage(
+                    name: "Whitefield Precision Garage",
+                    email: "contact@whitefieldprecision.com",
+                    phoneNumber: "+91 80 6677 8899",
+                    address: "205 ITPL Main Road, Whitefield, Bengaluru",
+                    longitude: 77.7499,
+                    latitude: 12.9698,
+                    isVerified: true,
+                    isOperational: true));
+            }
+
+            if (!await _context.Garages.AnyAsync(g => g.Name == "Jayanagar Auto Care (Pending Verification)"))
+            {
+                _context.Garages.Add(new Garage(
+                    name: "Jayanagar Auto Care (Pending Verification)",
+                    email: "service@jayanagarauto.com",
+                    phoneNumber: "+91 80 2663 4455",
+                    address: "4th Main, 9th Block Jayanagar, Bengaluru",
+                    longitude: 77.5833,
+                    latitude: 12.9300,
+                    isVerified: false,
+                    isOperational: true));
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Seed initial demo service request if none exists
+            if (!await _context.ServiceRequests.AnyAsync())
+            {
+                var demoVehicle = await _context.CustomerVehicles.FirstOrDefaultAsync(v => v.CustomerId == customerProfile.Id);
+                if (demoVehicle != null)
+                {
+                    var location = new ServiceLocation(
+                        addressLine1: "45 Skyline Boulevard, Suite 12",
+                        addressLine2: "Central Residency",
+                        city: "Bengaluru",
+                        state: "Karnataka",
+                        pincode: "560001",
+                        latitude: 12.9716,
+                        longitude: 77.5946,
+                        country: "India");
+                    _context.ServiceLocations.Add(location);
+                    await _context.SaveChangesAsync();
+
+                    var demoRequest = new ServiceRequest(
+                        requestNumber: "BM-100001",
+                        customerId: customerProfile.Id,
+                        customerVehicleId: demoVehicle.Id,
+                        vehicleMake: demoVehicle.Make,
+                        vehicleModel: demoVehicle.Model,
+                        vehicleYear: demoVehicle.Year,
+                        vehicleLicensePlate: demoVehicle.LicensePlate,
+                        serviceLocationId: location.Id,
+                        customerLocation: location.Location,
+                        problemDescription: "High-speed brake judder and squeaking when braking from 80 km/h.",
+                        serviceCategory: "Brakes & Suspension",
+                        preferredServiceDate: DateTime.UtcNow.AddDays(2),
+                        radiusKm: 10.0);
+
+                    demoRequest.GarageRequests.Add(new GarageRequest(
+                        demoRequest.Id,
+                        garage.Id,
+                        distanceKm: 2.4,
+                        initialStatus: GarageRequestStatus.Notified));
+
+                    demoRequest.MarkGaragesNotified();
+                    _context.ServiceRequests.Add(demoRequest);
+                    await _context.SaveChangesAsync();
+                }
+            }
         }
 
         _logger.LogInformation("Database initialization and seeding completed successfully.");

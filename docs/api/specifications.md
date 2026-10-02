@@ -64,7 +64,14 @@
 | `/profile` | GET | Customer personal details and communication preferences |
 | `/vehicles` | GET | Customer's registered vehicle inventory |
 | `/vehicles` | POST | Registers a new vehicle into the customer's garage |
-| `/requests` | GET | List of service requests submitted by the authenticated customer |
+| `/vehicles/{id}` | GET | Specific customer vehicle details |
+| `/vehicles/{id}` | PUT | Updates vehicle details |
+| `/vehicles/{id}` | DELETE | Soft-deletes a vehicle |
+| `/vehicles/{id}/set-primary` | POST | Sets primary default vehicle |
+| `/requests` | POST | Creates a service booking (supports `Idempotency-Key` header) and dispatches to 10 KM garages |
+| `/requests` | GET | Paginated list of service requests submitted by the authenticated customer |
+| `/requests/{id}` | GET | Detailed service request view with PostGIS location coordinates |
+| `/requests/{id}/cancel` | POST | Cancels service request with customer reason |
 | `/quotes` | GET | Sanitized customer quotations (strictly hides garage internal pricing) |
 | `/quotes/{id}` | GET | Specific quotation proposal detail |
 
@@ -77,7 +84,8 @@
 |---|---|---|
 | `/dashboard` | GET | Workshop statistics, nearby available requests, submitted quotes |
 | `/profile` | GET | Workshop facility location, PostGIS coordinates, and team members |
-| `/requests` | GET | Service requests dispatched within the workshop's 10 KM radius |
+| `/requests` | GET | Paginated service requests dispatched within the workshop's 10 KM radius |
+| `/requests/{id}` | GET | Dispatch detail with calculated distance; marks status as `VIEWED` |
 | `/quotes` | GET | Confidential workshop cost bids submitted to advisors |
 
 ---
@@ -89,7 +97,8 @@
 |---|---|---|
 | `/dashboard` | GET | Pending reviews queue, active requests, and assigned garages count |
 | `/profile` | GET | Advisor employee code and specialization credentials |
-| `/requests` | GET | Customer requests dispatched for workshop quotation |
+| `/requests` | GET | Paginated customer requests dispatched for workshop quotation |
+| `/requests/{id}` | GET | Detailed request inspection including all dispatched partner garages |
 | `/quotes` | GET | Workshop bids under review with recommended margin markup calculations |
 | `/assignments` | GET | Customer-accepted repair contract allocations |
 
@@ -103,6 +112,8 @@
 | `/dashboard` | GET | Platform-wide totals and live security telemetry |
 | `/users` | GET | Full user account list across all roles |
 | `/users/{id}/status` | POST | Activates or suspends a platform user |
+| `/requests` | GET | Paginated platform-wide service requests with dispatched garage counts |
+| `/requests/{id}` | GET | Complete audit and dispatch breakdown for any service request |
 | `/garages` | GET | Complete registry of certified partner garages |
 | `/advisors` | GET | Certified technical advisor roster |
 | `/audit` | GET | Security audit log trail with filter limits |

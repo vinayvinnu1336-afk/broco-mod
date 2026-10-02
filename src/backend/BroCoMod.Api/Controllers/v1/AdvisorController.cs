@@ -12,13 +12,16 @@ namespace BroCoMod.Api.Controllers.v1;
 public class AdvisorController : ControllerBase
 {
     private readonly IAdvisorPortalService _advisorPortalService;
+    private readonly IServiceRequestService _serviceRequestService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdvisorController(
         IAdvisorPortalService advisorPortalService,
+        IServiceRequestService serviceRequestService,
         ICurrentUserService currentUserService)
     {
         _advisorPortalService = advisorPortalService;
+        _serviceRequestService = serviceRequestService;
         _currentUserService = currentUserService;
     }
 
@@ -51,11 +54,30 @@ public class AdvisorController : ControllerBase
     }
 
     [HttpGet("requests")]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AdvisorRequestSummaryDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetRequests(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<AdvisorServiceRequestSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRequests(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        var requests = await _advisorPortalService.GetRequestsUnderReviewAsync(cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<AdvisorRequestSummaryDto>>.Ok(requests));
+        var requests = await _serviceRequestService.GetAdvisorRequestsAsync(page, pageSize, cancellationToken);
+        return Ok(ApiResponse<PagedResult<AdvisorServiceRequestSummaryDto>>.Ok(requests));
+    }
+
+    [HttpGet("requests/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorServiceRequestDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRequestById(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = await _serviceRequestService.GetAdvisorRequestByIdAsync(id, cancellationToken);
+            return Ok(ApiResponse<AdvisorServiceRequestDetailDto>.Ok(request));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 
     [HttpGet("quotes")]

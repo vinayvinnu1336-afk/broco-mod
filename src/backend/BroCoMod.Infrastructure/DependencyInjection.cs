@@ -51,6 +51,16 @@ public static class DependencyInjection
         services.AddScoped<IVehicleMasterService, VehicleMasterService>();
         services.AddScoped<ICustomerVehicleService, CustomerVehicleService>();
 
+        // Service Booking & Dispatch Services
+        services.AddScoped<IRequestNumberGenerator, RequestNumberGenerator>();
+        services.AddScoped<IGarageMatchingService, GarageMatchingService>();
+        services.AddScoped<INotificationProvider, InAppNotificationProvider>();
+        services.AddScoped<INotificationProvider, EmailNotificationProvider>();
+        services.AddScoped<INotificationProvider, SmsNotificationProvider>();
+        services.AddScoped<INotificationProvider, WhatsAppNotificationProvider>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IServiceRequestService, ServiceRequestService>();
+
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<DatabaseSeeder>();
