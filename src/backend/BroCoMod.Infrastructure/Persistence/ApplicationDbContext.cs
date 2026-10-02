@@ -26,6 +26,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<GarageAssignment> GarageAssignments => Set<GarageAssignment>();
     public DbSet<AdvisorRequestNote> AdvisorRequestNotes => Set<AdvisorRequestNote>();
     public DbSet<CustomerQuotationDecision> CustomerQuotationDecisions => Set<CustomerQuotationDecision>();
+    public DbSet<ServiceJob> ServiceJobs => Set<ServiceJob>();
+    public DbSet<ServiceInspection> ServiceInspections => Set<ServiceInspection>();
+    public DbSet<ServiceJobActivity> ServiceJobActivities => Set<ServiceJobActivity>();
+    public DbSet<AdditionalWorkRequest> AdditionalWorkRequests => Set<AdditionalWorkRequest>();
 
     // Identity & Authorization
     public DbSet<User> Users => Set<User>();
@@ -72,6 +76,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Generated atomically via PostgreSQL sequence CustomerQuotationNumberSeq.
         // The CQ-XXXXXX identifier is a unique human-readable customer quotation reference. Sequence values are not guaranteed to be gapless.
         modelBuilder.HasSequence<long>("CustomerQuotationNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence ServiceJobNumberSeq.
+        // The JOB-XXXXXX identifier is a unique human-readable job reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("ServiceJobNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);
 
@@ -688,6 +698,103 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(al => al.TimestampUtc);
             builder.HasIndex(al => al.UserId);
             builder.HasIndex(al => al.Action);
+        });
+
+        // ServiceJob configuration (Operational service execution)
+        modelBuilder.Entity<ServiceJob>(builder =>
+        {
+            builder.HasKey(j => j.Id);
+            builder.Property(j => j.JobNumber).IsRequired().HasMaxLength(32);
+            builder.Property(j => j.CustomerComplaintSnapshot).HasMaxLength(4000);
+            builder.Property(j => j.GarageInternalNotes).HasMaxLength(4000);
+            builder.Property(j => j.CustomerFacingNotes).HasMaxLength(4000);
+            builder.Property(j => j.CancellationReason).HasMaxLength(1000);
+            builder.Property(j => j.ConcurrencyToken).IsConcurrencyToken();
+
+            builder.HasIndex(j => j.JobNumber).IsUnique();
+            builder.HasIndex(j => j.GarageAssignmentId).IsUnique();
+            builder.HasIndex(j => j.ServiceRequestId);
+            builder.HasIndex(j => j.GarageId);
+            builder.HasIndex(j => j.CustomerQuotationId);
+            builder.HasIndex(j => j.Status);
+            builder.HasIndex(j => j.ScheduledStartAtUtc);
+            builder.HasIndex(j => j.CreatedAtUtc);
+
+            builder.HasOne(j => j.ServiceRequest)
+                .WithOne(sr => sr.ServiceJob)
+                .HasForeignKey<ServiceJob>(j => j.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(j => j.GarageAssignment)
+                .WithOne(ga => ga.ServiceJob)
+                .HasForeignKey<ServiceJob>(j => j.GarageAssignmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(j => j.CustomerQuotation)
+                .WithOne(cq => cq.ServiceJob)
+                .HasForeignKey<ServiceJob>(j => j.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(j => j.Garage)
+                .WithMany(g => g.ServiceJobs)
+                .HasForeignKey(j => j.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasMany(j => j.Inspections)
+                .WithOne(i => i.ServiceJob)
+                .HasForeignKey(i => i.ServiceJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(j => j.Activities)
+                .WithOne(a => a.ServiceJob)
+                .HasForeignKey(a => a.ServiceJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(j => j.AdditionalWorkRequests)
+                .WithOne(r => r.ServiceJob)
+                .HasForeignKey(r => r.ServiceJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ServiceInspection configuration (Workshop intake physical inspection)
+        modelBuilder.Entity<ServiceInspection>(builder =>
+        {
+            builder.HasKey(i => i.Id);
+            builder.Property(i => i.Findings).HasMaxLength(4000);
+            builder.Property(i => i.Recommendations).HasMaxLength(4000);
+            builder.Property(i => i.CustomerVisibleSummary).HasMaxLength(4000);
+
+            builder.HasIndex(i => i.ServiceJobId);
+            builder.HasIndex(i => i.InspectorUserId);
+            builder.HasIndex(i => i.OverallSeverity);
+            builder.HasIndex(i => i.CreatedAtUtc);
+        });
+
+        // ServiceJobActivity configuration (Operational activity timeline log)
+        modelBuilder.Entity<ServiceJobActivity>(builder =>
+        {
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.Message).IsRequired().HasMaxLength(2000);
+
+            builder.HasIndex(a => a.ServiceJobId);
+            builder.HasIndex(a => a.ActivityType);
+            builder.HasIndex(a => a.IsCustomerVisible);
+            builder.HasIndex(a => a.CreatedAtUtc);
+        });
+
+        // AdditionalWorkRequest configuration (Discovered work needing advisor review)
+        modelBuilder.Entity<AdditionalWorkRequest>(builder =>
+        {
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.Description).IsRequired().HasMaxLength(2000);
+            builder.Property(r => r.EstimatedAdditionalAmount).HasPrecision(18, 2);
+            builder.Property(r => r.Reason).IsRequired().HasMaxLength(2000);
+            builder.Property(r => r.AdvisorRemarks).HasMaxLength(2000);
+
+            builder.HasIndex(r => r.ServiceJobId);
+            builder.HasIndex(r => r.Status);
+            builder.HasIndex(r => r.ReviewedByAdvisorId);
+            builder.HasIndex(r => r.CreatedAtUtc);
         });
     }
 }

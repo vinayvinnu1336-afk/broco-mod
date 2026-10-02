@@ -17,6 +17,7 @@ public class Garage : BaseEntity
     // Navigation properties
     public ICollection<GarageQuote> Quotes { get; private set; } = new List<GarageQuote>();
     public ICollection<GarageRequest> GarageRequests { get; private set; } = new List<GarageRequest>();
+    public ICollection<ServiceJob> ServiceJobs { get; private set; } = new List<ServiceJob>();
 
     protected Garage() { }
 

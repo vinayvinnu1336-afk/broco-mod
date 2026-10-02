@@ -157,9 +157,13 @@ export default function CustomerDashboardPage() {
           ) : data?.recentRequests && data.recentRequests.length > 0 ? (
             <div className="divide-y divide-surface-100">
               {data.recentRequests.map((req) => (
-                <div key={req.id} className="py-3 flex items-center justify-between">
+                <Link
+                  key={req.id}
+                  href={`/customer/requests/${req.id}`}
+                  className="py-3 flex items-center justify-between hover:bg-surface-50 transition-colors px-2 -mx-2 rounded-xl group"
+                >
                   <div>
-                    <div className="text-sm font-bold text-navy-900">
+                    <div className="text-sm font-bold text-navy-900 group-hover:text-electric-600 transition-colors">
                       {req.vehicleYear} {req.vehicleMake} {req.vehicleModel}
                     </div>
                     <div className="text-xs text-navy-600 line-clamp-1">{req.description}</div>
@@ -167,7 +171,7 @@ export default function CustomerDashboardPage() {
                   <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700">
                     {req.status}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

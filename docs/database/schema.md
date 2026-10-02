@@ -478,5 +478,88 @@ Immutable audit and legal record of customer acceptance or decline decision.
 | `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Entity creation timestamp |
 | `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Modification timestamp |
 
+---
+
+## 8. Service Execution & Job Lifecycle (Milestone 8)
+
+### 8.1. `ServiceJobs`
+Stores the operational execution state of automotive repairs/modifications following quote acceptance. Identifiers generated via PostgreSQL sequence `ServiceJobNumberSeq` (`JOB-XXXXXX`).
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Job identifier |
+| `JobNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Human-readable `JOB-XXXXXX` |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id), INDEX` | Parent service request |
+| `CustomerQuotationId` | `UUID` | `FK -> CustomerQuotations(Id), INDEX` | Accepted customer proposal |
+| `GarageAssignmentId` | `UUID` | `FK -> GarageAssignments(Id), INDEX` | Assigned workshop |
+| `GarageId` | `UUID` | `FK -> Garages(Id), INDEX` | Workshop tenant identifier |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | `ServiceJobStatus` enum (BookingConfirmed=1..Cancelled=99) |
+| `ScheduledStartAtUtc` | `TIMESTAMPTZ` | `NULL` | Workshop planned intake start |
+| `EstimatedCompletionAtUtc` | `TIMESTAMPTZ` | `NULL` | Estimated ready date |
+| `ActualVehicleReceivedAtUtc` | `TIMESTAMPTZ` | `NULL` | Actual vehicle arrival timestamp |
+| `ActualWorkStartedAtUtc` | `TIMESTAMPTZ` | `NULL` | Active repair start timestamp |
+| `ActualWorkCompletedAtUtc` | `TIMESTAMPTZ` | `NULL` | Active repair finished timestamp |
+| `VehicleReadyAtUtc` | `TIMESTAMPTZ` | `NULL` | Customer pickup ready timestamp |
+| `HandedOverAtUtc` | `TIMESTAMPTZ` | `NULL` | Customer handover timestamp |
+| `ClosedAtUtc` | `TIMESTAMPTZ` | `NULL` | Job completion/closeout timestamp |
+| `CancelledAtUtc` | `TIMESTAMPTZ` | `NULL` | Pre-intake cancellation timestamp |
+| `CancellationReason` | `VARCHAR(1000)` | `NULL` | Reason recorded for cancellation |
+| `CurrentMileageKm` | `INTEGER` | `NULL` | Odometer reading recorded at physical intake |
+| `GarageInternalNotes` | `VARCHAR(4000)` | `NULL` | Confidential workshop notes (hidden from customer) |
+| `CustomerFacingNotes` | `VARCHAR(2000)` | `NULL` | Customer-visible status updates |
+| `CustomerComplaintSnapshot` | `VARCHAR(4000)` | `NOT NULL` | Frozen copy of complaint at job creation |
+| `RowVersion` | `bytea` / `xmin` | `NOT NULL` | Optimistic concurrency token |
+| `CreatedAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Entity creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMPTZ` | `NULL` | Modification timestamp |
+
+### 8.2. `ServiceInspections`
+Physical condition and diagnostic intake inspections performed by workshops.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Inspection identifier |
+| `ServiceJobId` | `UUID` | `FK -> ServiceJobs(Id), INDEX` | Associated service job |
+| `InspectorUserId` | `UUID` | `FK -> Users(Id)` | Technician performing inspection |
+| `InspectionStartedAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Inspection started timestamp |
+| `InspectionCompletedAtUtc` | `TIMESTAMPTZ` | `NULL` | Inspection finished timestamp |
+| `Findings` | `VARCHAR(4000)` | `NULL` | Confidential workshop findings (hidden from customer) |
+| `Recommendations` | `VARCHAR(2000)` | `NULL` | Internal technical recommendations |
+| `CustomerVisibleSummary` | `VARCHAR(2000)` | `NULL` | Sanitized non-technical summary for customer |
+| `OverallSeverity` | `INTEGER` | `NOT NULL` | Enum: Info(0), Low(1), Medium(2), High(3), Critical(4) |
+| `CreatedAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Entity creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMPTZ` | `NULL` | Modification timestamp |
+
+### 8.3. `ServiceJobActivities`
+Operational event and milestone activity log for the service job.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Activity identifier |
+| `ServiceJobId` | `UUID` | `FK -> ServiceJobs(Id), INDEX` | Associated service job |
+| `ActivityType` | `INTEGER` | `NOT NULL` | `JobActivityType` enum (StatusChange, Inspection, etc.) |
+| `Message` | `VARCHAR(1000)` | `NOT NULL` | Description of activity |
+| `IsCustomerVisible` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Customer visibility flag |
+| `ActorUserId` | `UUID` | `FK -> Users(Id)` | User who triggered the activity |
+| `ActorName` | `VARCHAR(200)` | `NOT NULL` | Display name of the actor |
+| `CreatedAtUtc` | `TIMESTAMPTZ` | `NOT NULL, INDEX` | Activity timestamp |
+
+### 8.4. `AdditionalWorkRequests`
+Proposals for additional repair or maintenance items discovered during physical service.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Proposal identifier |
+| `ServiceJobId` | `UUID` | `FK -> ServiceJobs(Id), INDEX` | Associated service job |
+| `Description` | `VARCHAR(500)` | `NOT NULL` | Proposed work description |
+| `EstimatedAdditionalAmount` | `NUMERIC(18,2)` | `NOT NULL` | Proposed estimate |
+| `Reason` | `VARCHAR(2000)` | `NOT NULL` | Technical justification discovered during service |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | Enum: PendingAdvisorReview(1), Approved(2), Rejected(3), Cancelled(4) |
+| `ReviewedByAdvisorId` | `UUID` | `FK -> Users(Id), NULL` | Advisor reviewing the proposal |
+| `AdvisorRemarks` | `VARCHAR(2000)` | `NULL` | Remarks explaining approval or rejection |
+| `ReviewedAtUtc` | `TIMESTAMPTZ` | `NULL` | Decision timestamp |
+| `CreatedAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMPTZ` | `NULL` | Modification timestamp |
+
+
 
 

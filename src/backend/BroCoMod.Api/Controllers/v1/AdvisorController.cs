@@ -17,6 +17,7 @@ public class AdvisorController : ControllerBase
     private readonly IAdvisorQuotationService _advisorQuotationService;
     private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICustomerDecisionService _customerDecisionService;
+    private readonly IServiceJobService _serviceJobService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdvisorController(
@@ -26,6 +27,7 @@ public class AdvisorController : ControllerBase
         IAdvisorQuotationService advisorQuotationService,
         ICustomerQuotationService customerQuotationService,
         ICustomerDecisionService customerDecisionService,
+        IServiceJobService serviceJobService,
         ICurrentUserService currentUserService)
     {
         _advisorPortalService = advisorPortalService;
@@ -34,6 +36,7 @@ public class AdvisorController : ControllerBase
         _advisorQuotationService = advisorQuotationService;
         _customerQuotationService = customerQuotationService;
         _customerDecisionService = customerDecisionService;
+        _serviceJobService = serviceJobService;
         _currentUserService = currentUserService;
     }
 
@@ -299,5 +302,56 @@ public class AdvisorController : ControllerBase
     {
         var assignments = await _advisorPortalService.GetRecentAssignmentsAsync(cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<AdvisorAssignmentSummaryDto>>.Ok(assignments));
+    }
+
+    // Milestone 8: Advisor Service Job Monitoring & Additional Work Review
+
+    [HttpGet("jobs")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ServiceJobSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetJobs([FromQuery] string? status, [FromQuery] Guid? garageId, CancellationToken cancellationToken)
+    {
+        var jobs = await _serviceJobService.GetAllJobsAsync(status, garageId, cancellationToken);
+        return Ok(ApiResponse<IEnumerable<ServiceJobSummaryDto>>.Ok(jobs));
+    }
+
+    [HttpGet("jobs/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetJobDetail(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var job = await _serviceJobService.GetAdvisorJobDetailAsync(id, cancellationToken);
+            return Ok(ApiResponse<AdvisorServiceJobDetailDto>.Ok(job));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    [HttpPost("jobs/additional-work/{workRequestId:guid}/review")]
+    [ProducesResponseType(typeof(ApiResponse<AdditionalWorkRequestDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReviewAdditionalWork(
+        Guid workRequestId,
+        [FromBody] ReviewAdditionalWorkRequest request,
+        CancellationToken cancellationToken)
+    {
+        var advisorId = GetEffectiveAdvisorId();
+        try
+        {
+            var result = await _serviceJobService.ReviewAdditionalWorkRequestAsync(workRequestId, advisorId, request, cancellationToken);
+            return Ok(ApiResponse<AdditionalWorkRequestDto>.Ok(result, "Additional work review recorded successfully."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 }

@@ -16,6 +16,7 @@ public class CustomerController : ControllerBase
     private readonly IServiceRequestService _serviceRequestService;
     private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICustomerDecisionService _customerDecisionService;
+    private readonly IServiceJobService _serviceJobService;
     private readonly ICurrentUserService _currentUserService;
 
     public CustomerController(
@@ -24,6 +25,7 @@ public class CustomerController : ControllerBase
         IServiceRequestService serviceRequestService,
         ICustomerQuotationService customerQuotationService,
         ICustomerDecisionService customerDecisionService,
+        IServiceJobService serviceJobService,
         ICurrentUserService currentUserService)
     {
         _customerPortalService = customerPortalService;
@@ -31,6 +33,7 @@ public class CustomerController : ControllerBase
         _serviceRequestService = serviceRequestService;
         _customerQuotationService = customerQuotationService;
         _customerDecisionService = customerDecisionService;
+        _serviceJobService = serviceJobService;
         _currentUserService = currentUserService;
     }
 
@@ -365,5 +368,51 @@ public class CustomerController : ControllerBase
             return NotFound(result);
         }
         return Ok(result);
+    }
+
+    // Milestone 8: Customer Service Execution Tracking Endpoints
+
+    [HttpGet("requests/{serviceRequestId:guid}/job")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetServiceJobForRequest(Guid serviceRequestId, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            var job = await _serviceJobService.GetCustomerJobDetailAsync(serviceRequestId, customerId, cancellationToken);
+            return Ok(ApiResponse<CustomerServiceJobDetailDto>.Ok(job));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    [HttpGet("jobs/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetServiceJobById(Guid id, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            var job = await _serviceJobService.GetCustomerJobByIdAsync(id, customerId, cancellationToken);
+            return Ok(ApiResponse<CustomerServiceJobDetailDto>.Ok(job));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+        }
     }
 }

@@ -105,3 +105,54 @@ public enum RejectionCategory
     Other = 6
 }
 
+public enum ServiceJobStatus
+{
+    BookingConfirmed = 1,
+    Scheduled = 2,
+    VehicleReceived = 3,
+    Inspection = 4,
+    WorkStarted = 5,
+    WorkInProgress = 6,
+    WorkCompleted = 7,
+    VehicleReady = 8,
+    HandedOver = 9,
+    Closed = 10,
+    Cancelled = 11
+}
+
+public enum InspectionSeverity
+{
+    Info = 1,
+    Low = 2,
+    Medium = 3,
+    High = 4,
+    Critical = 5
+}
+
+public enum AdditionalWorkStatus
+{
+    PendingAdvisorReview = 1,
+    Approved = 2,
+    Rejected = 3,
+    Cancelled = 4
+}
+
+public enum JobActivityType
+{
+    JobCreated = 1,
+    JobScheduled = 2,
+    VehicleReceived = 3,
+    InspectionStarted = 4,
+    InspectionCompleted = 5,
+    WorkStarted = 6,
+    WorkProgressUpdated = 7,
+    WorkCompleted = 8,
+    VehicleReady = 9,
+    VehicleHandedOver = 10,
+    JobClosed = 11,
+    JobCancelled = 12,
+    AdditionalWorkRequested = 13,
+    AdditionalWorkReviewed = 14
+}
+
+

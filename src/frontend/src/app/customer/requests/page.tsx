@@ -20,6 +20,7 @@ import {
   Eye,
   Building2,
   Calendar,
+  Wrench,
 } from 'lucide-react';
 
 export default function CustomerRequestsPage() {
@@ -181,6 +182,12 @@ export default function CustomerRequestsPage() {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                <Link
+                  href={`/customer/requests/${r.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-electric-50 hover:bg-electric-100 text-electric-700 text-xs font-semibold rounded-xl transition border border-electric-200"
+                >
+                  <Wrench className="w-3.5 h-3.5" /> Track Execution
+                </Link>
                 <button
                   onClick={() => viewRequestDetail(r.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-100 hover:bg-surface-200 text-navy-800 text-xs font-semibold rounded-xl transition"

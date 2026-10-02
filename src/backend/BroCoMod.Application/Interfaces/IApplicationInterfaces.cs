@@ -18,6 +18,10 @@ public interface IApplicationDbContext
     DbSet<GarageAssignment> GarageAssignments { get; }
     DbSet<AdvisorRequestNote> AdvisorRequestNotes { get; }
     DbSet<CustomerQuotationDecision> CustomerQuotationDecisions { get; }
+    DbSet<ServiceJob> ServiceJobs { get; }
+    DbSet<ServiceInspection> ServiceInspections { get; }
+    DbSet<ServiceJobActivity> ServiceJobActivities { get; }
+    DbSet<AdditionalWorkRequest> AdditionalWorkRequests { get; }
 
     // Identity & Authorization
     DbSet<BroCoMod.Domain.Entities.Identity.User> Users { get; }

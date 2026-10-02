@@ -12,7 +12,8 @@ import {
   CarFront, 
   Settings, 
   ShieldAlert,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Wrench
 } from 'lucide-react';
 
 const adminNavItems: NavItem[] = [
@@ -24,6 +25,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Garage Quotes', href: '/admin/quotes', icon: FileSpreadsheet },
   { label: 'Workshop Assignments', href: '/admin/assignments', icon: Building2 },
   { label: 'Customer Proposals', href: '/admin/customer-quotations', icon: FileText },
+  { label: 'Service Execution', href: '/admin/jobs', icon: Wrench },
   { label: 'Vehicle Master DB', href: '/admin/vehicle-master', icon: CarFront },
   { label: 'System Settings', href: '/admin/settings', icon: Settings },
   { label: 'Security Audit Trail', href: '/admin/audit', icon: ShieldAlert },

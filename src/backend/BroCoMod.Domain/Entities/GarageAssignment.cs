@@ -25,6 +25,7 @@ public class GarageAssignment : BaseEntity
     public Garage? Garage { get; private set; }
     public GarageQuote? SelectedQuote { get; private set; }
     public ICollection<CustomerQuotation> CustomerQuotations { get; private set; } = new List<CustomerQuotation>();
+    public ServiceJob? ServiceJob { get; private set; }
 
     protected GarageAssignment() { }
 
