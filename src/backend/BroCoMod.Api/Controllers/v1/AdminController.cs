@@ -13,15 +13,18 @@ public class AdminController : ControllerBase
 {
     private readonly IAdminPortalService _adminPortalService;
     private readonly IIdentityService _identityService;
+    private readonly IServiceRequestService _serviceRequestService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdminController(
         IAdminPortalService adminPortalService,
         IIdentityService identityService,
+        IServiceRequestService serviceRequestService,
         ICurrentUserService currentUserService)
     {
         _adminPortalService = adminPortalService;
         _identityService = identityService;
+        _serviceRequestService = serviceRequestService;
         _currentUserService = currentUserService;
     }
 
@@ -81,6 +84,33 @@ public class AdminController : ControllerBase
     {
         var settings = await _adminPortalService.GetSettingsAsync(cancellationToken);
         return Ok(ApiResponse<AdminSettingsDto>.Ok(settings));
+    }
+
+    [HttpGet("requests")]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<AdminServiceRequestSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRequests(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var requests = await _serviceRequestService.GetAdminRequestsAsync(page, pageSize, cancellationToken);
+        return Ok(ApiResponse<PagedResult<AdminServiceRequestSummaryDto>>.Ok(requests));
+    }
+
+    [HttpGet("requests/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdminServiceRequestDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRequestById(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var request = await _serviceRequestService.GetAdminRequestByIdAsync(id, cancellationToken);
+            return Ok(ApiResponse<AdminServiceRequestDetailDto>.Ok(request));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 }
 

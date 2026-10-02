@@ -21,6 +21,7 @@ public class User : BaseEntity
     public CustomerProfile? CustomerProfile { get; private set; }
     public GarageUser? GarageUser { get; private set; }
     public AdvisorProfile? AdvisorProfile { get; private set; }
+    public ICollection<Notification> Notifications { get; private set; } = new List<Notification>();
 
     protected User() { }
 

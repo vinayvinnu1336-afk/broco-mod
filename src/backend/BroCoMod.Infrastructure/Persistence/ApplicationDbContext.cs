@@ -38,12 +38,22 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<VehicleModel> VehicleModels => Set<VehicleModel>();
     public DbSet<VehicleVariant> VehicleVariants => Set<VehicleVariant>();
 
+    // Service Booking & Dispatch
+    public DbSet<ServiceLocation> ServiceLocations => Set<ServiceLocation>();
+    public DbSet<GarageRequest> GarageRequests => Set<GarageRequest>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         // Enable PostGIS extension in PostgreSQL
         modelBuilder.HasPostgresExtension("postgis");
+
+        // Sequence for human-readable request numbers (BM-100001, BM-100002, etc.)
+        modelBuilder.HasSequence<long>("ServiceRequestNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
 
         // Garage configuration
         modelBuilder.Entity<Garage>(builder =>
@@ -53,6 +63,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(g => g.Email).IsRequired().HasMaxLength(200);
             builder.Property(g => g.PhoneNumber).HasMaxLength(50);
             builder.Property(g => g.Address).HasMaxLength(500);
+            builder.Property(g => g.IsVerified).HasDefaultValue(true);
+            builder.Property(g => g.IsOperational).HasDefaultValue(true);
 
             // PostGIS spatial geography column with spatial indexing
             builder.Property(g => g.Location)
@@ -63,13 +75,40 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .HasMethod("GIST");
         });
 
+        // ServiceLocation configuration
+        modelBuilder.Entity<ServiceLocation>(builder =>
+        {
+            builder.HasKey(sl => sl.Id);
+            builder.Property(sl => sl.AddressLine1).IsRequired().HasMaxLength(250);
+            builder.Property(sl => sl.AddressLine2).HasMaxLength(250);
+            builder.Property(sl => sl.City).IsRequired().HasMaxLength(100);
+            builder.Property(sl => sl.State).IsRequired().HasMaxLength(100);
+            builder.Property(sl => sl.Pincode).IsRequired().HasMaxLength(20);
+            builder.Property(sl => sl.Country).IsRequired().HasMaxLength(100);
+
+            builder.Property(sl => sl.Location)
+                .HasColumnType("geography(Point, 4326)")
+                .IsRequired();
+
+            builder.HasIndex(sl => sl.Location)
+                .HasMethod("GIST");
+
+            builder.HasIndex(sl => sl.City);
+            builder.HasIndex(sl => sl.Pincode);
+        });
+
         // ServiceRequest configuration
         modelBuilder.Entity<ServiceRequest>(builder =>
         {
             builder.HasKey(sr => sr.Id);
+            builder.Property(sr => sr.RequestNumber).IsRequired().HasMaxLength(50);
             builder.Property(sr => sr.VehicleMake).IsRequired().HasMaxLength(100);
             builder.Property(sr => sr.VehicleModel).IsRequired().HasMaxLength(100);
-            builder.Property(sr => sr.Description).HasMaxLength(2000);
+            builder.Property(sr => sr.VehicleLicensePlate).HasMaxLength(50);
+            builder.Property(sr => sr.ProblemDescription).IsRequired().HasMaxLength(4000);
+            builder.Property(sr => sr.ServiceCategory).HasMaxLength(100);
+            builder.Property(sr => sr.CancellationReason).HasMaxLength(1000);
+            builder.Property(sr => sr.IdempotencyKey).HasMaxLength(128);
 
             // PostGIS spatial geography column with spatial indexing
             builder.Property(sr => sr.CustomerLocation)
@@ -79,6 +118,39 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(sr => sr.CustomerLocation)
                 .HasMethod("GIST");
 
+            builder.HasIndex(sr => sr.RequestNumber).IsUnique();
+            builder.HasIndex(sr => sr.CustomerId);
+            builder.HasIndex(sr => sr.CustomerVehicleId);
+            builder.HasIndex(sr => sr.Status);
+            builder.HasIndex(sr => sr.CreatedAtUtc);
+            builder.HasIndex(sr => sr.AssignedAdvisorId);
+            builder.HasIndex(sr => new { sr.CustomerId, sr.IdempotencyKey });
+
+            builder.HasOne(sr => sr.CustomerProfile)
+                .WithMany()
+                .HasForeignKey(sr => sr.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(sr => sr.CustomerVehicle)
+                .WithMany()
+                .HasForeignKey(sr => sr.CustomerVehicleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(sr => sr.ServiceLocation)
+                .WithMany()
+                .HasForeignKey(sr => sr.ServiceLocationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(sr => sr.AssignedAdvisor)
+                .WithMany()
+                .HasForeignKey(sr => sr.AssignedAdvisorId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasMany(sr => sr.GarageRequests)
+                .WithOne(gr => gr.ServiceRequest)
+                .HasForeignKey(gr => gr.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             builder.HasMany(sr => sr.GarageQuotes)
                 .WithOne(gq => gq.ServiceRequest)
                 .HasForeignKey(gq => gq.ServiceRequestId)
@@ -87,6 +159,44 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasOne(sr => sr.CustomerQuotation)
                 .WithOne(cq => cq.ServiceRequest)
                 .HasForeignKey<CustomerQuotation>(cq => cq.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // GarageRequest configuration
+        modelBuilder.Entity<GarageRequest>(builder =>
+        {
+            builder.HasKey(gr => gr.Id);
+            builder.Property(gr => gr.DeclineReason).HasMaxLength(1000);
+
+            // UNIQUE constraint: Prevent duplicate requests to same garage for same service request
+            builder.HasIndex(gr => new { gr.ServiceRequestId, gr.GarageId }).IsUnique();
+            builder.HasIndex(gr => gr.GarageId);
+            builder.HasIndex(gr => gr.Status);
+            builder.HasIndex(gr => gr.CreatedAtUtc);
+
+            builder.HasOne(gr => gr.Garage)
+                .WithMany(g => g.GarageRequests)
+                .HasForeignKey(gr => gr.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Notification configuration
+        modelBuilder.Entity<Notification>(builder =>
+        {
+            builder.HasKey(n => n.Id);
+            builder.Property(n => n.Title).IsRequired().HasMaxLength(200);
+            builder.Property(n => n.Message).IsRequired().HasMaxLength(2000);
+            builder.Property(n => n.Type).IsRequired().HasMaxLength(100);
+            builder.Property(n => n.ReferenceType).HasMaxLength(50);
+            builder.Property(n => n.MetadataJson).HasMaxLength(4000);
+
+            builder.HasIndex(n => n.UserId);
+            builder.HasIndex(n => n.IsRead);
+            builder.HasIndex(n => n.CreatedAtUtc);
+
+            builder.HasOne(n => n.User)
+                .WithMany(u => u.Notifications)
+                .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

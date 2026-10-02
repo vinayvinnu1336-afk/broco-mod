@@ -30,6 +30,11 @@ public interface IApplicationDbContext
     DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleModel> VehicleModels { get; }
     DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleVariant> VehicleVariants { get; }
 
+    // Service Booking & Dispatch
+    DbSet<ServiceLocation> ServiceLocations { get; }
+    DbSet<GarageRequest> GarageRequests { get; }
+    DbSet<Notification> Notifications { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
