@@ -20,6 +20,7 @@ public class GarageRequest : BaseEntity
     // Navigation properties
     public ServiceRequest ServiceRequest { get; private set; } = default!;
     public Garage Garage { get; private set; } = default!;
+    public ICollection<GarageQuote> Quotes { get; private set; } = new List<GarageQuote>();
 
     protected GarageRequest() { }
 

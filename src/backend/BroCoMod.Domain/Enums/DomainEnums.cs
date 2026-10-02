@@ -54,5 +54,16 @@ public enum QuoteStatus
     SelectedByAdvisor = 4,
     RejectedByAdvisor = 5,
     AcceptedByCustomer = 6,
-    RejectedByCustomer = 7
+    RejectedByCustomer = 7,
+    Expired = 8,
+    Withdrawn = 9
 }
+
+public enum QuoteLineType
+{
+    Labour = 1,
+    Part = 2,
+    Service = 3,
+    Other = 4
+}
+

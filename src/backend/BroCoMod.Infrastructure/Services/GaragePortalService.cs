@@ -30,12 +30,18 @@ public class GaragePortalService : IGaragePortalService
             .Take(5)
             .Select(q => new GarageQuoteSummaryDto(
                 q.Id,
+                q.GarageRequestId,
                 q.ServiceRequestId,
-                q.GarageInternalPrice,
-                q.InternalCostBreakdown,
-                q.GarageNotes,
-                q.EstimatedDurationHours,
+                q.ServiceRequest != null ? q.ServiceRequest.RequestNumber : "",
+                q.ServiceRequest != null ? (q.ServiceRequest.VehicleMake + " " + q.ServiceRequest.VehicleModel) : "",
+                q.QuoteNumber,
+                q.VersionNumber,
                 q.Status.ToString(),
+                q.Currency,
+                q.TotalAmount,
+                q.EstimatedCompletionDays,
+                q.ValidUntil,
+                q.SubmittedAtUtc,
                 q.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
@@ -139,12 +145,18 @@ public class GaragePortalService : IGaragePortalService
             .OrderByDescending(q => q.CreatedAtUtc)
             .Select(q => new GarageQuoteSummaryDto(
                 q.Id,
+                q.GarageRequestId,
                 q.ServiceRequestId,
-                q.GarageInternalPrice,
-                q.InternalCostBreakdown,
-                q.GarageNotes,
-                q.EstimatedDurationHours,
+                q.ServiceRequest != null ? q.ServiceRequest.RequestNumber : "",
+                q.ServiceRequest != null ? (q.ServiceRequest.VehicleMake + " " + q.ServiceRequest.VehicleModel) : "",
+                q.QuoteNumber,
+                q.VersionNumber,
                 q.Status.ToString(),
+                q.Currency,
+                q.TotalAmount,
+                q.EstimatedCompletionDays,
+                q.ValidUntil,
+                q.SubmittedAtUtc,
                 q.CreatedAtUtc))
             .ToListAsync(cancellationToken);
     }

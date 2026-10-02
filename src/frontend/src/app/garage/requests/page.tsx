@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import {
   GarageIncomingRequestDto,
@@ -17,9 +18,11 @@ import {
   Calendar,
   AlertCircle,
   FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export default function GarageRequestsPage() {
+  const router = useRouter();
   const [requests, setRequests] = useState<GarageIncomingRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -137,8 +140,14 @@ export default function GarageRequestsPage() {
 
               <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
                 <button
+                  onClick={() => router.push(`/garage/quotes/new?requestId=${r.garageRequestId}`)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Create Quote
+                </button>
+                <button
                   onClick={() => viewDetail(r.garageRequestId)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
                 >
                   <Eye className="w-3.5 h-3.5" /> View Details
                 </button>
@@ -251,17 +260,29 @@ export default function GarageRequestsPage() {
               </div>
             )}
 
-            <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl text-xs text-blue-900">
-              <span className="font-bold">Next Milestone: </span>
-              Quotation submission and breakdown tools will be available in Milestone 5 (Workshop Quotations).
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between gap-3">
+              <div>
+                <span className="font-bold">Confidential Quotation: </span>
+                Submit detailed line items and workshop pricing directly to BroCo Mod Advisors.
+              </div>
             </div>
 
             <div className="pt-2 flex justify-end gap-2 border-t border-surface-100">
               <button
                 onClick={() => setSelectedRequest(null)}
-                className="px-4 py-2 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800"
+                className="px-4 py-2 bg-surface-100 text-navy-800 text-xs font-bold rounded-xl hover:bg-surface-200"
               >
                 Close
+              </button>
+              <button
+                onClick={() => {
+                  const reqId = selectedRequest.garageRequestId;
+                  setSelectedRequest(null);
+                  router.push(`/garage/quotes/new?requestId=${reqId}`);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-sm transition"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Create Quotation
               </button>
             </div>
           </div>

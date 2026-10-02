@@ -109,17 +109,6 @@ public record GarageRequestSummaryDto(
     string Status
 );
 
-public record GarageQuoteSummaryDto(
-    Guid Id,
-    Guid ServiceRequestId,
-    decimal GarageInternalPrice,
-    string InternalCostBreakdown,
-    string GarageNotes,
-    int EstimatedDurationHours,
-    string Status,
-    DateTime CreatedAtUtc
-);
-
 // ==========================================
 // Advisor Portal DTOs
 // ==========================================
