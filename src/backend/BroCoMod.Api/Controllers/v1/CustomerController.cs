@@ -14,17 +14,20 @@ public class CustomerController : ControllerBase
     private readonly ICustomerPortalService _customerPortalService;
     private readonly ICustomerVehicleService _customerVehicleService;
     private readonly IServiceRequestService _serviceRequestService;
+    private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICurrentUserService _currentUserService;
 
     public CustomerController(
         ICustomerPortalService customerPortalService,
         ICustomerVehicleService customerVehicleService,
         IServiceRequestService serviceRequestService,
+        ICustomerQuotationService customerQuotationService,
         ICurrentUserService currentUserService)
     {
         _customerPortalService = customerPortalService;
         _customerVehicleService = customerVehicleService;
         _serviceRequestService = serviceRequestService;
+        _customerQuotationService = customerQuotationService;
         _currentUserService = currentUserService;
     }
 
@@ -252,26 +255,30 @@ public class CustomerController : ControllerBase
     }
 
     [HttpGet("quotes")]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CustomerQuoteSummaryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<List<CustomerFacingQuotationDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetQuotes(CancellationToken cancellationToken)
     {
         var customerId = GetEffectiveCustomerId();
-        var quotes = await _customerPortalService.GetQuotesAsync(customerId, cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<CustomerQuoteSummaryDto>>.Ok(quotes));
+        var result = await _customerQuotationService.GetQuotationsForCustomerAsync(customerId, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("quotes/{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<CustomerQuoteSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<CustomerFacingQuotationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetQuoteById(Guid id, CancellationToken cancellationToken)
     {
         var customerId = GetEffectiveCustomerId();
-        var quote = await _customerPortalService.GetQuoteByIdAsync(customerId, id, cancellationToken);
-        if (quote == null)
+        var result = await _customerQuotationService.GetCustomerQuotationForCustomerAsync(id, customerId, cancellationToken);
+        if (!result.Success)
         {
-            return NotFound(ApiResponse<object>.Fail("Quotation not found or unauthorized."));
+            if (result.Message.Contains("permission") || result.Message.Contains("not currently available"))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, result);
+            }
+            return NotFound(result);
         }
-
-        return Ok(ApiResponse<CustomerQuoteSummaryDto>.Ok(quote));
+        return Ok(result);
     }
 }

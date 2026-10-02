@@ -1,4 +1,5 @@
 using BroCoMod.Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,25 @@ public class QuoteExpirationBackgroundService : BackgroundService
                 if (expiredCount > 0)
                 {
                     _logger.LogInformation("QuoteExpirationBackgroundService expired {Count} stale quotes.", expiredCount);
+                }
+
+                var dbContext = scope.ServiceProvider.GetRequiredService<Persistence.ApplicationDbContext>();
+                var now = DateTime.UtcNow;
+                var staleCustomerQuotes = await dbContext.CustomerQuotations
+                    .Where(cq => (cq.Status == Domain.Enums.CustomerQuotationStatus.Draft ||
+                                  cq.Status == Domain.Enums.CustomerQuotationStatus.ReadyToSend ||
+                                  cq.Status == Domain.Enums.CustomerQuotationStatus.Sent) &&
+                                 cq.ValidUntilUtc < now)
+                    .ToListAsync(stoppingToken);
+
+                if (staleCustomerQuotes.Count > 0)
+                {
+                    foreach (var cq in staleCustomerQuotes)
+                    {
+                        cq.Expire();
+                    }
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    _logger.LogInformation("QuoteExpirationBackgroundService expired {Count} stale customer quotations.", staleCustomerQuotes.Count);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

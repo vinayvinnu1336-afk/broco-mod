@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import {
   AdvisorServiceRequestSummaryDto,
@@ -20,6 +21,7 @@ import {
   Calendar,
   AlertCircle,
   ShieldAlert,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export default function AdvisorRequestsPage() {
@@ -141,6 +143,12 @@ export default function AdvisorRequestsPage() {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+                <Link
+                  href={`/advisor/requests/${r.id}`}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-electric-600 hover:bg-electric-700 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Quotes & Assign
+                </Link>
                 <button
                   onClick={() => viewDetail(r.id)}
                   className="flex items-center gap-1.5 px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"

@@ -25,7 +25,9 @@ public enum ServiceRequestStatus
     CustomerRejected = 9,
     InProgress = 10,
     Completed = 11,
-    Cancelled = 12
+    Cancelled = 12,
+    AdvisorReview = 13,
+    GarageSelected = 14
 }
 
 public enum GarageRequestStatus
@@ -65,5 +67,23 @@ public enum QuoteLineType
     Part = 2,
     Service = 3,
     Other = 4
+}
+
+public enum GarageAssignmentStatus
+{
+    Assigned = 1,
+    Cancelled = 2,
+    Reassigned = 3
+}
+
+public enum CustomerQuotationStatus
+{
+    Draft = 1,
+    ReadyToSend = 2,
+    Sent = 3,
+    Accepted = 4,
+    Rejected = 5,
+    Expired = 6,
+    Cancelled = 7
 }
 

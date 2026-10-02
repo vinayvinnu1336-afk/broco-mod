@@ -72,8 +72,8 @@
 | `/requests` | GET | Paginated list of service requests submitted by the authenticated customer |
 | `/requests/{id}` | GET | Detailed service request view with PostGIS location coordinates |
 | `/requests/{id}/cancel` | POST | Cancels service request with customer reason |
-| `/quotes` | GET | Sanitized customer quotations (strictly hides garage internal pricing) |
-| `/quotes/{id}` | GET | Specific quotation proposal detail |
+| `/quotes` | GET | Sanitized customer quotations in SENT status only (strictly hides garage internal pricing and notes) |
+| `/quotes/{id}` | GET | Specific quotation proposal detail with customer-facing line items (403/404 if not SENT) |
 
 ---
 
@@ -87,7 +87,7 @@
 | `/requests` | GET | Paginated service requests dispatched within the workshop's 10 KM radius |
 | `/requests/{id}` | GET | Dispatch detail with calculated distance; marks status as `VIEWED` |
 | `/quotes` | GET | Paginated list of quotes belonging to authenticated workshop (supports status filter) |
-| `/quotes` | POST | Creates a draft quote for a dispatched garage request |
+| `/quotes/draft` | POST | Creates a draft quote for a dispatched garage request |
 | `/quotes/{id}` | GET | Detailed quote with line items and immutable revision history |
 | `/quotes/{id}` | PUT | Updates a draft quote (server recalculates all totals, discounts, taxes) |
 | `/quotes/{id}/submit` | POST | Submits quote to advisors; creates immutable version snapshot (`v1`, etc.) |
@@ -105,12 +105,21 @@
 | `/profile` | GET | Advisor employee code and specialization credentials |
 | `/requests` | GET | Paginated customer requests dispatched for workshop quotation |
 | `/requests/{id}` | GET | Detailed request inspection including all dispatched partner garages |
-| `/requests/{id}/quotes` | GET | List of all partner garage quotations submitted for a service request |
+| `/requests/{id}/quotes` | GET | Multi-garage quote comparison summary with distance, pricing, and turnaround |
+| `/requests/{id}/notes` | GET | List confidential internal advisor notes for service request |
+| `/requests/{id}/notes` | POST | Create confidential internal advisor note |
+| `/requests/{id}/notes/{noteId}` | PUT | Update internal note (Author advisor only) |
+| `/requests/{id}/notes/{noteId}` | DELETE | Delete internal note (Author advisor only) |
+| `/requests/{id}/assignment` | POST | Assign workshop & winning quote (Enforces single active assignment) |
+| `/requests/{id}/assignment` | GET | Retrieve active workshop assignment for request |
+| `/requests/{id}/customer-quotation` | POST | Create customer quotation draft from winning assignment |
+| `/customer-quotations/{id}` | GET | Detailed customer quotation with version history and lineage |
+| `/customer-quotations/{id}/draft` | PUT | Update customer quotation draft (Server recalculates totals) |
+| `/customer-quotations/{id}/ready` | POST | Mark quotation ready to send; captures immutable version snapshot |
+| `/customer-quotations/{id}/send` | POST | Formally dispatch curated quotation to customer portal |
 | `/quotes` | GET | Workshop bids under review across the platform |
 | `/quotes/{id}` | GET | Full quote inspection: itemized line items, server-calculated totals, and version history |
 | `/assignments` | GET | Customer-accepted repair contract allocations |
-
-> **MILESTONE BOUNDARY NOTICE:** In Milestone 5, Advisors can view and inspect partner garage quotations. Garage selection, assignment, customer quotation authoring, and margin application are strictly deferred to Milestone 6+.
 
 ---
 
@@ -126,6 +135,9 @@
 | `/requests/{id}` | GET | Complete audit and dispatch breakdown for any service request |
 | `/quotes` | GET | Platform-wide audit of all partner garage quotations |
 | `/quotes/{id}` | GET | Complete quotation audit breakdown including immutable snapshots |
+| `/assignments` | GET | Platform-wide audit of all workshop assignments |
+| `/customer-quotations` | GET | Platform-wide audit of all customer proposals and statuses |
+| `/customer-quotations/{id}` | GET | Detailed audit view of specific customer quotation |
 | `/garages` | GET | Complete registry of certified partner garages |
 | `/advisors` | GET | Certified technical advisor roster |
 | `/audit` | GET | Security audit log trail with filter limits |

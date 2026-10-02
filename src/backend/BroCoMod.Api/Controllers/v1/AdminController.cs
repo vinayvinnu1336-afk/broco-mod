@@ -15,6 +15,8 @@ public class AdminController : ControllerBase
     private readonly IIdentityService _identityService;
     private readonly IServiceRequestService _serviceRequestService;
     private readonly IGarageQuoteService _garageQuoteService;
+    private readonly IAdvisorQuotationService _advisorQuotationService;
+    private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdminController(
@@ -22,12 +24,16 @@ public class AdminController : ControllerBase
         IIdentityService identityService,
         IServiceRequestService serviceRequestService,
         IGarageQuoteService garageQuoteService,
+        IAdvisorQuotationService advisorQuotationService,
+        ICustomerQuotationService customerQuotationService,
         ICurrentUserService currentUserService)
     {
         _adminPortalService = adminPortalService;
         _identityService = identityService;
         _serviceRequestService = serviceRequestService;
         _garageQuoteService = garageQuoteService;
+        _advisorQuotationService = advisorQuotationService;
+        _customerQuotationService = customerQuotationService;
         _currentUserService = currentUserService;
     }
 
@@ -139,6 +145,39 @@ public class AdminController : ControllerBase
             return NotFound(ApiResponse<object>.Fail($"Garage quotation {id} not found."));
         }
         return Ok(ApiResponse<AdminGarageQuoteDetailDto>.Ok(quote));
+    }
+
+    [HttpGet("assignments")]
+    [ProducesResponseType(typeof(ApiResponse<List<GarageAssignmentDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAssignments(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _advisorQuotationService.GetAllAssignmentsAsync(page, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("customer-quotations")]
+    [ProducesResponseType(typeof(ApiResponse<List<CustomerQuotationSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCustomerQuotations(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _customerQuotationService.GetPlatformCustomerQuotationsAsync(page, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("customer-quotations/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerQuotationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCustomerQuotationById(Guid id, CancellationToken cancellationToken)
+    {
+        var adminId = _currentUserService.UserId ?? Guid.Empty;
+        var result = await _customerQuotationService.GetCustomerQuotationByIdAsync(id, adminId, AppRoles.SuperAdmin, cancellationToken);
+        if (!result.Success) return NotFound(result);
+        return Ok(result);
     }
 }
 

@@ -43,6 +43,8 @@ public class ServiceRequest : BaseEntity
 
     public ICollection<GarageRequest> GarageRequests { get; private set; } = new List<GarageRequest>();
     public ICollection<GarageQuote> GarageQuotes { get; private set; } = new List<GarageQuote>();
+    public ICollection<GarageAssignment> GarageAssignments { get; private set; } = new List<GarageAssignment>();
+    public ICollection<AdvisorRequestNote> AdvisorNotes { get; private set; } = new List<AdvisorRequestNote>();
     public CustomerQuotation? CustomerQuotation { get; private set; }
     public ICollection<Notification> Notifications { get; private set; } = new List<Notification>();
 
@@ -182,6 +184,35 @@ public class ServiceRequest : BaseEntity
         Status = ServiceRequestStatus.QuotesReceived;
         UpdatedAtUtc = DateTime.UtcNow;
     }
+    public void TransitionToAdvisorReview()
+    {
+        if (Status != ServiceRequestStatus.GaragesNotified &&
+            Status != ServiceRequestStatus.QuotesReceived &&
+            Status != ServiceRequestStatus.UnderReview &&
+            Status != ServiceRequestStatus.AdvisorReview)
+        {
+            throw new InvalidOperationException($"Cannot transition to AdvisorReview from '{Status}'.");
+        }
+
+        Status = ServiceRequestStatus.AdvisorReview;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void MarkGarageSelected()
+    {
+        if (Status != ServiceRequestStatus.QuotesReceived &&
+            Status != ServiceRequestStatus.AdvisorReview &&
+            Status != ServiceRequestStatus.GaragesNotified &&
+            Status != ServiceRequestStatus.UnderReview &&
+            Status != ServiceRequestStatus.GarageSelected)
+        {
+            throw new InvalidOperationException($"Cannot transition to GarageSelected from '{Status}'.");
+        }
+
+        Status = ServiceRequestStatus.GarageSelected;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     public void MarkCustomerQuotationSent()
     {
         Status = ServiceRequestStatus.CustomerQuotationSent;

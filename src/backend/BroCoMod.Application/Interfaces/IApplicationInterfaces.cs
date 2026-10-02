@@ -13,6 +13,10 @@ public interface IApplicationDbContext
     DbSet<GarageQuoteLineItem> GarageQuoteLineItems { get; }
     DbSet<GarageQuoteVersion> GarageQuoteVersions { get; }
     DbSet<CustomerQuotation> CustomerQuotations { get; }
+    DbSet<CustomerQuotationLineItem> CustomerQuotationLineItems { get; }
+    DbSet<CustomerQuotationVersion> CustomerQuotationVersions { get; }
+    DbSet<GarageAssignment> GarageAssignments { get; }
+    DbSet<AdvisorRequestNote> AdvisorRequestNotes { get; }
 
     // Identity & Authorization
     DbSet<BroCoMod.Domain.Entities.Identity.User> Users { get; }
