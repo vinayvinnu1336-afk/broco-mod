@@ -3,6 +3,8 @@ using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
 
@@ -12,15 +14,21 @@ public class DatabaseSeeder
 {
     private readonly ApplicationDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DatabaseSeeder> _logger;
 
     public DatabaseSeeder(
         ApplicationDbContext context,
         IPasswordHasher passwordHasher,
+        IHostEnvironment environment,
+        IConfiguration configuration,
         ILogger<DatabaseSeeder> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
+        _environment = environment;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -89,7 +97,19 @@ public class DatabaseSeeder
         }
         await _context.SaveChangesAsync();
 
-        // 4. Ensure demo Garage exists
+        // 4. Check if demo data should be seeded (strictly disabled in production unless explicit flag is enabled)
+        var isDev = _environment.IsDevelopment();
+        var enableDemoSeeding = _configuration.GetValue<bool>("EnableDemoSeeding", false);
+
+        if (!isDev && !enableDemoSeeding)
+        {
+            _logger.LogInformation("Production environment detected ({Env}). Demo accounts, test credentials, and sample entities will NOT be seeded.", _environment.EnvironmentName);
+            return;
+        }
+
+        _logger.LogInformation("Development/Demo mode detected ({Env}). Seeding demo accounts and workshop fixtures...", _environment.EnvironmentName);
+
+        // 5. Ensure demo Garage exists
         var garage = await _context.Garages.FirstOrDefaultAsync();
         if (garage == null)
         {

@@ -10,7 +10,7 @@ Authorization in BroCo Mod is governed by a **two-layer model**:
 
 ## 2. Platform Permission Hierarchy
 
-The system defines 24 strongly typed platform permissions:
+The system defines 25 strongly typed platform permissions:
 
 ### Customer Permissions
 - `CUSTOMER_REQUEST_CREATE` — Submit service or modification requests.

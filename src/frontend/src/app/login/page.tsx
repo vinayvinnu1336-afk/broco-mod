@@ -124,54 +124,57 @@ function LoginForm() {
             </button>
           </form>
 
-          {/* Quick-Switch Demo Accounts */}
-          <div className="mt-6 pt-6 border-t border-surface-200">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-navy-900 uppercase tracking-wider mb-2">
-              <UserCheck className="w-4 h-4 text-electric-500" />
-              <span>Instant Demo Account Switcher</span>
+          {/* Quick-Switch Demo Accounts (development & demo environments only) */}
+          {(process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCOUNTS === 'true') && (
+            <div className="mt-6 pt-6 border-t border-surface-200">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-navy-900 uppercase tracking-wider mb-2">
+                <UserCheck className="w-4 h-4 text-electric-500" />
+                <span>Instant Demo Account Switcher</span>
+                <span className="ml-auto text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full">Dev Only</span>
+              </div>
+              <p className="text-[11px] text-navy-600 mb-3">
+                One-click authentications to test live role segregation:
+              </p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => quickLogin('customer')}
+                  className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
+                >
+                  <div className="text-xs font-bold text-navy-900">Customer</div>
+                  <div className="text-[10px] text-navy-600 font-mono">customer@brocomod.com</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => quickLogin('garage')}
+                  className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
+                >
+                  <div className="text-xs font-bold text-navy-900">Garage Owner</div>
+                  <div className="text-[10px] text-navy-600 font-mono">garage.owner@...</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => quickLogin('advisor')}
+                  className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
+                >
+                  <div className="text-xs font-bold text-navy-900">Advisor</div>
+                  <div className="text-[10px] text-navy-600 font-mono">advisor@brocomod.com</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => quickLogin('admin')}
+                  className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
+                >
+                  <div className="text-xs font-bold text-navy-900">Super Admin</div>
+                  <div className="text-[10px] text-navy-600 font-mono">admin@brocomod.com</div>
+                </button>
+              </div>
             </div>
-            <p className="text-[11px] text-navy-600 mb-3">
-              One-click authentications to test live role segregation:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickLogin('customer')}
-                className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
-              >
-                <div className="text-xs font-bold text-navy-900">Customer</div>
-                <div className="text-[10px] text-navy-600 font-mono">customer@brocomod.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLogin('garage')}
-                className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
-              >
-                <div className="text-xs font-bold text-navy-900">Garage Owner</div>
-                <div className="text-[10px] text-navy-600 font-mono">garage.owner@...</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLogin('advisor')}
-                className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
-              >
-                <div className="text-xs font-bold text-navy-900">Advisor</div>
-                <div className="text-[10px] text-navy-600 font-mono">advisor@brocomod.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLogin('admin')}
-                className="p-2.5 text-left border border-surface-200 hover:border-electric-400 bg-surface-50 hover:bg-blue-50/50 rounded-xl transition"
-              >
-                <div className="text-xs font-bold text-navy-900">Super Admin</div>
-                <div className="text-[10px] text-navy-600 font-mono">admin@brocomod.com</div>
-              </button>
-            </div>
-          </div>
+          )}
 
           <div className="mt-5 text-center text-xs text-navy-600">
             <span>Need a new account? </span>
