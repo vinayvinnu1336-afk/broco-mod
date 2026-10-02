@@ -46,6 +46,7 @@ public class ServiceRequest : BaseEntity
     public ICollection<GarageAssignment> GarageAssignments { get; private set; } = new List<GarageAssignment>();
     public ICollection<AdvisorRequestNote> AdvisorNotes { get; private set; } = new List<AdvisorRequestNote>();
     public CustomerQuotation? CustomerQuotation { get; private set; }
+    public ServiceJob? ServiceJob { get; private set; }
     public ICollection<Notification> Notifications { get; private set; } = new List<Notification>();
 
     protected ServiceRequest() { }

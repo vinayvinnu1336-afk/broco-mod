@@ -12,17 +12,20 @@ namespace BroCoMod.Infrastructure.Services;
 public class CustomerDecisionService : ICustomerDecisionService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IServiceJobNumberGenerator _jobNumberGenerator;
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<CustomerDecisionService> _logger;
 
     public CustomerDecisionService(
         ApplicationDbContext context,
+        IServiceJobNumberGenerator jobNumberGenerator,
         IAuditService auditService,
         INotificationService notificationService,
         ILogger<CustomerDecisionService> logger)
     {
         _context = context;
+        _jobNumberGenerator = jobNumberGenerator;
         _auditService = auditService;
         _notificationService = notificationService;
         _logger = logger;
@@ -196,6 +199,35 @@ public class CustomerDecisionService : ICustomerDecisionService
                 );
 
                 _context.CustomerQuotationDecisions.Add(decision);
+
+                // Milestone 8: Automatically & idempotently create ServiceJob upon booking confirmation
+                var existingJob = await _context.ServiceJobs
+                    .FirstOrDefaultAsync(j => j.GarageAssignmentId == activeAssignment.Id || j.CustomerQuotationId == quotation.Id, ct);
+
+                if (existingJob == null)
+                {
+                    var jobNumber = await _jobNumberGenerator.NextJobNumberAsync(ct);
+                    var serviceJob = new ServiceJob(
+                        serviceRequestId: quotation.ServiceRequestId,
+                        garageAssignmentId: activeAssignment.Id,
+                        customerQuotationId: quotation.Id,
+                        garageId: quotation.AssignedGarageId,
+                        jobNumber: jobNumber,
+                        customerComplaintSnapshot: quotation.ServiceRequest.ProblemDescription,
+                        createdByUserId: customerUserId
+                    );
+
+                    var activity = new ServiceJobActivity(
+                        serviceJobId: serviceJob.Id,
+                        activityType: JobActivityType.JobCreated,
+                        message: $"Service job #{jobNumber} automatically created upon customer booking confirmation.",
+                        isCustomerVisible: true,
+                        createdByUserId: customerUserId
+                    );
+
+                    _context.ServiceJobs.Add(serviceJob);
+                    _context.ServiceJobActivities.Add(activity);
+                }
 
                 await _context.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);

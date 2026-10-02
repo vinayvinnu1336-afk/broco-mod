@@ -3,13 +3,14 @@
 import React, { ReactNode } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PortalLayout, NavItem } from '@/components/layout/PortalLayout';
-import { LayoutDashboard, Inbox, Calculator, CheckSquare, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Inbox, Calculator, CheckSquare, UserCheck, Wrench } from 'lucide-react';
 
 const advisorNavItems: NavItem[] = [
   { label: 'Advisor Console', href: '/advisor/dashboard', icon: LayoutDashboard },
   { label: 'Requests Review', href: '/advisor/requests', icon: Inbox },
   { label: 'Quotes & Margins', href: '/advisor/quotes', icon: Calculator },
   { label: 'Garage Assignments', href: '/advisor/assignments', icon: CheckSquare },
+  { label: 'Execution & Jobs', href: '/advisor/jobs', icon: Wrench },
   { label: 'Advisor Profile', href: '/advisor/profile', icon: UserCheck },
 ];
 

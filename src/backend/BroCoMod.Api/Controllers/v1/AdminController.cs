@@ -18,6 +18,7 @@ public class AdminController : ControllerBase
     private readonly IAdvisorQuotationService _advisorQuotationService;
     private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICustomerDecisionService _customerDecisionService;
+    private readonly IServiceJobService _serviceJobService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdminController(
@@ -28,6 +29,7 @@ public class AdminController : ControllerBase
         IAdvisorQuotationService advisorQuotationService,
         ICustomerQuotationService customerQuotationService,
         ICustomerDecisionService customerDecisionService,
+        IServiceJobService serviceJobService,
         ICurrentUserService currentUserService)
     {
         _adminPortalService = adminPortalService;
@@ -37,6 +39,7 @@ public class AdminController : ControllerBase
         _advisorQuotationService = advisorQuotationService;
         _customerQuotationService = customerQuotationService;
         _customerDecisionService = customerDecisionService;
+        _serviceJobService = serviceJobService;
         _currentUserService = currentUserService;
     }
 
@@ -195,6 +198,32 @@ public class AdminController : ControllerBase
             return NotFound(result);
         }
         return Ok(result);
+    }
+
+    // Milestone 8: Admin Platform Service Job Oversight
+
+    [HttpGet("jobs")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ServiceJobSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetJobs([FromQuery] string? status, [FromQuery] Guid? garageId, CancellationToken cancellationToken)
+    {
+        var jobs = await _serviceJobService.GetAllJobsAsync(status, garageId, cancellationToken);
+        return Ok(ApiResponse<IEnumerable<ServiceJobSummaryDto>>.Ok(jobs));
+    }
+
+    [HttpGet("jobs/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetJobDetail(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var job = await _serviceJobService.GetAdvisorJobDetailAsync(id, cancellationToken);
+            return Ok(ApiResponse<AdvisorServiceJobDetailDto>.Ok(job));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 }
 

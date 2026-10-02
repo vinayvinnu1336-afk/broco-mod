@@ -77,6 +77,7 @@
 | `/quotes/{id}/accept` | POST | Customer accepts proposal (supports `Idempotency-Key` header/body); confirms booking and workshop assignment |
 | `/quotes/{id}/reject` | POST | Customer declines proposal (requires mandatory reason & category); notifies advisor (confidential from garage) |
 | `/quotes/{id}/decision` | GET | Retrieves customer's recorded decision and snapshot metadata |
+| `/requests/{id}/job` | GET | Sanitized service execution tracker & milestone timeline (hides confidential workshop notes) |
 
 ---
 
@@ -97,6 +98,20 @@
 | `/quotes/{id}/revision` | POST | Creates a new draft revision (`v{n+1}`) from an existing quote |
 | `/quotes/{id}/withdraw` | POST | Withdraws a draft or submitted quote |
 | `/confirmed-bookings` | GET | Retrieves confirmed customer service bookings assigned to authenticated workshop |
+| `/jobs` | GET | Paginated list of service jobs assigned to workshop (supports status filter) |
+| `/jobs/{id}` | GET | Operational service job workbench with customer snapshot, odometer, and history |
+| `/jobs/{id}/schedule` | POST | Sets planned intake and estimated ready timestamps |
+| `/jobs/{id}/receive-vehicle` | POST | Records physical vehicle arrival and odometer mileage (locks cancellation) |
+| `/jobs/{id}/start-inspection` | POST | Starts technical intake inspection |
+| `/jobs/{id}/complete-inspection` | POST | Records workshop findings, recommendations, and customer summary |
+| `/jobs/{id}/start-work` | POST | Commences active repair/servicing work |
+| `/jobs/{id}/progress` | POST | Logs progress update with customer visibility toggle |
+| `/jobs/{id}/complete-work` | POST | Marks mechanical execution completed |
+| `/jobs/{id}/vehicle-ready` | POST | Marks vehicle ready for pickup and notifies customer |
+| `/jobs/{id}/handover` | POST | Records vehicle and keys handover to customer |
+| `/jobs/{id}/close` | POST | Closes and archives completed service job |
+| `/jobs/{id}/cancel` | POST | Cancels booking prior to physical intake with reason |
+| `/jobs/{id}/additional-work` | POST | Submits newly discovered work proposal to Technical Advisor |
 
 ---
 
@@ -125,6 +140,9 @@
 | `/quotes` | GET | Workshop bids under review across the platform |
 | `/quotes/{id}` | GET | Full quote inspection: itemized line items, server-calculated totals, and version history |
 | `/assignments` | GET | Customer-accepted repair contract allocations |
+| `/jobs` | GET | Platform-wide service execution queue across all workshops |
+| `/jobs/{id}` | GET | Technical oversight view of job: timeline, inspections, and additional work |
+| `/jobs/{id}/additional-work/{additionalWorkId}/review` | POST | Evaluates additional work proposal (Approve / Reject with remarks) |
 
 ---
 
@@ -144,6 +162,7 @@
 | `/customer-quotations` | GET | Platform-wide audit of all customer proposals and statuses |
 | `/customer-quotations/{id}` | GET | Detailed audit view of specific customer quotation |
 | `/customer-quotations/{id}/decision` | GET | Audit view of customer acceptance or decline decision with audit metadata |
+| `/jobs` | GET | Global administrative audit registry of all platform service jobs |
 | `/garages` | GET | Complete registry of certified partner garages |
 | `/advisors` | GET | Certified technical advisor roster |
 | `/audit` | GET | Security audit log trail with filter limits |

@@ -40,6 +40,7 @@ public class CustomerQuotation : BaseEntity
     public ServiceRequest? ServiceRequest { get; private set; }
     public GarageAssignment? GarageAssignment { get; private set; }
     public CustomerQuotationDecision? Decision { get; private set; }
+    public ServiceJob? ServiceJob { get; private set; }
     public ICollection<CustomerQuotationLineItem> LineItems { get; private set; } = new List<CustomerQuotationLineItem>();
     public ICollection<CustomerQuotationVersion> Versions { get; private set; } = new List<CustomerQuotationVersion>();
 

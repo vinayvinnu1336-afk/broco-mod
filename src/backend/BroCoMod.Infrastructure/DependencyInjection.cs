@@ -72,6 +72,10 @@ public static class DependencyInjection
         services.AddScoped<ICustomerQuotationService, CustomerQuotationService>();
         services.AddScoped<ICustomerDecisionService, CustomerDecisionService>();
 
+        // Milestone 8: Service Execution & Garage Job Lifecycle Services
+        services.AddScoped<IServiceJobNumberGenerator, ServiceJobNumberGenerator>();
+        services.AddScoped<IServiceJobService, ServiceJobService>();
+
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<DatabaseSeeder>();
