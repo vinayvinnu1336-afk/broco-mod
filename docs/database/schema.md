@@ -230,7 +230,7 @@ Strict separation of concerns separating authentication from role domain attribu
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `Id` | `UUID` | `PRIMARY KEY` | Service request ID |
-| `RequestNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Human-readable identifier (`BM-XXXXXX`) |
+| `RequestNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Unique reference (`BM-XXXXXX`) via `ServiceRequestNumberSeq`. Values are not guaranteed to be gapless; security relies on auth and data isolation. |
 | `CustomerId` | `UUID` | `FK -> CustomerProfiles(Id), INDEX` | Requesting customer ID |
 | `CustomerVehicleId` | `UUID` | `FK -> CustomerVehicles(Id), INDEX` | Selected customer vehicle |
 | `VehicleMake` | `VARCHAR(100)` | `NOT NULL` | Snapshot make |

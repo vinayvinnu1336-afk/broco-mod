@@ -50,7 +50,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Enable PostGIS extension in PostgreSQL
         modelBuilder.HasPostgresExtension("postgis");
 
-        // Sequence for human-readable request numbers (BM-100001, BM-100002, etc.)
+        // Generated atomically via PostgreSQL sequence ServiceRequestNumberSeq.
+        // The BM-XXXXXX identifier is a unique human-readable service request reference. Sequence values are not guaranteed to be gapless.
         modelBuilder.HasSequence<long>("ServiceRequestNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);

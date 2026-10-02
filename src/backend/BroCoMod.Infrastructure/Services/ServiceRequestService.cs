@@ -113,7 +113,7 @@ public class ServiceRequestService : IServiceRequestService
             request.Longitude,
             request.Country);
 
-        // 4. Generate Human-Readable Request Number
+        // 4. Generate Human-Readable Request Number (BM-XXXXXX). Sequence values are not guaranteed to be gapless.
         var requestNumber = await _requestNumberGenerator.GenerateNextRequestNumberAsync(cancellationToken);
 
         // 5. Create ServiceRequest Domain Entity

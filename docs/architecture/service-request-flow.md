@@ -33,10 +33,17 @@ Advisors & Eligible Garages Notified Concurrently
 ---
 
 ## 3. Human-Readable Request Numbering (`BM-XXXXXX`)
-To guarantee human-friendly tracking and prevent ID enumeration:
-- Requests receive a unique code formatted as `BM-XXXXXX` (e.g. `BM-100001`, `BM-100002`).
-- Generated atomically via a native PostgreSQL database sequence (`ServiceRequestNumberSeq`), starting at 100001.
+Generated atomically via PostgreSQL sequence ServiceRequestNumberSeq.
+The BM-XXXXXX identifier is a unique human-readable service request
+reference. Sequence values are not guaranteed to be gapless.
+
+- Requests receive a unique code formatted as `BM-XXXXXX` (e.g. `BM-100001`, `BM-100002`), starting at 100001.
 - In-memory thread-safe fallback is provided for isolated unit testing suites.
+- The `BM-XXXXXX` reference itself does not provide security against enumeration. Security must continue to rely on:
+  - Authentication
+  - Authorization
+  - Ownership checks
+  - Resource-level data isolation
 
 ---
 
@@ -49,7 +56,10 @@ To prevent duplicate requests and duplicate garage dispatch notifications result
 ---
 
 ## 5. Security & Ownership Validation
-- **Vehicle Ownership Invariant**: The service verifies that the selected `VehicleId` belongs to the authenticated customer (`vehicle.CustomerId == customerId`). Unauthorized attempts return HTTP 403 Forbidden.
+Security relies strictly on defense-in-depth authorization policies and data isolation rather than reference code obscurity:
+- **Authentication**: Every request endpoint requires a valid JWT bearer token.
+- **Authorization**: Platform policies (`CustomerOnly`, `AdvisorOnly`, `GarageOnly`, `AdminOnly`) enforce role-based and permission-based portal boundaries.
+- **Ownership Checks**: The service verifies that the selected `VehicleId` belongs to the authenticated customer (`vehicle.CustomerId == customerId`). Unauthorized attempts return HTTP 403 Forbidden.
+- **Resource-Level Data Isolation**: Customers can only view and cancel their own service requests (`CustomerId == resolvedCustomerId`). Cross-customer query attempts return HTTP 404 Not Found.
 - **Vehicle Active Status**: Inactive/decommissioned vehicles cannot be used for new bookings.
-- **Data Isolation**: Customers can only view and cancel their own service requests. Cross-customer query attempts return HTTP 404 Not Found to prevent ID enumeration.
 - **Cancellation**: Customers can cancel pending requests with a mandatory reason. Cancel actions update status to `CANCELLED`, record cancellation timestamps, and emit an audit log entry.
