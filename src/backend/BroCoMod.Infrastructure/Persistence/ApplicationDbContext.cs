@@ -1,5 +1,6 @@
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace BroCoMod.Infrastructure.Persistence;
@@ -15,6 +16,19 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<GarageQuote> GarageQuotes => Set<GarageQuote>();
     public DbSet<CustomerQuotation> CustomerQuotations => Set<CustomerQuotation>();
+
+    // Identity & Authorization
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
+    public DbSet<GarageUser> GarageUsers => Set<GarageUser>();
+    public DbSet<AdvisorProfile> AdvisorProfiles => Set<AdvisorProfile>();
+    public DbSet<CustomerVehicle> CustomerVehicles => Set<CustomerVehicle>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +114,164 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .HasMaxLength(2000);
             builder.Property(cq => cq.AdvisorNotes)
                 .HasMaxLength(2000);
+        });
+
+        // User configuration
+        modelBuilder.Entity<User>(builder =>
+        {
+            builder.HasKey(u => u.Id);
+            builder.Property(u => u.Email).IsRequired().HasMaxLength(256);
+            builder.Property(u => u.NormalizedEmail).IsRequired().HasMaxLength(256);
+            builder.Property(u => u.FullName).IsRequired().HasMaxLength(200);
+            builder.Property(u => u.PhoneNumber).HasMaxLength(50);
+            builder.Property(u => u.PasswordHash).IsRequired();
+            builder.Property(u => u.Salt).IsRequired();
+
+            builder.HasIndex(u => u.NormalizedEmail).IsUnique();
+
+            builder.HasOne(u => u.CustomerProfile)
+                .WithOne(cp => cp.User)
+                .HasForeignKey<CustomerProfile>(cp => cp.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(u => u.GarageUser)
+                .WithOne(gu => gu.User)
+                .HasForeignKey<GarageUser>(gu => gu.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(u => u.AdvisorProfile)
+                .WithOne(ap => ap.User)
+                .HasForeignKey<AdvisorProfile>(ap => ap.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Role configuration
+        modelBuilder.Entity<Role>(builder =>
+        {
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.Name).IsRequired().HasMaxLength(100);
+            builder.Property(r => r.NormalizedName).IsRequired().HasMaxLength(100);
+            builder.Property(r => r.Description).HasMaxLength(500);
+
+            builder.HasIndex(r => r.NormalizedName).IsUnique();
+        });
+
+        // Permission configuration
+        modelBuilder.Entity<Permission>(builder =>
+        {
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Code).IsRequired().HasMaxLength(100);
+            builder.Property(p => p.Description).HasMaxLength(500);
+            builder.Property(p => p.Category).HasMaxLength(100);
+
+            builder.HasIndex(p => p.Code).IsUnique();
+        });
+
+        // UserRole configuration
+        modelBuilder.Entity<UserRole>(builder =>
+        {
+            builder.HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            builder.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // RolePermission configuration
+        modelBuilder.Entity<RolePermission>(builder =>
+        {
+            builder.HasKey(rp => new { rp.RoleId, rp.PermissionId });
+
+            builder.HasOne(rp => rp.Role)
+                .WithMany(r => r.RolePermissions)
+                .HasForeignKey(rp => rp.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(rp => rp.Permission)
+                .WithMany(p => p.RolePermissions)
+                .HasForeignKey(rp => rp.PermissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // RefreshToken configuration
+        modelBuilder.Entity<RefreshToken>(builder =>
+        {
+            builder.HasKey(rt => rt.Id);
+            builder.Property(rt => rt.TokenHash).IsRequired().HasMaxLength(256);
+            builder.Property(rt => rt.ReplacedByTokenHash).HasMaxLength(256);
+            builder.Property(rt => rt.ReasonRevoked).HasMaxLength(500);
+
+            builder.HasIndex(rt => rt.TokenHash);
+            builder.HasIndex(rt => rt.UserId);
+
+            builder.HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CustomerProfile configuration
+        modelBuilder.Entity<CustomerProfile>(builder =>
+        {
+            builder.HasKey(cp => cp.Id);
+            builder.Property(cp => cp.Address).HasMaxLength(500);
+            builder.Property(cp => cp.PreferredContactMethod).HasMaxLength(50);
+            builder.HasIndex(cp => cp.UserId).IsUnique();
+        });
+
+        // GarageUser configuration
+        modelBuilder.Entity<GarageUser>(builder =>
+        {
+            builder.HasKey(gu => gu.Id);
+            builder.Property(gu => gu.RoleName).IsRequired().HasMaxLength(50);
+            builder.Property(gu => gu.Title).HasMaxLength(100);
+            builder.HasIndex(gu => gu.UserId).IsUnique();
+
+            builder.HasOne(gu => gu.Garage)
+                .WithMany()
+                .HasForeignKey(gu => gu.GarageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AdvisorProfile configuration
+        modelBuilder.Entity<AdvisorProfile>(builder =>
+        {
+            builder.HasKey(ap => ap.Id);
+            builder.Property(ap => ap.EmployeeCode).IsRequired().HasMaxLength(50);
+            builder.Property(ap => ap.Specialization).HasMaxLength(100);
+            builder.HasIndex(ap => ap.UserId).IsUnique();
+        });
+
+        // CustomerVehicle configuration
+        modelBuilder.Entity<CustomerVehicle>(builder =>
+        {
+            builder.HasKey(cv => cv.Id);
+            builder.Property(cv => cv.Make).IsRequired().HasMaxLength(100);
+            builder.Property(cv => cv.Model).IsRequired().HasMaxLength(100);
+            builder.Property(cv => cv.LicensePlate).IsRequired().HasMaxLength(50);
+            builder.Property(cv => cv.Vin).HasMaxLength(50);
+            builder.HasIndex(cv => cv.CustomerId);
+        });
+
+        // AuditLog configuration
+        modelBuilder.Entity<AuditLog>(builder =>
+        {
+            builder.HasKey(al => al.Id);
+            builder.Property(al => al.Action).IsRequired().HasMaxLength(100);
+            builder.Property(al => al.UserEmail).HasMaxLength(256);
+            builder.Property(al => al.EntityName).HasMaxLength(100);
+            builder.Property(al => al.EntityId).HasMaxLength(100);
+            builder.Property(al => al.IpAddress).HasMaxLength(50);
+
+            builder.HasIndex(al => al.TimestampUtc);
+            builder.HasIndex(al => al.UserId);
+            builder.HasIndex(al => al.Action);
         });
     }
 }

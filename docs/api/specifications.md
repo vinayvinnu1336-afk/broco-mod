@@ -3,93 +3,117 @@
 ## 1. Design Principles
 
 - **Stateless REST:** All requests carry self-contained authentication (JWT bearer tokens).
-- **Format:** JSON payloads with standard HTTP status codes (`200 OK`, `201 Created`, `400 Bad Request`, `403 Forbidden`, `404 Not Found`, `500 Internal Error`).
-- **Data Isolation:** Endpoints strictly emit role-safe DTOs to enforce pricing security.
+- **Format:** JSON payloads with standardized response envelopes (`ApiResponse<T>`).
+- **Data Isolation:** Endpoints strictly emit role-safe DTO projections to enforce pricing security.
+- **Rate Limiting:** Authentication routes are protected by a sliding-window rate limiter (30 requests/min).
 
 ---
 
-## 2. Health & Monitoring Endpoints
+## 2. Authentication & Identity (`/api/v1/auth`)
 
-### `GET /health`
-Comprehensive health check returning status of PostgreSQL, PostGIS, and Redis.
+| Endpoint | Method | Auth | Roles | Description |
+|---|---|---|---|---|
+| `/register` | POST | Anonymous | Any | Register a new customer or workshop account |
+| `/login` | POST | Anonymous | Any | Authenticate with email/password; returns JWT + Refresh Token |
+| `/refresh-token` | POST | Anonymous | Any | Rotates refresh token and generates new JWT |
+| `/revoke-token` | POST | Bearer | Any | Explicitly revokes a refresh token |
+| `/logout` | POST | Bearer | Any | Revokes user refresh tokens and logs security audit |
+| `/forgot-password` | POST | Anonymous | Any | Requests password reset OTP (timing-safe) |
+| `/reset-password` | POST | Anonymous | Any | Submits reset token and sets new password |
 
+### Standard Authentication Response Envelope
 ```json
 {
-  "status": "Healthy",
-  "totalDuration": "00:00:00.0124310",
-  "postgisActive": true,
-  "redisActive": true,
-  "entries": {
-    "postgres": { "status": "Healthy", "database": "broco_mod" },
-    "postgis": { "status": "Healthy", "version": "POSTGIS=\"3.4.2\" ..." },
-    "redis": { "status": "Healthy", "connected": true }
+  "success": true,
+  "message": "Login successful.",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "aGVsbG93b3JsZGNyeXB0b3JhbmRvbXRva2Vu...",
+    "expiresInSeconds": 3600,
+    "user": {
+      "id": "f8a08d27-...",
+      "email": "customer@brocomod.com",
+      "fullName": "Jordan Hayes",
+      "roles": ["CUSTOMER"],
+      "permissions": ["CUSTOMER_REQUEST_CREATE", "CUSTOMER_QUOTE_VIEW"],
+      "customerId": "0bb78c66-...",
+      "garageId": null,
+      "garageRole": null,
+      "isActive": true
+    }
   }
 }
 ```
 
-### `GET /healthz`
-Lightweight probe endpoint for container orchestrators (Kubernetes liveness/readiness).
-- Returns `200 OK` (Healthy) or `503 Service Unavailable`.
+---
+
+## 3. User Self-Service (`/api/v1/users`)
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/me` | GET | Bearer | Fetches current authenticated user profile, active roles, and permissions |
 
 ---
 
-## 3. Core System & Geospatial Endpoints
+## 4. Customer Portal Endpoints (`/api/v1/customer`)
+*Restricted to `CUSTOMER` and `SUPER_ADMIN` roles.*
 
-### `GET /api/system/info`
-Returns platform metadata and active architecture parameters.
-
-### `GET /api/system/garages/eligible`
-Finds garages within a specified radius using PostGIS.
-
-**Parameters:**
-- `longitude` (query, double, required)
-- `latitude` (query, double, required)
-- `radiusKm` (query, double, default: 10.0)
-
-**Response:**
-```json
-{
-  "searchRadiusKm": 10.0,
-  "coordinates": { "longitude": -122.4194, "latitude": 37.7749 },
-  "count": 3,
-  "garages": [
-    {
-      "id": "e83e9b11-a836-47b2-841f-1358d7b30c4e",
-      "name": "Central Metro Auto Care",
-      "distanceKm": 1.42,
-      "address": "123 Innovation Way",
-      "isActive": true
-    }
-  ]
-}
-```
+| Endpoint | Method | Description |
+|---|---|---|
+| `/dashboard` | GET | Aggregated customer statistics, recent requests, and pending quotes |
+| `/profile` | GET | Customer personal details and communication preferences |
+| `/vehicles` | GET | Customer's registered vehicle inventory |
+| `/vehicles` | POST | Registers a new vehicle into the customer's garage |
+| `/requests` | GET | List of service requests submitted by the authenticated customer |
+| `/quotes` | GET | Sanitized customer quotations (strictly hides garage internal pricing) |
+| `/quotes/{id}` | GET | Specific quotation proposal detail |
 
 ---
 
-## 4. Quote & Pricing Isolation Demonstration
+## 5. Garage Portal Endpoints (`/api/v1/garage`)
+*Restricted to `GARAGE_OWNER`, `GARAGE_MANAGER`, `GARAGE_STAFF`, and `SUPER_ADMIN`.*
 
-### `GET /api/system/quote-isolation-demo`
-Demonstrates runtime data segregation between customer and garage views.
+| Endpoint | Method | Description |
+|---|---|---|
+| `/dashboard` | GET | Workshop statistics, nearby available requests, submitted quotes |
+| `/profile` | GET | Workshop facility location, PostGIS coordinates, and team members |
+| `/requests` | GET | Service requests dispatched within the workshop's 10 KM radius |
+| `/quotes` | GET | Confidential workshop cost bids submitted to advisors |
 
-**Customer-Facing Payload (Zero Leakage):**
-```json
-{
-  "id": "a1f09bb2-4048-4cb1-97cf-8984da6c498d",
-  "serviceRequestId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "customerFacingPrice": 489.99,
-  "scopeSummary": "Complete front brake pads and rotors replacement with warranty.",
-  "advisorNotes": "Approved standard tier markup. Dispatched to customer.",
-  "status": "Submitted"
-}
-```
+---
 
-**Garage Internal Payload (Advisor / Garage Only):**
-```json
-{
-  "id": "76ec2a5b-d368-45fa-a9f8-b4b0eb140810",
-  "garageId": "c4d3e2f1-0000-0000-0000-000000000000",
-  "garageInternalPrice": 350.00,
-  "internalCostBreakdown": "Parts: $220.00 (Wholesale), Labor: $130.00 (3 hrs @ $43.33/hr)",
-  "garageNotes": "Includes OEM brake pads and rotors replacement."
-}
-```
+## 6. Technical Advisor Endpoints (`/api/v1/advisor`)
+*Restricted to `ADVISOR` and `SUPER_ADMIN`.*
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/dashboard` | GET | Pending reviews queue, active requests, and assigned garages count |
+| `/profile` | GET | Advisor employee code and specialization credentials |
+| `/requests` | GET | Customer requests dispatched for workshop quotation |
+| `/quotes` | GET | Workshop bids under review with recommended margin markup calculations |
+| `/assignments` | GET | Customer-accepted repair contract allocations |
+
+---
+
+## 7. Super Admin Portal Endpoints (`/api/v1/admin`)
+*Restricted exclusively to `SUPER_ADMIN`.*
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/dashboard` | GET | Platform-wide totals and live security telemetry |
+| `/users` | GET | Full user account list across all roles |
+| `/users/{id}/status` | POST | Activates or suspends a platform user |
+| `/garages` | GET | Complete registry of certified partner garages |
+| `/advisors` | GET | Certified technical advisor roster |
+| `/audit` | GET | Security audit log trail with filter limits |
+| `/settings` | GET | System operational parameters (radius, lockout limits, token lifecycles) |
+
+---
+
+## 8. Health & System Diagnostic Endpoints
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/healthz` | GET | Anonymous | Fast probe for load balancers and orchestrators |
+| `/api/system/info` | GET | Anonymous | Platform architecture overview and metadata |
+| `/api/system/quote-isolation-demo` | GET | Anonymous | Interactive demonstration of pricing isolation |

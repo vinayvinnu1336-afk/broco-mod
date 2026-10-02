@@ -25,6 +25,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\BroCoMod.Domain\BroCoMod.Domain.csproj" />
     <ProjectReference Include="..\..\src\backend\BroCoMod.Application\BroCoMod.Application.csproj" />
+    <ProjectReference Include="..\..\src\backend\BroCoMod.Infrastructure\BroCoMod.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
-  title: "BroCo Mod - Modular Automotive Platform",
-  description: "Enterprise foundation for BroCo Mod platform",
+  title: "BroCo Mod — Automotive Service Platform",
+  description: "Enterprise foundation with multi-portal role isolation",
 };
 
 export default function RootLayout({
@@ -13,8 +14,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
-        {children}
+      <body className="min-h-screen bg-surface-100 text-navy-900 antialiased">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

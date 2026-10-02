@@ -15,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ---
 
-## 2. Table Specifications
+## 2. Platform Core Tables
 
 ### 2.1. `Garages`
 Stores onboarded garages and their verified geospatial coordinates.
@@ -44,10 +44,10 @@ Stores customer repair/maintenance submissions and origin locations.
 | :--- | :--- | :--- | :--- |
 | `Id` | `UUID` | `PRIMARY KEY` | Unique identifier |
 | `CustomerId` | `UUID` | `NOT NULL` | Identifier of customer account |
-| `VehicleMake` | `VARCHAR(100)` | `NOT NULL` | E.g., Toyota, BMW |
-| `VehicleModel` | `VARCHAR(100)` | `NOT NULL` | E.g., Camry, 330i |
+| `VehicleMake` | `VARCHAR(100)` | `NOT NULL` | E.g., BMW, Audi |
+| `VehicleModel` | `VARCHAR(100)` | `NOT NULL` | E.g., M340i, RS3 |
 | `VehicleYear` | `INTEGER` | `NOT NULL` | Manufacture year |
-| `Description` | `VARCHAR(2000)` | `NOT NULL` | Customer description of fault |
+| `Description` | `VARCHAR(2000)` | `NOT NULL` | Customer description of fault/upgrade |
 | `CustomerLocation`| `geography(Point, 4326)` | `NOT NULL` | Pickup/service request coordinates |
 | `RadiusKm` | `DOUBLE PRECISION`| `DEFAULT 10.0`| Configurable search radius |
 | `Status` | `INTEGER` | `NOT NULL` | State machine enum value |
@@ -59,7 +59,7 @@ Stores customer repair/maintenance submissions and origin locations.
 ---
 
 ### 2.3. `GarageQuotes` (CONFIDENTIAL INTERNAL)
-Stores internal cost calculations submitted by garages.
+Stores internal wholesale cost calculations submitted by garages.
 
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
@@ -72,12 +72,12 @@ Stores internal cost calculations submitted by garages.
 | `EstimatedDurationHours`| `INTEGER` | `NOT NULL` | Estimated labor duration |
 | `Status` | `INTEGER` | `NOT NULL` | Quote status enum |
 
-> **SECURITY:** NEVER query this table directly for customer requests.
+> **SECURITY NOTICE:** Segregated by role policy. Never query this table for Customer endpoints.
 
 ---
 
 ### 2.4. `CustomerQuotations` (CUSTOMER-FACING)
-Stores advisor-reviewed and customer-facing proposals.
+Stores advisor-reviewed and sanitized customer-facing proposals.
 
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
@@ -92,18 +92,56 @@ Stores advisor-reviewed and customer-facing proposals.
 
 ---
 
-## 3. PostGIS Radius Search Query
+## 3. Identity & Security Tables (Milestone 2)
 
-```sql
--- High performance geospatial query utilizing GIST index:
-SELECT "Id", "Name", "Address",
-       ST_Distance("Location", ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography) / 1000.0 AS DistanceKm
-FROM "Garages"
-WHERE "IsActive" = TRUE
-  AND ST_DWithin(
-        "Location",
-        ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
-        :radiusKm * 1000.0
-      )
-ORDER BY DistanceKm ASC;
-```
+### 3.1. `Users`
+Authentication and platform identity core. Role-specific attributes are partitioned into profile tables.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique user identifier |
+| `Email` | `VARCHAR(256)` | `NOT NULL` | User email address |
+| `NormalizedEmail`| `VARCHAR(256)` | `NOT NULL, UNIQUE` | Uppercase normalized email |
+| `FullName` | `VARCHAR(200)` | `NOT NULL` | User full legal name |
+| `PhoneNumber` | `VARCHAR(50)` | `NOT NULL` | Contact telephone number |
+| `PasswordHash` | `TEXT` | `NOT NULL` | PBKDF2 HMAC-SHA512 hash |
+| `Salt` | `TEXT` | `NOT NULL` | 256-bit cryptographically secure salt |
+| `IsActive` | `BOOLEAN` | `DEFAULT TRUE` | Operational state (suspended/active) |
+| `IsEmailConfirmed`| `BOOLEAN` | `DEFAULT TRUE` | Email verification flag |
+| `FailedLoginAttempts`| `INTEGER` | `DEFAULT 0` | Failed attempts counter |
+| `LockoutEndUtc`| `TIMESTAMPTZ` | `NULL` | Brute force lockout expiration |
+
+---
+
+### 3.2. `Roles` & `Permissions`
+Fine-grained Role-Based Access Control (RBAC).
+
+- **`Roles`**: `Id`, `Name` (UNIQUE), `NormalizedName`, `Description`.
+- **`Permissions`**: `Id`, `Code` (UNIQUE), `Description`, `Category`.
+- **`UserRoles`**: Composite PK `(UserId, RoleId)`.
+- **`RolePermissions`**: Composite PK `(RoleId, PermissionId)`.
+
+---
+
+### 3.3. `RefreshTokens`
+Cryptographic refresh token rotation & reuse detection.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Token record ID |
+| `UserId` | `UUID` | `FK -> Users(Id)` | User owner |
+| `TokenHash` | `VARCHAR(256)` | `NOT NULL` | SHA256 hash of refresh token |
+| `ReplacedByTokenHash`| `VARCHAR(256)`| `NULL` | Hash of successor token on rotation |
+| `ExpiresAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Absolute token expiration |
+| `RevokedAtUtc` | `TIMESTAMPTZ` | `NULL` | Timestamp token was revoked |
+| `ReasonRevoked` | `VARCHAR(500)` | `NULL` | Revocation rationale |
+
+---
+
+### 3.4. Role Profile Tables
+Strict separation of concerns separating authentication from role domain attributes:
+- **`CustomerProfiles`**: `Id`, `UserId` (UNIQUE), `Address`, `PreferredContactMethod`.
+- **`GarageUsers`**: `Id`, `UserId` (UNIQUE), `GarageId` (FK), `RoleName` (`GARAGE_OWNER`, `GARAGE_MANAGER`, `GARAGE_STAFF`), `Title`.
+- **`AdvisorProfiles`**: `Id`, `UserId` (UNIQUE), `EmployeeCode`, `Specialization`, `MaxAssignedRequests`.
+- **`CustomerVehicles`**: `Id`, `CustomerId`, `Make`, `Model`, `Year`, `LicensePlate`, `Vin`, `Mileage`.
+- **`AuditLogs`**: `Id`, `Action`, `UserId`, `UserEmail`, `EntityName`, `EntityId`, `Details`, `IpAddress`, `TimestampUtc`.

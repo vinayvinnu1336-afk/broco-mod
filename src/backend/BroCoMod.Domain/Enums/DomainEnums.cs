@@ -4,8 +4,11 @@ public enum UserRole
 {
     Customer = 1,
     Garage = 2,
-    Advisor = 3,
-    SuperAdmin = 4
+    GarageOwner = 3,
+    GarageManager = 4,
+    GarageStaff = 5,
+    Advisor = 6,
+    SuperAdmin = 7
 }
 
 public enum ServiceRequestStatus

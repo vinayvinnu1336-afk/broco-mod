@@ -41,6 +41,9 @@ public static class QuoteDataIsolationPolicy
         }
     }
 
+    public static bool IsGarageRole(UserRole role) =>
+        role is UserRole.Garage or UserRole.GarageOwner or UserRole.GarageManager or UserRole.GarageStaff;
+
     /// <summary>
     /// Projects an internal GarageQuote to GarageInternalQuoteDto.
     /// Guaranteed to enforce that only Garage (owner) or Advisor/Admin can invoke this projection.
@@ -49,7 +52,7 @@ public static class QuoteDataIsolationPolicy
     {
         AssertCanViewInternalPricing(requestingRole);
 
-        if (requestingRole == UserRole.Garage && requestingGarageId.HasValue && quote.GarageId != requestingGarageId.Value)
+        if (IsGarageRole(requestingRole) && requestingGarageId.HasValue && quote.GarageId != requestingGarageId.Value)
         {
             throw new DataIsolationViolationException(
                 "Security Policy Violation: A garage cannot view another competitor garage's internal pricing.");

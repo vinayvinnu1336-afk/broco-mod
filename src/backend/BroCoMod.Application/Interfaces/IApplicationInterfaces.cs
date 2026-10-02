@@ -12,6 +12,19 @@ public interface IApplicationDbContext
     DbSet<GarageQuote> GarageQuotes { get; }
     DbSet<CustomerQuotation> CustomerQuotations { get; }
 
+    // Identity & Authorization
+    DbSet<BroCoMod.Domain.Entities.Identity.User> Users { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.Role> Roles { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.Permission> Permissions { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.UserRole> UserRoles { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.RolePermission> RolePermissions { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.RefreshToken> RefreshTokens { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.CustomerProfile> CustomerProfiles { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.GarageUser> GarageUsers { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.AdvisorProfile> AdvisorProfiles { get; }
+    DbSet<BroCoMod.Domain.Entities.CustomerVehicle> CustomerVehicles { get; }
+    DbSet<BroCoMod.Domain.Entities.Identity.AuditLog> AuditLogs { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 

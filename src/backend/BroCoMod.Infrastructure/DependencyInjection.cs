@@ -1,6 +1,8 @@
+using BroCoMod.Application.Authorization;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using BroCoMod.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +33,25 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
         services.AddScoped<IGarageService, GarageService>();
         services.AddScoped<IQuoteService, QuoteService>();
+
+        // Identity & Security Services
+        services.AddHttpContextAccessor();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IOtpProvider, OtpProvider>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IIdentityService, IdentityService>();
+
+        // Portal Services
+        services.AddScoped<ICustomerPortalService, CustomerPortalService>();
+        services.AddScoped<IGaragePortalService, GaragePortalService>();
+        services.AddScoped<IAdvisorPortalService, AdvisorPortalService>();
+        services.AddScoped<IAdminPortalService, AdminPortalService>();
+
+        // Authorization Handlers & Seeder
+        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<DatabaseSeeder>();
 
         // Redis setup
         var redisConnection = configuration.GetConnectionString("Redis")
