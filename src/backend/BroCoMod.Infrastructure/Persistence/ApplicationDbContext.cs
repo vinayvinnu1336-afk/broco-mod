@@ -1,7 +1,10 @@
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
+using BroCoMod.Domain.Entities.VehicleMaster;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using UserRole = BroCoMod.Domain.Entities.Identity.UserRole;
 
 namespace BroCoMod.Infrastructure.Persistence;
 
@@ -29,6 +32,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<AdvisorProfile> AdvisorProfiles => Set<AdvisorProfile>();
     public DbSet<CustomerVehicle> CustomerVehicles => Set<CustomerVehicle>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    // Vehicle Master Catalog
+    public DbSet<VehicleManufacturer> VehicleManufacturers => Set<VehicleManufacturer>();
+    public DbSet<VehicleModel> VehicleModels => Set<VehicleModel>();
+    public DbSet<VehicleVariant> VehicleVariants => Set<VehicleVariant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -248,15 +256,88 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(ap => ap.UserId).IsUnique();
         });
 
+        // VehicleManufacturer configuration
+        modelBuilder.Entity<VehicleManufacturer>(builder =>
+        {
+            builder.HasKey(vm => vm.Id);
+            builder.Property(vm => vm.Name).IsRequired().HasMaxLength(100);
+            builder.Property(vm => vm.NormalizedName).IsRequired().HasMaxLength(100);
+            builder.Property(vm => vm.Country).HasMaxLength(100);
+            builder.Property(vm => vm.LogoUrl).HasMaxLength(500);
+
+            builder.HasIndex(vm => vm.NormalizedName).IsUnique();
+            builder.HasIndex(vm => vm.IsActive);
+            builder.HasIndex(vm => vm.DisplayOrder);
+
+            builder.HasMany(vm => vm.Models)
+                .WithOne(m => m.Manufacturer)
+                .HasForeignKey(m => m.ManufacturerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // VehicleModel configuration
+        modelBuilder.Entity<VehicleModel>(builder =>
+        {
+            builder.HasKey(m => m.Id);
+            builder.Property(m => m.Name).IsRequired().HasMaxLength(100);
+            builder.Property(m => m.NormalizedName).IsRequired().HasMaxLength(100);
+            builder.Property(m => m.BodyType).IsRequired().HasMaxLength(50);
+
+            builder.HasIndex(m => m.ManufacturerId);
+            builder.HasIndex(m => new { m.ManufacturerId, m.NormalizedName }).IsUnique();
+            builder.HasIndex(m => m.IsActive);
+
+            builder.HasMany(m => m.Variants)
+                .WithOne(v => v.Model)
+                .HasForeignKey(v => v.ModelId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // VehicleVariant configuration
+        modelBuilder.Entity<VehicleVariant>(builder =>
+        {
+            builder.HasKey(v => v.Id);
+            builder.Property(v => v.Name).IsRequired().HasMaxLength(100);
+            builder.Property(v => v.Transmission).IsRequired().HasMaxLength(50);
+
+            builder.HasIndex(v => v.ModelId);
+            builder.HasIndex(v => new { v.ModelId, v.Name });
+            builder.HasIndex(v => v.FuelType);
+            builder.HasIndex(v => v.IsActive);
+        });
+
         // CustomerVehicle configuration
         modelBuilder.Entity<CustomerVehicle>(builder =>
         {
             builder.HasKey(cv => cv.Id);
             builder.Property(cv => cv.Make).IsRequired().HasMaxLength(100);
             builder.Property(cv => cv.Model).IsRequired().HasMaxLength(100);
+            builder.Property(cv => cv.VariantName).HasMaxLength(100);
             builder.Property(cv => cv.LicensePlate).IsRequired().HasMaxLength(50);
             builder.Property(cv => cv.Vin).HasMaxLength(50);
+            builder.Property(cv => cv.Transmission).HasMaxLength(50);
+            builder.Property(cv => cv.Color).HasMaxLength(50);
+
             builder.HasIndex(cv => cv.CustomerId);
+            builder.HasIndex(cv => new { cv.CustomerId, cv.IsActive });
+            builder.HasIndex(cv => new { cv.CustomerId, cv.IsPrimary });
+            builder.HasIndex(cv => cv.ManufacturerId);
+            builder.HasIndex(cv => cv.ModelId);
+
+            builder.HasOne(cv => cv.Manufacturer)
+                .WithMany()
+                .HasForeignKey(cv => cv.ManufacturerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(cv => cv.ModelEntity)
+                .WithMany()
+                .HasForeignKey(cv => cv.ModelId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(cv => cv.Variant)
+                .WithMany()
+                .HasForeignKey(cv => cv.VariantId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // AuditLog configuration

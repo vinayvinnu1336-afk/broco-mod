@@ -2,11 +2,14 @@ using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
+using BroCoMod.Domain.Entities.VehicleMaster;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
+using UserRole = BroCoMod.Domain.Entities.Identity.UserRole;
 
 namespace BroCoMod.Infrastructure.Persistence;
 
@@ -97,7 +100,10 @@ public class DatabaseSeeder
         }
         await _context.SaveChangesAsync();
 
-        // 4. Check if demo data should be seeded (strictly disabled in production unless explicit flag is enabled)
+        // 4. Seed Essential Vehicle Master Catalog (Manufacturers, Models, Variants)
+        await SeedVehicleMasterAsync();
+
+        // 5. Check if demo data should be seeded (strictly disabled in production unless explicit flag is enabled)
         var isDev = _environment.IsDevelopment();
         var enableDemoSeeding = _configuration.GetValue<bool>("EnableDemoSeeding", false);
 
@@ -109,7 +115,7 @@ public class DatabaseSeeder
 
         _logger.LogInformation("Development/Demo mode detected ({Env}). Seeding demo accounts and workshop fixtures...", _environment.EnvironmentName);
 
-        // 5. Ensure demo Garage exists
+        // 6. Ensure demo Garage exists
         var garage = await _context.Garages.FirstOrDefaultAsync();
         if (garage == null)
         {
@@ -125,7 +131,7 @@ public class DatabaseSeeder
             await _context.SaveChangesAsync();
         }
 
-        // 5. Seed Demo Accounts (Password: Password123!)
+        // 7. Seed Demo Accounts (Password: Password123!)
         const string defaultPassword = "Password123!";
 
         // A. SUPER ADMIN
@@ -182,19 +188,39 @@ public class DatabaseSeeder
                 await _context.SaveChangesAsync();
             }
 
-            // Seed demo vehicle
+            // Seed demo vehicle linked to Master Vehicle Catalog
             if (!await _context.CustomerVehicles.AnyAsync(v => v.CustomerId == customerProfile.Id))
             {
-                var vehicle = new CustomerVehicle(
-                    customerProfile.Id,
-                    make: "BMW",
-                    model: "M340i xDrive",
-                    year: 2022,
-                    licensePlate: "BROCO-01",
-                    vin: "WBA5U7C06NF123456",
-                    mileage: 24500);
-                _context.CustomerVehicles.Add(vehicle);
-                await _context.SaveChangesAsync();
+                var bmw = await _context.VehicleManufacturers.FirstOrDefaultAsync(m => m.NormalizedName == "BMW");
+                var model3Series = bmw != null
+                    ? await _context.VehicleModels.FirstOrDefaultAsync(m => m.ManufacturerId == bmw.Id && m.NormalizedName == "3 SERIES")
+                    : null;
+                var variantM340i = model3Series != null
+                    ? await _context.VehicleVariants.FirstOrDefaultAsync(v => v.ModelId == model3Series.Id && v.Name == "M340i xDrive")
+                    : null;
+
+                if (bmw != null && model3Series != null)
+                {
+                    var vehicle = new CustomerVehicle(
+                        customerProfile.Id,
+                        bmw.Id,
+                        bmw.Name,
+                        model3Series.Id,
+                        model3Series.Name,
+                        variantM340i?.Id,
+                        variantM340i?.Name ?? "M340i xDrive",
+                        year: 2022,
+                        fuelType: FuelType.Petrol,
+                        transmission: "Automatic",
+                        licensePlate: "BROCO-01",
+                        vin: "WBA5U7C06NF123456",
+                        mileage: 24500,
+                        color: "Portimao Blue",
+                        isPrimary: true);
+
+                    _context.CustomerVehicles.Add(vehicle);
+                    await _context.SaveChangesAsync();
+                }
             }
         }
 
@@ -236,5 +262,139 @@ public class DatabaseSeeder
 
         await _context.SaveChangesAsync();
         return user;
+    }
+
+    private async Task SeedVehicleMasterAsync()
+    {
+        if (await _context.VehicleManufacturers.AnyAsync())
+        {
+            return;
+        }
+
+        _logger.LogInformation("Seeding reference Vehicle Master catalog (Manufacturers, Models, Variants)...");
+
+        // 1. BMW
+        var bmw = new VehicleManufacturer("BMW", "Germany", "/logos/bmw.svg", 1);
+        _context.VehicleManufacturers.Add(bmw);
+        await _context.SaveChangesAsync();
+
+        var bmw3Series = new VehicleModel(bmw.Id, "3 Series", "Sedan", 2019);
+        var bmwM3 = new VehicleModel(bmw.Id, "M3", "Sedan", 2021);
+        var bmwM4 = new VehicleModel(bmw.Id, "M4", "Coupe", 2021);
+        var bmwX5 = new VehicleModel(bmw.Id, "X5", "SUV", 2019);
+        _context.VehicleModels.AddRange(bmw3Series, bmwM3, bmwM4, bmwX5);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(bmw3Series.Id, "330i", "Automatic", FuelType.Petrol, 1998, 255, 2019),
+            new VehicleVariant(bmw3Series.Id, "M340i xDrive", "Automatic", FuelType.Petrol, 2998, 382, 2020),
+            new VehicleVariant(bmw3Series.Id, "330e", "Automatic", FuelType.PlugInHybrid, 1998, 288, 2020),
+            new VehicleVariant(bmwM3.Id, "M3 Standard", "Manual", FuelType.Petrol, 2993, 473, 2021),
+            new VehicleVariant(bmwM3.Id, "M3 Competition xDrive", "Automatic", FuelType.Petrol, 2993, 503, 2021),
+            new VehicleVariant(bmwM4.Id, "M4 Competition", "Automatic", FuelType.Petrol, 2993, 503, 2021),
+            new VehicleVariant(bmwX5.Id, "xDrive40i", "Automatic", FuelType.Petrol, 2998, 375, 2019),
+            new VehicleVariant(bmwX5.Id, "xDrive45e", "Automatic", FuelType.PlugInHybrid, 2998, 389, 2020)
+        );
+
+        // 2. Audi
+        var audi = new VehicleManufacturer("Audi", "Germany", "/logos/audi.svg", 2);
+        _context.VehicleManufacturers.Add(audi);
+        await _context.SaveChangesAsync();
+
+        var audiA4 = new VehicleModel(audi.Id, "A4", "Sedan", 2016);
+        var audiRs6 = new VehicleModel(audi.Id, "RS6 Avant", "Wagon", 2020);
+        var audiEtron = new VehicleModel(audi.Id, "e-tron GT", "Sedan", 2021);
+        _context.VehicleModels.AddRange(audiA4, audiRs6, audiEtron);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(audiA4.Id, "40 TFSI", "Automatic", FuelType.Petrol, 1984, 201, 2016),
+            new VehicleVariant(audiA4.Id, "45 TFSI quattro", "Automatic", FuelType.Petrol, 1984, 261, 2016),
+            new VehicleVariant(audiRs6.Id, "RS6 4.0 TFSI quattro", "Automatic", FuelType.Petrol, 3996, 591, 2020),
+            new VehicleVariant(audiEtron.Id, "RS e-tron GT", "Automatic", FuelType.Electric, null, 637, 2021)
+        );
+
+        // 3. Mercedes-Benz
+        var mb = new VehicleManufacturer("Mercedes-Benz", "Germany", "/logos/mercedes.svg", 3);
+        _context.VehicleManufacturers.Add(mb);
+        await _context.SaveChangesAsync();
+
+        var mbCClass = new VehicleModel(mb.Id, "C-Class", "Sedan", 2022);
+        var mbAmgGt = new VehicleModel(mb.Id, "AMG GT", "Coupe", 2020);
+        _context.VehicleModels.AddRange(mbCClass, mbAmgGt);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(mbCClass.Id, "C300", "Automatic", FuelType.Petrol, 1999, 255, 2022),
+            new VehicleVariant(mbCClass.Id, "AMG C43 4MATIC", "Automatic", FuelType.Petrol, 1991, 402, 2023),
+            new VehicleVariant(mbCClass.Id, "AMG C63 S E Performance", "Automatic", FuelType.PlugInHybrid, 1991, 671, 2024),
+            new VehicleVariant(mbAmgGt.Id, "GT 63 4MATIC+", "Automatic", FuelType.Petrol, 3982, 577, 2020)
+        );
+
+        // 4. Porsche
+        var porsche = new VehicleManufacturer("Porsche", "Germany", "/logos/porsche.svg", 4);
+        _context.VehicleManufacturers.Add(porsche);
+        await _context.SaveChangesAsync();
+
+        var porsche911 = new VehicleModel(porsche.Id, "911", "Coupe", 2019);
+        var porscheTaycan = new VehicleModel(porsche.Id, "Taycan", "Sedan", 2020);
+        _context.VehicleModels.AddRange(porsche911, porscheTaycan);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(porsche911.Id, "Carrera", "Dual-Clutch", FuelType.Petrol, 2981, 379, 2019),
+            new VehicleVariant(porsche911.Id, "Carrera 4S", "Dual-Clutch", FuelType.Petrol, 2981, 443, 2019),
+            new VehicleVariant(porsche911.Id, "GT3", "Dual-Clutch", FuelType.Petrol, 3996, 502, 2021),
+            new VehicleVariant(porsche911.Id, "Turbo S", "Dual-Clutch", FuelType.Petrol, 3745, 640, 2020),
+            new VehicleVariant(porscheTaycan.Id, "4S", "Automatic", FuelType.Electric, null, 522, 2020),
+            new VehicleVariant(porscheTaycan.Id, "Turbo S", "Automatic", FuelType.Electric, null, 750, 2020)
+        );
+
+        // 5. Toyota
+        var toyota = new VehicleManufacturer("Toyota", "Japan", "/logos/toyota.svg", 5);
+        _context.VehicleManufacturers.Add(toyota);
+        await _context.SaveChangesAsync();
+
+        var toyotaSupra = new VehicleModel(toyota.Id, "GR Supra", "Coupe", 2020);
+        var toyotaYaris = new VehicleModel(toyota.Id, "GR Yaris", "Hatchback", 2020);
+        _context.VehicleModels.AddRange(toyotaSupra, toyotaYaris);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(toyotaSupra.Id, "2.0", "Automatic", FuelType.Petrol, 1998, 255, 2020),
+            new VehicleVariant(toyotaSupra.Id, "3.0 Premium", "Automatic", FuelType.Petrol, 2998, 382, 2020),
+            new VehicleVariant(toyotaYaris.Id, "Circuit Pack", "Manual", FuelType.Petrol, 1618, 257, 2020)
+        );
+
+        // 6. Volkswagen
+        var vw = new VehicleManufacturer("Volkswagen", "Germany", "/logos/vw.svg", 6);
+        _context.VehicleManufacturers.Add(vw);
+        await _context.SaveChangesAsync();
+
+        var vwGolf = new VehicleModel(vw.Id, "Golf", "Hatchback", 2020);
+        _context.VehicleModels.Add(vwGolf);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(vwGolf.Id, "GTI", "Automatic", FuelType.Petrol, 1984, 241, 2020),
+            new VehicleVariant(vwGolf.Id, "R", "Automatic", FuelType.Petrol, 1984, 315, 2021)
+        );
+
+        // 7. Tesla
+        var tesla = new VehicleManufacturer("Tesla", "USA", "/logos/tesla.svg", 7);
+        _context.VehicleManufacturers.Add(tesla);
+        await _context.SaveChangesAsync();
+
+        var teslaModel3 = new VehicleModel(tesla.Id, "Model 3", "Sedan", 2018);
+        _context.VehicleModels.Add(teslaModel3);
+        await _context.SaveChangesAsync();
+
+        _context.VehicleVariants.AddRange(
+            new VehicleVariant(teslaModel3.Id, "Long Range AWD", "Direct Drive", FuelType.Electric, null, 425, 2018),
+            new VehicleVariant(teslaModel3.Id, "Performance", "Direct Drive", FuelType.Electric, null, 510, 2019)
+        );
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Vehicle Master catalog seeded successfully (7 manufacturers, 15 models, 24 variants).");
     }
 }

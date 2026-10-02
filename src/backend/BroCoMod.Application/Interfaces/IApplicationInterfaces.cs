@@ -25,6 +25,11 @@ public interface IApplicationDbContext
     DbSet<BroCoMod.Domain.Entities.CustomerVehicle> CustomerVehicles { get; }
     DbSet<BroCoMod.Domain.Entities.Identity.AuditLog> AuditLogs { get; }
 
+    // Vehicle Master Catalog
+    DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleManufacturer> VehicleManufacturers { get; }
+    DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleModel> VehicleModels { get; }
+    DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleVariant> VehicleVariants { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
