@@ -17,13 +17,25 @@ public static class QuoteDataIsolationPolicy
     /// </summary>
     public static CustomerQuoteViewDto ProjectToCustomerView(CustomerQuotation quotation)
     {
+        var legacyStatus = quotation.Status switch
+        {
+            CustomerQuotationStatus.Draft => QuoteStatus.Draft,
+            CustomerQuotationStatus.ReadyToSend => QuoteStatus.UnderReview,
+            CustomerQuotationStatus.Sent => QuoteStatus.Submitted,
+            CustomerQuotationStatus.Accepted => QuoteStatus.AcceptedByCustomer,
+            CustomerQuotationStatus.Rejected => QuoteStatus.RejectedByCustomer,
+            CustomerQuotationStatus.Expired => QuoteStatus.Expired,
+            CustomerQuotationStatus.Cancelled => QuoteStatus.Withdrawn,
+            _ => QuoteStatus.Submitted
+        };
+
         return new CustomerQuoteViewDto(
             quotation.Id,
             quotation.ServiceRequestId,
             quotation.CustomerFacingPrice,
             quotation.ScopeSummary,
             quotation.AdvisorNotes,
-            quotation.Status,
+            legacyStatus,
             quotation.CreatedAtUtc
         );
     }

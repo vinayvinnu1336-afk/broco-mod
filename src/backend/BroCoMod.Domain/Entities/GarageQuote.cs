@@ -342,6 +342,11 @@ public class GarageQuote : BaseEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
+    public void MarkSelectedByAdvisor()
+    {
+        MarkSelected();
+    }
+
     public void MarkRejected()
     {
         Status = QuoteStatus.RejectedByAdvisor;

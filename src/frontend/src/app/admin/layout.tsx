@@ -22,6 +22,8 @@ const adminNavItems: NavItem[] = [
   { label: 'Technical Advisors', href: '/admin/advisors', icon: UserCheck },
   { label: 'Platform Requests', href: '/admin/requests', icon: FileText },
   { label: 'Garage Quotes', href: '/admin/quotes', icon: FileSpreadsheet },
+  { label: 'Workshop Assignments', href: '/admin/assignments', icon: Building2 },
+  { label: 'Customer Proposals', href: '/admin/customer-quotations', icon: FileText },
   { label: 'Vehicle Master DB', href: '/admin/vehicle-master', icon: CarFront },
   { label: 'System Settings', href: '/admin/settings', icon: Settings },
   { label: 'Security Audit Trail', href: '/admin/audit', icon: ShieldAlert },

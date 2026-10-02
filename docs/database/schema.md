@@ -343,3 +343,115 @@ Stores immutable historical snapshots of quotes created upon each submission.
 | `LineItemsSnapshotJson` | `TEXT` | `NOT NULL` | Complete JSON serialization of all line items |
 | `SubmittedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot timestamp |
 
+---
+
+## 7. Advisor Review, Garage Assignment & Customer Quotation (Milestone 6)
+
+### 7.1. Sequence: `CustomerQuotationNumberSeq`
+Atomic PostgreSQL integer sequence used for human-readable customer quotation reference generation (`CQ-XXXXXX`).
+
+```sql
+CREATE SEQUENCE IF NOT EXISTS "CustomerQuotationNumberSeq" START WITH 100001 INCREMENT BY 1;
+```
+
+> **IMPORTANT IDENTIFIER NOTICE:** Generated atomically via PostgreSQL sequence `CustomerQuotationNumberSeq`. The `CQ-XXXXXX` identifier is a unique human-readable quotation reference. **Sequence values are not guaranteed to be gapless** due to transaction rollbacks, failed transactions, caching, or database restarts under standard sequence semantics. Security against enumeration relies strictly on authentication, permission checks, and multi-tenant resource isolation.
+
+### 7.2. `AdvisorRequestNotes`
+Confidential technical, diagnostic, and pricing records authored by Technical Advisors.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Note identifier |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id), INDEX` | Parent service request |
+| `AdvisorId` | `UUID` | `NOT NULL, INDEX` | User ID of authoring advisor |
+| `AdvisorName` | `VARCHAR(200)` | `NOT NULL` | Author display name / email |
+| `Note` | `TEXT` | `NOT NULL` | Confidential operational note content |
+| `IsInternal` | `BOOLEAN` | `NOT NULL DEFAULT true` | Always true (Never exposed to external parties) |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Last edit timestamp |
+
+### 7.3. `GarageAssignments`
+Binds a ServiceRequest to a selected partner workshop and their winning quote.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Assignment identifier |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id)` | Associated service request |
+| `GarageId` | `UUID` | `FK -> Garages(Id), INDEX` | Selected workshop |
+| `SelectedQuoteId` | `UUID` | `FK -> GarageQuotes(Id), INDEX` | Selected workshop quotation |
+| `AssignedByAdvisorId` | `UUID` | `NOT NULL, INDEX` | Assigning advisor ID |
+| `AssignedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Assignment timestamp |
+| `Status` | `INTEGER` | `NOT NULL` | Enum: Assigned(1), Cancelled(2), Reassigned(3) |
+| `AssignmentReason` | `VARCHAR(1000)` | `NULL` | Technical/operational selection rationale |
+| `CancelledAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Cancellation timestamp |
+| `CancellationReason` | `VARCHAR(1000)` | `NULL` | Cancellation rationale |
+| `ConcurrencyToken` | `UUID` | `NOT NULL` | Optimistic concurrency token |
+
+> **Single Active Assignment Unique Partial Index**:
+> ```sql
+> CREATE UNIQUE INDEX "IX_GarageAssignments_ServiceRequestId"
+> ON "GarageAssignments" ("ServiceRequestId")
+> WHERE "Status" = 1;
+> ```
+
+### 7.4. `CustomerQuotations`
+The curated commercial quotation presented to the customer.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique customer quotation ID |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id), INDEX` | Parent service request |
+| `GarageAssignmentId` | `UUID` | `FK -> GarageAssignments(Id) (NULL), INDEX` | Winning assignment lineage |
+| `AssignedGarageId` | `UUID` | `FK -> Garages(Id), INDEX` | Fulfilling partner workshop |
+| `AdvisorId` | `UUID` | `NOT NULL, INDEX` | Curating advisor ID |
+| `QuotationNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Unique reference (`CQ-XXXXXX`) via `CustomerQuotationNumberSeq` |
+| `Currency` | `VARCHAR(10)` | `NOT NULL DEFAULT 'INR'` | Currency code |
+| `CustomerSubtotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Retail line items subtotal |
+| `CustomerDiscount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Promotional platform discount |
+| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applicable statutory GST |
+| `CustomerTotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Final payable total |
+| `ValidUntilUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Customer acceptance expiry date |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | Enum: Draft(1), ReadyToSend(2), Sent(3), Accepted(4), Rejected(5), Expired(6), Cancelled(7) |
+| `VersionNumber` | `INTEGER` | `NOT NULL DEFAULT 1` | Revision number |
+| `ScopeSummary` | `VARCHAR(1000)` | `NOT NULL` | Customer-facing work package summary |
+| `AdvisorRemarks` | `VARCHAR(2000)` | `NULL` | Warranty and parts compliance remarks |
+| `SentAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Customer dispatch timestamp |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Audit creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Audit modification timestamp |
+
+### 7.5. `CustomerQuotationLineItems`
+Individual commercial items approved for customer invoicing.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Line item identifier |
+| `CustomerQuotationId` | `UUID` | `FK -> CustomerQuotations(Id), INDEX` | Parent customer quotation |
+| `LineType` | `INTEGER` | `NOT NULL` | Enum: Labour(1), Part(2), Service(3), Other(4) |
+| `Description` | `VARCHAR(500)` | `NOT NULL` | Scope or item description |
+| `Quantity` | `NUMERIC(18,2)` | `NOT NULL` | Units or billable hours |
+| `UnitPrice` | `NUMERIC(18,2)` | `NOT NULL` | Customer unit retail rate |
+| `TaxRate` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 18.00` | GST tax rate percentage |
+| `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Line item discount |
+| `LineTotal` | `NUMERIC(18,2)` | `NOT NULL` | Line total: `(Quantity * UnitPrice) - DiscountAmount` |
+| `SortOrder` | `INTEGER` | `NOT NULL DEFAULT 0` | Display sorting |
+
+### 7.6. `CustomerQuotationVersions`
+Immutable historical snapshot preserving financial and line item states upon `ReadyToSend` and revision events.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Version snapshot identifier |
+| `CustomerQuotationId` | `UUID` | `FK -> CustomerQuotations(Id), INDEX` | Parent customer quotation |
+| `VersionNumber` | `INTEGER` | `NOT NULL` | Snapshot revision (`1, 2, ...`) |
+| `CustomerSubtotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot subtotal |
+| `CustomerDiscount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot discount |
+| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot tax |
+| `CustomerTotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot total |
+| `ValidUntilUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot expiry |
+| `ScopeSummary` | `VARCHAR(1000)` | `NULL` | Snapshot scope |
+| `AdvisorRemarks` | `VARCHAR(2000)` | `NULL` | Snapshot remarks |
+| `LineItemsJson` | `TEXT` | `NOT NULL` | Serialized JSON of all approved line items |
+| `CreatedByUserId` | `UUID` | `NOT NULL` | Snapshot user attribution |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot timestamp |
+
+

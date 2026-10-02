@@ -21,6 +21,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<GarageQuoteLineItem> GarageQuoteLineItems => Set<GarageQuoteLineItem>();
     public DbSet<GarageQuoteVersion> GarageQuoteVersions => Set<GarageQuoteVersion>();
     public DbSet<CustomerQuotation> CustomerQuotations => Set<CustomerQuotation>();
+    public DbSet<CustomerQuotationLineItem> CustomerQuotationLineItems => Set<CustomerQuotationLineItem>();
+    public DbSet<CustomerQuotationVersion> CustomerQuotationVersions => Set<CustomerQuotationVersion>();
+    public DbSet<GarageAssignment> GarageAssignments => Set<GarageAssignment>();
+    public DbSet<AdvisorRequestNote> AdvisorRequestNotes => Set<AdvisorRequestNote>();
 
     // Identity & Authorization
     public DbSet<User> Users => Set<User>();
@@ -61,6 +65,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Generated atomically via PostgreSQL sequence GarageQuoteNumberSeq.
         // The BQ-XXXXXX identifier is a unique human-readable quote reference. Sequence values are not guaranteed to be gapless.
         modelBuilder.HasSequence<long>("GarageQuoteNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence CustomerQuotationNumberSeq.
+        // The CQ-XXXXXX identifier is a unique human-readable customer quotation reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("CustomerQuotationNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);
 
@@ -294,16 +304,124 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<CustomerQuotation>(builder =>
         {
             builder.HasKey(cq => cq.Id);
-            builder.Property(cq => cq.CustomerFacingPrice)
-                .HasPrecision(18, 2)
-                .IsRequired();
-            builder.Property(cq => cq.AdvisorMarginApplied)
-                .HasPrecision(18, 2)
-                .IsRequired();
-            builder.Property(cq => cq.ScopeSummary)
-                .HasMaxLength(2000);
-            builder.Property(cq => cq.AdvisorNotes)
-                .HasMaxLength(2000);
+            builder.Property(cq => cq.QuotationNumber).IsRequired().HasMaxLength(32);
+            builder.Property(cq => cq.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(cq => cq.CustomerSubtotal).HasPrecision(18, 2);
+            builder.Property(cq => cq.CustomerDiscount).HasPrecision(18, 2);
+            builder.Property(cq => cq.CustomerTax).HasPrecision(18, 2);
+            builder.Property(cq => cq.CustomerTotal).HasPrecision(18, 2);
+            builder.Property(cq => cq.CustomerFacingPrice).HasPrecision(18, 2);
+            builder.Property(cq => cq.AdvisorMarginApplied).HasPrecision(18, 2);
+            builder.Property(cq => cq.ScopeSummary).HasMaxLength(2000);
+            builder.Property(cq => cq.AdvisorNotes).HasMaxLength(2000);
+            builder.Property(cq => cq.AdvisorRemarks).HasMaxLength(2000);
+
+            builder.HasIndex(cq => cq.QuotationNumber).IsUnique();
+            builder.HasIndex(cq => cq.ServiceRequestId);
+            builder.HasIndex(cq => cq.AssignedGarageId);
+            builder.HasIndex(cq => cq.Status);
+            builder.HasIndex(cq => cq.AdvisorId);
+
+            builder.HasOne(cq => cq.ServiceRequest)
+                .WithOne(sr => sr.CustomerQuotation)
+                .HasForeignKey<CustomerQuotation>(cq => cq.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(cq => cq.GarageAssignment)
+                .WithMany(ga => ga.CustomerQuotations)
+                .HasForeignKey(cq => cq.GarageAssignmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasMany(cq => cq.LineItems)
+                .WithOne(li => li.CustomerQuotation)
+                .HasForeignKey(li => li.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(cq => cq.Versions)
+                .WithOne(v => v.CustomerQuotation)
+                .HasForeignKey(v => v.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CustomerQuotationLineItem configuration
+        modelBuilder.Entity<CustomerQuotationLineItem>(builder =>
+        {
+            builder.HasKey(li => li.Id);
+            builder.Property(li => li.Description).IsRequired().HasMaxLength(500);
+            builder.Property(li => li.Quantity).HasPrecision(18, 2);
+            builder.Property(li => li.UnitPrice).HasPrecision(18, 2);
+            builder.Property(li => li.TaxRate).HasPrecision(5, 2);
+            builder.Property(li => li.DiscountAmount).HasPrecision(18, 2);
+            builder.Property(li => li.LineTotal).HasPrecision(18, 2);
+
+            builder.HasIndex(li => li.CustomerQuotationId);
+            builder.HasIndex(li => new { li.CustomerQuotationId, li.SortOrder });
+        });
+
+        // CustomerQuotationVersion configuration
+        modelBuilder.Entity<CustomerQuotationVersion>(builder =>
+        {
+            builder.HasKey(v => v.Id);
+            builder.Property(v => v.LineItemsJson).IsRequired();
+            builder.Property(v => v.CustomerSubtotal).HasPrecision(18, 2);
+            builder.Property(v => v.CustomerDiscount).HasPrecision(18, 2);
+            builder.Property(v => v.CustomerTax).HasPrecision(18, 2);
+            builder.Property(v => v.CustomerTotal).HasPrecision(18, 2);
+            builder.Property(v => v.AdvisorRemarks).HasMaxLength(2000);
+            builder.Property(v => v.ScopeSummary).HasMaxLength(2000);
+
+            builder.HasIndex(v => v.CustomerQuotationId);
+            builder.HasIndex(v => new { v.CustomerQuotationId, v.VersionNumber }).IsUnique();
+        });
+
+        // GarageAssignment configuration
+        modelBuilder.Entity<GarageAssignment>(builder =>
+        {
+            builder.HasKey(ga => ga.Id);
+            builder.Property(ga => ga.AssignmentReason).HasMaxLength(1000);
+            builder.Property(ga => ga.CancellationReason).HasMaxLength(1000);
+
+            builder.HasIndex(ga => ga.GarageId);
+            builder.HasIndex(ga => ga.SelectedQuoteId);
+            builder.HasIndex(ga => ga.Status);
+            builder.HasIndex(ga => ga.AssignedByAdvisorId);
+
+            // Single active assignment constraint per ServiceRequest
+            builder.HasIndex(ga => ga.ServiceRequestId)
+                .IsUnique()
+                .HasFilter("\"Status\" = 1"); // Status 1 = Assigned
+
+            builder.HasOne(ga => ga.ServiceRequest)
+                .WithMany(sr => sr.GarageAssignments)
+                .HasForeignKey(ga => ga.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(ga => ga.Garage)
+                .WithMany()
+                .HasForeignKey(ga => ga.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(ga => ga.SelectedQuote)
+                .WithMany()
+                .HasForeignKey(ga => ga.SelectedQuoteId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AdvisorRequestNote configuration (Internal notes)
+        modelBuilder.Entity<AdvisorRequestNote>(builder =>
+        {
+            builder.HasKey(n => n.Id);
+            builder.Property(n => n.Note).IsRequired().HasMaxLength(2000);
+            builder.Property(n => n.AdvisorName).IsRequired().HasMaxLength(200);
+
+            builder.HasIndex(n => n.ServiceRequestId);
+            builder.HasIndex(n => n.AdvisorId);
+            builder.HasIndex(n => n.CreatedAtUtc);
+
+            builder.HasOne(n => n.ServiceRequest)
+                .WithMany(sr => sr.AdvisorNotes)
+                .HasForeignKey(n => n.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // User configuration

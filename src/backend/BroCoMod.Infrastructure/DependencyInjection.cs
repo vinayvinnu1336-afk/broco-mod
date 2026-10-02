@@ -66,6 +66,11 @@ public static class DependencyInjection
         services.AddScoped<IGarageQuoteService, GarageQuoteService>();
         services.AddHostedService<QuoteExpirationBackgroundService>();
 
+        // Milestone 6: Advisor Review, Garage Assignment & Customer Quotation Services
+        services.AddScoped<ICustomerQuotationNumberGenerator, CustomerQuotationNumberGenerator>();
+        services.AddScoped<IAdvisorQuotationService, AdvisorQuotationService>();
+        services.AddScoped<ICustomerQuotationService, CustomerQuotationService>();
+
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<DatabaseSeeder>();
