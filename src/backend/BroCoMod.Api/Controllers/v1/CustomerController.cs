@@ -12,13 +12,16 @@ namespace BroCoMod.Api.Controllers.v1;
 public class CustomerController : ControllerBase
 {
     private readonly ICustomerPortalService _customerPortalService;
+    private readonly ICustomerVehicleService _customerVehicleService;
     private readonly ICurrentUserService _currentUserService;
 
     public CustomerController(
         ICustomerPortalService customerPortalService,
+        ICustomerVehicleService customerVehicleService,
         ICurrentUserService currentUserService)
     {
         _customerPortalService = customerPortalService;
+        _customerVehicleService = customerVehicleService;
         _currentUserService = currentUserService;
     }
 
@@ -51,21 +54,113 @@ public class CustomerController : ControllerBase
     }
 
     [HttpGet("vehicles")]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CustomerVehicleDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CustomerVehicleDetailDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetVehicles(CancellationToken cancellationToken)
     {
         var customerId = GetEffectiveCustomerId();
-        var vehicles = await _customerPortalService.GetVehiclesAsync(customerId, cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<CustomerVehicleDto>>.Ok(vehicles));
+        var vehicles = await _customerVehicleService.GetCustomerVehiclesAsync(customerId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<CustomerVehicleDetailDto>>.Ok(vehicles));
     }
 
     [HttpPost("vehicles")]
-    [ProducesResponseType(typeof(ApiResponse<CustomerVehicleDto>), StatusCodes.Status201Created)]
-    public async Task<IActionResult> AddVehicle([FromBody] CreateVehicleDto dto, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<CustomerVehicleDetailDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddVehicle([FromBody] CreateCustomerVehicleRequest request, CancellationToken cancellationToken)
     {
         var customerId = GetEffectiveCustomerId();
-        var created = await _customerPortalService.AddVehicleAsync(customerId, dto, cancellationToken);
-        return CreatedAtAction(nameof(GetVehicles), ApiResponse<CustomerVehicleDto>.Ok(created, "Vehicle added successfully."));
+        try
+        {
+            var created = await _customerVehicleService.AddVehicleAsync(customerId, request, cancellationToken);
+            return CreatedAtAction(nameof(GetVehicleById), new { id = created.Id }, ApiResponse<CustomerVehicleDetailDto>.Ok(created, "Vehicle added successfully."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    [HttpGet("vehicles/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerVehicleDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetVehicleById(Guid id, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        var vehicle = await _customerVehicleService.GetCustomerVehicleByIdAsync(customerId, id, cancellationToken);
+        if (vehicle == null)
+        {
+            return NotFound(ApiResponse<object>.Fail("Vehicle not found or unauthorized."));
+        }
+
+        return Ok(ApiResponse<CustomerVehicleDetailDto>.Ok(vehicle));
+    }
+
+    [HttpPut("vehicles/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerVehicleDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateVehicle(Guid id, [FromBody] UpdateCustomerVehicleRequest request, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            var updated = await _customerVehicleService.UpdateVehicleAsync(customerId, id, request, cancellationToken);
+            return Ok(ApiResponse<CustomerVehicleDetailDto>.Ok(updated, "Vehicle updated successfully."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    [HttpDelete("vehicles/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteVehicle(Guid id, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            await _customerVehicleService.DeleteVehicleAsync(customerId, id, cancellationToken);
+            return Ok(ApiResponse<bool>.Ok(true, "Vehicle removed successfully."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    [HttpPost("vehicles/{id:guid}/set-primary")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetPrimaryVehicle(Guid id, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            await _customerVehicleService.SetPrimaryVehicleAsync(customerId, id, cancellationToken);
+            return Ok(ApiResponse<bool>.Ok(true, "Vehicle set as primary successfully."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 
     [HttpGet("requests")]

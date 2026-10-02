@@ -43,11 +43,13 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IIdentityService, IdentityService>();
 
-        // Portal Services
+        // Portal & Vehicle Services
         services.AddScoped<ICustomerPortalService, CustomerPortalService>();
         services.AddScoped<IGaragePortalService, GaragePortalService>();
         services.AddScoped<IAdvisorPortalService, AdvisorPortalService>();
         services.AddScoped<IAdminPortalService, AdminPortalService>();
+        services.AddScoped<IVehicleMasterService, VehicleMasterService>();
+        services.AddScoped<ICustomerVehicleService, CustomerVehicleService>();
 
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();

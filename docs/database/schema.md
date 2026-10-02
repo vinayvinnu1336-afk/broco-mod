@@ -143,5 +143,66 @@ Strict separation of concerns separating authentication from role domain attribu
 - **`CustomerProfiles`**: `Id`, `UserId` (UNIQUE), `Address`, `PreferredContactMethod`.
 - **`GarageUsers`**: `Id`, `UserId` (UNIQUE), `GarageId` (FK), `RoleName` (`GARAGE_OWNER`, `GARAGE_MANAGER`, `GARAGE_STAFF`), `Title`.
 - **`AdvisorProfiles`**: `Id`, `UserId` (UNIQUE), `EmployeeCode`, `Specialization`, `MaxAssignedRequests`.
-- **`CustomerVehicles`**: `Id`, `CustomerId`, `Make`, `Model`, `Year`, `LicensePlate`, `Vin`, `Mileage`.
 - **`AuditLogs`**: `Id`, `Action`, `UserId`, `UserEmail`, `EntityName`, `EntityId`, `Details`, `IpAddress`, `TimestampUtc`.
+
+---
+
+## 4. Vehicle Master & Customer Inventory
+
+### 4.1. `VehicleManufacturers`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique manufacturer ID |
+| `Name` | `VARCHAR(100)` | `NOT NULL` | Brand name (e.g. BMW, Audi) |
+| `NormalizedName` | `VARCHAR(100)` | `UNIQUE` | Uppercase normalized name |
+| `Country` | `VARCHAR(100)` | `NOT NULL` | Origin nation |
+| `LogoUrl` | `VARCHAR(500)` | `NOT NULL` | Asset path or CDN URI |
+| `DisplayOrder` | `INTEGER` | `NOT NULL` | Priority sorting order |
+| `IsActive` | `BOOLEAN` | `NOT NULL` | Activation toggle |
+
+### 4.2. `VehicleModels`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique model ID |
+| `ManufacturerId` | `UUID` | `FK -> VehicleManufacturers(Id)` | Parent manufacturer |
+| `Name` | `VARCHAR(100)` | `NOT NULL` | Model name (e.g. 3 Series) |
+| `NormalizedName` | `VARCHAR(100)` | `NOT NULL` | Uppercase normalized name |
+| `BodyType` | `VARCHAR(50)` | `NOT NULL` | Sedan, Coupe, SUV, Wagon, etc. |
+| `YearFrom` | `INTEGER` | `NOT NULL` | Initial production year |
+| `YearTo` | `INTEGER` | `NULL` | Final year or NULL if active |
+| `IsActive` | `BOOLEAN` | `NOT NULL` | Activation toggle |
+
+### 4.3. `VehicleVariants`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique variant ID |
+| `ModelId` | `UUID` | `FK -> VehicleModels(Id)` | Parent model line |
+| `Name` | `VARCHAR(100)` | `NOT NULL` | Trim name (e.g. M340i xDrive) |
+| `Transmission` | `VARCHAR(50)` | `NOT NULL` | Automatic, Manual, DCT |
+| `FuelType` | `INTEGER` | `NOT NULL` | Enum: Petrol(1), Diesel(2), EV(3), etc. |
+| `EngineDisplacementCc` | `INTEGER` | `NULL` | Engine displacement |
+| `Horsepower` | `INTEGER` | `NULL` | Rated peak horsepower |
+| `YearFrom` | `INTEGER` | `NOT NULL` | Initial introduction year |
+| `YearTo` | `INTEGER` | `NULL` | Final variant year |
+| `IsActive` | `BOOLEAN` | `NOT NULL` | Activation toggle |
+
+### 4.4. `CustomerVehicles`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Vehicle record ID |
+| `CustomerId` | `UUID` | `INDEX` | Owning customer ID |
+| `ManufacturerId` | `UUID` | `FK -> VehicleManufacturers(Id)` | Relational manufacturer link |
+| `ModelId` | `UUID` | `FK -> VehicleModels(Id)` | Relational model link |
+| `VariantId` | `UUID` | `FK -> VehicleVariants(Id) (NULL)` | Relational variant link |
+| `Make` | `VARCHAR(100)` | `NOT NULL` | Denormalized make name |
+| `Model` | `VARCHAR(100)` | `NOT NULL` | Denormalized model name |
+| `VariantName` | `VARCHAR(100)` | `NOT NULL` | Denormalized variant name |
+| `Year` | `INTEGER` | `NOT NULL` | Model year |
+| `FuelType` | `INTEGER` | `NOT NULL` | Standard fuel type enum |
+| `Transmission` | `VARCHAR(50)` | `NOT NULL` | Gearbox type |
+| `LicensePlate` | `VARCHAR(50)` | `NOT NULL` | Vehicle registration plate |
+| `Vin` | `VARCHAR(50)` | `NOT NULL` | Vehicle chassis number |
+| `Mileage` | `INTEGER` | `NOT NULL` | Recorded odometer KM |
+| `Color` | `VARCHAR(50)` | `NOT NULL` | Bodywork color |
+| `IsPrimary` | `BOOLEAN` | `NOT NULL` | Customer default vehicle flag |
+| `IsActive` | `BOOLEAN` | `NOT NULL` | Soft-delete / active status |
