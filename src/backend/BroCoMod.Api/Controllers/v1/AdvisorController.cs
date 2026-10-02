@@ -13,15 +13,18 @@ public class AdvisorController : ControllerBase
 {
     private readonly IAdvisorPortalService _advisorPortalService;
     private readonly IServiceRequestService _serviceRequestService;
+    private readonly IGarageQuoteService _garageQuoteService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdvisorController(
         IAdvisorPortalService advisorPortalService,
         IServiceRequestService serviceRequestService,
+        IGarageQuoteService garageQuoteService,
         ICurrentUserService currentUserService)
     {
         _advisorPortalService = advisorPortalService;
         _serviceRequestService = serviceRequestService;
+        _garageQuoteService = garageQuoteService;
         _currentUserService = currentUserService;
     }
 
@@ -86,6 +89,30 @@ public class AdvisorController : ControllerBase
     {
         var quotes = await _advisorPortalService.GetQuotesForReviewAsync(cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<AdvisorQuoteSummaryDto>>.Ok(quotes));
+    }
+
+    [HttpGet("garage-quotes")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AdvisorGarageQuoteSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGarageQuotes(
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? serviceRequestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var quotes = await _garageQuoteService.GetQuotesForAdvisorAsync(status, serviceRequestId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<AdvisorGarageQuoteSummaryDto>>.Ok(quotes));
+    }
+
+    [HttpGet("garage-quotes/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorGarageQuoteDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGarageQuoteById(Guid id, CancellationToken cancellationToken)
+    {
+        var quote = await _garageQuoteService.GetAdvisorQuoteDetailAsync(id, cancellationToken);
+        if (quote == null)
+        {
+            return NotFound(ApiResponse<object>.Fail($"Garage quotation {id} not found."));
+        }
+        return Ok(ApiResponse<AdvisorGarageQuoteDetailDto>.Ok(quote));
     }
 
     [HttpGet("assignments")]

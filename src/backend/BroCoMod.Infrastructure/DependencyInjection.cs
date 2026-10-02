@@ -61,6 +61,11 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
 
+        // Garage Quotation Workflow Services
+        services.AddScoped<IQuoteNumberGenerator, QuoteNumberGenerator>();
+        services.AddScoped<IGarageQuoteService, GarageQuoteService>();
+        services.AddHostedService<QuoteExpirationBackgroundService>();
+
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<DatabaseSeeder>();

@@ -18,6 +18,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Garage> Garages => Set<Garage>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<GarageQuote> GarageQuotes => Set<GarageQuote>();
+    public DbSet<GarageQuoteLineItem> GarageQuoteLineItems => Set<GarageQuoteLineItem>();
+    public DbSet<GarageQuoteVersion> GarageQuoteVersions => Set<GarageQuoteVersion>();
     public DbSet<CustomerQuotation> CustomerQuotations => Set<CustomerQuotation>();
 
     // Identity & Authorization
@@ -53,6 +55,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Generated atomically via PostgreSQL sequence ServiceRequestNumberSeq.
         // The BM-XXXXXX identifier is a unique human-readable service request reference. Sequence values are not guaranteed to be gapless.
         modelBuilder.HasSequence<long>("ServiceRequestNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence GarageQuoteNumberSeq.
+        // The BQ-XXXXXX identifier is a unique human-readable quote reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("GarageQuoteNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);
 
@@ -205,18 +213,81 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<GarageQuote>(builder =>
         {
             builder.HasKey(gq => gq.Id);
-            builder.Property(gq => gq.GarageInternalPrice)
-                .HasPrecision(18, 2)
-                .IsRequired();
-            builder.Property(gq => gq.InternalCostBreakdown)
-                .HasMaxLength(4000);
-            builder.Property(gq => gq.GarageNotes)
-                .HasMaxLength(2000);
+            builder.Property(gq => gq.QuoteNumber).IsRequired().HasMaxLength(50);
+            builder.Property(gq => gq.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(gq => gq.Subtotal).HasPrecision(18, 2);
+            builder.Property(gq => gq.TaxAmount).HasPrecision(18, 2);
+            builder.Property(gq => gq.DiscountAmount).HasPrecision(18, 2);
+            builder.Property(gq => gq.TotalAmount).HasPrecision(18, 2);
+            builder.Property(gq => gq.GarageRemarks).HasMaxLength(4000);
+            builder.Property(gq => gq.WithdrawalReason).HasMaxLength(1000);
+            builder.Property(gq => gq.IdempotencyKey).HasMaxLength(128);
+
+            builder.HasIndex(gq => gq.QuoteNumber).IsUnique();
+            builder.HasIndex(gq => gq.GarageRequestId);
+            builder.HasIndex(gq => gq.GarageId);
+            builder.HasIndex(gq => gq.ServiceRequestId);
+            builder.HasIndex(gq => gq.Status);
+            builder.HasIndex(gq => gq.ValidUntil);
+            builder.HasIndex(gq => gq.SubmittedAtUtc);
+            builder.HasIndex(gq => new { gq.GarageId, gq.IdempotencyKey });
 
             builder.HasOne(gq => gq.Garage)
                 .WithMany(g => g.Quotes)
                 .HasForeignKey(gq => gq.GarageId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(gq => gq.GarageRequest)
+                .WithMany(gr => gr.Quotes)
+                .HasForeignKey(gq => gq.GarageRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(gq => gq.ServiceRequest)
+                .WithMany(sr => sr.GarageQuotes)
+                .HasForeignKey(gq => gq.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(gq => gq.LineItems)
+                .WithOne(li => li.GarageQuote)
+                .HasForeignKey(li => li.GarageQuoteId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(gq => gq.Versions)
+                .WithOne(v => v.GarageQuote)
+                .HasForeignKey(v => v.GarageQuoteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // GarageQuoteLineItem configuration
+        modelBuilder.Entity<GarageQuoteLineItem>(builder =>
+        {
+            builder.HasKey(li => li.Id);
+            builder.Property(li => li.Description).IsRequired().HasMaxLength(500);
+            builder.Property(li => li.Quantity).HasPrecision(18, 2);
+            builder.Property(li => li.UnitPrice).HasPrecision(18, 2);
+            builder.Property(li => li.TaxRate).HasPrecision(5, 2);
+            builder.Property(li => li.DiscountAmount).HasPrecision(18, 2);
+            builder.Property(li => li.ItemSubtotal).HasPrecision(18, 2);
+            builder.Property(li => li.LineTax).HasPrecision(18, 2);
+            builder.Property(li => li.LineTotal).HasPrecision(18, 2);
+
+            builder.HasIndex(li => li.GarageQuoteId);
+            builder.HasIndex(li => new { li.GarageQuoteId, li.SortOrder });
+        });
+
+        // GarageQuoteVersion configuration
+        modelBuilder.Entity<GarageQuoteVersion>(builder =>
+        {
+            builder.HasKey(v => v.Id);
+            builder.Property(v => v.LineItemsJson).IsRequired();
+            builder.Property(v => v.Subtotal).HasPrecision(18, 2);
+            builder.Property(v => v.TaxAmount).HasPrecision(18, 2);
+            builder.Property(v => v.DiscountAmount).HasPrecision(18, 2);
+            builder.Property(v => v.TotalAmount).HasPrecision(18, 2);
+            builder.Property(v => v.GarageRemarks).HasMaxLength(4000);
+
+            builder.HasIndex(v => v.GarageQuoteId);
+            builder.HasIndex(v => new { v.GarageQuoteId, v.VersionNumber }).IsUnique();
         });
 
         // CustomerQuotation configuration (Sanitized customer proposal)

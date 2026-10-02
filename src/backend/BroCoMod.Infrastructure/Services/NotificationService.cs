@@ -226,4 +226,46 @@ public class NotificationService : INotificationService
 
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task NotifyAdvisorsOfGarageQuoteAsync(
+        GarageQuote quote,
+        CancellationToken cancellationToken = default)
+    {
+        var advisorUsers = await _context.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.Role.Name == "ADVISOR" || ur.Role.Name == "SUPER_ADMIN")
+            .Select(ur => ur.UserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var title = $"New Quote Received: {quote.QuoteNumber}";
+        var body = $"A quote of {quote.Currency} {quote.TotalAmount:N2} was submitted for request {quote.ServiceRequest?.RequestNumber ?? quote.ServiceRequestId.ToString()}.";
+        var metadata = JsonSerializer.Serialize(new
+        {
+            quote.Id,
+            quote.QuoteNumber,
+            quote.ServiceRequestId,
+            quote.GarageId,
+            quote.TotalAmount,
+            quote.Currency,
+            quote.VersionNumber
+        });
+
+        foreach (var userId in advisorUsers)
+        {
+            var notification = new Notification(
+                userId,
+                title,
+                body,
+                "GARAGE_QUOTE_SUBMITTED",
+                NotificationChannel.InApp,
+                quote.Id,
+                "GarageQuote",
+                metadata);
+
+            _context.Notifications.Add(notification);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

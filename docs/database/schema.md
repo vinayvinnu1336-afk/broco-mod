@@ -277,3 +277,69 @@ Strict separation of concerns separating authentication from role domain attribu
 | `IsRead` | `BOOLEAN` | `NOT NULL DEFAULT false` | Read status |
 | `ReadAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Read receipt timestamp |
 | `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Delivery timestamp |
+
+---
+
+## 6. Garage Quotations, Line Items & Versions (Milestone 5)
+
+### 6.1. Sequence: `GarageQuoteNumberSeq`
+Atomic PostgreSQL integer sequence used for human-readable quotation reference generation (`BQ-XXXXXX`).
+
+```sql
+CREATE SEQUENCE IF NOT EXISTS "GarageQuoteNumberSeq" START WITH 100001 INCREMENT BY 1;
+```
+
+> **IMPORTANT IDENTIFIER NOTICE:** Generated atomically via PostgreSQL sequence `GarageQuoteNumberSeq`. The `BQ-XXXXXX` identifier is a unique human-readable quote reference. **Sequence values are not guaranteed to be gapless** due to transaction rollbacks, failed transactions, caching, or database restarts under standard sequence semantics. Security against enumeration relies strictly on authentication, permission checks, and multi-tenant resource isolation.
+
+### 6.2. `GarageQuotes`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Unique quote identifier |
+| `QuoteNumber` | `VARCHAR(32)` | `NOT NULL, UNIQUE INDEX` | Unique reference (`BQ-XXXXXX`) via `GarageQuoteNumberSeq` |
+| `ServiceRequestId` | `UUID` | `FK -> ServiceRequests(Id), INDEX` | Associated service request |
+| `GarageRequestId` | `UUID` | `FK -> GarageRequests(Id), INDEX` | Originating dispatch request |
+| `GarageId` | `UUID` | `FK -> Garages(Id), INDEX` | Submitting partner workshop |
+| `Status` | `INTEGER` | `NOT NULL, INDEX` | `QuoteStatus` enum (Draft, Submitted, UnderReview, Accepted, Rejected, Withdrawn, Expired) |
+| `Version` | `INTEGER` | `NOT NULL DEFAULT 1` | Current active revision number |
+| `Subtotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Sum of all line item totals (Server calculated) |
+| `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applied quotation discount |
+| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applicable tax/GST amount (Server calculated) |
+| `GrandTotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Final quote amount (Server calculated) |
+| `EstimatedDurationHours` | `INTEGER` | `NOT NULL` | Estimated turnaround time |
+| `ValidUntil` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Quote expiration deadline |
+| `Notes` | `VARCHAR(2000)` | `NULL` | Workshop remarks for Advisor |
+| `SubmittedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Initial or latest submission timestamp |
+| `CreatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Audit creation timestamp |
+| `UpdatedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NULL` | Audit modification timestamp |
+
+### 6.3. `GarageQuoteLineItems`
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Line item identifier |
+| `GarageQuoteId` | `UUID` | `FK -> GarageQuotes(Id), INDEX` | Parent quotation |
+| `Type` | `INTEGER` | `NOT NULL` | `QuoteLineType` (Labour=1, Part=2, Service=3, Other=4) |
+| `Description` | `VARCHAR(500)` | `NOT NULL` | Item description / part name |
+| `Quantity` | `NUMERIC(18,2)` | `NOT NULL` | Units or hours |
+| `UnitPrice` | `NUMERIC(18,2)` | `NOT NULL` | Price per unit |
+| `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Itemized discount |
+| `LineTotal` | `NUMERIC(18,2)` | `NOT NULL` | Server-calculated total: `(Quantity * UnitPrice) - DiscountAmount` |
+| `PartNumber` | `VARCHAR(100)` | `NULL` | Manufacturer part reference |
+| `SortOrder` | `INTEGER` | `NOT NULL DEFAULT 0` | Display ordering |
+
+### 6.4. `GarageQuoteVersions`
+Stores immutable historical snapshots of quotes created upon each submission.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Id` | `UUID` | `PRIMARY KEY` | Snapshot version identifier |
+| `GarageQuoteId` | `UUID` | `FK -> GarageQuotes(Id), INDEX` | Parent quotation |
+| `Version` | `INTEGER` | `NOT NULL` | Snapshot revision number (`1, 2, ...`) |
+| `Subtotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot subtotal |
+| `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot discount |
+| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot tax |
+| `GrandTotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot grand total |
+| `EstimatedDurationHours` | `INTEGER` | `NOT NULL` | Snapshot duration |
+| `Notes` | `VARCHAR(2000)` | `NULL` | Snapshot notes |
+| `LineItemsSnapshotJson` | `TEXT` | `NOT NULL` | Complete JSON serialization of all line items |
+| `SubmittedAtUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot timestamp |
+

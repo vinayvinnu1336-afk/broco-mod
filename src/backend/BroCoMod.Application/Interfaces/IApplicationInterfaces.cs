@@ -10,6 +10,8 @@ public interface IApplicationDbContext
     DbSet<Garage> Garages { get; }
     DbSet<ServiceRequest> ServiceRequests { get; }
     DbSet<GarageQuote> GarageQuotes { get; }
+    DbSet<GarageQuoteLineItem> GarageQuoteLineItems { get; }
+    DbSet<GarageQuoteVersion> GarageQuoteVersions { get; }
     DbSet<CustomerQuotation> CustomerQuotations { get; }
 
     // Identity & Authorization

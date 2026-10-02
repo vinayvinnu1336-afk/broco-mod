@@ -40,4 +40,8 @@ public interface INotificationService
         ServiceRequest request,
         IReadOnlyList<GarageRequest> garageRequests,
         CancellationToken cancellationToken = default);
+
+    Task NotifyAdvisorsOfGarageQuoteAsync(
+        GarageQuote quote,
+        CancellationToken cancellationToken = default);
 }

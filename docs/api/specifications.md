@@ -86,7 +86,13 @@
 | `/profile` | GET | Workshop facility location, PostGIS coordinates, and team members |
 | `/requests` | GET | Paginated service requests dispatched within the workshop's 10 KM radius |
 | `/requests/{id}` | GET | Dispatch detail with calculated distance; marks status as `VIEWED` |
-| `/quotes` | GET | Confidential workshop cost bids submitted to advisors |
+| `/quotes` | GET | Paginated list of quotes belonging to authenticated workshop (supports status filter) |
+| `/quotes` | POST | Creates a draft quote for a dispatched garage request |
+| `/quotes/{id}` | GET | Detailed quote with line items and immutable revision history |
+| `/quotes/{id}` | PUT | Updates a draft quote (server recalculates all totals, discounts, taxes) |
+| `/quotes/{id}/submit` | POST | Submits quote to advisors; creates immutable version snapshot (`v1`, etc.) |
+| `/quotes/{id}/revision` | POST | Creates a new draft revision (`v{n+1}`) from an existing quote |
+| `/quotes/{id}/withdraw` | POST | Withdraws a draft or submitted quote |
 
 ---
 
@@ -99,8 +105,12 @@
 | `/profile` | GET | Advisor employee code and specialization credentials |
 | `/requests` | GET | Paginated customer requests dispatched for workshop quotation |
 | `/requests/{id}` | GET | Detailed request inspection including all dispatched partner garages |
-| `/quotes` | GET | Workshop bids under review with recommended margin markup calculations |
+| `/requests/{id}/quotes` | GET | List of all partner garage quotations submitted for a service request |
+| `/quotes` | GET | Workshop bids under review across the platform |
+| `/quotes/{id}` | GET | Full quote inspection: itemized line items, server-calculated totals, and version history |
 | `/assignments` | GET | Customer-accepted repair contract allocations |
+
+> **MILESTONE BOUNDARY NOTICE:** In Milestone 5, Advisors can view and inspect partner garage quotations. Garage selection, assignment, customer quotation authoring, and margin application are strictly deferred to Milestone 6+.
 
 ---
 
@@ -114,6 +124,8 @@
 | `/users/{id}/status` | POST | Activates or suspends a platform user |
 | `/requests` | GET | Paginated platform-wide service requests with dispatched garage counts |
 | `/requests/{id}` | GET | Complete audit and dispatch breakdown for any service request |
+| `/quotes` | GET | Platform-wide audit of all partner garage quotations |
+| `/quotes/{id}` | GET | Complete quotation audit breakdown including immutable snapshots |
 | `/garages` | GET | Complete registry of certified partner garages |
 | `/advisors` | GET | Certified technical advisor roster |
 | `/audit` | GET | Security audit log trail with filter limits |

@@ -14,17 +14,20 @@ public class AdminController : ControllerBase
     private readonly IAdminPortalService _adminPortalService;
     private readonly IIdentityService _identityService;
     private readonly IServiceRequestService _serviceRequestService;
+    private readonly IGarageQuoteService _garageQuoteService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdminController(
         IAdminPortalService adminPortalService,
         IIdentityService identityService,
         IServiceRequestService serviceRequestService,
+        IGarageQuoteService garageQuoteService,
         ICurrentUserService currentUserService)
     {
         _adminPortalService = adminPortalService;
         _identityService = identityService;
         _serviceRequestService = serviceRequestService;
+        _garageQuoteService = garageQuoteService;
         _currentUserService = currentUserService;
     }
 
@@ -111,6 +114,31 @@ public class AdminController : ControllerBase
         {
             return NotFound(ApiResponse<object>.Fail(ex.Message));
         }
+    }
+
+    [HttpGet("garage-quotes")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<AdminGarageQuoteSummaryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGarageQuotes(
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? garageId = null,
+        [FromQuery] Guid? serviceRequestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var quotes = await _garageQuoteService.GetAllQuotesForAdminAsync(status, garageId, serviceRequestId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<AdminGarageQuoteSummaryDto>>.Ok(quotes));
+    }
+
+    [HttpGet("garage-quotes/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdminGarageQuoteDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGarageQuoteById(Guid id, CancellationToken cancellationToken)
+    {
+        var quote = await _garageQuoteService.GetAdminQuoteDetailAsync(id, cancellationToken);
+        if (quote == null)
+        {
+            return NotFound(ApiResponse<object>.Fail($"Garage quotation {id} not found."));
+        }
+        return Ok(ApiResponse<AdminGarageQuoteDetailDto>.Ok(quote));
     }
 }
 
