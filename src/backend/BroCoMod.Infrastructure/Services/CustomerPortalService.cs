@@ -1,6 +1,7 @@
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BroCoMod.Infrastructure.Services;
@@ -51,13 +52,14 @@ public class CustomerPortalService : ICustomerPortalService
         var quotes = await _context.CustomerQuotations
             .AsNoTracking()
             .Include(cq => cq.ServiceRequest)
-            .Where(cq => cq.ServiceRequest.CustomerId == resolvedCustomerId)
+            .Where(cq => cq.ServiceRequest != null && cq.ServiceRequest.CustomerId == resolvedCustomerId &&
+                         cq.Status != CustomerQuotationStatus.Draft && cq.Status != CustomerQuotationStatus.ReadyToSend)
             .OrderByDescending(cq => cq.CreatedAtUtc)
             .Take(5)
             .Select(cq => new CustomerQuoteSummaryDto(
                 cq.Id,
                 cq.ServiceRequestId,
-                $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}",
+                cq.ServiceRequest != null ? $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}" : "",
                 cq.CustomerFacingPrice,
                 cq.ScopeSummary,
                 cq.AdvisorNotes,
@@ -180,12 +182,13 @@ public class CustomerPortalService : ICustomerPortalService
         return await _context.CustomerQuotations
             .AsNoTracking()
             .Include(cq => cq.ServiceRequest)
-            .Where(cq => cq.ServiceRequest.CustomerId == resolvedCustomerId)
+            .Where(cq => cq.ServiceRequest != null && cq.ServiceRequest.CustomerId == resolvedCustomerId &&
+                         cq.Status != CustomerQuotationStatus.Draft && cq.Status != CustomerQuotationStatus.ReadyToSend)
             .OrderByDescending(cq => cq.CreatedAtUtc)
             .Select(cq => new CustomerQuoteSummaryDto(
                 cq.Id,
                 cq.ServiceRequestId,
-                $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}",
+                cq.ServiceRequest != null ? $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}" : "",
                 cq.CustomerFacingPrice,
                 cq.ScopeSummary,
                 cq.AdvisorNotes,
@@ -203,11 +206,12 @@ public class CustomerPortalService : ICustomerPortalService
         var quote = await _context.CustomerQuotations
             .AsNoTracking()
             .Include(cq => cq.ServiceRequest)
-            .Where(cq => cq.Id == quoteId && cq.ServiceRequest.CustomerId == resolvedCustomerId)
+            .Where(cq => cq.Id == quoteId && cq.ServiceRequest != null && cq.ServiceRequest.CustomerId == resolvedCustomerId &&
+                         cq.Status != CustomerQuotationStatus.Draft && cq.Status != CustomerQuotationStatus.ReadyToSend)
             .Select(cq => new CustomerQuoteSummaryDto(
                 cq.Id,
                 cq.ServiceRequestId,
-                $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}",
+                cq.ServiceRequest != null ? $"{cq.ServiceRequest.VehicleYear} {cq.ServiceRequest.VehicleMake} {cq.ServiceRequest.VehicleModel}" : "",
                 cq.CustomerFacingPrice,
                 cq.ScopeSummary,
                 cq.AdvisorNotes,

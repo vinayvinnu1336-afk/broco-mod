@@ -16,6 +16,7 @@ public class AdvisorController : ControllerBase
     private readonly IGarageQuoteService _garageQuoteService;
     private readonly IAdvisorQuotationService _advisorQuotationService;
     private readonly ICustomerQuotationService _customerQuotationService;
+    private readonly ICustomerDecisionService _customerDecisionService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdvisorController(
@@ -24,6 +25,7 @@ public class AdvisorController : ControllerBase
         IGarageQuoteService garageQuoteService,
         IAdvisorQuotationService advisorQuotationService,
         ICustomerQuotationService customerQuotationService,
+        ICustomerDecisionService customerDecisionService,
         ICurrentUserService currentUserService)
     {
         _advisorPortalService = advisorPortalService;
@@ -31,6 +33,7 @@ public class AdvisorController : ControllerBase
         _garageQuoteService = garageQuoteService;
         _advisorQuotationService = advisorQuotationService;
         _customerQuotationService = customerQuotationService;
+        _customerDecisionService = customerDecisionService;
         _currentUserService = currentUserService;
     }
 
@@ -240,6 +243,20 @@ public class AdvisorController : ControllerBase
         {
             if (result.Message.Contains("not found")) return NotFound(result);
             return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("customer-quotations/{id:guid}/decision")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerQuotationDecisionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCustomerQuotationDecision(Guid id, CancellationToken cancellationToken)
+    {
+        var advisorId = GetEffectiveAdvisorId();
+        var result = await _customerDecisionService.GetDecisionAsync(id, advisorId, AppRoles.Advisor, cancellationToken);
+        if (!result.Success)
+        {
+            return NotFound(result);
         }
         return Ok(result);
     }

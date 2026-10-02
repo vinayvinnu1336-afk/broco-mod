@@ -70,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerQuotationNumberGenerator, CustomerQuotationNumberGenerator>();
         services.AddScoped<IAdvisorQuotationService, AdvisorQuotationService>();
         services.AddScoped<ICustomerQuotationService, CustomerQuotationService>();
+        services.AddScoped<ICustomerDecisionService, CustomerDecisionService>();
 
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();

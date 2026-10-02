@@ -83,4 +83,14 @@ public class GarageAssignment : BaseEntity
         UpdatedAtUtc = DateTime.UtcNow;
         ConcurrencyToken = Guid.NewGuid();
     }
+
+    public void Confirm()
+    {
+        if (Status != GarageAssignmentStatus.Assigned)
+            throw new InvalidOperationException($"Cannot confirm garage assignment in '{Status}' state. Allowed only when 'Assigned'.");
+
+        Status = GarageAssignmentStatus.Confirmed;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }

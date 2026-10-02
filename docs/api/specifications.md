@@ -72,8 +72,11 @@
 | `/requests` | GET | Paginated list of service requests submitted by the authenticated customer |
 | `/requests/{id}` | GET | Detailed service request view with PostGIS location coordinates |
 | `/requests/{id}/cancel` | POST | Cancels service request with customer reason |
-| `/quotes` | GET | Sanitized customer quotations in SENT status only (strictly hides garage internal pricing and notes) |
-| `/quotes/{id}` | GET | Specific quotation proposal detail with customer-facing line items (403/404 if not SENT) |
+| `/quotes` | GET | Sanitized customer quotations in SENT/ACCEPTED/REJECTED status (strictly hides garage internal pricing and notes) |
+| `/quotes/{id}` | GET | Specific quotation proposal detail with customer-facing line items (403/404 if Draft or ReadyToSend) |
+| `/quotes/{id}/accept` | POST | Customer accepts proposal (supports `Idempotency-Key` header/body); confirms booking and workshop assignment |
+| `/quotes/{id}/reject` | POST | Customer declines proposal (requires mandatory reason & category); notifies advisor (confidential from garage) |
+| `/quotes/{id}/decision` | GET | Retrieves customer's recorded decision and snapshot metadata |
 
 ---
 
@@ -93,6 +96,7 @@
 | `/quotes/{id}/submit` | POST | Submits quote to advisors; creates immutable version snapshot (`v1`, etc.) |
 | `/quotes/{id}/revision` | POST | Creates a new draft revision (`v{n+1}`) from an existing quote |
 | `/quotes/{id}/withdraw` | POST | Withdraws a draft or submitted quote |
+| `/confirmed-bookings` | GET | Retrieves confirmed customer service bookings assigned to authenticated workshop |
 
 ---
 
@@ -117,6 +121,7 @@
 | `/customer-quotations/{id}/draft` | PUT | Update customer quotation draft (Server recalculates totals) |
 | `/customer-quotations/{id}/ready` | POST | Mark quotation ready to send; captures immutable version snapshot |
 | `/customer-quotations/{id}/send` | POST | Formally dispatch curated quotation to customer portal |
+| `/customer-quotations/{id}/decision` | GET | Inspect customer acceptance or decline decision with reason and category |
 | `/quotes` | GET | Workshop bids under review across the platform |
 | `/quotes/{id}` | GET | Full quote inspection: itemized line items, server-calculated totals, and version history |
 | `/assignments` | GET | Customer-accepted repair contract allocations |
@@ -138,6 +143,7 @@
 | `/assignments` | GET | Platform-wide audit of all workshop assignments |
 | `/customer-quotations` | GET | Platform-wide audit of all customer proposals and statuses |
 | `/customer-quotations/{id}` | GET | Detailed audit view of specific customer quotation |
+| `/customer-quotations/{id}/decision` | GET | Audit view of customer acceptance or decline decision with audit metadata |
 | `/garages` | GET | Complete registry of certified partner garages |
 | `/advisors` | GET | Certified technical advisor roster |
 | `/audit` | GET | Security audit log trail with filter limits |

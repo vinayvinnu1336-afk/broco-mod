@@ -120,7 +120,10 @@ public record CustomerFacingQuotationDto(
     DateTime ValidUntilUtc,
     string Status,
     DateTime CreatedAtUtc,
-    List<CustomerFacingLineItemDto> LineItems
+    List<CustomerFacingLineItemDto> LineItems,
+    string? AssignedGarageName = null,
+    DateTime? AcceptedAtUtc = null,
+    DateTime? RejectedAtUtc = null
 );
 
 public record CustomerFacingLineItemDto(

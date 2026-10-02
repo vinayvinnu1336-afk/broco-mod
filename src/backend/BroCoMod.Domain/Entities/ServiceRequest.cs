@@ -218,14 +218,23 @@ public class ServiceRequest : BaseEntity
         Status = ServiceRequestStatus.CustomerQuotationSent;
         UpdatedAtUtc = DateTime.UtcNow;
     }
+
     public void AcceptByCustomer()
     {
-        Status = ServiceRequestStatus.CustomerAccepted;
+        Status = ServiceRequestStatus.BookingConfirmed;
         UpdatedAtUtc = DateTime.UtcNow;
     }
-    public void RejectByCustomer()
+
+    public void ConfirmBooking()
+    {
+        Status = ServiceRequestStatus.BookingConfirmed;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void RejectByCustomer(string? reason = null)
     {
         Status = ServiceRequestStatus.CustomerRejected;
+        CancellationReason = reason?.Trim();
         UpdatedAtUtc = DateTime.UtcNow;
     }
 }

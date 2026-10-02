@@ -27,7 +27,8 @@ public enum ServiceRequestStatus
     Completed = 11,
     Cancelled = 12,
     AdvisorReview = 13,
-    GarageSelected = 14
+    GarageSelected = 14,
+    BookingConfirmed = 15
 }
 
 public enum GarageRequestStatus
@@ -73,7 +74,8 @@ public enum GarageAssignmentStatus
 {
     Assigned = 1,
     Cancelled = 2,
-    Reassigned = 3
+    Reassigned = 3,
+    Confirmed = 4
 }
 
 public enum CustomerQuotationStatus
@@ -85,5 +87,21 @@ public enum CustomerQuotationStatus
     Rejected = 5,
     Expired = 6,
     Cancelled = 7
+}
+
+public enum CustomerDecisionType
+{
+    Accepted = 1,
+    Rejected = 2
+}
+
+public enum RejectionCategory
+{
+    PriceTooHigh = 1,
+    TimingNotSuitable = 2,
+    ServiceNotRequired = 3,
+    ChangedMind = 4,
+    AlternativeFound = 5,
+    Other = 6
 }
 

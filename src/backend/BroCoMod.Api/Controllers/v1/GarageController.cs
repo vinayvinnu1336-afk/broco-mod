@@ -255,4 +255,13 @@ public class GarageController : ControllerBase
             return BadRequest(ApiResponse<object>.Fail(ex.Message));
         }
     }
+
+    [HttpGet("confirmed-bookings")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<GarageConfirmedBookingDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetConfirmedBookings(CancellationToken cancellationToken)
+    {
+        var garageId = GetEffectiveGarageId();
+        var bookings = await _garagePortalService.GetConfirmedBookingsAsync(garageId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<GarageConfirmedBookingDto>>.Ok(bookings));
+    }
 }

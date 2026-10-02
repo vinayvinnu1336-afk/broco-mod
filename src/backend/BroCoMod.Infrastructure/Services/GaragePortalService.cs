@@ -160,4 +160,29 @@ public class GaragePortalService : IGaragePortalService
                 q.CreatedAtUtc))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<GarageConfirmedBookingDto>> GetConfirmedBookingsAsync(Guid garageId, CancellationToken cancellationToken = default)
+    {
+        // STRICT DATA ISOLATION: only confirmed assignments belonging to this garage
+        return await _context.GarageAssignments
+            .AsNoTracking()
+            .Include(ga => ga.ServiceRequest)
+            .Include(ga => ga.SelectedQuote)
+            .Where(ga => ga.GarageId == garageId && ga.Status == BroCoMod.Domain.Enums.GarageAssignmentStatus.Confirmed)
+            .OrderByDescending(ga => ga.UpdatedAtUtc ?? ga.AssignedAtUtc)
+            .Select(ga => new GarageConfirmedBookingDto(
+                ga.Id,
+                ga.ServiceRequestId,
+                ga.ServiceRequest != null ? ga.ServiceRequest.RequestNumber : string.Empty,
+                ga.ServiceRequest != null ? ga.ServiceRequest.VehicleMake : string.Empty,
+                ga.ServiceRequest != null ? ga.ServiceRequest.VehicleModel : string.Empty,
+                ga.ServiceRequest != null ? ga.ServiceRequest.VehicleYear : 0,
+                ga.ServiceRequest != null ? ga.ServiceRequest.VehicleLicensePlate : string.Empty,
+                ga.ServiceRequest != null ? ga.ServiceRequest.ProblemDescription : string.Empty,
+                ga.UpdatedAtUtc ?? ga.AssignedAtUtc,
+                ga.SelectedQuote != null ? ga.SelectedQuote.TotalAmount : 0m,
+                ga.SelectedQuote != null ? ga.SelectedQuote.QuoteNumber : string.Empty
+            ))
+            .ToListAsync(cancellationToken);
+    }
 }

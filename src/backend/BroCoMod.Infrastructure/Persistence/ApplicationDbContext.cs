@@ -25,6 +25,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<CustomerQuotationVersion> CustomerQuotationVersions => Set<CustomerQuotationVersion>();
     public DbSet<GarageAssignment> GarageAssignments => Set<GarageAssignment>();
     public DbSet<AdvisorRequestNote> AdvisorRequestNotes => Set<AdvisorRequestNote>();
+    public DbSet<CustomerQuotationDecision> CustomerQuotationDecisions => Set<CustomerQuotationDecision>();
 
     // Identity & Authorization
     public DbSet<User> Users => Set<User>();
@@ -315,6 +316,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(cq => cq.ScopeSummary).HasMaxLength(2000);
             builder.Property(cq => cq.AdvisorNotes).HasMaxLength(2000);
             builder.Property(cq => cq.AdvisorRemarks).HasMaxLength(2000);
+            builder.Property(cq => cq.ConcurrencyToken).IsConcurrencyToken();
 
             builder.HasIndex(cq => cq.QuotationNumber).IsUnique();
             builder.HasIndex(cq => cq.ServiceRequestId);
@@ -386,10 +388,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(ga => ga.Status);
             builder.HasIndex(ga => ga.AssignedByAdvisorId);
 
-            // Single active assignment constraint per ServiceRequest
+            // Single active or confirmed assignment constraint per ServiceRequest
             builder.HasIndex(ga => ga.ServiceRequestId)
                 .IsUnique()
-                .HasFilter("\"Status\" = 1"); // Status 1 = Assigned
+                .HasFilter("\"Status\" IN (1, 4)"); // Status 1 = Assigned, 4 = Confirmed
 
             builder.HasOne(ga => ga.ServiceRequest)
                 .WithMany(sr => sr.GarageAssignments)
@@ -422,6 +424,39 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .WithMany(sr => sr.AdvisorNotes)
                 .HasForeignKey(n => n.ServiceRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CustomerQuotationDecision configuration
+        modelBuilder.Entity<CustomerQuotationDecision>(builder =>
+        {
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.DecisionCategory).HasMaxLength(100);
+            builder.Property(d => d.DecisionReason).HasMaxLength(1000);
+            builder.Property(d => d.IdempotencyKey).HasMaxLength(128);
+            builder.Property(d => d.ClientIpAddress).HasMaxLength(45);
+            builder.Property(d => d.UserAgent).HasMaxLength(500);
+
+            builder.HasIndex(d => d.CustomerQuotationId).IsUnique(); // At most one decision per quotation
+            builder.HasIndex(d => d.CustomerQuotationVersionId);
+            builder.HasIndex(d => d.CustomerId);
+            builder.HasIndex(d => d.Decision);
+            builder.HasIndex(d => d.DecidedAtUtc);
+            builder.HasIndex(d => new { d.CustomerId, d.IdempotencyKey });
+
+            builder.HasOne(d => d.CustomerQuotation)
+                .WithOne(cq => cq.Decision)
+                .HasForeignKey<CustomerQuotationDecision>(d => d.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(d => d.CustomerQuotationVersion)
+                .WithMany()
+                .HasForeignKey(d => d.CustomerQuotationVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(d => d.Customer)
+                .WithMany()
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // User configuration
