@@ -43,6 +43,8 @@ public class CustomerQuotation : BaseEntity
     public ServiceJob? ServiceJob { get; private set; }
     public ICollection<CustomerQuotationLineItem> LineItems { get; private set; } = new List<CustomerQuotationLineItem>();
     public ICollection<CustomerQuotationVersion> Versions { get; private set; } = new List<CustomerQuotationVersion>();
+    public ICollection<Payment> Payments { get; private set; } = new List<Payment>();
+    public ICollection<Invoice> Invoices { get; private set; } = new List<Invoice>();
 
     protected CustomerQuotation() { }
 

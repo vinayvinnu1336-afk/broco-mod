@@ -45,13 +45,24 @@ public static class AppPermissions
     public const string AdminNotificationsManage = "ADMIN_NOTIFICATIONS_MANAGE";
     public const string AdminSystemHealthView = "ADMIN_SYSTEMHEALTH_VIEW";
 
+    // Financial Permissions
+    public const string CustomerPaymentView = "CUSTOMER_PAYMENT_VIEW";
+    public const string CustomerPaymentCreate = "CUSTOMER_PAYMENT_CREATE";
+    public const string CustomerInvoiceView = "CUSTOMER_INVOICE_VIEW";
+    public const string GarageFinanceView = "GARAGE_FINANCE_VIEW";
+    public const string AdminFinanceView = "ADMIN_FINANCE_VIEW";
+    public const string AdminPaymentsManage = "ADMIN_PAYMENTS_MANAGE";
+    public const string AdminSettlementsManage = "ADMIN_SETTLEMENTS_MANAGE";
+    public const string AdminRefundsManage = "ADMIN_REFUNDS_MANAGE";
+
     public static readonly IReadOnlyList<string> All = new[]
     {
         CustomerRequestCreate, CustomerRequestView, CustomerQuoteView, CustomerQuoteRespond, CustomerProfileManage,
         GarageRequestView, GarageRequestAccept, GarageRequestDecline, GarageQuoteCreate, GarageQuoteUpdate, GarageProfileManage, GarageUsersManage,
         AdvisorRequestView, AdvisorQuoteView, AdvisorQuoteReview, AdvisorCustomerQuoteCreate, AdvisorGarageAssign, AdvisorRequestReassign, AdvisorProfileManage, AdvisorWorkQueueView,
         AdminUsersManage, AdminGaragesManage, AdminGaragesView, AdminAdvisorsManage, AdminAdvisorsView, AdminRequestsManage, AdminRequestsView,
-        AdminSettingsManage, AdminAuditView, AdminDashboardView, AdminCustomersView, AdminJobsView, AdminNotificationsView, AdminNotificationsManage, AdminSystemHealthView
+        AdminSettingsManage, AdminAuditView, AdminDashboardView, AdminCustomersView, AdminJobsView, AdminNotificationsView, AdminNotificationsManage, AdminSystemHealthView,
+        CustomerPaymentView, CustomerPaymentCreate, CustomerInvoiceView, GarageFinanceView, AdminFinanceView, AdminPaymentsManage, AdminSettlementsManage, AdminRefundsManage
     };
 
     public static IReadOnlyList<string> GetDefaultPermissionsForRole(string role)
@@ -64,7 +75,10 @@ public static class AppPermissions
                 CustomerRequestView,
                 CustomerQuoteView,
                 CustomerQuoteRespond,
-                CustomerProfileManage
+                CustomerProfileManage,
+                CustomerPaymentView,
+                CustomerPaymentCreate,
+                CustomerInvoiceView
             },
             AppRoles.GarageOwner => new[]
             {
@@ -74,7 +88,8 @@ public static class AppPermissions
                 GarageQuoteCreate,
                 GarageQuoteUpdate,
                 GarageProfileManage,
-                GarageUsersManage
+                GarageUsersManage,
+                GarageFinanceView
             },
             AppRoles.GarageManager => new[]
             {
@@ -83,7 +98,8 @@ public static class AppPermissions
                 GarageRequestDecline,
                 GarageQuoteCreate,
                 GarageQuoteUpdate,
-                GarageProfileManage
+                GarageProfileManage,
+                GarageFinanceView
             },
             AppRoles.GarageStaff => new[]
             {
@@ -99,7 +115,8 @@ public static class AppPermissions
                 AdvisorGarageAssign,
                 AdvisorRequestReassign,
                 AdvisorProfileManage,
-                AdvisorWorkQueueView
+                AdvisorWorkQueueView,
+                AdminFinanceView
             },
             AppRoles.SuperAdmin => All,
             _ => Array.Empty<string>()

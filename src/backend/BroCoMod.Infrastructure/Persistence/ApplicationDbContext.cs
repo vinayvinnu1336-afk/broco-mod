@@ -31,6 +31,14 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ServiceJobActivity> ServiceJobActivities => Set<ServiceJobActivity>();
     public DbSet<AdditionalWorkRequest> AdditionalWorkRequests => Set<AdditionalWorkRequest>();
 
+    // Financial & Payment Foundation
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<GarageSettlement> GarageSettlements => Set<GarageSettlement>();
+    public DbSet<FinancialLedgerEntry> FinancialLedgerEntries => Set<FinancialLedgerEntry>();
+    public DbSet<PlatformFeeConfiguration> PlatformFeeConfigurations => Set<PlatformFeeConfiguration>();
+    public DbSet<AdditionalWorkQuotation> AdditionalWorkQuotations => Set<AdditionalWorkQuotation>();
+
     // Identity & Authorization
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
@@ -84,6 +92,31 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         modelBuilder.HasSequence<long>("ServiceJobNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence PaymentNumberSeq.
+        // The PAY-XXXXXX identifier is a unique human-readable payment reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("PaymentNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence InvoiceNumberSeq.
+        // The INV-XXXXXX identifier is a unique human-readable invoice reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("InvoiceNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence SettlementNumberSeq.
+        // The SET-XXXXXX identifier is a unique human-readable settlement reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("SettlementNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // Generated atomically via PostgreSQL sequence AdditionalWorkQuotationNumberSeq.
+        // The AWQ-XXXXXX identifier is a unique human-readable additional work quote reference. Sequence values are not guaranteed to be gapless.
+        modelBuilder.HasSequence<long>("AdditionalWorkQuotationNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
 
         // Garage configuration
         modelBuilder.Entity<Garage>(builder =>
@@ -808,6 +841,215 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(r => r.Status);
             builder.HasIndex(r => r.ReviewedByAdvisorId);
             builder.HasIndex(r => r.CreatedAtUtc);
+        });
+
+        // Payment configuration
+        modelBuilder.Entity<Payment>(builder =>
+        {
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.PaymentNumber).IsRequired().HasMaxLength(50);
+            builder.HasIndex(p => p.PaymentNumber).IsUnique();
+            builder.Property(p => p.Amount).HasPrecision(18, 2);
+            builder.Property(p => p.RefundedAmount).HasPrecision(18, 2);
+            builder.Property(p => p.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(p => p.GatewayProvider).IsRequired().HasMaxLength(50);
+            builder.Property(p => p.GatewayOrderId).HasMaxLength(100);
+            builder.Property(p => p.GatewayPaymentId).HasMaxLength(100);
+            builder.Property(p => p.GatewaySignature).HasMaxLength(500);
+            builder.Property(p => p.IdempotencyKey).HasMaxLength(200);
+            builder.Property(p => p.FailureReason).HasMaxLength(1000);
+            builder.Property(p => p.ConcurrencyToken).IsConcurrencyToken();
+
+            builder.HasIndex(p => p.CustomerId);
+            builder.HasIndex(p => p.GarageId);
+            builder.HasIndex(p => p.Status);
+            builder.HasIndex(p => p.Purpose);
+            builder.HasIndex(p => p.CreatedAtUtc);
+            builder.HasIndex(p => p.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+            builder.HasIndex(p => new { p.GatewayProvider, p.GatewayPaymentId }).IsUnique().HasFilter("\"GatewayPaymentId\" IS NOT NULL");
+
+            builder.HasOne(p => p.CustomerQuotation)
+                .WithMany(q => q.Payments)
+                .HasForeignKey(p => p.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(p => p.AdditionalWorkQuotation)
+                .WithOne(a => a.Payment)
+                .HasForeignKey<Payment>(p => p.AdditionalWorkQuotationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(p => p.ServiceJob)
+                .WithMany(j => j.Payments)
+                .HasForeignKey(p => p.ServiceJobId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(p => p.Garage)
+                .WithMany()
+                .HasForeignKey(p => p.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Invoice configuration
+        modelBuilder.Entity<Invoice>(builder =>
+        {
+            builder.HasKey(i => i.Id);
+            builder.Property(i => i.InvoiceNumber).IsRequired().HasMaxLength(50);
+            builder.HasIndex(i => i.InvoiceNumber).IsUnique();
+            builder.Property(i => i.Subtotal).HasPrecision(18, 2);
+            builder.Property(i => i.DiscountAmount).HasPrecision(18, 2);
+            builder.Property(i => i.TaxAmount).HasPrecision(18, 2);
+            builder.Property(i => i.TotalAmount).HasPrecision(18, 2);
+            builder.Property(i => i.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(i => i.BillingName).IsRequired().HasMaxLength(200);
+            builder.Property(i => i.BillingEmail).IsRequired().HasMaxLength(200);
+            builder.Property(i => i.BillingAddress).HasMaxLength(1000);
+            builder.Property(i => i.LineItemsJson).IsRequired().HasColumnType("jsonb");
+            builder.Property(i => i.VoidReason).HasMaxLength(1000);
+
+            builder.HasIndex(i => i.PaymentId).IsUnique();
+            builder.HasIndex(i => i.CustomerId);
+            builder.HasIndex(i => i.GarageId);
+            builder.HasIndex(i => i.Status);
+            builder.HasIndex(i => i.IssuedAtUtc);
+
+            builder.HasOne(i => i.Payment)
+                .WithOne(p => p.Invoice)
+                .HasForeignKey<Invoice>(i => i.PaymentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(i => i.CustomerQuotation)
+                .WithMany(q => q.Invoices)
+                .HasForeignKey(i => i.CustomerQuotationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(i => i.AdditionalWorkQuotation)
+                .WithOne(a => a.Invoice)
+                .HasForeignKey<Invoice>(i => i.AdditionalWorkQuotationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(i => i.ServiceJob)
+                .WithMany()
+                .HasForeignKey(i => i.ServiceJobId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(i => i.Garage)
+                .WithMany()
+                .HasForeignKey(i => i.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // GarageSettlement configuration
+        modelBuilder.Entity<GarageSettlement>(builder =>
+        {
+            builder.HasKey(s => s.Id);
+            builder.Property(s => s.SettlementNumber).IsRequired().HasMaxLength(50);
+            builder.HasIndex(s => s.SettlementNumber).IsUnique();
+            builder.Property(s => s.GrossAmount).HasPrecision(18, 2);
+            builder.Property(s => s.PlatformFeePercentage).HasPrecision(18, 2);
+            builder.Property(s => s.PlatformFeeFixed).HasPrecision(18, 2);
+            builder.Property(s => s.PlatformFeeAmount).HasPrecision(18, 2);
+            builder.Property(s => s.TaxOnPlatformFee).HasPrecision(18, 2);
+            builder.Property(s => s.TotalPlatformFee).HasPrecision(18, 2);
+            builder.Property(s => s.NetPayableToGarage).HasPrecision(18, 2);
+            builder.Property(s => s.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(s => s.PayoutTransactionRef).HasMaxLength(200);
+            builder.Property(s => s.ReferenceNotes).HasMaxLength(2000);
+
+            builder.HasIndex(s => s.PaymentId).IsUnique();
+            builder.HasIndex(s => s.GarageId);
+            builder.HasIndex(s => s.ServiceJobId);
+            builder.HasIndex(s => s.Status);
+            builder.HasIndex(s => s.CreatedAtUtc);
+
+            builder.HasOne(s => s.Payment)
+                .WithOne(p => p.Settlement)
+                .HasForeignKey<GarageSettlement>(s => s.PaymentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(s => s.Garage)
+                .WithMany()
+                .HasForeignKey(s => s.GarageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(s => s.ServiceJob)
+                .WithMany(j => j.Settlements)
+                .HasForeignKey(s => s.ServiceJobId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // FinancialLedgerEntry configuration
+        modelBuilder.Entity<FinancialLedgerEntry>(builder =>
+        {
+            builder.HasKey(l => l.Id);
+            builder.Property(l => l.TransactionReference).IsRequired().HasMaxLength(100);
+            builder.Property(l => l.DebitAmount).HasPrecision(18, 2);
+            builder.Property(l => l.CreditAmount).HasPrecision(18, 2);
+            builder.Property(l => l.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(l => l.AccountType).IsRequired().HasMaxLength(50);
+            builder.Property(l => l.Description).HasMaxLength(1000);
+
+            builder.HasIndex(l => l.TransactionReference);
+            builder.HasIndex(l => l.AccountId);
+            builder.HasIndex(l => l.AccountType);
+            builder.HasIndex(l => l.EntryType);
+            builder.HasIndex(l => l.PaymentId);
+            builder.HasIndex(l => l.CreatedAtUtc);
+
+            builder.HasOne(l => l.Payment)
+                .WithMany(p => p.LedgerEntries)
+                .HasForeignKey(l => l.PaymentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(l => l.Invoice)
+                .WithMany()
+                .HasForeignKey(l => l.InvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(l => l.Settlement)
+                .WithMany()
+                .HasForeignKey(l => l.SettlementId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // PlatformFeeConfiguration configuration
+        modelBuilder.Entity<PlatformFeeConfiguration>(builder =>
+        {
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.Name).IsRequired().HasMaxLength(200);
+            builder.Property(c => c.FeePercentage).HasPrecision(18, 2);
+            builder.Property(c => c.FixedFee).HasPrecision(18, 2);
+            builder.Property(c => c.TaxPercentage).HasPrecision(18, 2);
+
+            builder.HasIndex(c => c.IsActive);
+            builder.HasIndex(c => c.EffectiveFromUtc);
+        });
+
+        // AdditionalWorkQuotation configuration
+        modelBuilder.Entity<AdditionalWorkQuotation>(builder =>
+        {
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.QuotationNumber).IsRequired().HasMaxLength(50);
+            builder.HasIndex(a => a.QuotationNumber).IsUnique();
+            builder.Property(a => a.Subtotal).HasPrecision(18, 2);
+            builder.Property(a => a.Tax).HasPrecision(18, 2);
+            builder.Property(a => a.Total).HasPrecision(18, 2);
+            builder.Property(a => a.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(a => a.Description).HasMaxLength(2000);
+
+            builder.HasIndex(a => a.ServiceJobId);
+            builder.HasIndex(a => a.CustomerId);
+            builder.HasIndex(a => a.GarageId);
+            builder.HasIndex(a => a.Status);
+
+            builder.HasOne(a => a.ServiceJob)
+                .WithMany(j => j.AdditionalWorkQuotations)
+                .HasForeignKey(a => a.ServiceJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(a => a.AdditionalWorkRequest)
+                .WithMany()
+                .HasForeignKey(a => a.AdditionalWorkRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

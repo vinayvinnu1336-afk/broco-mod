@@ -23,6 +23,14 @@ public interface IApplicationDbContext
     DbSet<ServiceJobActivity> ServiceJobActivities { get; }
     DbSet<AdditionalWorkRequest> AdditionalWorkRequests { get; }
 
+    // Financial & Payment Foundation
+    DbSet<Payment> Payments { get; }
+    DbSet<Invoice> Invoices { get; }
+    DbSet<GarageSettlement> GarageSettlements { get; }
+    DbSet<FinancialLedgerEntry> FinancialLedgerEntries { get; }
+    DbSet<PlatformFeeConfiguration> PlatformFeeConfigurations { get; }
+    DbSet<AdditionalWorkQuotation> AdditionalWorkQuotations { get; }
+
     // Identity & Authorization
     DbSet<BroCoMod.Domain.Entities.Identity.User> Users { get; }
     DbSet<BroCoMod.Domain.Entities.Identity.Role> Roles { get; }

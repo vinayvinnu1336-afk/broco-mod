@@ -15,11 +15,15 @@ import {
   Wrench,
   AlertTriangle,
   Bell,
-  Activity
+  Activity,
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
 
 const adminNavItems: NavItem[] = [
   { label: 'Admin Command', href: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Finance Control', href: '/admin/finance', icon: DollarSign },
+  { label: 'Platform Payments', href: '/admin/payments', icon: CreditCard },
   { label: 'Attention Queue', href: '/admin/attention', icon: AlertTriangle },
   { label: 'Platform Requests', href: '/admin/requests', icon: FileText },
   { label: 'Workshop Network', href: '/admin/garages', icon: Building2 },

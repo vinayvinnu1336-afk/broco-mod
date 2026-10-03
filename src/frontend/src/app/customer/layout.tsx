@@ -3,13 +3,15 @@
 import React, { ReactNode } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PortalLayout, NavItem } from '@/components/layout/PortalLayout';
-import { LayoutDashboard, Car, FileText, BadgeDollarSign, User } from 'lucide-react';
+import { LayoutDashboard, Car, FileText, BadgeDollarSign, User, CreditCard, Receipt } from 'lucide-react';
 
 const customerNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/customer/dashboard', icon: LayoutDashboard },
   { label: 'My Vehicles', href: '/customer/vehicles', icon: Car },
   { label: 'Service Requests', href: '/customer/requests', icon: FileText },
   { label: 'Quotations', href: '/customer/quotes', icon: BadgeDollarSign },
+  { label: 'Payments', href: '/customer/payments', icon: CreditCard },
+  { label: 'Invoices', href: '/customer/invoices', icon: Receipt },
   { label: 'My Profile', href: '/customer/profile', icon: User },
 ];
 
