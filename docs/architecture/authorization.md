@@ -87,3 +87,12 @@ graph TD
 3. **Advisor Isolation**:
    - Advisors review requests and synthesize proposals.
    - Advisors are restricted from accessing `/api/v1/admin/*` system governance endpoints (403 Forbidden).
+
+### 4. Milestone 9 Operations & Control Center Permissions
+- `ADMIN_DASHBOARD_VIEW`: Aggregates operational KPIs across platform tables without leaking sensitive credentials.
+- `ADMIN_REQUESTS_VIEW`: Grants visibility into the unified operational timeline across all lifecycle stages.
+- `ADMIN_GARAGES_MANAGE`: Authorizes garage onboarding state transitions (`VERIFY`, `SUSPEND`, `ACTIVATE`, `DEACTIVATE`) and spatial radius configuration.
+- `ADMIN_ADVISORS_MANAGE`: Authorizes advisor active duty status toggling.
+- `ADMIN_NOTIFICATIONS_MANAGE`: Authorizes inspection of failed transactional notifications and triggering controlled retries.
+- `ADVISOR_WORKQUEUE_VIEW`: Enables technical advisor access to the tabbed operational work queue.
+

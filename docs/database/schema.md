@@ -560,6 +560,38 @@ Proposals for additional repair or maintenance items discovered during physical 
 | `CreatedAtUtc` | `TIMESTAMPTZ` | `NOT NULL` | Creation timestamp |
 | `UpdatedAtUtc` | `TIMESTAMPTZ` | `NULL` | Modification timestamp |
 
+---
+
+## 9. Milestone 9 — Operations & Admin Control Center Schema Enhancements
+
+### 9.1. Enhanced `Garages` Table Attributes
+Operational verification state machine, configurable spatial service radius, and optimistic concurrency token.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Status` | `INTEGER` | `NOT NULL DEFAULT 1, INDEX` | Enum: `PendingVerification(0)`, `Verified(1)`, `Suspended(2)`, `Inactive(3)` |
+| `ServiceRadiusKm` | `DOUBLE PRECISION` | `NOT NULL DEFAULT 10.0` | Spatial dispatch coverage bounds: [1.0 KM, 50.0 KM] |
+| `StatusReason` | `VARCHAR(1000)` | `NULL` | Administrative reason for suspension or deactivation |
+| `StatusChangedAtUtc` | `TIMESTAMPTZ` | `NULL` | Timestamp of latest status transition |
+| `ConcurrencyToken` | `UUID` | `NOT NULL` | Optimistic locking token for administrative updates |
+
+### 9.2. Enhanced `Notifications` Table Attributes
+Operational delivery monitoring, retry tracking, and failure diagnostics.
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `Status` | `INTEGER` | `NOT NULL DEFAULT 1, INDEX` | Enum: `Pending(0)`, `Sent(1)`, `Failed(2)` |
+| `RetryCount` | `INTEGER` | `NOT NULL DEFAULT 0` | Counter of delivery retry attempts |
+| `LastAttemptAtUtc` | `TIMESTAMPTZ` | `NULL` | Timestamp of latest delivery attempt |
+| `ErrorSummary` | `VARCHAR(2000)` | `NULL` | Exception or network failure reason |
+| `ConcurrencyToken` | `UUID` | `NOT NULL` | Optimistic locking token for retry processing |
+
+### 9.3. Operational Performance Indexes
+- `IX_Garages_Status`: High-throughput filter on partner workshop verification state.
+- `IX_Notifications_Status`: High-throughput query for failed notifications in attention queues.
+- `IX_AuditLogs_EntityName_EntityId`: Composite index for real-time timeline reconstruction on entities.
+
+
 
 
 

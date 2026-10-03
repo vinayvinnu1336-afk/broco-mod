@@ -18,6 +18,7 @@ public class AdvisorController : ControllerBase
     private readonly ICustomerQuotationService _customerQuotationService;
     private readonly ICustomerDecisionService _customerDecisionService;
     private readonly IServiceJobService _serviceJobService;
+    private readonly IAdvisorOperationsService _advisorOperationsService;
     private readonly ICurrentUserService _currentUserService;
 
     public AdvisorController(
@@ -28,6 +29,7 @@ public class AdvisorController : ControllerBase
         ICustomerQuotationService customerQuotationService,
         ICustomerDecisionService customerDecisionService,
         IServiceJobService serviceJobService,
+        IAdvisorOperationsService advisorOperationsService,
         ICurrentUserService currentUserService)
     {
         _advisorPortalService = advisorPortalService;
@@ -37,6 +39,7 @@ public class AdvisorController : ControllerBase
         _customerQuotationService = customerQuotationService;
         _customerDecisionService = customerDecisionService;
         _serviceJobService = serviceJobService;
+        _advisorOperationsService = advisorOperationsService;
         _currentUserService = currentUserService;
     }
 
@@ -51,12 +54,21 @@ public class AdvisorController : ControllerBase
     }
 
     [HttpGet("dashboard")]
-    [ProducesResponseType(typeof(ApiResponse<AdvisorDashboardDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorDashboardKpiDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
     {
         var advisorId = GetEffectiveAdvisorId();
-        var dashboard = await _advisorPortalService.GetDashboardAsync(advisorId, cancellationToken);
-        return Ok(ApiResponse<AdvisorDashboardDto>.Ok(dashboard));
+        var dashboard = await _advisorOperationsService.GetAdvisorDashboardKpisAsync(advisorId, cancellationToken);
+        return Ok(ApiResponse<AdvisorDashboardKpiDto>.Ok(dashboard));
+    }
+
+    [HttpGet("work-queue")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorWorkQueueDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetWorkQueue(CancellationToken cancellationToken)
+    {
+        var advisorId = GetEffectiveAdvisorId();
+        var queue = await _advisorOperationsService.GetAdvisorWorkQueueAsync(advisorId, cancellationToken);
+        return Ok(ApiResponse<AdvisorWorkQueueDto>.Ok(queue));
     }
 
     [HttpGet("profile")]

@@ -26,21 +26,32 @@ public static class AppPermissions
     public const string AdvisorGarageAssign = "ADVISOR_GARAGE_ASSIGN";
     public const string AdvisorRequestReassign = "ADVISOR_REQUEST_REASSIGN";
     public const string AdvisorProfileManage = "ADVISOR_PROFILE_MANAGE";
+    public const string AdvisorWorkQueueView = "ADVISOR_WORKQUEUE_VIEW";
 
     // Admin Permissions
     public const string AdminUsersManage = "ADMIN_USERS_MANAGE";
     public const string AdminGaragesManage = "ADMIN_GARAGES_MANAGE";
+    public const string AdminGaragesView = "ADMIN_GARAGES_VIEW";
     public const string AdminAdvisorsManage = "ADMIN_ADVISORS_MANAGE";
+    public const string AdminAdvisorsView = "ADMIN_ADVISORS_VIEW";
     public const string AdminRequestsManage = "ADMIN_REQUESTS_MANAGE";
+    public const string AdminRequestsView = "ADMIN_REQUESTS_VIEW";
     public const string AdminSettingsManage = "ADMIN_SETTINGS_MANAGE";
     public const string AdminAuditView = "ADMIN_AUDIT_VIEW";
+    public const string AdminDashboardView = "ADMIN_DASHBOARD_VIEW";
+    public const string AdminCustomersView = "ADMIN_CUSTOMERS_VIEW";
+    public const string AdminJobsView = "ADMIN_JOBS_VIEW";
+    public const string AdminNotificationsView = "ADMIN_NOTIFICATIONS_VIEW";
+    public const string AdminNotificationsManage = "ADMIN_NOTIFICATIONS_MANAGE";
+    public const string AdminSystemHealthView = "ADMIN_SYSTEMHEALTH_VIEW";
 
     public static readonly IReadOnlyList<string> All = new[]
     {
         CustomerRequestCreate, CustomerRequestView, CustomerQuoteView, CustomerQuoteRespond, CustomerProfileManage,
         GarageRequestView, GarageRequestAccept, GarageRequestDecline, GarageQuoteCreate, GarageQuoteUpdate, GarageProfileManage, GarageUsersManage,
-        AdvisorRequestView, AdvisorQuoteView, AdvisorQuoteReview, AdvisorCustomerQuoteCreate, AdvisorGarageAssign, AdvisorRequestReassign, AdvisorProfileManage,
-        AdminUsersManage, AdminGaragesManage, AdminAdvisorsManage, AdminRequestsManage, AdminSettingsManage, AdminAuditView
+        AdvisorRequestView, AdvisorQuoteView, AdvisorQuoteReview, AdvisorCustomerQuoteCreate, AdvisorGarageAssign, AdvisorRequestReassign, AdvisorProfileManage, AdvisorWorkQueueView,
+        AdminUsersManage, AdminGaragesManage, AdminGaragesView, AdminAdvisorsManage, AdminAdvisorsView, AdminRequestsManage, AdminRequestsView,
+        AdminSettingsManage, AdminAuditView, AdminDashboardView, AdminCustomersView, AdminJobsView, AdminNotificationsView, AdminNotificationsManage, AdminSystemHealthView
     };
 
     public static IReadOnlyList<string> GetDefaultPermissionsForRole(string role)
@@ -87,7 +98,8 @@ public static class AppPermissions
                 AdvisorCustomerQuoteCreate,
                 AdvisorGarageAssign,
                 AdvisorRequestReassign,
-                AdvisorProfileManage
+                AdvisorProfileManage,
+                AdvisorWorkQueueView
             },
             AppRoles.SuperAdmin => All,
             _ => Array.Empty<string>()

@@ -151,29 +151,50 @@
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/dashboard` | GET | Platform-wide totals and live security telemetry |
-| `/users` | GET | Full user account list across all roles |
-| `/users/{id}/status` | POST | Activates or suspends a platform user |
-| `/requests` | GET | Paginated platform-wide service requests with dispatched garage counts |
-| `/requests/{id}` | GET | Complete audit and dispatch breakdown for any service request |
-| `/quotes` | GET | Platform-wide audit of all partner garage quotations |
-| `/quotes/{id}` | GET | Complete quotation audit breakdown including immutable snapshots |
-| `/assignments` | GET | Platform-wide audit of all workshop assignments |
-| `/customer-quotations` | GET | Platform-wide audit of all customer proposals and statuses |
-| `/customer-quotations/{id}` | GET | Detailed audit view of specific customer quotation |
-| `/customer-quotations/{id}/decision` | GET | Audit view of customer acceptance or decline decision with audit metadata |
-| `/jobs` | GET | Global administrative audit registry of all platform service jobs |
-| `/garages` | GET | Complete registry of certified partner garages |
-| `/advisors` | GET | Certified technical advisor roster |
-| `/audit` | GET | Security audit log trail with filter limits |
+| `/dashboard` | GET | Real-time platform KPI aggregations (requests, network, jobs, delivery health) |
+| `/attention` | GET | Query-driven operational attention queue (expiring quotes, stale dispatches, failed notifications) |
+| `/requests` | GET | Searchable and filterable service requests with server-side pagination (25, 50, 100) |
+| `/requests/{id}` | GET | Unified operational timeline across all 13 lifecycle stages from submission to closure |
+| `/garages` | GET | Partner workshop directory with status filtering (`PendingVerification`, `Verified`, `Suspended`, `Inactive`) |
+| `/garages/{id}` | GET | Detailed workshop profile: operational metrics, win rate %, recent jobs, and audit history |
+| `/garages/{id}/verify` | POST | Transitions pending workshop to Verified state |
+| `/garages/{id}/suspend` | POST | Suspends workshop with mandatory audit reason |
+| `/garages/{id}/activate` | POST | Reactivates suspended or inactive workshop |
+| `/garages/{id}/deactivate` | POST | Soft-deactivates workshop with audit reason |
+| `/garages/{id}/radius` | PUT | Configures spatial service radius (bounds: 1.0 KM to 50.0 KM) |
+| `/advisors` | GET | Technical advisors roster with workload and quote review statistics |
+| `/advisors/{id}/activate` | POST | Activates technical advisor account |
+| `/advisors/{id}/deactivate` | POST | Deactivates technical advisor account with mandatory reason |
+| `/customers` | GET | Customer account directory with vehicle counts and request history |
+| `/customers/{id}` | GET | Customer detail with registered vehicle fleet and service history (credentials masked) |
+| `/jobs` | GET | Platform-wide service job supervisor queue with status and garage filtering |
+| `/notifications` | GET | Transactional notification delivery log with status filtering (`Pending`, `Sent`, `Failed`) |
+| `/notifications/{id}/retry` | POST | Triggers controlled idempotent delivery retry for failed notification |
+| `/system-health` | GET | Live infrastructure telemetry for PostgreSQL, PostGIS, Redis, and workers |
+| `/audit` | GET | Security and operational audit explorer with entity and action filters |
 | `/settings` | GET | System operational parameters (radius, lockout limits, token lifecycles) |
 
 ---
 
-## 8. Health & System Diagnostic Endpoints
+## 8. Advisor Operations Endpoints (`/api/v1/advisor`)
+*Restricted to `ADVISOR` and `SUPER_ADMIN`.*
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/dashboard` | GET | Advisor operational KPIs, assigned requests, pending quote reviews, and attention items |
+| `/work-queue` | GET | Tabbed work queue across quote reviews, ready proposals, customer decisions, and extra work |
+| `/requests` | GET | Requests assigned to or available for advisor review |
+| `/requests/{id}` | GET | Detailed technical view of customer complaint and garage responses |
+| `/quotes` | GET | Workshop quotes awaiting margin review |
+| `/assignments` | GET | Workshop assignment confirmations |
+| `/jobs` | GET | Live service jobs overseen by advisor |
+
+---
+
+## 9. Health & System Diagnostic Endpoints
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
-| `/healthz` | GET | Anonymous | Fast probe for load balancers and orchestrators |
+| `/healthz` | GET | Anonymous | Fast probe for load balancers and container orchestrators |
 | `/api/system/info` | GET | Anonymous | Platform architecture overview and metadata |
 | `/api/system/quote-isolation-demo` | GET | Anonymous | Interactive demonstration of pricing isolation |

@@ -1,5 +1,6 @@
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using NetTopologySuite.Geometries;
@@ -41,17 +42,18 @@ public class GarageMatchingService : IGarageMatchingService
             // In-Memory test fallback: evaluate eligibility & calculate distance via geodesic Haversine
             var allGarages = await _context.Garages
                 .AsNoTracking()
-                .Where(g => g.IsActive && g.IsVerified && g.IsOperational && g.Location != null)
+                .Where(g => g.IsActive && g.IsOperational && g.IsVerified && g.Status == GarageStatus.Verified && g.Location != null)
                 .ToListAsync(cancellationToken);
 
             var matches = new List<EligibleGarageMatch>();
             foreach (var g in allGarages)
             {
+                var maxRadiusMeters = Math.Min(radiusMeters, g.ServiceRadiusKm * 1000.0);
                 var distanceMeters = CalculateHaversineDistanceMeters(
                     customerLocation.Y, customerLocation.X,
                     g.Location.Y, g.Location.X);
 
-                if (distanceMeters <= radiusMeters)
+                if (distanceMeters <= maxRadiusMeters)
                 {
                     matches.Add(new EligibleGarageMatch(
                         g.Id,
@@ -72,10 +74,12 @@ public class GarageMatchingService : IGarageMatchingService
         var eligibleQuery = await _context.Garages
             .AsNoTracking()
             .Where(g => g.IsActive 
-                        && g.IsVerified 
                         && g.IsOperational 
+                        && g.IsVerified
+                        && g.Status == GarageStatus.Verified 
                         && g.Location != null 
-                        && g.Location.Distance(customerLocation) <= radiusMeters)
+                        && g.Location.Distance(customerLocation) <= radiusMeters
+                        && g.Location.Distance(customerLocation) <= (g.ServiceRadiusKm * 1000.0))
             .Select(g => new
             {
                 g.Id,

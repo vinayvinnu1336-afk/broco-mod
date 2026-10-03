@@ -76,6 +76,10 @@ public static class DependencyInjection
         services.AddScoped<IServiceJobNumberGenerator, ServiceJobNumberGenerator>();
         services.AddScoped<IServiceJobService, ServiceJobService>();
 
+        // Milestone 9: Operations & Admin Control Center Services
+        services.AddScoped<IAdminOperationsService, AdminOperationsService>();
+        services.AddScoped<IAdvisorOperationsService, AdvisorOperationsService>();
+
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<DatabaseSeeder>();
