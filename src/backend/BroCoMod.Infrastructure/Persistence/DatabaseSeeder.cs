@@ -103,6 +103,22 @@ public class DatabaseSeeder
         // 4. Seed Essential Vehicle Master Catalog (Manufacturers, Models, Variants)
         await SeedVehicleMasterAsync();
 
+        // 4b. Seed Default Platform Fee Policy (10% standard fee, 18% GST)
+        if (!await _context.PlatformFeeConfigurations.AnyAsync())
+        {
+            var feePolicy = new PlatformFeeConfiguration(
+                name: "Standard Automotive Commission",
+                feePercentage: 10.0m,
+                fixedFee: 0.0m,
+                taxPercentage: 18.0m,
+                isActive: true,
+                effectiveFromUtc: DateTime.UtcNow.AddYears(-1)
+            );
+            _context.PlatformFeeConfigurations.Add(feePolicy);
+            await _context.SaveChangesAsync();
+        }
+
+
         // 5. Check if demo data should be seeded (strictly disabled in production unless explicit flag is enabled)
         var isDev = _environment.IsDevelopment();
         var enableDemoSeeding = _configuration.GetValue<bool>("EnableDemoSeeding", false);

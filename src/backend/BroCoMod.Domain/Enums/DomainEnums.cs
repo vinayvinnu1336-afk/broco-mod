@@ -172,4 +172,70 @@ public enum NotificationStatus
     Cancelled = 5
 }
 
+public enum PaymentStatus
+{
+    Created = 1,
+    Pending = 2,
+    Processing = 3,
+    Paid = 4,
+    Failed = 5,
+    Cancelled = 6,
+    RefundPending = 7,
+    PartiallyRefunded = 8,
+    Refunded = 9
+}
+
+public enum PaymentPurpose
+{
+    ServiceQuotation = 1,
+    AdditionalWork = 2,
+    Refund = 3,
+    Other = 4
+}
+
+public enum PaymentMethod
+{
+    Card = 1,
+    NetBanking = 2,
+    Upi = 3,
+    Wallet = 4,
+    BankTransfer = 5,
+    TestProvider = 6
+}
+
+public enum InvoiceStatus
+{
+    Draft = 1,
+    Issued = 2,
+    Paid = 3,
+    Void = 4,
+    Refunded = 5
+}
+
+public enum SettlementStatus
+{
+    Pending = 1,
+    Processing = 2,
+    Completed = 3,
+    OnHold = 4,
+    Cancelled = 5
+}
+
+public enum LedgerEntryType
+{
+    CustomerPayment = 1,
+    PlatformFee = 2,
+    GaragePayable = 3,
+    Refund = 4,
+    Adjustment = 5
+}
+
+public enum PlatformFeeType
+{
+    Percentage = 1,
+    Fixed = 2,
+    PercentageAndFixed = 3
+}
+
+
 

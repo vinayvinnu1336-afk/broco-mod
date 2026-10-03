@@ -47,6 +47,9 @@ public class ServiceJob : BaseEntity
     public ICollection<ServiceInspection> Inspections { get; private set; } = new List<ServiceInspection>();
     public ICollection<ServiceJobActivity> Activities { get; private set; } = new List<ServiceJobActivity>();
     public ICollection<AdditionalWorkRequest> AdditionalWorkRequests { get; private set; } = new List<AdditionalWorkRequest>();
+    public ICollection<Payment> Payments { get; private set; } = new List<Payment>();
+    public ICollection<GarageSettlement> Settlements { get; private set; } = new List<GarageSettlement>();
+    public ICollection<AdditionalWorkQuotation> AdditionalWorkQuotations { get; private set; } = new List<AdditionalWorkQuotation>();
 
     protected ServiceJob() { }
 

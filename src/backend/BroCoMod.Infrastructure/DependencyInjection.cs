@@ -2,6 +2,7 @@ using BroCoMod.Application.Authorization;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using BroCoMod.Infrastructure.Services;
+using BroCoMod.Infrastructure.Services.PaymentGateway;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -79,6 +80,24 @@ public static class DependencyInjection
         // Milestone 9: Operations & Admin Control Center Services
         services.AddScoped<IAdminOperationsService, AdminOperationsService>();
         services.AddScoped<IAdvisorOperationsService, AdvisorOperationsService>();
+
+        // Milestone 10: Financial & Payment Foundation Services
+        services.AddScoped<DevelopmentFakePaymentGateway>();
+        services.AddScoped<IPaymentGateway, DevelopmentFakePaymentGateway>();
+        services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
+
+        services.AddScoped<FinancialNumberGenerators>();
+        services.AddScoped<IPaymentNumberGenerator>(sp => sp.GetRequiredService<FinancialNumberGenerators>());
+        services.AddScoped<IInvoiceNumberGenerator>(sp => sp.GetRequiredService<FinancialNumberGenerators>());
+        services.AddScoped<ISettlementNumberGenerator>(sp => sp.GetRequiredService<FinancialNumberGenerators>());
+        services.AddScoped<IAdditionalWorkQuotationNumberGenerator>(sp => sp.GetRequiredService<FinancialNumberGenerators>());
+
+        services.AddScoped<IFinancialLedgerService, FinancialLedgerService>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<ISettlementService, SettlementService>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IAdminFinanceService, AdminFinanceService>();
+
 
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();

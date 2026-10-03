@@ -570,7 +570,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
         quotesBody!.Data.Should().NotBeEmpty();
 
         // 2. Audit logs
-        var auditResponse = await adminClient.GetAsync("/api/v1/admin/audit?limit=50");
+        var auditResponse = await adminClient.GetAsync("/api/v1/admin/audit?limit=500");
         auditResponse.EnsureSuccessStatusCode();
         var auditBody = await auditResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<AdminAuditLogSummaryDto>>>(JsonOptions);
         auditBody.Should().NotBeNull();
