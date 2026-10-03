@@ -18,6 +18,13 @@ public class Notification : BaseEntity
     public DateTime SentAtUtc { get; private set; }
     public string? MetadataJson { get; private set; }
 
+    // Milestone 9: Notification Monitoring & Controlled Retry
+    public NotificationStatus Status { get; private set; } = NotificationStatus.Sent;
+    public int RetryCount { get; private set; } = 0;
+    public DateTime? LastAttemptAtUtc { get; private set; }
+    public string? ErrorSummary { get; private set; }
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+
     // Navigation property
     public User User { get; private set; } = default!;
 
@@ -31,7 +38,8 @@ public class Notification : BaseEntity
         NotificationChannel channel = NotificationChannel.InApp,
         Guid? referenceId = null,
         string? referenceType = null,
-        string? metadataJson = null)
+        string? metadataJson = null,
+        NotificationStatus status = NotificationStatus.Sent)
     {
         if (userId == Guid.Empty) throw new ArgumentException("UserId cannot be empty.", nameof(userId));
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title cannot be empty.", nameof(title));
@@ -47,6 +55,9 @@ public class Notification : BaseEntity
         MetadataJson = metadataJson;
         IsRead = false;
         SentAtUtc = DateTime.UtcNow;
+        LastAttemptAtUtc = DateTime.UtcNow;
+        Status = status;
+        RetryCount = 0;
     }
 
     public void MarkAsRead()
@@ -56,6 +67,35 @@ public class Notification : BaseEntity
             IsRead = true;
             ReadAtUtc = DateTime.UtcNow;
             UpdatedAtUtc = DateTime.UtcNow;
+            ConcurrencyToken = Guid.NewGuid();
         }
+    }
+
+    public void MarkFailed(string error)
+    {
+        Status = NotificationStatus.Failed;
+        ErrorSummary = error;
+        LastAttemptAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void MarkSent()
+    {
+        Status = NotificationStatus.Sent;
+        ErrorSummary = null;
+        LastAttemptAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void Retry()
+    {
+        RetryCount++;
+        LastAttemptAtUtc = DateTime.UtcNow;
+        Status = NotificationStatus.Sent;
+        ErrorSummary = null;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }

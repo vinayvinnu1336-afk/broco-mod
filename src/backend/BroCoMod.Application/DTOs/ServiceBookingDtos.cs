@@ -148,13 +148,22 @@ public record AdminServiceRequestSummaryDto(
     string RequestNumber,
     Guid CustomerId,
     string CustomerName,
-    string VehicleSummary,
-    string LocationSummary,
-    string Status,
-    string? AssignedAdvisorName,
-    int EligibleGaragesCount,
-    int DispatchedGaragesCount,
-    DateTime SubmittedAtUtc
+    string VehicleSummary = "",
+    string LocationSummary = "",
+    string Status = "",
+    string? AssignedAdvisorName = null,
+    int EligibleGaragesCount = 0,
+    int DispatchedGaragesCount = 0,
+    DateTime SubmittedAtUtc = default,
+    string? CustomerEmail = null,
+    string? VehicleMake = null,
+    string? VehicleModel = null,
+    string? VehicleLicensePlate = null,
+    Guid? AssignedAdvisorId = null,
+    int QuotesReceivedCount = 0,
+    string? AssignedGarageName = null,
+    string? ServiceJobStatus = null,
+    DateTime? CreatedAtUtc = null
 );
 
 public record AdminServiceRequestDetailDto(

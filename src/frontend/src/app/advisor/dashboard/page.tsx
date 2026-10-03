@@ -4,211 +4,260 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
+import { AttentionItem } from '@/types/adminOperations';
 import { 
   Inbox, 
   Calculator, 
   CheckSquare, 
   ShieldCheck, 
   Clock, 
-  ArrowRight,
-  TrendingUp,
-  UserCheck
+  ArrowRight, 
+  Wrench,
+  AlertTriangle,
+  UserCheck,
+  CheckCircle2,
+  ListTodo,
+  RefreshCw
 } from 'lucide-react';
 
 interface AdvisorDashboardData {
-  advisorId: string;
-  advisorName: string;
-  pendingReviewsCount: number;
-  activeRequestsCount: number;
-  assignedGaragesCount: number;
-  requestsUnderReview: Array<{
-    serviceRequestId: string;
-    customerId: string;
-    customerName: string;
-    vehicleSummary: string;
-    description: string;
-    quotesReceivedCount: number;
-    status: string;
-    createdAtUtc: string;
-  }>;
-  pendingQuoteApprovals: Array<{
-    quoteId: string;
-    serviceRequestId: string;
-    garageId: string;
-    garageName: string;
-    garageInternalPrice: number;
-    internalCostBreakdown: string;
-    recommendedCustomerPrice: number;
-    status: string;
-    submittedAtUtc: string;
-  }>;
+  assignedRequestsCount: number;
+  pendingQuoteReviewsCount: number;
+  awaitingCustomerDecisionCount: number;
+  activeServiceJobsCount: number;
+  additionalWorkPendingReviewCount: number;
+  completedJobsThisMonth: number;
+  priorityAttentionItems: AttentionItem[];
 }
 
 export default function AdvisorDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<AdvisorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadDashboard = async () => {
+    setRefreshing(true);
+    const res = await apiFetch<AdvisorDashboardData>('/advisor/dashboard');
+    if (res.success && res.data) {
+      setData(res.data);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
-    async function loadDashboard() {
-      const res = await apiFetch<AdvisorDashboardData>('/advisor/dashboard');
-      if (res.success && res.data) {
-        setData(res.data);
-      }
-      setLoading(false);
-    }
     loadDashboard();
   }, []);
 
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+          <p className="text-sm text-neutral-400">Loading technical advisor console...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Advisor Welcome */}
-      <div className="bg-gradient-to-r from-navy-900 to-navy-800 rounded-2xl p-6 sm:p-8 text-white shadow-sm border border-navy-700">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-semibold uppercase tracking-wider mb-3">
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Technical Advisor Console</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2">
-              Advisor {user?.fullName || data?.advisorName || 'Alex Vance'}
-            </h1>
-            <p className="text-surface-300 text-sm max-w-xl">
-              Centralized advisor clearinghouse. Evaluate incoming repair requests, compare workshop bids, formulate customer quotations, and manage garage assignments.
-            </p>
-          </div>
-
-          <div className="bg-navy-800/80 p-4 rounded-xl border border-navy-700 text-xs text-surface-200">
-            <span className="text-surface-300 block mb-0.5">Specialization Focus</span>
-            <span className="font-bold text-white text-sm block">European Performance</span>
-            <span className="text-purple-400 font-mono text-[11px] block">ADV-1001 • Max Cap: 50</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-white rounded-2xl p-5 border border-surface-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-navy-600 uppercase tracking-wider">Pending Quote Reviews</div>
-            <div className="text-3xl font-extrabold text-navy-900 mt-1">
-              {loading ? '—' : data?.pendingReviewsCount ?? 0}
-            </div>
-            <div className="text-xs text-navy-600 mt-1">Requiring Margin Application</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Calculator className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-surface-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-navy-600 uppercase tracking-wider">Active Requests</div>
-            <div className="text-3xl font-extrabold text-navy-900 mt-1">
-              {loading ? '—' : data?.activeRequestsCount ?? 0}
-            </div>
-            <div className="text-xs text-navy-600 mt-1">Dispatched to Garages</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-electric-600 flex items-center justify-center">
-            <Inbox className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-surface-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-navy-600 uppercase tracking-wider">Available Garages</div>
-            <div className="text-3xl font-extrabold text-navy-900 mt-1">
-              {loading ? '—' : data?.assignedGaragesCount ?? 1}
-            </div>
-            <div className="text-xs text-navy-600 mt-1">In Certified Network</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <CheckSquare className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Two-Tier Architecture Notice */}
-      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-xs text-purple-900 flex items-start gap-3">
-        <TrendingUp className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <strong>Quotation Transformation Protocol:</strong> As an Advisor, you possess privileged visibility into the workshop&apos;s internal pricing (<code className="bg-purple-100 px-1 py-0.5 rounded font-mono">GarageQuote</code>). Your responsibility is to review technical feasibility, apply standard advisor markup, and issue the public sanitized customer proposal (<code className="bg-purple-100 px-1 py-0.5 rounded font-mono">CustomerQuotation</code>).
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-white">Advisor Operational Console</h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-300">
+              <UserCheck className="h-3 w-3" /> Technical Review Duty
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-neutral-400">
+            Welcome, <span className="font-semibold text-white">{user?.fullName}</span>. Oversee quotations, margin structures, and garage execution.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadDashboard}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-sm font-medium text-neutral-200 transition hover:bg-neutral-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <Link
+            href="/advisor/work-queue"
+            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-500"
+          >
+            <ListTodo className="h-4 w-4" />
+            Open Work Queue
+          </Link>
         </div>
       </div>
 
-      {/* Tables Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Requests Review */}
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
-              <Inbox className="w-5 h-5 text-purple-600" />
-              <span>Customer Requests In Review</span>
-            </h2>
-            <Link href="/advisor/requests" className="text-xs font-semibold text-electric-600 hover:underline flex items-center gap-1">
-              <span>View all</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Pending Quote Reviews */}
+        <Link
+          href="/advisor/work-queue?stage=pending-quotes"
+          className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm transition hover:border-neutral-700 hover:bg-neutral-800/60"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Quotes Needing Review</span>
+            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400">
+              <Calculator className="h-5 w-5" />
+            </div>
           </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.pendingQuoteReviewsCount ?? 0}</span>
+            <span className="text-xs text-amber-400 font-medium">Action Required</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Workshop quotes awaiting margin adjustment & approval.
+          </p>
+        </Link>
 
-          {loading ? (
-            <div className="py-8 text-center text-xs text-navy-600">Loading requests...</div>
-          ) : data?.requestsUnderReview && data.requestsUnderReview.length > 0 ? (
-            <div className="divide-y divide-surface-100">
-              {data.requestsUnderReview.map((r) => (
-                <div key={r.serviceRequestId} className="py-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold text-navy-900">{r.vehicleSummary}</div>
-                    <div className="text-xs text-navy-600 line-clamp-1">{r.description}</div>
-                  </div>
-                  <span className="text-xs font-bold text-navy-700 bg-surface-100 px-2 py-0.5 rounded">
-                    {r.quotesReceivedCount} Quotes Received
-                  </span>
-                </div>
-              ))}
+        {/* Awaiting Customer Decision */}
+        <Link
+          href="/advisor/work-queue?stage=awaiting-customer"
+          className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm transition hover:border-neutral-700 hover:bg-neutral-800/60"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Awaiting Customer Decision</span>
+            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
+              <Clock className="h-5 w-5" />
             </div>
-          ) : (
-            <div className="py-8 text-center text-xs text-navy-600 bg-surface-50 rounded-xl border border-dashed border-surface-300">
-              No service requests pending review.
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.awaitingCustomerDecisionCount ?? 0}</span>
+            <span className="text-xs text-blue-400 font-medium">Pending Response</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Proposals sent to customers awaiting acceptance or rejection.
+          </p>
+        </Link>
+
+        {/* Additional Work Requests */}
+        <Link
+          href="/advisor/work-queue?stage=additional-work"
+          className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm transition hover:border-neutral-700 hover:bg-neutral-800/60"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Additional Work Pending</span>
+            <div className="rounded-lg bg-rose-500/10 p-2 text-rose-400">
+              <AlertTriangle className="h-5 w-5" />
             </div>
-          )}
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.additionalWorkPendingReviewCount ?? 0}</span>
+            <span className="text-xs text-rose-400 font-medium">Workshop Escalation</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Unplanned parts and labor requested by garages during inspection.
+          </p>
+        </Link>
+
+        {/* Active Service Jobs */}
+        <Link
+          href="/advisor/jobs"
+          className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm transition hover:border-neutral-700 hover:bg-neutral-800/60"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Active Service Jobs</span>
+            <div className="rounded-lg bg-orange-500/10 p-2 text-orange-400">
+              <Wrench className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.activeServiceJobsCount ?? 0}</span>
+            <span className="text-xs text-orange-400 font-medium">Live Execution</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Vehicles in workshop inspection, work in progress, or ready.
+          </p>
+        </Link>
+
+        {/* Assigned Requests Total */}
+        <Link
+          href="/advisor/requests"
+          className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm transition hover:border-neutral-700 hover:bg-neutral-800/60"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Total Assigned Requests</span>
+            <div className="rounded-lg bg-purple-500/10 p-2 text-purple-400">
+              <Inbox className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.assignedRequestsCount ?? 0}</span>
+            <span className="text-xs text-neutral-400 font-medium">Portfolio</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            All service requests assigned to your advisor profile.
+          </p>
+        </Link>
+
+        {/* Completed Jobs This Month */}
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-neutral-400">Completed This Month</span>
+            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white">{data?.completedJobsThisMonth ?? 0}</span>
+            <span className="text-xs text-emerald-400 font-medium">Delivered</span>
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Handed over and closed repair jobs with verified quality.
+          </p>
+        </div>
+      </div>
+
+      {/* Priority Attention Items */}
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 shadow-sm">
+        <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-400" />
+            <h2 className="text-base font-semibold text-white">Priority Operational Attention Items</h2>
+          </div>
+          <Link
+            href="/advisor/work-queue"
+            className="flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300"
+          >
+            Open Full Work Queue <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
 
-        {/* Quotes & Margins */}
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-electric-600" />
-              <span>Workshop Bids for Margin Review</span>
-            </h2>
-            <Link href="/advisor/quotes" className="text-xs font-semibold text-electric-600 hover:underline flex items-center gap-1">
-              <span>View all</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="py-8 text-center text-xs text-navy-600">Loading bids...</div>
-          ) : data?.pendingQuoteApprovals && data.pendingQuoteApprovals.length > 0 ? (
-            <div className="divide-y divide-surface-100">
-              {data.pendingQuoteApprovals.map((q) => (
-                <div key={q.quoteId} className="py-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold text-navy-900">{q.garageName}</div>
-                    <div className="text-xs text-navy-600">
-                      Internal: ${q.garageInternalPrice.toFixed(2)} → Recommended: ${q.recommendedCustomerPrice.toFixed(2)}
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-50 text-purple-700">
-                    {q.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+        <div className="mt-4 divide-y divide-neutral-800">
+          {!data?.priorityAttentionItems || data.priorityAttentionItems.length === 0 ? (
+            <p className="py-6 text-center text-xs text-neutral-500">
+              No priority attention items currently pending. All quotes and jobs are on schedule!
+            </p>
           ) : (
-            <div className="py-8 text-center text-xs text-navy-600 bg-surface-50 rounded-xl border border-dashed border-surface-300">
-              No workshop quotations requiring margin application.
-            </div>
+            data.priorityAttentionItems.map((item, idx) => (
+              <div key={`${item.referenceId}-${idx}`} className="py-3 flex items-center justify-between text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-white">{item.referenceNumber}</span>
+                    <span className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] uppercase font-semibold text-neutral-300">
+                      {item.category}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-neutral-200">{item.title}</p>
+                  <p className="text-xs text-neutral-400">{item.description}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={item.actionUrl}
+                    className="inline-flex items-center gap-1 rounded bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-700 hover:text-purple-300 transition"
+                  >
+                    Action <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>

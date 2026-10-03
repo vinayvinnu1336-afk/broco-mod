@@ -155,4 +155,21 @@ public enum JobActivityType
     AdditionalWorkReviewed = 14
 }
 
+public enum GarageStatus
+{
+    PendingVerification = 1,
+    Verified = 2,
+    Suspended = 3,
+    Inactive = 4
+}
+
+public enum NotificationStatus
+{
+    Pending = 1,
+    Processing = 2,
+    Sent = 3,
+    Failed = 4,
+    Cancelled = 5
+}
+
 

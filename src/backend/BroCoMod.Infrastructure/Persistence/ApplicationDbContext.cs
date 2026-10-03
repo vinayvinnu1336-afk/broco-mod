@@ -95,6 +95,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(g => g.Address).HasMaxLength(500);
             builder.Property(g => g.IsVerified).HasDefaultValue(true);
             builder.Property(g => g.IsOperational).HasDefaultValue(true);
+            builder.Property(g => g.Status).HasDefaultValue(GarageStatus.Verified).HasSentinel((GarageStatus)0).IsRequired();
+            builder.Property(g => g.ServiceRadiusKm).HasDefaultValue(10.0).IsRequired();
+            builder.Property(g => g.StatusReason).HasMaxLength(1000);
+            builder.Property(g => g.ConcurrencyToken).IsConcurrencyToken();
 
             // PostGIS spatial geography column with spatial indexing
             builder.Property(g => g.Location)
@@ -103,6 +107,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             builder.HasIndex(g => g.Location)
                 .HasMethod("GIST");
+
+            builder.HasIndex(g => g.Status);
+            builder.HasIndex(g => g.IsActive);
         });
 
         // ServiceLocation configuration
@@ -219,10 +226,15 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(n => n.Type).IsRequired().HasMaxLength(100);
             builder.Property(n => n.ReferenceType).HasMaxLength(50);
             builder.Property(n => n.MetadataJson).HasMaxLength(4000);
+            builder.Property(n => n.Status).HasDefaultValue(NotificationStatus.Sent).HasSentinel((NotificationStatus)0).IsRequired();
+            builder.Property(n => n.RetryCount).HasDefaultValue(0).IsRequired();
+            builder.Property(n => n.ErrorSummary).HasMaxLength(2000);
+            builder.Property(n => n.ConcurrencyToken).IsConcurrencyToken();
 
             builder.HasIndex(n => n.UserId);
             builder.HasIndex(n => n.IsRead);
             builder.HasIndex(n => n.CreatedAtUtc);
+            builder.HasIndex(n => n.Status);
 
             builder.HasOne(n => n.User)
                 .WithMany(u => u.Notifications)
@@ -698,6 +710,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(al => al.TimestampUtc);
             builder.HasIndex(al => al.UserId);
             builder.HasIndex(al => al.Action);
+            builder.HasIndex(al => new { al.EntityName, al.EntityId });
         });
 
         // ServiceJob configuration (Operational service execution)

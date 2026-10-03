@@ -12,23 +12,25 @@ import {
   CarFront, 
   Settings, 
   ShieldAlert,
-  FileSpreadsheet,
-  Wrench
+  Wrench,
+  AlertTriangle,
+  Bell,
+  Activity
 } from 'lucide-react';
 
 const adminNavItems: NavItem[] = [
   { label: 'Admin Command', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Customer Accounts', href: '/admin/customers', icon: Users },
+  { label: 'Attention Queue', href: '/admin/attention', icon: AlertTriangle },
+  { label: 'Platform Requests', href: '/admin/requests', icon: FileText },
   { label: 'Workshop Network', href: '/admin/garages', icon: Building2 },
   { label: 'Technical Advisors', href: '/admin/advisors', icon: UserCheck },
-  { label: 'Platform Requests', href: '/admin/requests', icon: FileText },
-  { label: 'Garage Quotes', href: '/admin/quotes', icon: FileSpreadsheet },
-  { label: 'Workshop Assignments', href: '/admin/assignments', icon: Building2 },
-  { label: 'Customer Proposals', href: '/admin/customer-quotations', icon: FileText },
+  { label: 'Customer Accounts', href: '/admin/customers', icon: Users },
   { label: 'Service Execution', href: '/admin/jobs', icon: Wrench },
+  { label: 'Notification Health', href: '/admin/notifications', icon: Bell },
+  { label: 'System Health', href: '/admin/system-health', icon: Activity },
+  { label: 'Security Audit Trail', href: '/admin/audit', icon: ShieldAlert },
   { label: 'Vehicle Master DB', href: '/admin/vehicle-master', icon: CarFront },
   { label: 'System Settings', href: '/admin/settings', icon: Settings },
-  { label: 'Security Audit Trail', href: '/admin/audit', icon: ShieldAlert },
 ];
 
 export default function AdminPortalRootLayout({ children }: { children: ReactNode }) {
