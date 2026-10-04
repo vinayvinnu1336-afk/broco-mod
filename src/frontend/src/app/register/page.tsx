@@ -29,6 +29,8 @@ export default function RegisterPage() {
       fullName,
       phoneNumber,
       role,
+      garageName: role === 'GARAGE_OWNER' ? garageName : undefined,
+      address: role === 'GARAGE_OWNER' ? address : undefined,
     });
 
     if (!res.success) {

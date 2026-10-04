@@ -71,13 +71,15 @@ services:
     build:
       context: ./src/frontend
       dockerfile: ../../docker/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
     image: broco-mod-frontend:latest
     container_name: broco-mod-frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:5000
+      NEXT_PUBLIC_API_URL: /api/v1
     ports:
       - "${FRONTEND_PORT:-3005}:3000"
     networks:

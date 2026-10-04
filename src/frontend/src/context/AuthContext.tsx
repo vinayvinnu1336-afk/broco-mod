@@ -16,6 +16,8 @@ interface AuthContextType {
     fullName: string;
     phoneNumber: string;
     role?: string;
+    garageName?: string;
+    address?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   quickLogin: (role: 'customer' | 'garage' | 'advisor' | 'admin') => Promise<void>;
@@ -81,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fullName: string;
     phoneNumber: string;
     role?: string;
+    garageName?: string;
+    address?: string;
   }) => {
     setIsLoading(true);
     try {

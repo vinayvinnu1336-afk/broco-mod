@@ -1,6 +1,23 @@
 import { ApiResponse } from '@/types/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+function getApiBase(): string {
+  // If explicitly configured in environment
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl) {
+    const trimmed = envUrl.replace(/\/+$/, '');
+    return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+  }
+
+  // In the browser, check if served behind reverse proxy (e.g. Nginx on port 80/443 or default port)
+  if (typeof window !== 'undefined') {
+    if (!window.location.port || window.location.port === '80' || window.location.port === '443') {
+      return '/api/v1';
+    }
+  }
+
+  // Fallback for direct local dev or server-side calls
+  return 'http://localhost:5000/api/v1';
+}
 
 export async function apiFetch<T>(
   endpoint: string,
@@ -17,7 +34,9 @@ export async function apiFetch<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+  const apiBase = getApiBase();
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${apiBase}${normalizedEndpoint}`;
 
   try {
     const response = await fetch(url, {

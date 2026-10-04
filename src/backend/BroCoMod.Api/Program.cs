@@ -121,9 +121,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(
+                "http://localhost",
+                "http://localhost:80",
                 "http://localhost:3000",
                 "http://localhost:3005",
-                "http://localhost:80",
+                "http://127.0.0.1",
+                "http://127.0.0.1:80",
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:3005"
             )
