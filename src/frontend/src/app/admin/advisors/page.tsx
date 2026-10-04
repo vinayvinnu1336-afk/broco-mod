@@ -10,13 +10,17 @@ import {
   CheckCircle2,
   Ban,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   X,
   Briefcase,
   FileCheck,
   Wrench
 } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Pagination } from '@/components/ui/Pagination';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function AdminAdvisorsPage() {
   const [advisors, setAdvisors] = useState<AdminAdvisorList[]>([]);
@@ -103,43 +107,44 @@ export default function AdminAdvisorsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Technical Advisors Management</h1>
-          <p className="mt-1 text-sm text-neutral-400">
+          <h1 className="text-2xl font-bold tracking-tight text-navy-900">Technical Advisors Management</h1>
+          <p className="mt-1 text-sm text-navy-600">
             Supervise platform advisors, workloads, quote review activity, and account status.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => { setRefreshing(true); loadAdvisors(); }}
-            disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-sm font-medium text-neutral-200 transition hover:bg-neutral-700 disabled:opacity-50"
+            isLoading={refreshing}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Filters Toolbar */}
-      <div className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-navy-400" />
           <input
             type="text"
             placeholder="Search advisor by name, email, employee code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none"
+            className="w-full rounded-xl border border-surface-200 bg-surface-50 pl-9 pr-4 py-2 text-xs text-navy-900 placeholder-navy-400 focus:border-navy-900 focus:outline-none"
           />
         </form>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-neutral-400" />
+            <Filter className="h-3.5 w-3.5 text-navy-400" />
             <select
               value={activeFilter}
               onChange={(e) => setActiveFilter(e.target.value)}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-red-500 focus:outline-none"
+              className="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
             >
               <option value="">All Statuses</option>
               <option value="true">Active Duty</option>
@@ -148,11 +153,11 @@ export default function AdminAdvisorsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-neutral-400">Page size:</span>
+            <span className="text-xs text-navy-500">Page size:</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-2.5 py-2 text-xs text-neutral-200 focus:border-red-500 focus:outline-none"
+              className="rounded-xl border border-surface-200 bg-surface-50 px-2.5 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -163,89 +168,92 @@ export default function AdminAdvisorsPage() {
       </div>
 
       {/* Advisors Table */}
-      <div className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/50 shadow-sm">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-neutral-800 bg-neutral-900 text-neutral-400 uppercase tracking-wider text-[11px]">
+            <thead className="border-b border-surface-200 bg-surface-50 text-navy-500 uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="px-5 py-3.5 font-semibold">Advisor</th>
-                <th className="px-5 py-3.5 font-semibold">Employee Code</th>
-                <th className="px-5 py-3.5 font-semibold">Specialization</th>
-                <th className="px-5 py-3.5 font-semibold">Status</th>
-                <th className="px-5 py-3.5 font-semibold">Assigned Requests</th>
-                <th className="px-5 py-3.5 font-semibold">Quotes Reviewed</th>
-                <th className="px-5 py-3.5 font-semibold">Active Jobs</th>
-                <th className="px-5 py-3.5 font-semibold">Registered</th>
-                <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+                <th className="px-5 py-3.5 font-bold">Advisor</th>
+                <th className="px-5 py-3.5 font-bold">Employee Code</th>
+                <th className="px-5 py-3.5 font-bold">Specialization</th>
+                <th className="px-5 py-3.5 font-bold">Status</th>
+                <th className="px-5 py-3.5 font-bold">Assigned Requests</th>
+                <th className="px-5 py-3.5 font-bold">Quotes Reviewed</th>
+                <th className="px-5 py-3.5 font-bold">Active Jobs</th>
+                <th className="px-5 py-3.5 font-bold">Registered</th>
+                <th className="px-5 py-3.5 font-bold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-800/60">
+            <tbody className="divide-y divide-surface-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
-                      Loading advisors...
-                    </div>
+                  <td colSpan={9} className="py-12 text-center text-navy-500">
+                    <LoadingState message="Loading advisors..." />
                   </td>
                 </tr>
               ) : advisors.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500">
-                    No technical advisors match the specified filters.
+                  <td colSpan={9} className="py-12 text-center text-navy-500">
+                    <EmptyState
+                      icon={UserCheck}
+                      title="No advisors found"
+                      description="No technical advisors match the specified filters."
+                    />
                   </td>
                 </tr>
               ) : (
                 advisors.map((adv) => (
-                  <tr key={adv.id} className="transition hover:bg-neutral-800/40">
+                  <tr key={adv.id} className="transition hover:bg-surface-50/50">
                     <td className="px-5 py-4">
-                      <span className="font-semibold text-white">{adv.fullName}</span>
-                      <div className="text-[11px] text-neutral-500">{adv.email}</div>
+                      <span className="font-bold text-navy-900">{adv.fullName}</span>
+                      <div className="text-[11px] text-navy-500">{adv.email}</div>
                     </td>
-                    <td className="px-5 py-4 font-mono text-neutral-300">
-                      {adv.employeeCode || <span className="text-neutral-600">—</span>}
+                    <td className="px-5 py-4 font-mono font-bold text-navy-700">
+                      {adv.employeeCode || <span className="text-navy-400 font-normal">—</span>}
                     </td>
-                    <td className="px-5 py-4 text-neutral-300">
-                      {adv.specialization || <span className="text-neutral-600">General</span>}
+                    <td className="px-5 py-4 text-navy-700">
+                      {adv.specialization || <span className="text-navy-400">General</span>}
                     </td>
                     <td className="px-5 py-4">
                       {adv.isActive ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" /> Active
-                        </span>
+                        <Badge variant="green" icon={CheckCircle2}>
+                          Active
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800 px-2.5 py-0.5 text-[11px] font-medium text-neutral-400">
-                          <Ban className="h-3 w-3" /> Inactive
-                        </span>
+                        <Badge variant="neutral" icon={Ban}>
+                          Inactive
+                        </Badge>
                       )}
                     </td>
-                    <td className="px-5 py-4 font-semibold text-white">
+                    <td className="px-5 py-4 font-bold text-navy-900">
                       {adv.activeAssignedRequestsCount}
                     </td>
-                    <td className="px-5 py-4 text-neutral-300">
+                    <td className="px-5 py-4 text-navy-700">
                       {adv.totalQuotesReviewedCount}
                     </td>
-                    <td className="px-5 py-4 font-semibold text-orange-400">
+                    <td className="px-5 py-4 font-bold text-orange-600">
                       {adv.activeJobsOverseeingCount}
                     </td>
-                    <td className="px-5 py-4 text-neutral-500 whitespace-nowrap">
+                    <td className="px-5 py-4 text-navy-500 whitespace-nowrap">
                       {new Date(adv.createdAtUtc).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-4 text-right">
                       {adv.isActive ? (
-                        <button
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={() => setDeactivateModal({ id: adv.id, name: adv.fullName })}
-                          className="rounded bg-rose-500/10 border border-rose-500/30 px-2.5 py-1 text-xs font-medium text-rose-300 hover:bg-rose-500/20 transition"
                         >
                           Deactivate
-                        </button>
+                        </Button>
                       ) : (
-                        <button
+                        <Button
+                          variant="primary"
+                          size="sm"
                           onClick={() => handleActivate(adv.id)}
-                          className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition"
                         >
                           Activate
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -256,80 +264,68 @@ export default function AdminAdvisorsPage() {
         </div>
 
         {/* Pagination Bar */}
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-neutral-800 bg-neutral-900/80 px-5 py-3 sm:flex-row">
-          <span className="text-xs text-neutral-400">
-            Showing <span className="font-medium text-white">{advisors.length}</span> of{' '}
-            <span className="font-medium text-white">{totalCount}</span> total advisors
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadAdvisors(page - 1, pageSize, searchTerm, activeFilter)}
-              disabled={page <= 1}
-              className="inline-flex items-center gap-1 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300 transition hover:bg-neutral-700 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" /> Prev
-            </button>
-            <span className="text-xs text-neutral-400">
-              Page {page} of {Math.max(1, totalPages)}
-            </span>
-            <button
-              onClick={() => loadAdvisors(page + 1, pageSize, searchTerm, activeFilter)}
-              disabled={page >= totalPages}
-              className="inline-flex items-center gap-1 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300 transition hover:bg-neutral-700 disabled:opacity-40"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+        {totalCount > 0 && (
+          <div className="p-4 border-t border-surface-200">
+            <Pagination
+              currentPage={page}
+              totalPages={Math.max(1, totalPages)}
+              totalItems={totalCount}
+              pageSize={pageSize}
+              onPageChange={(p) => loadAdvisors(p, pageSize, searchTerm, activeFilter)}
+            />
           </div>
-        </div>
-      </div>
+        )}
+      </Card>
 
       {/* Deactivate Modal */}
       {deactivateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <h3 className="text-base font-semibold text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-surface-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
+              <h3 className="text-base font-bold text-navy-900">
                 Deactivate Advisor: {deactivateModal.name}
               </h3>
               <button
                 onClick={() => setDeactivateModal(null)}
-                className="text-neutral-400 hover:text-white"
+                className="text-navy-400 hover:text-navy-900"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mt-3 text-xs text-neutral-400">
-              Deactivating this advisor account will prevent them from reviewing quotations and assigning garages.
+            <p className="mt-3 text-xs text-navy-600">
+              Deactivating this technical advisor will immediately prevent them from reviewing quotes or managing requests.
             </p>
 
             <div className="mt-4 space-y-2">
-              <label className="text-xs font-semibold text-neutral-300">
-                Reason for deactivation: <span className="text-red-400">*</span>
+              <label className="text-xs font-bold text-navy-800">
+                Deactivation Reason: <span className="text-rose-600">*</span>
               </label>
               <textarea
                 value={deactivateReason}
                 onChange={(e) => setDeactivateReason(e.target.value)}
-                placeholder="Enter administrative rationale (e.g., leave of absence, transfer)..."
+                placeholder="Enter audit rationale..."
                 rows={3}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-800 p-2.5 text-xs text-white focus:border-red-500 focus:outline-none"
+                className="w-full rounded-xl border border-surface-200 bg-surface-50 p-2.5 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
               />
-              {deactivateError && <p className="text-xs text-rose-400">{deactivateError}</p>}
+              {deactivateError && <p className="text-xs text-rose-600">{deactivateError}</p>}
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-3">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setDeactivateModal(null)}
-                className="rounded-lg border border-neutral-700 bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-300 hover:bg-neutral-700"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={submitDeactivate}
-                disabled={deactivateLoading}
-                className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                isLoading={deactivateLoading}
               >
-                {deactivateLoading ? 'Processing...' : 'Confirm Deactivation'}
-              </button>
+                Confirm Deactivation
+              </Button>
             </div>
           </div>
         </div>

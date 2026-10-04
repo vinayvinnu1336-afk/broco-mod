@@ -42,7 +42,7 @@ export default function AdminPortalRootLayout({ children }: { children: ReactNod
     <ProtectedRoute allowedRoles={['SUPER_ADMIN']} portalName="Super Admin">
       <PortalLayout
         portalName="Super Admin Portal"
-        portalBadgeColor="bg-red-500/20 text-red-300 border-red-500/30"
+        portalBadgeColor="bg-red-50 text-red-700 border-red-200"
         navItems={adminNavItems}
       >
         {children}

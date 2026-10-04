@@ -10,7 +10,6 @@ import {
   CheckCircle2, 
   Clock, 
   AlertCircle, 
-  RotateCcw, 
   ArrowLeft, 
   Receipt,
   ShieldCheck,
@@ -19,6 +18,11 @@ import {
   Hash,
   ExternalLink
 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams();
@@ -34,19 +38,25 @@ export default function CustomerPaymentDetailPage() {
     async function loadData() {
       setLoading(true);
       setErrorMsg(null);
-      const res = await apiFetch<PaymentDto>(`/customer/payments/${paymentId}`);
-      if (res.success && res.data) {
-        setPayment(res.data);
-        if (res.data.status === 'Paid') {
-          const invRes = await apiFetch<InvoiceDto>(`/customer/invoices/by-payment/${paymentId}`);
-          if (invRes.success && invRes.data) {
-            setInvoice(invRes.data);
+      try {
+        const res = await apiFetch<PaymentDto>(`/customer/payments/${paymentId}`);
+        if (res.success && res.data) {
+          setPayment(res.data);
+          if (res.data.status === 'Paid') {
+            const invRes = await apiFetch<InvoiceDto>(`/customer/invoices/by-payment/${paymentId}`);
+            if (invRes.success && invRes.data) {
+              setInvoice(invRes.data);
+            }
           }
+        } else {
+          setErrorMsg(res.message || 'Payment not found or unauthorized.');
         }
-      } else {
-        setErrorMsg(res.message || 'Payment not found or unauthorized.');
+      } catch (err) {
+        console.error('Error fetching payment:', err);
+        setErrorMsg('Unable to retrieve payment record.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     if (paymentId) {
       loadData();
@@ -54,151 +64,124 @@ export default function CustomerPaymentDetailPage() {
   }, [paymentId]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-24">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" />
-      </div>
-    );
+    return <LoadingState message="Loading payment transaction details..." />;
   }
 
   if (errorMsg || !payment) {
     return (
-      <div className="max-w-2xl mx-auto py-12 text-center">
-        <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-xl text-rose-400">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3" />
-          <h2 className="text-lg font-bold">Unable to load payment details</h2>
-          <p className="text-sm mt-1">{errorMsg}</p>
-          <Link
-            href="/customer/payments"
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Payments
-          </Link>
-        </div>
+      <div className="max-w-2xl mx-auto py-12">
+        <ErrorState
+          title="Payment Not Found"
+          error={errorMsg}
+          action={
+            <Link href="/customer/payments">
+              <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                Back to Payments
+              </Button>
+            </Link>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 font-sans">
       {/* Back button */}
       <div>
         <Link
           href="/customer/payments"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-500 hover:text-electric-600 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Payments
+          <span>Back to Payments</span>
         </Link>
       </div>
 
       {/* Main Payment Card */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        {/* Status watermark */}
-        <div className="flex items-start justify-between border-b border-slate-800 pb-6">
+      <Card className="p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between border-b border-surface-200 pb-6 gap-4">
           <div>
-            <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-              Official Payment Receipt
-            </span>
-            <h1 className="text-2xl font-bold text-white mt-1 flex items-center gap-3">
+            <div className="text-xs font-mono font-bold text-electric-700 bg-electric-50 px-2.5 py-1 rounded-lg border border-electric-200 inline-block mb-2">
               {payment.paymentNumber}
-              {payment.status === 'Paid' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Paid Successfully
-                </span>
-              ) : payment.status === 'Pending' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <Clock className="w-3.5 h-3.5" />
-                  Pending
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {payment.status}
-                </span>
-              )}
-            </h1>
+            </div>
+            <h1 className="text-2xl font-black text-navy-900 tracking-tight">Payment Receipt</h1>
+            <p className="text-xs text-navy-500 mt-0.5">
+              Escrow transaction processed via {payment.gatewayProvider || 'Secure Platform Gateway'}
+            </p>
           </div>
-
-          <div className="text-right">
-            <span className="text-xs text-slate-400">Total Amount</span>
-            <div className="text-2xl font-black text-emerald-400">
-              {payment.currency} {payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          <div className="text-left sm:text-right">
+            <div className="text-xs font-bold text-navy-400 uppercase">Paid Amount</div>
+            <div className="text-3xl font-black text-navy-900 mt-0.5">
+              ₹{payment.amount.toLocaleString()}
+            </div>
+            <div className="mt-2">
+              <StatusBadge status={payment.status} />
             </div>
           </div>
         </div>
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-slate-800">
-          <div>
-            <span className="text-xs font-medium text-slate-400 flex items-center gap-1.5 mb-1">
-              <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              Transaction Timestamp
-            </span>
-            <p className="text-sm font-medium text-white">
-              {payment.paidAtUtc
-                ? new Date(payment.paidAtUtc).toLocaleString('en-IN')
-                : new Date(payment.createdAtUtc).toLocaleString('en-IN')}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-xs font-medium text-slate-400 flex items-center gap-1.5 mb-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Gateway Reference
-            </span>
-            <p className="text-sm font-mono text-slate-300">
-              {payment.gatewayPaymentId || 'N/A'}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-xs font-medium text-slate-400 flex items-center gap-1.5 mb-1">
-              <Hash className="w-3.5 h-3.5 text-amber-400" />
-              Gateway Order ID
-            </span>
-            <p className="text-sm font-mono text-slate-300">
+        {/* Transaction Meta Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6 text-xs">
+          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+            <span className="text-navy-400 block font-semibold">Gateway Order ID:</span>
+            <span className="font-mono font-bold text-navy-900 text-sm mt-0.5 block truncate">
               {payment.gatewayOrderId || 'N/A'}
-            </p>
+            </span>
           </div>
 
-          <div>
-            <span className="text-xs font-medium text-slate-400 flex items-center gap-1.5 mb-1">
-              <Building className="w-3.5 h-3.5 text-purple-400" />
-              Payment Gateway Provider
+          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+            <span className="text-navy-400 block font-semibold">Gateway Transaction ID:</span>
+            <span className="font-mono font-bold text-navy-900 text-sm mt-0.5 block truncate">
+              {payment.gatewayPaymentId || 'N/A (Direct Verification)'}
             </span>
-            <p className="text-sm font-medium text-white">
-              {payment.gatewayProvider} (Secured Escrow)
-            </p>
+          </div>
+
+          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+            <span className="text-navy-400 block font-semibold">Payment Method:</span>
+            <span className="font-bold text-navy-900 text-sm mt-0.5 block">
+              {payment.paymentMethod || 'Online Transfer'}
+            </span>
+          </div>
+
+          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+            <span className="text-navy-400 block font-semibold">Processed At:</span>
+            <span className="font-bold text-navy-900 text-sm mt-0.5 block">
+              {new Date(payment.createdAtUtc).toLocaleString()}
+            </span>
           </div>
         </div>
 
-        {/* Linked Invoice CTA */}
-        {invoice && (
-          <div className="mt-6 bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+        {/* Linked Tax Invoice */}
+        {invoice ? (
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                 <Receipt className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">Tax Invoice Available</h4>
-                <p className="text-xs text-slate-400">
-                  Tax invoice {invoice.invoiceNumber} has been issued and stored securely.
-                </p>
+                <div className="text-xs font-bold text-emerald-900">Official GST Invoice Issued</div>
+                <div className="text-xs text-emerald-700 font-mono">{invoice.invoiceNumber}</div>
               </div>
             </div>
-            <Link
-              href={`/customer/invoices/${invoice.id}`}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg transition-colors"
-            >
-              View Invoice
-              <ExternalLink className="w-3.5 h-3.5" />
+            <Link href={`/customer/invoices/${invoice.id}`}>
+              <Button size="sm" variant="primary">
+                View Tax Invoice
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 text-xs text-navy-600 flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500" />
+              <span>Tax Invoice generating upon service signoff...</span>
+            </span>
+            <Link href="/customer/invoices" className="font-bold text-electric-600 hover:underline">
+              Check Invoices
             </Link>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -20,7 +20,7 @@ export default function AdvisorPortalRootLayout({ children }: { children: ReactN
     <ProtectedRoute allowedRoles={['ADVISOR', 'SUPER_ADMIN']} portalName="Advisor">
       <PortalLayout
         portalName="Advisor Portal"
-        portalBadgeColor="bg-purple-600/20 text-purple-300 border-purple-500/30"
+        portalBadgeColor="bg-purple-50 text-purple-700 border-purple-200"
         navItems={advisorNavItems}
       >
         {children}

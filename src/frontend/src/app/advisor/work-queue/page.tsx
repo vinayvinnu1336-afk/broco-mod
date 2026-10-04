@@ -15,8 +15,13 @@ import {
   ArrowRight,
   RefreshCw,
   CheckCircle2,
-  Filter
 } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 function AdvisorWorkQueueContent() {
   const searchParams = useSearchParams();
@@ -57,33 +62,33 @@ function AdvisorWorkQueueContent() {
     switch (stage) {
       case 'PendingQuotesReview':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[11px] font-medium text-amber-400">
-            <Calculator className="h-3 w-3" /> Quote Review Needed
-          </span>
+          <Badge variant="amber" icon={Calculator}>
+            Quote Review Needed
+          </Badge>
         );
       case 'ReadyToSendQuotes':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 text-[11px] font-medium text-blue-400">
-            <FileText className="h-3 w-3" /> Proposal Ready to Send
-          </span>
+          <Badge variant="blue" icon={FileText}>
+            Proposal Ready to Send
+          </Badge>
         );
       case 'PendingCustomerDecision':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 text-[11px] font-medium text-purple-300">
-            <Clock className="h-3 w-3" /> Awaiting Customer Decision
-          </span>
+          <Badge variant="neutral" icon={Clock}>
+            Awaiting Customer Decision
+          </Badge>
         );
       case 'AdditionalWorkReview':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 text-[11px] font-medium text-rose-400">
-            <AlertTriangle className="h-3 w-3" /> Additional Work Pending
-          </span>
+          <Badge variant="red" icon={AlertTriangle}>
+            Additional Work Pending
+          </Badge>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-neutral-800 border border-neutral-700 px-2 py-0.5 text-[11px] font-medium text-neutral-300">
-            <Wrench className="h-3 w-3" /> Live Workshop Execution
-          </span>
+          <Badge variant="navy" icon={Wrench}>
+            Live Workshop Execution
+          </Badge>
         );
     }
   };
@@ -94,35 +99,36 @@ function AdvisorWorkQueueContent() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Advisor Operational Work Queue</h1>
-            <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-300">
-              <ListTodo className="h-3 w-3" /> Actionable Task Hub
-            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-navy-900">Advisor Operational Work Queue</h1>
+            <Badge variant="blue" icon={ListTodo}>
+              Actionable Task Hub
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-neutral-400">
+          <p className="mt-1 text-sm text-navy-600">
             Organized queues of quotation reviews, proposal dispatches, customer responses, and workshop execution oversight.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={loadWorkQueue}
-            disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-sm font-medium text-neutral-200 transition hover:bg-neutral-700 disabled:opacity-50"
+            isLoading={refreshing}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh Queue
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-neutral-800 pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-surface-200 pb-3">
         <button
           onClick={() => setActiveTab('all')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'all'
-              ? 'bg-purple-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-navy-900 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           All Items ({items.length})
@@ -130,10 +136,10 @@ function AdvisorWorkQueueContent() {
 
         <button
           onClick={() => setActiveTab('pending-quotes')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'pending-quotes'
-              ? 'bg-amber-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-amber-600 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           <Calculator className="h-3.5 w-3.5" />
@@ -142,10 +148,10 @@ function AdvisorWorkQueueContent() {
 
         <button
           onClick={() => setActiveTab('ready-to-send')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'ready-to-send'
-              ? 'bg-blue-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           <FileText className="h-3.5 w-3.5" />
@@ -154,10 +160,10 @@ function AdvisorWorkQueueContent() {
 
         <button
           onClick={() => setActiveTab('awaiting-customer')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'awaiting-customer'
-              ? 'bg-purple-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -166,10 +172,10 @@ function AdvisorWorkQueueContent() {
 
         <button
           onClick={() => setActiveTab('additional-work')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'additional-work'
-              ? 'bg-rose-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           <AlertTriangle className="h-3.5 w-3.5" />
@@ -178,10 +184,10 @@ function AdvisorWorkQueueContent() {
 
         <button
           onClick={() => setActiveTab('active-jobs')}
-          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
             activeTab === 'active-jobs'
-              ? 'bg-orange-600 text-white shadow'
-              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
           }`}
         >
           <Wrench className="h-3.5 w-3.5" />
@@ -191,60 +197,52 @@ function AdvisorWorkQueueContent() {
 
       {/* Work Queue Items List */}
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
-            <p className="text-sm text-neutral-400">Loading work queue items...</p>
-          </div>
-        </div>
+        <LoadingState message="Loading work queue items..." />
       ) : filteredItems.length === 0 ? (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-12 text-center">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400 mb-3" />
-          <h3 className="text-base font-semibold text-white">Queue Empty</h3>
-          <p className="mt-1 text-sm text-neutral-400">
-            No active operational tasks pending in this stage. Great job!
-          </p>
-        </div>
+        <EmptyState
+          icon={CheckCircle2}
+          title="Queue Empty"
+          description="No active operational tasks pending in this stage. Great job!"
+        />
       ) : (
         <div className="space-y-3">
           {filteredItems.map((item) => (
-            <div
+            <Card
               key={item.id}
-              className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 transition hover:border-neutral-700 sm:flex-row sm:items-center sm:justify-between"
+              className="p-5 flex flex-col gap-4 transition hover:border-surface-300 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-mono text-sm font-bold text-white">
+                  <span className="font-mono text-sm font-bold text-navy-900 bg-surface-100 px-2 py-0.5 rounded-lg border border-surface-200">
                     {item.requestNumber}
                   </span>
                   {getStageBadge(item.queueStage)}
-                  <span className="text-xs text-neutral-400">
-                    Status: <span className="font-medium text-neutral-300">{item.status}</span>
+                  <span className="text-xs text-navy-500">
+                    Status: <StatusBadge status={item.status} />
                   </span>
                 </div>
-                <p className="text-sm font-medium text-neutral-200">
-                  {item.customerName} &bull; <span className="text-neutral-400">{item.vehicleSummary}</span>
+                <p className="text-sm font-bold text-navy-900">
+                  {item.customerName} &bull; <span className="text-navy-600 font-normal">{item.vehicleSummary}</span>
                 </p>
-                <div className="flex items-center gap-4 text-xs text-neutral-500">
-                  <span>Quotes received: {item.quotesReceivedCount}</span>
+                <div className="flex items-center gap-4 text-xs text-navy-500 flex-wrap">
+                  <span>Quotes received: <strong className="text-navy-800">{item.quotesReceivedCount}</strong></span>
                   {item.waitingSinceUtc && (
                     <span>Waiting since: {new Date(item.waitingSinceUtc).toLocaleDateString()}</span>
                   )}
                   {item.hasAdditionalWorkPending && (
-                    <span className="font-semibold text-rose-400">Extra parts/labor pending review</span>
+                    <span className="font-bold text-rose-600">Extra parts/labor pending review</span>
                   )}
                 </div>
               </div>
 
               <div className="flex shrink-0 items-center">
-                <Link
-                  href={item.actionUrl}
-                  className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-purple-500"
-                >
-                  Action Task <ArrowRight className="h-3.5 w-3.5" />
+                <Link href={item.actionUrl}>
+                  <Button size="sm" variant="primary" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+                    Action Task
+                  </Button>
                 </Link>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -254,11 +252,7 @@ function AdvisorWorkQueueContent() {
 
 export default function AdvisorWorkQueuePage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
-      </div>
-    }>
+    <Suspense fallback={<LoadingState message="Loading advisor work queue..." />}>
       <AdvisorWorkQueueContent />
     </Suspense>
   );
