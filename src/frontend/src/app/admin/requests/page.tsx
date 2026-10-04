@@ -13,10 +13,15 @@ import {
   Building2,
   Clock,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   RefreshCw
 } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Pagination } from '@/components/ui/Pagination';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function AdminRequestsPage() {
   const [requests, setRequests] = useState<AdminRequestSummary[]>([]);
@@ -55,69 +60,49 @@ export default function AdminRequestsPage() {
     loadRequests(1, pageSize, searchTerm, statusFilter);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Confirmed':
-      case 'Completed':
-      case 'Closed':
-        return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
-      case 'QuotationAccepted':
-      case 'ReadyForCustomer':
-        return 'border-blue-500/30 bg-blue-500/10 text-blue-400';
-      case 'Submitted':
-      case 'Dispatched':
-      case 'QuotesReceived':
-        return 'border-amber-500/30 bg-amber-500/10 text-amber-400';
-      case 'QuotationRejected':
-      case 'Cancelled':
-        return 'border-rose-500/30 bg-rose-500/10 text-rose-400';
-      default:
-        return 'border-neutral-700 bg-neutral-800 text-neutral-300';
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Platform Service Requests</h1>
-          <p className="mt-1 text-sm text-neutral-400">
-            Supervise end-to-end lifecycle, customer complaints, dispatched garages, and quotation progress.
+          <h1 className="text-2xl font-bold tracking-tight text-navy-900">Platform Service Requests</h1>
+          <p className="mt-1 text-sm text-navy-600">
+            Supervise end-to-end lifecycle, customer complaints, dispatched workshops, and quotation progress.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => { setRefreshing(true); loadRequests(); }}
-            disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3.5 py-2 text-sm font-medium text-neutral-200 transition hover:bg-neutral-700 disabled:opacity-50"
+            isLoading={refreshing}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Search and Filters Toolbar */}
-      <div className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-navy-400" />
           <input
             type="text"
             placeholder="Search by request #, customer, vehicle plate..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none"
+            className="w-full rounded-xl border border-surface-200 bg-surface-50 pl-9 pr-4 py-2 text-xs text-navy-900 placeholder-navy-400 focus:border-navy-900 focus:outline-none"
           />
         </form>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-neutral-400" />
+            <Filter className="h-3.5 w-3.5 text-navy-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-red-500 focus:outline-none"
+              className="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
             >
               <option value="">All Statuses</option>
               <option value="Submitted">Submitted</option>
@@ -133,11 +118,11 @@ export default function AdminRequestsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-neutral-400">Page size:</span>
+            <span className="text-xs text-navy-500">Page size:</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-2.5 py-2 text-xs text-neutral-200 focus:border-red-500 focus:outline-none"
+              className="rounded-xl border border-surface-200 bg-surface-50 px-2.5 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -148,81 +133,83 @@ export default function AdminRequestsPage() {
       </div>
 
       {/* Requests Table */}
-      <div className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/50 shadow-sm">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-neutral-800 bg-neutral-900 text-neutral-400 uppercase tracking-wider text-[11px]">
+            <thead className="border-b border-surface-200 bg-surface-50 text-navy-500 uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="px-5 py-3.5 font-semibold">Request</th>
-                <th className="px-5 py-3.5 font-semibold">Customer</th>
-                <th className="px-5 py-3.5 font-semibold">Vehicle</th>
-                <th className="px-5 py-3.5 font-semibold">Status</th>
-                <th className="px-5 py-3.5 font-semibold">Advisor</th>
-                <th className="px-5 py-3.5 font-semibold">Quotes</th>
-                <th className="px-5 py-3.5 font-semibold">Assigned Garage</th>
-                <th className="px-5 py-3.5 font-semibold">Created</th>
-                <th className="px-5 py-3.5 font-semibold text-right">Action</th>
+                <th className="px-5 py-3.5 font-bold">Request</th>
+                <th className="px-5 py-3.5 font-bold">Customer</th>
+                <th className="px-5 py-3.5 font-bold">Vehicle</th>
+                <th className="px-5 py-3.5 font-bold">Status</th>
+                <th className="px-5 py-3.5 font-bold">Advisor</th>
+                <th className="px-5 py-3.5 font-bold">Quotes</th>
+                <th className="px-5 py-3.5 font-bold">Assigned Garage</th>
+                <th className="px-5 py-3.5 font-bold">Created</th>
+                <th className="px-5 py-3.5 font-bold text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-800/60">
+            <tbody className="divide-y divide-surface-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
-                      Loading platform requests...
-                    </div>
+                  <td colSpan={9} className="py-12 text-center text-navy-500">
+                    <LoadingState message="Loading platform requests..." />
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500">
-                    No service requests match the specified filters.
+                  <td colSpan={9} className="py-12 text-center text-navy-500">
+                    <EmptyState
+                      icon={FileText}
+                      title="No requests found"
+                      description="No service requests match the specified search or filter criteria."
+                    />
                   </td>
                 </tr>
               ) : (
                 requests.map((req) => (
-                  <tr key={req.id} className="transition hover:bg-neutral-800/40">
-                    <td className="px-5 py-4 font-mono font-medium text-white">
-                      <Link href={`/admin/requests/${req.id}`} className="hover:text-red-400">
+                  <tr key={req.id} className="transition hover:bg-surface-50/50">
+                    <td className="px-5 py-4 font-mono font-bold text-navy-900">
+                      <Link href={`/admin/requests/${req.id}`} className="hover:text-electric-600">
                         {req.requestNumber}
                       </Link>
                     </td>
-                    <td className="px-5 py-4 text-neutral-200">
-                      <div>{req.customerName}</div>
-                      <div className="text-[11px] text-neutral-500">{req.customerEmail}</div>
+                    <td className="px-5 py-4 text-navy-900">
+                      <div className="font-semibold">{req.customerName}</div>
+                      <div className="text-[11px] text-navy-500">{req.customerEmail}</div>
                     </td>
-                    <td className="px-5 py-4 text-neutral-300">
-                      <div>{req.vehicleMake} {req.vehicleModel}</div>
-                      <div className="text-[11px] text-neutral-500 font-mono">{req.vehicleLicensePlate}</div>
+                    <td className="px-5 py-4 text-navy-700">
+                      <div className="font-medium">{req.vehicleMake} {req.vehicleModel}</div>
+                      <div className="text-[11px] text-navy-500 font-mono">{req.vehicleLicensePlate}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${getStatusBadge(req.status)}`}>
-                        {req.status}
-                      </span>
+                      <StatusBadge status={req.status} />
                     </td>
-                    <td className="px-5 py-4 text-neutral-400">
-                      {req.assignedAdvisorName || <span className="text-neutral-600">Unassigned</span>}
-                    </td>
-                    <td className="px-5 py-4 text-neutral-300">
-                      <span className="font-semibold text-white">{req.quotesReceivedCount}</span> / {req.dispatchedGaragesCount} dispatched
-                    </td>
-                    <td className="px-5 py-4 text-neutral-300">
-                      {req.assignedGarageName ? (
-                        <span className="text-emerald-400 font-medium">{req.assignedGarageName}</span>
+                    <td className="px-5 py-4 text-navy-600">
+                      {req.assignedAdvisorName ? (
+                        <span className="font-medium text-navy-800">{req.assignedAdvisorName}</span>
                       ) : (
-                        <span className="text-neutral-600">—</span>
+                        <span className="text-navy-400 italic">Unassigned</span>
                       )}
                     </td>
-                    <td className="px-5 py-4 text-neutral-500 whitespace-nowrap">
+                    <td className="px-5 py-4 text-navy-700">
+                      <span className="font-bold text-navy-900">{req.quotesReceivedCount}</span> / {req.dispatchedGaragesCount} dispatched
+                    </td>
+                    <td className="px-5 py-4 text-navy-700">
+                      {req.assignedGarageName ? (
+                        <span className="text-emerald-700 font-bold">{req.assignedGarageName}</span>
+                      ) : (
+                        <span className="text-navy-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-navy-500 whitespace-nowrap">
                       {new Date(req.createdAtUtc).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/admin/requests/${req.id}`}
-                        className="inline-flex items-center gap-1 rounded bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 transition hover:bg-neutral-700 hover:text-white"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Timeline
+                      <Link href={`/admin/requests/${req.id}`}>
+                        <Button size="sm" variant="secondary" leftIcon={<Eye className="h-3.5 w-3.5" />}>
+                          Timeline
+                        </Button>
                       </Link>
                     </td>
                   </tr>
@@ -233,32 +220,18 @@ export default function AdminRequestsPage() {
         </div>
 
         {/* Pagination Bar */}
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-neutral-800 bg-neutral-900/80 px-5 py-3 sm:flex-row">
-          <span className="text-xs text-neutral-400">
-            Showing <span className="font-medium text-white">{requests.length}</span> of{' '}
-            <span className="font-medium text-white">{totalCount}</span> total requests
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadRequests(page - 1, pageSize, searchTerm, statusFilter)}
-              disabled={page <= 1}
-              className="inline-flex items-center gap-1 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300 transition hover:bg-neutral-700 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" /> Prev
-            </button>
-            <span className="text-xs text-neutral-400">
-              Page {page} of {Math.max(1, totalPages)}
-            </span>
-            <button
-              onClick={() => loadRequests(page + 1, pageSize, searchTerm, statusFilter)}
-              disabled={page >= totalPages}
-              className="inline-flex items-center gap-1 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300 transition hover:bg-neutral-700 disabled:opacity-40"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+        {totalCount > 0 && (
+          <div className="p-4 border-t border-surface-200">
+            <Pagination
+              currentPage={page}
+              totalPages={Math.max(1, totalPages)}
+              totalItems={totalCount}
+              pageSize={pageSize}
+              onPageChange={(p) => loadRequests(p, pageSize, searchTerm, statusFilter)}
+            />
           </div>
-        </div>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }

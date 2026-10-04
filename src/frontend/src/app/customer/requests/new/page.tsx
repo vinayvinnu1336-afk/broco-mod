@@ -18,7 +18,21 @@ import {
   ShieldCheck,
   Send,
   Navigation,
+  Search,
+  Check,
+  Building,
+  Layers,
+  FileText
 } from 'lucide-react';
+import { Stepper, StepItem } from '@/components/ui/Stepper';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 const CATEGORIES = [
   'Periodic Service',
@@ -31,7 +45,17 @@ const CATEGORIES = [
   'General Inspection',
 ];
 
-const BANGALORE_PRESETS = [
+const POPULAR_MANUFACTURERS = [
+  { id: 'bmw', name: 'BMW', models: ['3 Series', '5 Series', 'X3', 'X5', 'M340i'] },
+  { id: 'audi', name: 'Audi', models: ['A4', 'A6', 'Q5', 'Q7', 'RS5'] },
+  { id: 'mercedes', name: 'Mercedes-Benz', models: ['C-Class', 'E-Class', 'GLC', 'GLE'] },
+  { id: 'toyota', name: 'Toyota', models: ['Camry', 'Fortuner', 'Corolla', 'Innova'] },
+  { id: 'honda', name: 'Honda', models: ['Civic', 'City', 'CR-V', 'Accord'] },
+  { id: 'hyundai', name: 'Hyundai', models: ['Creta', 'Verna', 'Tucson', 'Ioniq'] },
+  { id: 'volkswagen', name: 'Volkswagen', models: ['Virtus', 'Taigun', 'Golf', 'Tiguan'] },
+];
+
+const LOCATION_PRESETS = [
   {
     name: 'MG Road (Central)',
     address: '100 MG Road',
@@ -60,7 +84,7 @@ const BANGALORE_PRESETS = [
     lng: 77.6245,
   },
   {
-    name: 'Whitefield (ITPL Main Rd)',
+    name: 'Whitefield (ITPL Rd)',
     address: '77 ITPL Main Road, Whitefield',
     city: 'Bengaluru',
     state: 'Karnataka',
@@ -73,14 +97,23 @@ const BANGALORE_PRESETS = [
 export default function NewServiceBookingPage() {
   const router = useRouter();
 
-  // Wizard state: 1: Vehicle, 2: Location, 3: Problem, 4: Review, 5: Confirmation
-  const [step, setStep] = useState<number>(1);
+  // 7-step Booking Sequence
+  // Step 1: Select Location
+  // Step 2: Select Vehicle Manufacturer
+  // Step 3: Select Vehicle Model
+  // Step 4: Select Variant & Specs
+  // Step 5: Describe Problem
+  // Step 6: Review Request
+  // Step 7: Submit Service Request (Success Confirmation)
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // Vehicles from API
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([]);
   const [loadingVehicles, setLoadingVehicles] = useState(true);
-
-  // Form Fields
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
-  const [addressLine1, setAddressLine1] = useState('');
+
+  // Step 1: Location Fields
+  const [addressLine1, setAddressLine1] = useState('100 MG Road');
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('Bengaluru');
   const [state, setState] = useState('Karnataka');
@@ -89,51 +122,79 @@ export default function NewServiceBookingPage() {
   const [latitude, setLatitude] = useState<number>(12.9716);
   const [longitude, setLongitude] = useState<number>(77.5946);
 
-  const [serviceCategory, setServiceCategory] = useState('Periodic Service');
-  const [problemDescription, setProblemDescription] = useState('');
-  const [preferredDate, setPreferredDate] = useState('');
+  // Step 2: Vehicle Manufacturer
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('BMW');
 
-  // Submission state
-  const [submitting, setSubmitting] = useState(false);
+  // Step 3: Vehicle Model
+  const [selectedModel, setSelectedModel] = useState<string>('3 Series');
+
+  // Step 4: Variant / Year / Specs
+  const [selectedVariant, setSelectedVariant] = useState<string>('330i M-Sport');
+  const [vehicleYear, setVehicleYear] = useState<number>(2023);
+  const [licensePlate, setLicensePlate] = useState<string>('KA-01-MJ-2023');
+
+  // Step 5: Describe Problem
+  const [serviceCategory, setServiceCategory] = useState<string>('Periodic Service');
+  const [problemDescription, setProblemDescription] = useState<string>('');
+  const [preferredDate, setPreferredDate] = useState<string>('');
+
+  // Submission State
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdRequest, setCreatedRequest] = useState<ServiceRequestDetailDto | null>(null);
 
   // Load customer vehicles on mount
   useEffect(() => {
     async function loadVehicles() {
-      const res = await apiFetch<CustomerVehicle[]>('/customer/vehicles');
-      if (res.success && res.data) {
-        setVehicles(res.data);
-        const primary = res.data.find((v) => v.isPrimary);
-        if (primary) {
+      try {
+        const res = await apiFetch<CustomerVehicle[]>('/customer/vehicles');
+        if (res.success && res.data && res.data.length > 0) {
+          setVehicles(res.data);
+          const primary = res.data.find((v) => v.isPrimary) || res.data[0];
           setSelectedVehicleId(primary.id);
-        } else if (res.data.length > 0) {
-          setSelectedVehicleId(res.data[0].id);
+          setSelectedManufacturer(primary.manufacturerName);
+          setSelectedModel(primary.modelName);
+          setSelectedVariant(primary.variantName || 'Standard');
+          setVehicleYear(primary.year);
+          setLicensePlate(primary.licensePlate);
         }
+      } catch (err) {
+        console.error('Error fetching vehicles:', err);
+      } finally {
+        setLoadingVehicles(false);
       }
-      setLoadingVehicles(false);
     }
     loadVehicles();
   }, []);
 
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+  // When saved vehicle is chosen, sync details
+  const handleSelectSavedVehicle = (vId: string) => {
+    setSelectedVehicleId(vId);
+    const found = vehicles.find((v) => v.id === vId);
+    if (found) {
+      setSelectedManufacturer(found.manufacturerName);
+      setSelectedModel(found.modelName);
+      setSelectedVariant(found.variantName || 'Standard');
+      setVehicleYear(found.year);
+      setLicensePlate(found.licensePlate);
+    }
+  };
 
-  // Geolocation quick-detect
   const handleDetectLocation = () => {
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLatitude(parseFloat(pos.coords.latitude.toFixed(6)));
           setLongitude(parseFloat(pos.coords.longitude.toFixed(6)));
         },
         () => {
-          setErrorMsg('Location access was denied. Please select a preset or enter coordinates manually.');
+          setErrorMsg('Location permission was denied. Please select a preset or enter coordinates.');
         }
       );
     }
   };
 
-  const handleApplyPreset = (preset: (typeof BANGALORE_PRESETS)[0]) => {
+  const handleApplyPreset = (preset: (typeof LOCATION_PRESETS)[0]) => {
     setAddressLine1(preset.address);
     setCity(preset.city);
     setState(preset.state);
@@ -142,38 +203,40 @@ export default function NewServiceBookingPage() {
     setLongitude(preset.lng);
   };
 
-  // Form Validation per step
-  const validateStep = (currentStep: number): boolean => {
+  // Step Validation
+  const validateCurrentStep = (): boolean => {
     setErrorMsg(null);
     if (currentStep === 1) {
-      if (!selectedVehicleId) {
-        setErrorMsg('Please select a vehicle to proceed.');
+      if (!addressLine1.trim() || !city.trim() || !state.trim() || !pincode.trim()) {
+        setErrorMsg('Please complete all location fields.');
         return false;
       }
       return true;
     }
     if (currentStep === 2) {
-      if (!addressLine1.trim()) {
-        setErrorMsg('Please enter Address Line 1.');
-        return false;
-      }
-      if (!city.trim() || !state.trim() || !pincode.trim()) {
-        setErrorMsg('Please complete City, State, and Pincode.');
-        return false;
-      }
-      if (isNaN(latitude) || latitude < -90 || latitude > 90) {
-        setErrorMsg('Valid Latitude between -90 and 90 is required for PostGIS 10 KM dispatch.');
-        return false;
-      }
-      if (isNaN(longitude) || longitude < -180 || longitude > 180) {
-        setErrorMsg('Valid Longitude between -180 and 180 is required for PostGIS 10 KM dispatch.');
+      if (!selectedManufacturer.trim()) {
+        setErrorMsg('Please select a vehicle manufacturer.');
         return false;
       }
       return true;
     }
     if (currentStep === 3) {
+      if (!selectedModel.trim()) {
+        setErrorMsg('Please select a vehicle model.');
+        return false;
+      }
+      return true;
+    }
+    if (currentStep === 4) {
+      if (!licensePlate.trim()) {
+        setErrorMsg('Please enter your license plate number.');
+        return false;
+      }
+      return true;
+    }
+    if (currentStep === 5) {
       if (!problemDescription.trim() || problemDescription.trim().length < 5) {
-        setErrorMsg('Please provide a problem description of at least 5 characters.');
+        setErrorMsg('Please provide a brief problem description of at least 5 characters.');
         return false;
       }
       return true;
@@ -182,25 +245,31 @@ export default function NewServiceBookingPage() {
   };
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      setStep((prev) => prev + 1);
+    if (validateCurrentStep()) {
+      setCurrentStep((prev) => Math.min(prev + 1, 7));
     }
   };
 
   const handleBack = () => {
     setErrorMsg(null);
-    setStep((prev) => Math.max(1, prev - 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  // Submit Request
+  // Submit Final Booking
   const handleSubmitBooking = async () => {
     setSubmitting(true);
     setErrorMsg(null);
 
+    // Ensure vehicle exists in backend
+    let effectiveVehicleId = selectedVehicleId;
+    if (!effectiveVehicleId && vehicles.length > 0) {
+      effectiveVehicleId = vehicles[0].id;
+    }
+
     const idempotencyKey = `bm-req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     const payload = {
-      vehicleId: selectedVehicleId,
+      vehicleId: effectiveVehicleId,
       addressLine1,
       addressLine2: addressLine2 || null,
       city,
@@ -214,359 +283,401 @@ export default function NewServiceBookingPage() {
       preferredServiceDate: preferredDate ? new Date(preferredDate).toISOString() : null,
     };
 
-    const res = await apiFetch<ServiceRequestDetailDto>('/customer/requests', {
-      method: 'POST',
-      headers: {
-        'Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await apiFetch<ServiceRequestDetailDto>('/customer/requests', {
+        method: 'POST',
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      });
 
-    setSubmitting(false);
-
-    if (res.success && res.data) {
-      setCreatedRequest(res.data);
-      setStep(5); // Confirmation step
-    } else {
-      setErrorMsg(res.message || 'Failed to submit service request. Please check your details and try again.');
+      if (res.success && res.data) {
+        setCreatedRequest(res.data);
+        setCurrentStep(7); // Final step
+      } else {
+        setErrorMsg(res.message || 'Unable to submit service request. Please check details and try again.');
+      }
+    } catch (err: unknown) {
+      setErrorMsg('Unable to submit service request right now. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const stepsList: StepItem[] = [
+    { id: 1, label: 'Location', description: '10 KM Radius' },
+    { id: 2, label: 'Make', description: 'Manufacturer' },
+    { id: 3, label: 'Model', description: 'Vehicle Series' },
+    { id: 4, label: 'Variant', description: 'Specs & Plate' },
+    { id: 5, label: 'Problem', description: 'Symptoms' },
+    { id: 6, label: 'Review', description: 'Verify Order' },
+    { id: 7, label: 'Confirmed', description: 'Dispatched' },
+  ];
+
+  const currentMfgObj = POPULAR_MANUFACTURERS.find(
+    (m) => m.name.toLowerCase() === selectedManufacturer.toLowerCase()
+  ) || POPULAR_MANUFACTURERS[0];
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
+    <div className="max-w-4xl mx-auto space-y-8 pb-16 font-sans">
       {/* Header */}
-      <div>
-        <Link
-          href="/customer/requests"
-          className="text-xs font-semibold text-navy-500 hover:text-navy-800 flex items-center gap-1 mb-2"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to My Requests
-        </Link>
-        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Book a Service</h1>
-        <p className="text-xs text-navy-600 mt-1">
-          Broadcast your vehicle requirements to verified, high-performance garages within 10 KM.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <Link
+            href="/customer/requests"
+            className="text-xs font-bold text-navy-500 hover:text-electric-600 flex items-center gap-1 mb-1 transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to My Requests</span>
+          </Link>
+          <h1 className="text-2xl font-black text-navy-900 tracking-tight">Book Vehicle Service</h1>
+          <p className="text-xs text-navy-500 mt-0.5">
+            Follow the 7-step guided workflow to broadcast your service request to verified garages within 10 KM.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="blue" dot>
+            Step {currentStep} of 7
+          </Badge>
+        </div>
       </div>
 
-      {/* Progress Steps (1 to 4) */}
-      {step <= 4 && (
-        <div className="grid grid-cols-4 gap-2 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm text-xs font-semibold">
-          {[
-            { num: 1, label: 'Vehicle', icon: Car },
-            { num: 2, label: 'Location', icon: MapPin },
-            { num: 3, label: 'Problem', icon: Wrench },
-            { num: 4, label: 'Review', icon: CheckCircle2 },
-          ].map(({ num, label, icon: Icon }) => (
-            <div
-              key={num}
-              className={`flex items-center justify-center gap-2 py-2 rounded-xl transition-all ${
-                step === num
-                  ? 'bg-navy-900 text-white shadow-sm'
-                  : step > num
-                  ? 'bg-electric-50 text-electric-700'
-                  : 'text-navy-400'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Stepper Progress Bar */}
+      <Card className="p-4 sm:p-6 bg-white overflow-x-auto">
+        <Stepper
+          steps={stepsList}
+          currentStep={currentStep}
+          onStepClick={(stepNum) => {
+            if (stepNum < currentStep) setCurrentStep(stepNum);
+          }}
+        />
+      </Card>
 
-      {/* Error Alert */}
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-800 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 mt-0.5" />
-          <div className="flex-1">
-            <span className="font-semibold">Attention: </span>
-            {errorMsg}
-          </div>
-        </div>
+        <Alert type="error" onClose={() => setErrorMsg(null)}>
+          {errorMsg}
+        </Alert>
       )}
 
-      {/* STEP 1: SELECT VEHICLE */}
-      {step === 1 && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-navy-900">Select Your Vehicle</h2>
-              <p className="text-xs text-navy-500 mt-0.5">
-                Choose the vehicle requiring repair, maintenance, or custom modifications.
-              </p>
-            </div>
-            <Link
-              href="/customer/vehicles"
-              className="text-xs font-bold text-electric-600 hover:text-electric-700 underline"
-            >
-              + Add New Vehicle
-            </Link>
-          </div>
-
-          {loadingVehicles ? (
-            <div className="py-12 text-center text-sm text-navy-500">Loading your saved vehicles...</div>
-          ) : vehicles.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {vehicles.map((v) => {
-                const isSelected = selectedVehicleId === v.id;
-                return (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedVehicleId(v.id)}
-                    className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                      isSelected
-                        ? 'border-electric-600 bg-electric-50/40 shadow-sm'
-                        : 'border-surface-200 hover:border-surface-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'border-electric-600 bg-electric-600' : 'border-surface-300'
-                          }`}
-                        >
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                        <span className="text-sm font-bold text-navy-900">
-                          {v.year} {v.manufacturerName} {v.modelName}
-                        </span>
-                      </div>
-                      {v.isPrimary && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold bg-navy-900 text-white rounded-full">
-                          Primary
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-navy-600 pl-6">
-                      <div>
-                        <span className="text-navy-400">Plate:</span>{' '}
-                        <span className="font-semibold text-navy-800">{v.licensePlate}</span>
-                      </div>
-                      <div>
-                        <span className="text-navy-400">Fuel:</span>{' '}
-                        <span className="font-semibold text-navy-800">{v.fuelType}</span>
-                      </div>
-                      {v.variantName && (
-                        <div className="col-span-2">
-                          <span className="text-navy-400">Variant:</span>{' '}
-                          <span className="font-semibold text-navy-800">{v.variantName}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-12 text-center border-2 border-dashed border-surface-200 rounded-2xl p-6">
-              <Car className="w-12 h-12 text-surface-400 mx-auto mb-3" />
-              <h3 className="text-sm font-bold text-navy-900">No Vehicles Saved in Your Garage</h3>
-              <p className="text-xs text-navy-500 mt-1 max-w-sm mx-auto mb-4">
-                You must add at least one vehicle to your profile before creating a service booking.
-              </p>
-              <Link
-                href="/customer/vehicles"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-navy-900 text-white text-xs font-semibold rounded-xl hover:bg-navy-800 transition"
-              >
-                Go to Vehicle Manager
-              </Link>
-            </div>
-          )}
-
-          <div className="pt-4 flex justify-end">
-            <button
-              onClick={handleNext}
-              disabled={!selectedVehicleId}
-              className="flex items-center gap-2 px-6 py-2.5 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800 disabled:opacity-50 transition shadow-sm"
-            >
-              Continue to Location <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: SERVICE LOCATION */}
-      {step === 2 && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-navy-900">Service Location</h2>
+      {/* STEP 1: SELECT LOCATION */}
+      {currentStep === 1 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 1</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">Select Service Pickup Location</h2>
             <p className="text-xs text-navy-500 mt-0.5">
-              Specify where your vehicle is currently located. We use PostGIS geospatial indexing to match workshops within 10 KM.
+              Workshops within a 10 KM radius of this coordinate will be matched to quote on your service.
             </p>
           </div>
 
-          {/* Quick-Pick Presets */}
+          {/* Quick presets */}
           <div>
-            <label className="block text-xs font-bold text-navy-800 mb-2">Quick Fill Bangalore Hubs</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {BANGALORE_PRESETS.map((preset) => (
+            <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-2">
+              Popular Proximity Hubs (Bengaluru Demo)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {LOCATION_PRESETS.map((p) => (
                 <button
-                  key={preset.name}
+                  key={p.name}
                   type="button"
-                  onClick={() => handleApplyPreset(preset)}
-                  className="p-2 text-left border border-surface-200 hover:border-electric-500 hover:bg-electric-50/30 rounded-xl text-[11px] font-semibold text-navy-700 transition"
+                  onClick={() => handleApplyPreset(p)}
+                  className={`p-3 rounded-xl border text-left text-xs transition ${
+                    addressLine1 === p.address
+                      ? 'border-electric-600 bg-electric-50/60 font-bold text-electric-800 shadow-sm'
+                      : 'border-surface-200 bg-surface-50 text-navy-700 hover:border-surface-300'
+                  }`}
                 >
-                  <MapPin className="w-3.5 h-3.5 text-electric-600 mb-1" />
-                  <div>{preset.name}</div>
+                  <div className="font-bold truncate">{p.name}</div>
+                  <div className="text-[10px] text-navy-500 mt-0.5 truncate">{p.city}</div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Location Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-navy-800 mb-1">
-                Street Address / Landmark <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={addressLine1}
-                onChange={(e) => setAddressLine1(e.target.value)}
-                placeholder="e.g. 100 MG Road, Near Metro Pillar 12"
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-navy-800 mb-1">Address Line 2 (Optional)</label>
-              <input
-                type="text"
-                value={addressLine2}
-                onChange={(e) => setAddressLine2(e.target.value)}
-                placeholder="Apartment, suite, or unit number"
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-navy-800 mb-1">
-                City <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-navy-800 mb-1">
-                State <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
+            <Input
+              label="Address Line 1"
+              value={addressLine1}
+              onChange={(e) => setAddressLine1(e.target.value)}
+              placeholder="e.g. 100 MG Road"
+              leftIcon={<MapPin className="w-4 h-4" />}
+              required
+            />
+            <Input
+              label="Address Line 2 (Optional)"
+              value={addressLine2}
+              onChange={(e) => setAddressLine2(e.target.value)}
+              placeholder="Apartment, suite, unit"
+            />
+            <Input
+              label="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              required
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label="State"
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
+                placeholder="State"
+                required
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-navy-800 mb-1">
-                Pincode <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
+              <Input
+                label="Pincode"
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
+                placeholder="Pincode"
+                required
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-navy-800 mb-1">Country</label>
-              <input
-                type="text"
-                value={country}
-                disabled
-                className="w-full px-3.5 py-2.5 text-xs bg-surface-100 border border-surface-200 rounded-xl text-navy-500 cursor-not-allowed"
-              />
-            </div>
-
-            {/* Coordinates */}
-            <div className="sm:col-span-2 pt-2 border-t border-surface-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-navy-800 flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 text-electric-600" /> Canonical PostGIS Coordinates (WGS84)
+          {/* Coordinates Bar */}
+          <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <Navigation className="w-4 h-4 text-electric-600 shrink-0" />
+              <div>
+                <span className="font-bold text-navy-900">Spatial Coordinates: </span>
+                <span className="font-mono text-navy-600">
+                  {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E
                 </span>
-                <button
-                  type="button"
-                  onClick={handleDetectLocation}
-                  className="text-[11px] font-semibold text-electric-600 hover:text-electric-700 flex items-center gap-1"
-                >
-                  Detect from Browser
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] text-navy-500 mb-1">Latitude (-90 to 90)</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={latitude}
-                    onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                    className="w-full px-3.5 py-2 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-navy-500 mb-1">Longitude (-180 to 180)</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={longitude}
-                    onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                    className="w-full px-3.5 py-2 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-                  />
-                </div>
               </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDetectLocation}
+              leftIcon={<MapPin className="w-3.5 h-3.5" />}
+            >
+              Auto-Detect My GPS
+            </Button>
           </div>
 
-          <div className="pt-4 flex justify-between">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 px-5 py-2.5 border border-surface-300 text-navy-700 text-xs font-bold rounded-xl hover:bg-surface-50 transition"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-2.5 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800 transition shadow-sm"
-            >
-              Continue to Problem Details <ArrowRight className="w-4 h-4" />
-            </button>
+          <div className="flex justify-end pt-4 border-t border-surface-200">
+            <Button size="md" variant="primary" onClick={handleNext} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Continue to Vehicle Make
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* STEP 3: DESCRIBE PROBLEM */}
-      {step === 3 && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-navy-900">Service Category & Problem Description</h2>
+      {/* STEP 2: SELECT MANUFACTURER */}
+      {currentStep === 2 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 2</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">Select Vehicle Manufacturer</h2>
             <p className="text-xs text-navy-500 mt-0.5">
-              Explain the symptoms or custom upgrades needed so partner workshops can evaluate accurately.
+              Choose from your saved garage vehicles or select your vehicle make.
             </p>
           </div>
 
-          {/* Service Category */}
+          {/* Saved vehicles quick pick */}
+          {vehicles.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-2">
+                Your Registered Vehicles
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {vehicles.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleSelectSavedVehicle(v.id)}
+                    className={`p-4 rounded-xl border text-left transition flex items-center justify-between ${
+                      selectedVehicleId === v.id
+                        ? 'border-electric-600 bg-electric-50/70 ring-2 ring-electric-600/20'
+                        : 'border-surface-200 bg-white hover:border-surface-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold text-sm text-navy-900">
+                        {v.year} {v.manufacturerName} {v.modelName}
+                      </div>
+                      <div className="text-xs text-navy-500 mt-0.5">Plate: {v.licensePlate}</div>
+                    </div>
+                    {selectedVehicleId === v.id && (
+                      <CheckCircle2 className="w-5 h-5 text-electric-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manufacturer Grid */}
           <div>
-            <label className="block text-xs font-bold text-navy-800 mb-2">Service Category</label>
-            <div className="flex flex-wrap gap-2">
+            <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-2">
+              Or Choose Make
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {POPULAR_MANUFACTURERS.map((mfg) => (
+                <button
+                  key={mfg.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedManufacturer(mfg.name);
+                    setSelectedModel(mfg.models[0]);
+                  }}
+                  className={`p-4 rounded-xl border text-center transition ${
+                    selectedManufacturer.toLowerCase() === mfg.name.toLowerCase()
+                      ? 'border-electric-600 bg-electric-50 font-bold text-electric-800 shadow-sm'
+                      : 'border-surface-200 bg-surface-50 text-navy-800 hover:border-surface-300'
+                  }`}
+                >
+                  <Building className="w-5 h-5 mx-auto mb-1 text-navy-500" />
+                  <div className="text-sm font-bold">{mfg.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+            <Button size="md" variant="outline" onClick={handleBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              Back to Location
+            </Button>
+            <Button size="md" variant="primary" onClick={handleNext} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Continue to Model
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* STEP 3: SELECT MODEL */}
+      {currentStep === 3 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 3</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">
+              Select {selectedManufacturer} Model
+            </h2>
+            <p className="text-xs text-navy-500 mt-0.5">
+              Pick the specific model series for your {selectedManufacturer}.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {currentMfgObj.models.map((model) => (
+              <button
+                key={model}
+                type="button"
+                onClick={() => setSelectedModel(model)}
+                className={`p-5 rounded-xl border text-left transition ${
+                  selectedModel.toLowerCase() === model.toLowerCase()
+                    ? 'border-electric-600 bg-electric-50/70 font-bold text-electric-900 shadow-sm'
+                    : 'border-surface-200 bg-surface-50 text-navy-800 hover:border-surface-300'
+                }`}
+              >
+                <Car className="w-5 h-5 mb-2 text-electric-600" />
+                <div className="text-sm font-bold">{model}</div>
+                <div className="text-[11px] text-navy-500 mt-0.5">{selectedManufacturer} Series</div>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+            <Button size="md" variant="outline" onClick={handleBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              Back to Make
+            </Button>
+            <Button size="md" variant="primary" onClick={handleNext} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Continue to Variant & Specs
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* STEP 4: VARIANT & SPECS */}
+      {currentStep === 4 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 4</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">Vehicle Variant & Registration</h2>
+            <p className="text-xs text-navy-500 mt-0.5">
+              Confirm model year, variant trim, and license plate for accurate workshop parts matching.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Variant / Trim"
+              value={selectedVariant}
+              onChange={(e) => setSelectedVariant(e.target.value)}
+              placeholder="e.g. 330i M-Sport, 2.0 TDI"
+              required
+            />
+
+            <Input
+              label="Manufacturing Year"
+              type="number"
+              value={vehicleYear}
+              onChange={(e) => setVehicleYear(parseInt(e.target.value) || 2023)}
+              min={1990}
+              max={2026}
+              required
+            />
+
+            <Input
+              label="License Plate Number"
+              value={licensePlate}
+              onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+              placeholder="e.g. KA-01-MJ-2023"
+              leftIcon={<Car className="w-4 h-4" />}
+              required
+            />
+
+            <Select
+              label="Fuel Type"
+              options={[
+                { value: 'Petrol', label: 'Petrol' },
+                { value: 'Diesel', label: 'Diesel' },
+                { value: 'Hybrid', label: 'Hybrid' },
+                { value: 'Electric', label: 'Electric (EV)' },
+              ]}
+              defaultValue="Petrol"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+            <Button size="md" variant="outline" onClick={handleBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              Back to Model
+            </Button>
+            <Button size="md" variant="primary" onClick={handleNext} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Continue to Describe Problem
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* STEP 5: DESCRIBE PROBLEM */}
+      {currentStep === 5 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 5</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">Describe Required Service or Symptoms</h2>
+            <p className="text-xs text-navy-500 mt-0.5">
+              Detailing the issues helps garages compile accurate initial quotes and parts estimates.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-2">
+              Service Category
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setServiceCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
+                  className={`p-3 rounded-xl border text-xs font-bold transition text-left ${
                     serviceCategory === cat
-                      ? 'bg-navy-900 text-white shadow-sm'
-                      : 'bg-surface-100 text-navy-700 hover:bg-surface-200'
+                      ? 'border-electric-600 bg-electric-50 text-electric-900 shadow-sm'
+                      : 'border-surface-200 bg-surface-50 text-navy-700 hover:border-surface-300'
                   }`}
                 >
                   {cat}
@@ -575,212 +686,163 @@ export default function NewServiceBookingPage() {
             </div>
           </div>
 
-          {/* Problem Description */}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-xs font-bold text-navy-800">
-                Detailed Problem Description <span className="text-rose-500">*</span>
-              </label>
-              <span className="text-[11px] text-navy-400">Min 5 characters</span>
-            </div>
-            <textarea
-              rows={4}
-              value={problemDescription}
-              onChange={(e) => setProblemDescription(e.target.value)}
-              placeholder="e.g. Brake pedal feels spongy under high-speed deceleration. Noticed slight squeaking noise from front right rotor. Need inspection and replacement if required."
-              className="w-full px-3.5 py-2.5 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
-            />
-          </div>
+          <Textarea
+            label="Problem Description & Symptoms"
+            value={problemDescription}
+            onChange={(e) => setProblemDescription(e.target.value)}
+            placeholder="e.g. Brake pedal feels spongy under hard braking; squeaking noise from front right wheel above 40 km/h; scheduled oil service due."
+            rows={5}
+            helperText="Include any specific concerns, warning lights, or recent symptoms."
+            required
+          />
 
-          {/* Preferred Service Date */}
-          <div>
-            <label className="block text-xs font-bold text-navy-800 mb-1 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-navy-500" /> Preferred Service Date (Optional)
-            </label>
-            <input
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Preferred Service Date (Optional)"
               type="date"
               value={preferredDate}
-              min={new Date().toISOString().split('T')[0]}
               onChange={(e) => setPreferredDate(e.target.value)}
-              className="w-full sm:w-64 px-3.5 py-2 text-xs bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:border-navy-900"
+              min={new Date().toISOString().split('T')[0]}
             />
           </div>
 
-          <div className="pt-4 flex justify-between">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 px-5 py-2.5 border border-surface-300 text-navy-700 text-xs font-bold rounded-xl hover:bg-surface-50 transition"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-2.5 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800 transition shadow-sm"
-            >
-              Review Request <ArrowRight className="w-4 h-4" />
-            </button>
+          <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+            <Button size="md" variant="outline" onClick={handleBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              Back to Specs
+            </Button>
+            <Button size="md" variant="primary" onClick={handleNext} rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Review Booking Summary
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* STEP 4: REVIEW & CONFIRM */}
-      {step === 4 && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-navy-900">Review Service Request</h2>
+      {/* STEP 6: REVIEW REQUEST */}
+      {currentStep === 6 && (
+        <Card className="p-6 sm:p-8 space-y-6">
+          <div className="border-b border-surface-200 pb-4">
+            <span className="text-xs font-bold text-electric-600 uppercase tracking-wider">Step 6</span>
+            <h2 className="text-xl font-black text-navy-900 mt-1">Review Service Request</h2>
             <p className="text-xs text-navy-500 mt-0.5">
-              Please verify all details before dispatching to nearby verified workshops.
+              Confirm all details before broadcasting to verified garages within 10 KM.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* Vehicle Summary */}
-            <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-2">
-              <span className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Vehicle Selected</span>
-              {selectedVehicle ? (
-                <div>
-                  <h3 className="text-sm font-bold text-navy-900">
-                    {selectedVehicle.year} {selectedVehicle.manufacturerName} {selectedVehicle.modelName}
-                  </h3>
-                  <div className="mt-1 text-xs text-navy-600 space-y-0.5">
-                    <div>
-                      Plate: <span className="font-semibold text-navy-900">{selectedVehicle.licensePlate}</span>
-                    </div>
-                    <div>
-                      Fuel: <span className="font-semibold text-navy-900">{selectedVehicle.fuelType}</span>
-                    </div>
-                    {selectedVehicle.variantName && (
-                      <div>
-                        Variant: <span className="font-semibold text-navy-900">{selectedVehicle.variantName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+              <div className="text-xs font-bold text-navy-400 uppercase tracking-wider mb-2">
+                Vehicle Details
+              </div>
+              <div className="text-base font-bold text-navy-900">
+                {vehicleYear} {selectedManufacturer} {selectedModel} ({selectedVariant})
+              </div>
+              <div className="text-xs text-navy-600 mt-0.5">License Plate: {licensePlate}</div>
             </div>
 
             {/* Location Summary */}
-            <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-2">
-              <span className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Service Location</span>
-              <div>
-                <h3 className="text-sm font-bold text-navy-900">
-                  {city}, {state} - {pincode}
-                </h3>
-                <p className="text-xs text-navy-600 mt-1">{addressLine1}</p>
-                {addressLine2 && <p className="text-xs text-navy-500">{addressLine2}</p>}
-                <div className="mt-2 text-[11px] font-mono text-navy-500">
-                  Coordinates: {latitude}, {longitude}
-                </div>
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+              <div className="text-xs font-bold text-navy-400 uppercase tracking-wider mb-2">
+                Pickup & Dispatch Location
+              </div>
+              <div className="text-sm font-semibold text-navy-900">{addressLine1}</div>
+              <div className="text-xs text-navy-600 mt-0.5">
+                {city}, {state} - {pincode}
+              </div>
+              <div className="text-[11px] font-mono text-electric-700 mt-1">
+                PostGIS Coordinates: {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E (10 KM Geofence Active)
               </div>
             </div>
 
-            {/* Problem & Category */}
-            <div className="md:col-span-2 p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Service Details</span>
-                <span className="px-2.5 py-0.5 bg-navy-900 text-white text-[10px] font-bold rounded-full">
-                  {serviceCategory}
-                </span>
+            {/* Problem Summary */}
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+              <div className="text-xs font-bold text-navy-400 uppercase tracking-wider mb-2">
+                Service Scope
               </div>
-              <p className="text-xs text-navy-900 font-medium whitespace-pre-wrap">{problemDescription}</p>
-              {preferredDate && (
-                <div className="text-xs text-navy-600 pt-1">
-                  Preferred Date: <span className="font-semibold">{new Date(preferredDate).toLocaleDateString()}</span>
-                </div>
-              )}
+              <div className="inline-block px-2.5 py-0.5 rounded-full bg-electric-100 text-electric-800 text-xs font-bold mb-2">
+                {serviceCategory}
+              </div>
+              <p className="text-xs text-navy-800 leading-relaxed">{problemDescription}</p>
             </div>
           </div>
 
-          {/* Guarantee / Dispatch Banner */}
-          <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl flex items-start gap-3 text-xs text-blue-900">
-            <ShieldCheck className="w-5 h-5 text-electric-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">10 KM Spatial Matching Active: </span>
-              Your request will be broadcast to verified partner garages located within 10 KM of your location. Garages will review and submit quotations for our Technical Advisor team to verify.
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-emerald-900 leading-relaxed">
+              <strong>Advisor Protection Guaranteed:</strong> You are not committing to any charges now. Eligible workshops will submit itemized quotes, which will be audited by your assigned Service Advisor before any payment is requested.
             </div>
           </div>
 
-          <div className="pt-4 flex justify-between items-center">
-            <button
-              onClick={handleBack}
-              disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 border border-surface-300 text-navy-700 text-xs font-bold rounded-xl hover:bg-surface-50 transition"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
+          <div className="flex items-center justify-between pt-4 border-t border-surface-200">
+            <Button size="md" variant="outline" onClick={handleBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              Make Changes
+            </Button>
+            <Button
+              size="lg"
+              variant="primary"
               onClick={handleSubmitBooking}
-              disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-electric-600 hover:bg-electric-700 text-white text-xs font-bold rounded-xl transition shadow-sm disabled:opacity-50"
+              isLoading={submitting}
+              rightIcon={<Send className="w-4 h-4" />}
             >
-              {submitting ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Broadcasting Request...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" /> Confirm & Dispatch Request
-                </>
-              )}
-            </button>
+              {submitting ? 'Broadcasting...' : 'Broadcast Service Request'}
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* STEP 5: SUCCESS / CONFIRMATION */}
-      {step === 5 && createdRequest && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-8 text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-            <CheckCircle2 className="w-10 h-10" />
+      {/* STEP 7: CONFIRMATION SUCCESS */}
+      {currentStep === 7 && (
+        <Card className="p-8 sm:p-12 text-center space-y-6 bg-white">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+            <CheckCircle2 className="w-8 h-8" />
           </div>
 
           <div>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full uppercase tracking-wider">
+            <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
               Request Dispatched Successfully
             </span>
-            <h2 className="text-2xl font-black text-navy-900 mt-3">
-              Request Number: {createdRequest.requestNumber}
+            <h2 className="text-2xl sm:text-3xl font-black text-navy-900 tracking-tight mt-1">
+              Your Service Request is Live!
             </h2>
-            <p className="text-xs text-navy-600 mt-2 max-w-md mx-auto">
-              Your service request has been created and broadcast to verified workshops in your area.
+            <p className="text-xs text-navy-500 max-w-md mx-auto mt-2 leading-relaxed">
+              We have broadcasted your request to verified workshops within your 10 KM geo-radius. Workshop quotes will arrive shortly for your review.
             </p>
           </div>
 
-          {/* Stats Box */}
-          <div className="grid grid-cols-2 max-w-sm mx-auto gap-4 p-4 bg-surface-50 rounded-xl border border-surface-200 text-left">
-            <div>
-              <span className="text-[10px] text-navy-400 font-bold uppercase">Status</span>
-              <div className="text-xs font-bold text-navy-900">{createdRequest.status}</div>
-            </div>
-            <div>
-              <span className="text-[10px] text-navy-400 font-bold uppercase">Workshops Matched</span>
-              <div className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                {createdRequest.matchedGaragesCount} within 10 KM
+          {createdRequest && (
+            <div className="bg-surface-50 max-w-sm mx-auto p-4 rounded-2xl border border-surface-200 text-left text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-navy-400">Request Number:</span>
+                <span className="font-mono font-bold text-navy-900">{createdRequest.requestNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-navy-400">Vehicle:</span>
+                <span className="font-bold text-navy-900">{createdRequest.vehicleSummary}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-navy-400">Status:</span>
+                <Badge variant="blue" dot>
+                  {createdRequest.status}
+                </Badge>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/customer/requests"
-              className="w-full sm:w-auto px-6 py-2.5 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800 transition shadow-sm"
-            >
-              View All Service Requests
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+            <Link href="/customer/dashboard">
+              <Button size="md" variant="primary">
+                Go to Dashboard
+              </Button>
             </Link>
-            <button
-              onClick={() => {
-                setStep(1);
-                setCreatedRequest(null);
-                setProblemDescription('');
-              }}
-              className="w-full sm:w-auto px-6 py-2.5 border border-surface-300 text-navy-700 text-xs font-bold rounded-xl hover:bg-surface-50 transition"
-            >
-              Book Another Service
-            </button>
+            {createdRequest && (
+              <Link href={`/customer/requests/${createdRequest.id}`}>
+                <Button size="md" variant="outline">
+                  Track Live Milestones
+                </Button>
+              </Link>
+            )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

@@ -22,7 +22,7 @@ export default function GaragePortalRootLayout({ children }: { children: ReactNo
     >
       <PortalLayout
         portalName="Garage Portal"
-        portalBadgeColor="bg-amber-500/20 text-amber-300 border-amber-500/30"
+        portalBadgeColor="bg-amber-50 text-amber-700 border-amber-200"
         navItems={garageNavItems}
       >
         {children}

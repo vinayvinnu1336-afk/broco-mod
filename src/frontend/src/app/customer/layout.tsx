@@ -20,7 +20,7 @@ export default function CustomerPortalRootLayout({ children }: { children: React
     <ProtectedRoute allowedRoles={['CUSTOMER', 'SUPER_ADMIN']} portalName="Customer">
       <PortalLayout
         portalName="Customer Portal"
-        portalBadgeColor="bg-blue-600/20 text-blue-300 border-blue-500/30"
+        portalBadgeColor="bg-blue-50 text-blue-700 border-blue-200"
         navItems={customerNavItems}
       >
         {children}

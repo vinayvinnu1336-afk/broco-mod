@@ -341,7 +341,7 @@ export default function GarageJobDetailPage() {
           {job.status === 'HandedOver' && (
             <button
               onClick={() => setActiveModal('close')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
+              className="px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold transition-colors shadow-sm inline-flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" /> Close Service Job
             </button>
@@ -1126,7 +1126,7 @@ export default function GarageJobDetailPage() {
               <button
                 disabled={actionLoading}
                 onClick={() => handleAction('close', { closingRemarks })}
-                className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-lg"
+                className="px-4 py-1.5 text-xs font-bold bg-navy-900 hover:bg-navy-800 text-white rounded-xl shadow-sm"
               >
                 {actionLoading ? 'Closing...' : 'Close Job'}
               </button>

@@ -24,6 +24,13 @@ import {
   X,
   ExternalLink
 } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Input } from '@/components/ui/Input';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function AdminFinanceControlPage() {
   const [overview, setOverview] = useState<FinanceOverviewDto | null>(null);
@@ -99,82 +106,84 @@ export default function AdminFinanceControlPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-200 pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-emerald-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-navy-900 flex items-center gap-2">
+            <DollarSign className="w-6 h-6 text-emerald-600" />
             Financial Control Center
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-navy-600 mt-1">
             Server-authoritative financial monitoring, commission reconciliations, and workshop payouts
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/admin/payments"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
-          >
-            <CreditCard className="w-4 h-4 text-blue-400" />
-            Manage Payments & Refunds
+          <Link href="/admin/payments">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<CreditCard className="w-4 h-4 text-electric-600" />}
+            >
+              Manage Payments & Refunds
+            </Button>
           </Link>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 shadow-sm">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <Card className="p-5">
+          <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">
             Gross Platform GMV
           </span>
-          <div className="text-2xl font-bold text-white mt-1">
-            ₹ {overview?.totalGrossRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+          <div className="text-2xl font-black text-navy-900 mt-1 font-mono">
+            ₹{overview?.totalGrossRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {overview?.totalPaymentsCount || 0} Total customer payments
+          <p className="text-xs text-navy-500 mt-1">
+            <strong className="text-navy-800">{overview?.totalPaymentsCount || 0}</strong> total customer payments
           </p>
-        </div>
+        </Card>
 
-        <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 shadow-sm">
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+        <Card className="p-5">
+          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
             Platform Net Revenue
           </span>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">
-            ₹ {overview?.totalPlatformRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+          <div className="text-2xl font-black text-emerald-700 mt-1 font-mono">
+            ₹{overview?.totalPlatformRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
           </div>
-          <p className="text-xs text-slate-500 mt-1">Commission fee earnings + GST</p>
-        </div>
+          <p className="text-xs text-navy-500 mt-1">Commission fee earnings + GST</p>
+        </Card>
 
-        <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 shadow-sm">
-          <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
+        <Card className="p-5">
+          <span className="text-xs font-bold text-electric-700 uppercase tracking-wider">
             Disbursed Payouts
           </span>
-          <div className="text-2xl font-bold text-blue-400 mt-1">
-            ₹ {overview?.totalGaragePayouts.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+          <div className="text-2xl font-black text-electric-700 mt-1 font-mono">
+            ₹{overview?.totalGaragePayouts.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {overview?.completedSettlementsCount || 0} Settled to workshops
+          <p className="text-xs text-navy-500 mt-1">
+            <strong className="text-navy-800">{overview?.completedSettlementsCount || 0}</strong> settled to workshops
           </p>
-        </div>
+        </Card>
 
-        <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 shadow-sm">
-          <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+        <Card className="p-5">
+          <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
             Escrow / Pending Payouts
           </span>
-          <div className="text-2xl font-bold text-amber-400 mt-1">
-            ₹ {overview?.pendingGarageSettlements.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+          <div className="text-2xl font-black text-amber-700 mt-1 font-mono">
+            ₹{overview?.pendingGarageSettlements.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
           </div>
-          <p className="text-xs text-slate-500 mt-1">Currently held in escrow</p>
-        </div>
+          <p className="text-xs text-navy-500 mt-1">Currently held in escrow</p>
+        </Card>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-slate-800 flex gap-6">
+      <div className="border-b border-surface-200 flex gap-6">
         <button
           onClick={() => setActiveTab('settlements')}
-          className={`pb-3 text-sm font-semibold transition-colors flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors flex items-center gap-2 ${
             activeTab === 'settlements'
-              ? 'text-emerald-400 border-b-2 border-emerald-400'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'text-emerald-700 border-b-2 border-emerald-600'
+              : 'text-navy-500 hover:text-navy-900'
           }`}
         >
           <Building2 className="w-4 h-4" />
@@ -182,10 +191,10 @@ export default function AdminFinanceControlPage() {
         </button>
         <button
           onClick={() => setActiveTab('ledger')}
-          className={`pb-3 text-sm font-semibold transition-colors flex items-center gap-2 ${
+          className={`pb-3 text-sm font-bold transition-colors flex items-center gap-2 ${
             activeTab === 'ledger'
-              ? 'text-emerald-400 border-b-2 border-emerald-400'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'text-emerald-700 border-b-2 border-emerald-600'
+              : 'text-navy-500 hover:text-navy-900'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -196,218 +205,225 @@ export default function AdminFinanceControlPage() {
       {/* Tab: Settlements */}
       {activeTab === 'settlements' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-surface-200 shadow-sm">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400" />
               <input
                 type="text"
                 placeholder="Search settlements by ref, workshop name..."
                 value={settlementSearch}
                 onChange={(e) => setSettlementSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900 transition-colors"
               />
             </div>
           </div>
 
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+          <Card className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-950/70 border-b border-slate-800 text-slate-400 uppercase text-xs">
+                <thead className="bg-surface-50 border-b border-surface-200 text-navy-500 uppercase text-xs">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">Settlement Ref</th>
-                    <th className="px-6 py-4 font-semibold">Workshop</th>
-                    <th className="px-6 py-4 font-semibold">Gross Billed</th>
-                    <th className="px-6 py-4 font-semibold">Platform Fee + GST</th>
-                    <th className="px-6 py-4 font-semibold">Net Payout</th>
-                    <th className="px-6 py-4 font-semibold">Status</th>
-                    <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                    <th className="px-6 py-4 font-bold">Settlement Ref</th>
+                    <th className="px-6 py-4 font-bold">Workshop</th>
+                    <th className="px-6 py-4 font-bold">Gross Billed</th>
+                    <th className="px-6 py-4 font-bold">Platform Fee + GST</th>
+                    <th className="px-6 py-4 font-bold">Net Payout</th>
+                    <th className="px-6 py-4 font-bold">Status</th>
+                    <th className="px-6 py-4 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {filteredSettlements.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-white font-mono">{s.settlementNumber}</div>
-                        {s.payoutReference && (
-                          <div className="text-xs text-slate-400 font-mono mt-0.5">
-                            Bank Ref: {s.payoutReference}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-white font-medium">{s.garageName}</td>
-                      <td className="px-6 py-4 text-slate-200">
-                        ₹ {s.grossAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 text-slate-300 text-xs">
-                        ₹ {s.totalPlatformFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        <div className="text-[11px] text-slate-500">
-                          (₹{s.platformFeeAmount.toFixed(2)} + ₹{s.platformFeeGstAmount.toFixed(2)} GST)
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-bold text-emerald-400">
-                        ₹ {s.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4">
-                        {s.status === 'Completed' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            <Clock className="w-3.5 h-3.5" />
-                            {s.status}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {s.status !== 'Completed' ? (
-                          <button
-                            onClick={() => {
-                              setSelectedSettlement(s);
-                              setPayoutRef(`BANK-PAYOUT-${Date.now()}`);
-                              setCompleteError(null);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition-colors"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            Disburse Payout
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-500 font-mono">Disbursed</span>
-                        )}
+                <tbody className="divide-y divide-surface-100">
+                  {filteredSettlements.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-xs text-navy-500">
+                        No workshop settlements match the search filter.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredSettlements.map((s) => (
+                      <tr key={s.id} className="hover:bg-surface-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-navy-900 font-mono text-xs">{s.settlementNumber}</div>
+                          {s.payoutReference && (
+                            <div className="text-[11px] text-navy-500 font-mono mt-0.5">
+                              Bank Ref: {s.payoutReference}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-navy-900 font-semibold">{s.garageName}</td>
+                        <td className="px-6 py-4 text-navy-700 font-mono">
+                          ₹{s.grossAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-6 py-4 text-navy-700 text-xs font-mono">
+                          ₹{s.totalPlatformFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          <div className="text-[10px] text-navy-500">
+                            (₹{s.platformFeeAmount.toFixed(2)} + ₹{s.platformFeeGstAmount.toFixed(2)} GST)
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-emerald-700 font-mono">
+                          ₹{s.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={s.status} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {s.status !== 'Completed' ? (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => {
+                                setSelectedSettlement(s);
+                                setPayoutRef(`BANK-PAYOUT-${Date.now()}`);
+                                setCompleteError(null);
+                              }}
+                              leftIcon={<Check className="w-3.5 h-3.5" />}
+                            >
+                              Disburse Payout
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-navy-400 font-mono">Disbursed</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Tab: Ledger Explorer */}
       {activeTab === 'ledger' && (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-950/70 border-b border-slate-800 text-slate-400 uppercase text-xs">
+              <thead className="bg-surface-50 border-b border-surface-200 text-navy-500 uppercase text-xs">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Entry Ref</th>
-                  <th className="px-6 py-4 font-semibold">Account</th>
-                  <th className="px-6 py-4 font-semibold">Entry Type</th>
-                  <th className="px-6 py-4 font-semibold">Direction</th>
-                  <th className="px-6 py-4 font-semibold">Amount</th>
-                  <th className="px-6 py-4 font-semibold">Description</th>
-                  <th className="px-6 py-4 font-semibold">Timestamp</th>
+                  <th className="px-6 py-4 font-bold">Entry Ref</th>
+                  <th className="px-6 py-4 font-bold">Account</th>
+                  <th className="px-6 py-4 font-bold">Entry Type</th>
+                  <th className="px-6 py-4 font-bold">Direction</th>
+                  <th className="px-6 py-4 font-bold">Amount</th>
+                  <th className="px-6 py-4 font-bold">Description</th>
+                  <th className="px-6 py-4 font-bold">Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {ledgerEntries.map((l) => (
-                  <tr key={l.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-white">{l.entryNumber}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-slate-800 text-slate-300">
-                        {l.accountType}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-300">{l.entryType}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`text-xs font-bold ${
-                          l.direction === 'Credit' ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {l.direction.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-mono font-semibold text-white">
-                      ₹ {l.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400 max-w-xs truncate">
-                      {l.description}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      {new Date(l.createdAtUtc).toLocaleString('en-IN')}
+              <tbody className="divide-y divide-surface-100">
+                {ledgerEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-xs text-navy-500">
+                      No ledger entries recorded yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  ledgerEntries.map((l) => (
+                    <tr key={l.id} className="hover:bg-surface-50/50 transition-colors">
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-navy-900">{l.entryNumber}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-100 text-navy-800 border border-surface-200">
+                          {l.accountType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-navy-700">{l.entryType}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`text-xs font-bold ${
+                            l.direction === 'Credit' ? 'text-emerald-700' : 'text-rose-600'
+                          }`}
+                        >
+                          {l.direction.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-mono font-bold text-navy-900">
+                        ₹{l.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-navy-600 max-w-xs truncate">
+                        {l.description}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-navy-500">
+                        {new Date(l.createdAtUtc).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Disburse Payout Modal */}
       {selectedSettlement && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+        <div className="fixed inset-0 z-50 bg-navy-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-surface-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
+              <h3 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 Disburse Workshop Settlement
               </h3>
               <button
                 onClick={() => setSelectedSettlement(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-navy-400 hover:text-navy-900"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="text-xs text-slate-300 space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div className="text-xs text-navy-700 space-y-2 bg-surface-50 p-4 rounded-xl border border-surface-200">
               <div className="flex justify-between">
-                <span className="text-slate-500">Workshop:</span>
-                <span className="font-semibold text-white">{selectedSettlement.garageName}</span>
+                <span className="text-navy-500">Workshop:</span>
+                <span className="font-bold text-navy-900">{selectedSettlement.garageName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Settlement Ref:</span>
-                <span className="font-mono text-white">{selectedSettlement.settlementNumber}</span>
+                <span className="text-navy-500">Settlement Ref:</span>
+                <span className="font-mono font-bold text-navy-900">{selectedSettlement.settlementNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Net Payable Amount:</span>
-                <span className="font-bold text-emerald-400 text-sm">
-                  ₹ {selectedSettlement.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                <span className="text-navy-500">Net Payable Amount:</span>
+                <span className="font-black text-emerald-700 text-sm font-mono">
+                  ₹{selectedSettlement.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
 
             <form onSubmit={handleCompletePayout} className="space-y-4 pt-2">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Bank / IMPS / UTR Transfer Reference <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-navy-800 mb-1.5">
+                  Bank / IMPS / UTR Transfer Reference <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
                   value={payoutRef}
                   onChange={(e) => setPayoutRef(e.target.value)}
                   placeholder="e.g. UTR-98234823498"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900"
                   required
                 />
               </div>
 
               {completeError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-xs">
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
                   {completeError}
                 </div>
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setSelectedSettlement(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={completing}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-2"
+                  variant="primary"
+                  isLoading={completing}
                 >
-                  {completing ? 'Confirming...' : 'Confirm Disbursed'}
-                </button>
+                  Confirm Disbursed
+                </Button>
               </div>
             </form>
           </div>

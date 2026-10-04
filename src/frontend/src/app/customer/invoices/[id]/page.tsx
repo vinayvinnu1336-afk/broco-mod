@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function CustomerInvoiceDetailPage() {
   const params = useParams();
@@ -46,50 +49,46 @@ export default function CustomerInvoiceDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-24">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500" />
-      </div>
-    );
+    return <LoadingState message="Loading tax invoice document..." />;
   }
 
   if (errorMsg || !invoice) {
     return (
-      <div className="max-w-2xl mx-auto py-12 text-center">
-        <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-xl text-rose-400">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3" />
-          <h2 className="text-lg font-bold">Unable to load invoice</h2>
-          <p className="text-sm mt-1">{errorMsg}</p>
-          <Link
-            href="/customer/invoices"
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Invoices
-          </Link>
-        </div>
+      <div className="max-w-2xl mx-auto py-12">
+        <ErrorState
+          title="Unable to load invoice"
+          error={errorMsg}
+          action={
+            <Link href="/customer/invoices">
+              <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                Back to Invoices
+              </Button>
+            </Link>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 font-sans">
       {/* Top action bar (hidden on print) */}
       <div className="print:hidden flex items-center justify-between">
         <Link
           href="/customer/invoices"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-bold text-navy-500 hover:text-electric-600 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Invoices
+          <span>Back to Invoices</span>
         </Link>
-        <button
+        <Button
           onClick={handlePrint}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          variant="primary"
+          size="sm"
+          leftIcon={<Printer className="w-4 h-4" />}
         >
-          <Printer className="w-4 h-4" />
           Print / Save PDF
-        </button>
+        </Button>
       </div>
 
       {/* Tax Invoice Document */}
