@@ -292,8 +292,8 @@ export default function AdvisorRequestQuotationReviewPage() {
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-semibold text-emerald-900">Assigned to {activeAssignment.garageName}</p>
               <p className="text-sm text-emerald-800">
-                Quote <span className="font-mono">{activeAssignment.quoteNumber}</span> ·{' '}
-                {formatINR(activeAssignment.quotedAmount)}
+                Quote <span className="font-mono">{activeAssignment.selectedQuoteNumber}</span> ·{' '}
+                {formatINR(activeAssignment.selectedQuoteAmount)}
               </p>
               <p className="text-xs text-emerald-700">
                 By {activeAssignment.assignedByAdvisorName} · {formatDateTime(activeAssignment.assignedAtUtc)}
@@ -561,7 +561,7 @@ export default function AdvisorRequestQuotationReviewPage() {
               <div className="min-w-0">
                 <div className="truncate text-xs text-navy-500">{activeAssignment.garageName}</div>
                 <div className="text-base font-bold tabular-nums text-navy-900">
-                  {formatINRWhole(activeAssignment.quotedAmount)}
+                  {formatINRWhole(activeAssignment.selectedQuoteAmount)}
                 </div>
               </div>
             }

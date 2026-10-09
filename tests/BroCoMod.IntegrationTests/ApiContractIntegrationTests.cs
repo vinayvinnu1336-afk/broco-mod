@@ -117,6 +117,52 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task QuotationSentStraightFromDraft_CanBeAcceptedByCustomer()
+    {
+        // Customer books
+        var customer = await SignedInAsync("customer@brocomod.com");
+        var vehicles = await customer.GetFromJsonAsync<ApiResponse<List<CustomerVehicleDetailDto>>>("/api/v1/customer/vehicles", JsonOptions);
+        var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
+            vehicles!.Data!.First().Id, "8 Lavelle Road", null, "Bengaluru", "Karnataka", "560001", "India",
+            12.9716, 77.5946, "Clutch slipping in third gear", "Transmission & Clutch", null));
+        booking.EnsureSuccessStatusCode();
+        var requestId = (await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!.Id;
+
+        // Garage quotes
+        Guid garageId, garageRequestId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BroCoMod.Infrastructure.Persistence.ApplicationDbContext>();
+            var gu = db.GarageUsers.First(g => g.User.Email == "garage.owner@centralmetro.com");
+            garageId = gu.GarageId;
+            garageRequestId = db.GarageRequests.First(r => r.ServiceRequestId == requestId && r.GarageId == garageId).Id;
+        }
+        var garage = await SignedInAsync("garage.owner@centralmetro.com");
+        var draft = await garage.PostAsJsonAsync("/api/v1/garage/quotes/draft", new CreateGarageQuoteRequest(
+            garageRequestId, "INR", 4, 1, DateTime.UtcNow.AddDays(7), "Clutch plate replacement",
+            new List<CreateQuoteLineItemRequest> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 18m, 0m, 1) }));
+        draft.EnsureSuccessStatusCode();
+        var quoteId = (await draft.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions))!.Data!.Id;
+        (await garage.PostAsJsonAsync($"/api/v1/garage/quotes/{quoteId}/submit", new SubmitGarageQuoteCommand())).EnsureSuccessStatusCode();
+
+        // Advisor assigns and sends WITHOUT marking ready first
+        var advisor = await SignedInAsync("advisor@brocomod.com");
+        (await advisor.PostAsJsonAsync($"/api/v1/advisor/requests/{requestId}/assignment",
+            new AssignGarageRequest(garageId, quoteId, "Only quote"))).EnsureSuccessStatusCode();
+        var cq = await advisor.PostAsJsonAsync($"/api/v1/advisor/requests/{requestId}/customer-quotation", new CreateCustomerQuotationRequest(
+            "Clutch replacement", null, DateTime.UtcNow.AddDays(5), 0m, "INR",
+            new List<CustomerQuotationLineItemInputDto> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 7400m, 18m, 0m, 1) }));
+        cq.EnsureSuccessStatusCode();
+        var cqId = (await cq.Content.ReadFromJsonAsync<ApiResponse<CustomerQuotationDto>>(JsonOptions))!.Data!.Id;
+        (await advisor.PostAsJsonAsync($"/api/v1/advisor/customer-quotations/{cqId}/send", new { })).EnsureSuccessStatusCode();
+
+        // Customer accepts
+        var accept = await customer.PostAsJsonAsync($"/api/v1/customer/quotes/{cqId}/accept", new AcceptQuotationRequest(CustomerRemarks: null));
+        var raw = await accept.Content.ReadAsStringAsync();
+        accept.StatusCode.Should().Be(HttpStatusCode.OK, raw);
+    }
+
+    [Fact]
     public async Task Advisor_Assignments_ShowRealGarageNames()
     {
         var advisor = await SignedInAsync("advisor@brocomod.com");

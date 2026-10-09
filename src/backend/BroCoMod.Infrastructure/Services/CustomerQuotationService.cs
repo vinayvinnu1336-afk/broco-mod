@@ -317,34 +317,7 @@ public class CustomerQuotationService : ICustomerQuotationService
         }
 
         // Store immutable version snapshot
-        var snapshotItems = quotation.LineItems.OrderBy(li => li.SortOrder).Select(li => new {
-            li.Id,
-            li.LineType,
-            li.Description,
-            li.Quantity,
-            li.UnitPrice,
-            li.TaxRate,
-            li.DiscountAmount,
-            li.LineTotal,
-            li.SortOrder
-        });
-
-        var versionSnapshot = new CustomerQuotationVersion(
-            quotation.Id,
-            quotation.VersionNumber,
-            quotation.CustomerSubtotal,
-            quotation.CustomerDiscount,
-            quotation.CustomerTax,
-            quotation.CustomerTotal,
-            quotation.ValidUntilUtc,
-            quotation.AdvisorRemarks,
-            quotation.ScopeSummary,
-            JsonSerializer.Serialize(snapshotItems),
-            advisorId
-        );
-
-        _context.CustomerQuotationVersions.Add(versionSnapshot);
-        _context.Entry(versionSnapshot).State = EntityState.Added;
+        AddVersionSnapshot(_context, quotation, advisorId);
 
         await _auditService.LogAsync(
             action: "CUSTOMER_QUOTATION_READY",
@@ -393,6 +366,13 @@ public class CustomerQuotationService : ICustomerQuotationService
         catch (InvalidOperationException ex)
         {
             return ApiResponse<CustomerQuotationDto>.Fail(ex.Message);
+        }
+
+        // Sending straight from Draft skips "mark ready", which is where the immutable snapshot used to be
+        // taken. The customer's accept/decline depends on that snapshot, so make sure the sent version has one.
+        if (!quotation.Versions.Any(v => v.VersionNumber == quotation.VersionNumber))
+        {
+            AddVersionSnapshot(_context, quotation, advisorId);
         }
 
         // Notify customer
@@ -518,6 +498,46 @@ public class CustomerQuotationService : ICustomerQuotationService
         )).ToList();
 
         return ApiResponse<List<CustomerQuotationSummaryDto>>.Ok(dtos);
+    }
+
+    /// <summary>
+    /// Stores the immutable snapshot of the quotation version the customer will see and decide on.
+    /// Shared with the customer decision flow, which repairs quotations sent before this was guaranteed.
+    /// </summary>
+    internal static CustomerQuotationVersion AddVersionSnapshot(IApplicationDbContext context, CustomerQuotation quotation, Guid advisorId)
+    {
+        var snapshotItems = quotation.LineItems.OrderBy(li => li.SortOrder).Select(li => new {
+            li.Id,
+            li.LineType,
+            li.Description,
+            li.Quantity,
+            li.UnitPrice,
+            li.TaxRate,
+            li.DiscountAmount,
+            li.LineTotal,
+            li.SortOrder
+        });
+
+        var versionSnapshot = new CustomerQuotationVersion(
+            quotation.Id,
+            quotation.VersionNumber,
+            quotation.CustomerSubtotal,
+            quotation.CustomerDiscount,
+            quotation.CustomerTax,
+            quotation.CustomerTotal,
+            quotation.ValidUntilUtc,
+            quotation.AdvisorRemarks,
+            quotation.ScopeSummary,
+            JsonSerializer.Serialize(snapshotItems),
+            advisorId
+        );
+
+        context.CustomerQuotationVersions.Add(versionSnapshot);
+        if (context is DbContext db)
+        {
+            db.Entry(versionSnapshot).State = EntityState.Added;
+        }
+        return versionSnapshot;
     }
 
     private static CustomerQuotationDto MapToDto(CustomerQuotation quotation, string requestNumber, string garageName)

@@ -65,7 +65,7 @@ export default function AdminAssignmentsPage() {
     return (
       a.requestNumber.toLowerCase().includes(term) ||
       a.garageName.toLowerCase().includes(term) ||
-      a.quoteNumber.toLowerCase().includes(term) ||
+      a.selectedQuoteNumber.toLowerCase().includes(term) ||
       (a.assignedByAdvisorName ?? '').toLowerCase().includes(term)
     );
   });
@@ -129,7 +129,7 @@ export default function AdminAssignmentsPage() {
                   title={a.garageName}
                   subtitle={
                     <>
-                      <span className="font-mono">{a.requestNumber}</span> · quote {a.quoteNumber}
+                      <span className="font-mono">{a.requestNumber}</span> · quote {a.selectedQuoteNumber}
                     </>
                   }
                   meta={
@@ -142,7 +142,7 @@ export default function AdminAssignmentsPage() {
                   }
                   trailing={
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(a.quotedAmount)}</span>
+                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(a.selectedQuoteAmount)}</span>
                       <StatusBadge status={a.status} />
                     </div>
                   }
@@ -173,9 +173,9 @@ export default function AdminAssignmentsPage() {
                   <TableRow key={a.id}>
                     <TableCell className="whitespace-nowrap font-mono text-xs font-semibold text-navy-900">{a.requestNumber}</TableCell>
                     <TableCell className="font-medium text-navy-900">{a.garageName}</TableCell>
-                    <TableCell className="hidden whitespace-nowrap font-mono text-xs text-navy-600 lg:table-cell">{a.quoteNumber}</TableCell>
+                    <TableCell className="hidden whitespace-nowrap font-mono text-xs text-navy-600 lg:table-cell">{a.selectedQuoteNumber}</TableCell>
                     <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-navy-900">
-                      {formatINR(a.quotedAmount)}
+                      {formatINR(a.selectedQuoteAmount)}
                     </TableCell>
                     <TableCell className="text-navy-700">{a.assignedByAdvisorName || '—'}</TableCell>
                     <TableCell className="whitespace-nowrap text-navy-500">{formatDate(a.assignedAtUtc)}</TableCell>
