@@ -4,7 +4,7 @@ import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Wrench, ArrowRight, Eye, EyeOff, Car, Store } from 'lucide-react';
+import { Wrench, ArrowRight, Eye, EyeOff, Car, Store, MapPin, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -39,8 +39,31 @@ function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [garageName, setGarageName] = useState('');
   const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const captureLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setLocationError('Location is not available on this device. Our team will set it during verification.');
+      return;
+    }
+    setLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setLocating(false);
+      },
+      () => {
+        setLocationError('We couldn’t get your location. Allow location access, or skip this and our team will set it.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +94,8 @@ function RegisterForm() {
         role,
         garageName: role === 'GARAGE_OWNER' ? garageName.trim() : undefined,
         address: role === 'GARAGE_OWNER' ? address.trim() : undefined,
+        latitude: role === 'GARAGE_OWNER' ? coords?.latitude : undefined,
+        longitude: role === 'GARAGE_OWNER' ? coords?.longitude : undefined,
       });
 
       if (!res.success) {
@@ -253,9 +278,24 @@ function RegisterForm() {
                     placeholder="Street, area, city, PIN code"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    helperText="Used to send you requests from car owners within 10 km."
                     required
                   />
+                  <div>
+                    <Button
+                      type="button"
+                      variant={coords ? 'outline' : 'secondary'}
+                      className="w-full"
+                      leftIcon={coords ? <Check className="h-4 w-4 text-emerald-600" /> : <MapPin className="h-4 w-4" />}
+                      isLoading={locating}
+                      onClick={captureLocation}
+                    >
+                      {coords ? 'Workshop location saved' : 'Use my current location'}
+                    </Button>
+                    <p className="mt-1.5 text-xs text-navy-500">
+                      {locationError ??
+                        'Tap this while you are at the workshop. We send you requests from car owners within 10 km of it. Your garage goes live after our team verifies it.'}
+                    </p>
+                  </div>
                 </fieldset>
               )}
 

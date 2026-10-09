@@ -18,6 +18,8 @@ interface AuthContextType {
     role?: string;
     garageName?: string;
     address?: string;
+    latitude?: number;
+    longitude?: number;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   quickLogin: (role: 'customer' | 'garage' | 'advisor' | 'admin') => Promise<void>;
@@ -85,6 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role?: string;
     garageName?: string;
     address?: string;
+    latitude?: number;
+    longitude?: number;
   }) => {
     setIsLoading(true);
     try {
