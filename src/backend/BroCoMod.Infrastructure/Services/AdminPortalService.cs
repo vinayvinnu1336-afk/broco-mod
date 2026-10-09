@@ -7,6 +7,9 @@ namespace BroCoMod.Infrastructure.Services;
 
 public class AdminPortalService : IAdminPortalService
 {
+    /// <summary>Upper bound for unpaged admin list endpoints so responses stay bounded as data grows.</summary>
+    private const int MaxListResults = 500;
+
     private readonly IApplicationDbContext _context;
     private readonly IAuditService _auditService;
 
@@ -61,6 +64,7 @@ public class AdminPortalService : IAdminPortalService
         return await _context.Garages
             .AsNoTracking()
             .OrderBy(g => g.Name)
+            .Take(MaxListResults)
             .Select(g => new AdminGarageSummaryDto(
                 g.Id,
                 g.Name,
@@ -79,6 +83,7 @@ public class AdminPortalService : IAdminPortalService
             .AsNoTracking()
             .Include(a => a.User)
             .OrderBy(a => a.User.FullName)
+            .Take(MaxListResults)
             .Select(a => new AdminAdvisorSummaryDto(
                 a.Id,
                 a.User.FullName,
@@ -92,7 +97,9 @@ public class AdminPortalService : IAdminPortalService
 
     public async Task<IReadOnlyList<AdminAuditLogSummaryDto>> GetAuditLogsAsync(int limit = 50, CancellationToken cancellationToken = default)
     {
-        return await _auditService.GetRecentAuditLogsAsync(limit, cancellationToken);
+        // The limit comes straight from the query string; never let a caller pull the whole audit table.
+        var boundedLimit = Math.Clamp(limit, 1, MaxListResults);
+        return await _auditService.GetRecentAuditLogsAsync(boundedLimit, cancellationToken);
     }
 
     public Task<AdminSettingsDto> GetSettingsAsync(CancellationToken cancellationToken = default)

@@ -121,7 +121,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     }
     if (options.KnownProxies.Count == 0)
     {
-        // Docker / private networks only â€” the API is never exposed directly to the internet.
+        // Docker / private networks only - the API is never exposed directly to the internet.
         options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
         options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
         options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("192.168.0.0"), 16));

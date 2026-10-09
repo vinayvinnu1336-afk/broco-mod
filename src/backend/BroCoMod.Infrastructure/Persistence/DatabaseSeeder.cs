@@ -4,6 +4,7 @@ using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
 using BroCoMod.Domain.Entities.VehicleMaster;
 using BroCoMod.Domain.Enums;
+using BroCoMod.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -20,19 +21,22 @@ public class DatabaseSeeder
     private readonly IHostEnvironment _environment;
     private readonly IConfiguration _configuration;
     private readonly ILogger<DatabaseSeeder> _logger;
+    private readonly ICacheService _cache;
 
     public DatabaseSeeder(
         ApplicationDbContext context,
         IPasswordHasher passwordHasher,
         IHostEnvironment environment,
         IConfiguration configuration,
-        ILogger<DatabaseSeeder> logger)
+        ILogger<DatabaseSeeder> logger,
+        ICacheService cache)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _environment = environment;
         _configuration = configuration;
         _logger = logger;
+        _cache = cache;
     }
 
     public async Task SeedAsync()
@@ -547,6 +551,11 @@ public class DatabaseSeeder
         );
 
         await _context.SaveChangesAsync();
+
+        // A freshly seeded catalog has new IDs; drop any manufacturer list cached against a previous database
+        // (e.g. a shared Redis surviving a local DB reset). Model/variant keys are ID-scoped and cannot collide.
+        await VehicleMasterService.InvalidateCatalogCacheAsync(_cache);
+
         _logger.LogInformation("Vehicle Master catalog seeded successfully (7 manufacturers, 15 models, 24 variants).");
     }
 }
