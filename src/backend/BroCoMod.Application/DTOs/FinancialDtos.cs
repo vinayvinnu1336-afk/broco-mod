@@ -134,7 +134,9 @@ public record FinanceOverviewDto(
     int TotalPaymentsCount,
     int TotalInvoicesCount,
     int PendingSettlementsCount,
-    int CompletedSettlementsCount
+    int CompletedSettlementsCount,
+    decimal TotalPlatformFeeGst = 0m,
+    decimal TotalPlatformMargin = 0m
 );
 
 public record PaymentFilterDto(

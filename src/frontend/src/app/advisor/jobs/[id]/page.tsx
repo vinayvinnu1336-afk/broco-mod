@@ -81,7 +81,7 @@ export default function AdvisorJobDetailPage() {
       approved: reviewApproved,
       remarks: reviewRemarks,
     };
-    const res = await apiFetch(`/advisor/jobs/${id}/additional-work/${selectedWork.id}/review`, {
+    const res = await apiFetch(`/advisor/jobs/additional-work/${selectedWork.id}/review`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

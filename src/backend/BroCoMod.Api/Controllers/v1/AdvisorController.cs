@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -203,6 +203,16 @@ public class AdvisorController : ControllerBase
             return BadRequest(result);
         }
         return Ok(result);
+    }
+
+    /// <summary>Customer quotations for one service request, newest first (the builder reloads an existing draft from this).</summary>
+    [HttpGet("customer-quotations")]
+    [ProducesResponseType(typeof(ApiResponse<List<CustomerQuotationDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCustomerQuotationsForRequest([FromQuery] Guid serviceRequestId, CancellationToken cancellationToken)
+    {
+        var advisorId = GetEffectiveAdvisorId();
+        var role = User.IsInRole(AppRoles.SuperAdmin) ? AppRoles.SuperAdmin : AppRoles.Advisor;
+        return Ok(await _customerQuotationService.GetCustomerQuotationsForRequestAsync(serviceRequestId, advisorId, role, cancellationToken));
     }
 
     [HttpGet("customer-quotations/{id:guid}")]

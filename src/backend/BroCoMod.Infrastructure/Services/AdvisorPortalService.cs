@@ -108,7 +108,7 @@ public class AdvisorPortalService : IAdvisorPortalService
             .Select(cq => new AdvisorAssignmentSummaryDto(
                 cq.ServiceRequestId,
                 cq.AssignedGarageId,
-                "Assigned Partner",
+                _context.Garages.Where(g => g.Id == cq.AssignedGarageId).Select(g => g.Name).FirstOrDefault() ?? string.Empty,
                 cq.CustomerFacingPrice,
                 cq.Status.ToString(),
                 cq.CreatedAtUtc))

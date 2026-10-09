@@ -178,6 +178,29 @@ public class CustomerQuotationService : ICustomerQuotationService
         return ApiResponse<CustomerQuotationDto>.Ok(MapToDto(quotation, requestNumber, garageName));
     }
 
+    public async Task<ApiResponse<List<CustomerQuotationDto>>> GetCustomerQuotationsForRequestAsync(
+        Guid serviceRequestId,
+        Guid requestingUserId,
+        string requestingRole,
+        CancellationToken ct = default)
+    {
+        var ids = await _context.CustomerQuotations
+            .AsNoTracking()
+            .Where(cq => cq.ServiceRequestId == serviceRequestId)
+            .OrderByDescending(cq => cq.CreatedAtUtc)
+            .Select(cq => cq.Id)
+            .ToListAsync(ct);
+
+        var results = new List<CustomerQuotationDto>();
+        foreach (var id in ids)
+        {
+            var single = await GetCustomerQuotationByIdAsync(id, requestingUserId, requestingRole, ct);
+            if (single.Success && single.Data != null) results.Add(single.Data);
+        }
+
+        return ApiResponse<List<CustomerQuotationDto>>.Ok(results);
+    }
+
     public async Task<ApiResponse<CustomerQuotationDto>> UpdateCustomerQuotationDraftAsync(
         Guid quotationId,
         UpdateCustomerQuotationDraftRequest request,

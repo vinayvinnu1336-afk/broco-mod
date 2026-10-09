@@ -235,7 +235,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         // Verify ServiceRequest transitioned to GarageSelected
         var reqDetail = await advisorClient.GetAsync($"/api/v1/advisor/requests/{serviceRequestId}");
         var reqBody = await reqDetail.Content.ReadFromJsonAsync<ApiResponse<AdvisorServiceRequestDetailDto>>(JsonOptions);
-        reqBody!.Data!.Status.Should().BeEquivalentTo(ServiceRequestStatus.GarageSelected.ToString());
+        reqBody!.Data!.Status.Should().Be("GARAGE_SELECTED");
 
         // Act 2: Idempotent call returns OK
         var idempotentResponse = await advisorClient.PostAsJsonAsync(
