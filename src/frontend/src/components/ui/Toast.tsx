@@ -57,12 +57,15 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <ToastContext.Provider value={{ toast: addToast, success, error, info, warning }}>
       {children}
-      {/* Toast container floating bottom-right */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      {/* Toasts: top-centre on phones (clear of the bottom navigation), bottom-right on desktop */}
+      <div
+        className="fixed inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[70] flex flex-col gap-2 pointer-events-none sm:inset-x-auto sm:top-auto sm:bottom-5 sm:right-5 sm:max-w-sm sm:w-full"
+        aria-live="polite"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto flex items-start gap-3 p-4 bg-white rounded-xl border border-surface-200 shadow-modal animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className="pointer-events-auto flex items-start gap-3 p-4 bg-white rounded-2xl border border-surface-200 shadow-modal animate-pop-in"
             role="status"
           >
             {icons[t.type]}

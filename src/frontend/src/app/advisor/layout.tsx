@@ -6,20 +6,20 @@ import { PortalLayout, NavItem } from '@/components/layout/PortalLayout';
 import { LayoutDashboard, ListTodo, Inbox, Calculator, CheckSquare, UserCheck, Wrench } from 'lucide-react';
 
 const advisorNavItems: NavItem[] = [
-  { label: 'Advisor Console', href: '/advisor/dashboard', icon: LayoutDashboard },
-  { label: 'Work Queue', href: '/advisor/work-queue', icon: ListTodo },
-  { label: 'Requests Review', href: '/advisor/requests', icon: Inbox },
-  { label: 'Quotes & Margins', href: '/advisor/quotes', icon: Calculator },
-  { label: 'Garage Assignments', href: '/advisor/assignments', icon: CheckSquare },
-  { label: 'Execution & Jobs', href: '/advisor/jobs', icon: Wrench },
-  { label: 'Advisor Profile', href: '/advisor/profile', icon: UserCheck },
+  { label: 'Overview', href: '/advisor/dashboard', icon: LayoutDashboard, primary: true },
+  { label: 'Work queue', shortLabel: 'Queue', href: '/advisor/work-queue', icon: ListTodo, primary: true },
+  { label: 'Service requests', shortLabel: 'Requests', href: '/advisor/requests', icon: Inbox, primary: true },
+  { label: 'Garage quotes', shortLabel: 'Quotes', href: '/advisor/quotes', icon: Calculator, primary: true },
+  { label: 'Assignments', href: '/advisor/assignments', icon: CheckSquare },
+  { label: 'Service jobs', href: '/advisor/jobs', icon: Wrench },
+  { label: 'Profile', href: '/advisor/profile', icon: UserCheck },
 ];
 
 export default function AdvisorPortalRootLayout({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute allowedRoles={['ADVISOR', 'SUPER_ADMIN']} portalName="Advisor">
       <PortalLayout
-        portalName="Advisor Portal"
+        portalName="Advisor"
         portalBadgeColor="bg-purple-50 text-purple-700 border-purple-200"
         navItems={advisorNavItems}
       >

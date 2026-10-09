@@ -1,34 +1,45 @@
 'use client';
 
-import React, { useState, ReactNode } from 'react';
+import React, { useState, ReactNode, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  Wrench, 
-  LogOut, 
-  Menu,
-  Shield, 
-  Sparkles,
-  ChevronRight,
-  Bell
-} from 'lucide-react';
+import { Wrench, LogOut, MoreHorizontal, Plus, Sparkles, ChevronRight } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { Drawer } from '@/components/ui/Drawer';
-import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { isDemoMode } from '@/lib/demo';
 
 export interface NavItem {
   label: string;
+  /** Short label for the phone tab bar (max ~10 characters). Defaults to `label`. */
+  shortLabel?: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string | number;
+  /** Shown in the phone tab bar. Up to 4 items; the rest go under "More". */
+  primary?: boolean;
+  /** Sidebar group heading on desktop. */
+  section?: string;
+}
+
+export interface PortalAction {
+  label: string;
+  href: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 interface PortalLayoutProps {
   children: ReactNode;
   portalName: string;
+  /** Accent for the portal chip, e.g. 'bg-amber-50 text-amber-700 border-amber-200'. */
   portalBadgeColor?: string;
   navItems: NavItem[];
+  /** The one thing users of this portal do most (customer: Book service). Raised centre tab on phones. */
+  primaryAction?: PortalAction;
+}
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function PortalLayout({
@@ -36,188 +47,308 @@ export function PortalLayout({
   portalName,
   portalBadgeColor = 'bg-electric-50 text-electric-700 border-electric-200',
   navItems,
+  primaryAction,
 }: PortalLayoutProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const { user, logout, quickLogin } = useAuth();
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
-  const renderNavLinks = (onItemClick?: () => void) => (
-    <div className="space-y-1">
-      <div className="px-3 py-2 text-[11px] font-bold text-navy-400 uppercase tracking-wider">
-        {portalName} Menu
-      </div>
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onItemClick}
-            className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
-              isActive
-                ? 'bg-electric-600 text-white shadow-sm shadow-electric-600/20'
-                : 'text-navy-700 hover:bg-surface-100 hover:text-navy-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-navy-500'}`} />
-              <span>{item.label}</span>
+  const { tabItems, overflowItems } = useMemo(() => {
+    const flagged = navItems.filter((i) => i.primary);
+    // Five slots at most: tabs + optional centre action + "More".
+    const tabs = (flagged.length ? flagged : navItems).slice(0, primaryAction ? 3 : 4);
+    const overflow = navItems.filter((i) => !tabs.includes(i));
+    return { tabItems: tabs, overflowItems: overflow };
+  }, [navItems, primaryAction]);
+
+  // Longest matching href wins so /customer/requests/new does not also light up /customer/requests.
+  const activeHref = useMemo(() => {
+    const candidates = [...navItems.map((i) => i.href), ...(primaryAction ? [primaryAction.href] : [])];
+    return candidates
+      .filter((href) => isActivePath(pathname, href))
+      .sort((a, b) => b.length - a.length)[0];
+  }, [navItems, primaryAction, pathname]);
+
+  const overflowActive = overflowItems.some((i) => i.href === activeHref);
+  const portalShortName = portalName.replace(/\s*Portal$/i, '');
+
+  const sections = useMemo(() => {
+    const groups: { title?: string; items: NavItem[] }[] = [];
+    for (const item of navItems) {
+      const last = groups[groups.length - 1];
+      if (last && last.title === item.section) last.items.push(item);
+      else groups.push({ title: item.section, items: [item] });
+    }
+    return groups;
+  }, [navItems]);
+
+  const renderBadge = (badge: NavItem['badge'], active: boolean) =>
+    badge !== undefined && badge !== 0 && badge !== '' ? (
+      <span
+        className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold leading-none ${
+          active ? 'bg-white/20 text-white' : 'bg-electric-50 text-electric-700'
+        }`}
+      >
+        {badge}
+      </span>
+    ) : null;
+
+  const DemoSwitcher = ({ compact = false }: { compact?: boolean }) =>
+    isDemoMode ? (
+      <div className={compact ? 'space-y-2' : 'flex items-center gap-1 rounded-xl border border-navy-700/80 bg-navy-800/90 p-1 text-xs'}>
+        {compact ? (
+          <>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-navy-500">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Demo accounts
             </div>
-            {item.badge !== undefined && (
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-surface-200 text-navy-700'
-                }`}
+            <div className="grid grid-cols-2 gap-2">
+              {(['customer', 'garage', 'advisor', 'admin'] as const).map((role) => (
+                <button
+                  key={role}
+                  onClick={() => quickLogin(role)}
+                  className="min-h-[40px] rounded-xl border border-surface-200 bg-surface-50 text-sm font-medium capitalize text-navy-700 hover:bg-surface-100"
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="flex items-center gap-1.5 px-2 font-semibold text-white">
+              <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Demo
+            </span>
+            {(['customer', 'garage', 'advisor', 'admin'] as const).map((role) => (
+              <button
+                key={role}
+                onClick={() => quickLogin(role)}
+                className="rounded-lg px-2.5 py-1 font-medium capitalize text-surface-200 transition hover:bg-navy-700"
               >
-                {item.badge}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
+                {role}
+              </button>
+            ))}
+          </>
+        )}
+      </div>
+    ) : null;
 
   return (
-    <div className="min-h-screen bg-surface-50 flex flex-col font-sans text-navy-900">
-      {/* Top Header */}
-      <header className="bg-navy-900 border-b border-navy-800 text-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Mobile hamburger & Logo & Portal Badge */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              onClick={() => setMobileNavOpen(true)}
-              className="md:hidden p-2 text-surface-300 hover:text-white hover:bg-navy-800 rounded-lg transition"
-              aria-label="Open navigation menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-electric-600 flex items-center justify-center text-white shadow-md shadow-electric-600/30 group-hover:scale-105 transition-transform">
-                <Wrench className="w-5 h-5" />
-              </div>
-              <div className="hidden xs:block sm:block">
-                <span className="text-lg font-black tracking-tight text-white uppercase">BroCo</span>
-                <span className="text-lg font-light tracking-widest text-electric-400 uppercase ml-1">Mod</span>
-              </div>
-            </Link>
-
-            <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${portalBadgeColor}`}>
+    <div className="min-h-screen bg-surface-50 font-sans text-navy-900">
+      {/* ===== Top bar ===== */}
+      <header className="sticky top-0 z-40 border-b border-surface-200 bg-white/90 pt-safe backdrop-blur md:border-navy-800 md:bg-navy-900 md:text-white md:backdrop-blur-none">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 md:h-16 lg:px-8">
+          <Link href={navItems[0]?.href ?? '/'} className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
+              <Wrench className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="block text-[15px] font-extrabold tracking-tight md:text-lg">
+                BroCo<span className="font-light text-electric-600 md:text-electric-400"> Mod</span>
+              </span>
+              <span className="block truncate text-[11px] font-medium text-navy-400 md:hidden">{portalShortName}</span>
+            </span>
+            <span className={`ml-1 hidden rounded-full border px-2.5 py-0.5 text-xs font-semibold md:inline-flex ${portalBadgeColor}`}>
               {portalName}
             </span>
-          </div>
+          </Link>
 
-          {/* Quick Demo Switcher & User Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Demo Switcher Quick Menu */}
-            <div className="hidden xl:flex items-center bg-navy-800/90 rounded-xl p-1 border border-navy-700/80 text-xs">
-              <span className="px-2.5 text-surface-300 font-medium flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span className="font-semibold text-white">Demo:</span>
-              </span>
-              <button
-                onClick={() => quickLogin('customer')}
-                className="px-2.5 py-1 rounded-lg hover:bg-navy-700 text-surface-200 transition font-medium"
-                title="Log in as Customer"
-              >
-                Customer
-              </button>
-              <button
-                onClick={() => quickLogin('garage')}
-                className="px-2.5 py-1 rounded-lg hover:bg-navy-700 text-surface-200 transition font-medium"
-                title="Log in as Garage Owner"
-              >
-                Garage
-              </button>
-              <button
-                onClick={() => quickLogin('advisor')}
-                className="px-2.5 py-1 rounded-lg hover:bg-navy-700 text-surface-200 transition font-medium"
-                title="Log in as Advisor"
-              >
-                Advisor
-              </button>
-              <button
-                onClick={() => quickLogin('admin')}
-                className="px-2.5 py-1 rounded-lg hover:bg-navy-700 text-surface-200 transition font-medium"
-                title="Log in as Super Admin"
-              >
-                Admin
-              </button>
+            <div className="hidden xl:block">
+              <DemoSwitcher />
             </div>
 
-            {/* User Pill */}
             {user && (
-              <div className="flex items-center gap-2.5 pl-2 sm:pl-3 sm:border-l sm:border-navy-800">
+              <button
+                onClick={() => setAccountOpen(true)}
+                className="flex items-center gap-2.5 rounded-full p-0.5 md:rounded-xl md:border-l md:border-navy-800 md:pl-3 md:pr-1"
+                aria-label="Account menu"
+              >
                 <Avatar name={user.fullName || user.email} size="sm" />
-                <div className="hidden sm:block text-left">
-                  <div className="text-xs font-bold text-white leading-tight">{user.fullName || 'User'}</div>
-                  <div className="text-[11px] text-surface-400 font-mono leading-tight truncate max-w-[140px]">
-                    {user.email}
-                  </div>
-                </div>
-              </div>
+                <span className="hidden text-left md:block">
+                  <span className="block text-xs font-bold leading-tight text-white">{user.fullName || 'User'}</span>
+                  <span className="block max-w-[160px] truncate text-[11px] leading-tight text-surface-400">{user.email}</span>
+                </span>
+              </button>
             )}
 
-            {/* Logout Button */}
             <button
               onClick={() => logout()}
-              className="p-2 text-surface-300 hover:text-white hover:bg-navy-800 rounded-xl transition"
-              title="Sign Out"
-              aria-label="Sign Out"
+              className="hidden rounded-xl p-2 text-surface-300 transition hover:bg-navy-800 hover:text-white md:inline-flex"
+              title="Sign out"
+              aria-label="Sign out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Body with Sidebar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex w-full gap-6">
-        {/* Desktop Sidebar */}
-        <aside className="w-64 flex-shrink-0 hidden md:block">
-          <nav className="bg-white rounded-2xl border border-surface-200 p-3 shadow-card sticky top-24 space-y-1">
-            {renderNavLinks()}
-
-            <div className="pt-4 mt-4 border-t border-surface-200 px-3">
-              <div className="text-[11px] font-semibold text-navy-400 uppercase tracking-wider mb-2">
-                Security & Isolation
+      <div className="mx-auto flex w-full max-w-7xl gap-6 px-4 pt-4 sm:px-6 md:pt-6 lg:px-8">
+        {/* ===== Desktop sidebar ===== */}
+        <aside className="hidden w-60 shrink-0 md:block lg:w-64">
+          <nav className="sticky top-24 space-y-4 rounded-2xl border border-surface-200 bg-white p-3 shadow-card" aria-label={`${portalName} navigation`}>
+            {sections.map((section, idx) => (
+              <div key={section.title ?? idx} className="space-y-0.5">
+                {section.title && (
+                  <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-navy-400">{section.title}</div>
+                )}
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = item.href === activeHref;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                        active
+                          ? 'bg-electric-600 text-white shadow-sm shadow-electric-600/20'
+                          : 'text-navy-700 hover:bg-surface-100 hover:text-navy-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-navy-400'}`} />
+                        {item.label}
+                      </span>
+                      {renderBadge(item.badge, active)}
+                    </Link>
+                  );
+                })}
               </div>
-              <div className="bg-surface-50 rounded-xl p-3 text-xs text-navy-600 leading-relaxed border border-surface-200">
-                <div className="flex items-center gap-1.5 font-bold text-navy-900 mb-1">
-                  <Shield className="w-4 h-4 text-electric-600" />
-                  <span>Isolated Data Realm</span>
-                </div>
-                Zero-trust data isolation enforced at API boundary.
-              </div>
-            </div>
+            ))}
+            {primaryAction && (
+              <Link
+                href={primaryAction.href}
+                className="flex items-center justify-center gap-2 rounded-xl bg-navy-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+              >
+                {primaryAction.icon ? <primaryAction.icon className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {primaryAction.label}
+              </Link>
+            )}
           </nav>
         </aside>
 
-        {/* Mobile Navigation Drawer */}
-        <Drawer
-          isOpen={mobileNavOpen}
-          onClose={() => setMobileNavOpen(false)}
-          title={
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-electric-600 flex items-center justify-center text-white">
-                <Wrench className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-navy-900">{portalName}</span>
-            </div>
-          }
-          position="left"
-          size="sm"
-        >
-          <div className="py-2">
-            {renderNavLinks(() => setMobileNavOpen(false))}
-          </div>
-        </Drawer>
-
-        {/* Content Area */}
-        <main className="flex-1 min-w-0">{children}</main>
+        {/* ===== Content ===== */}
+        <main className="min-w-0 flex-1 pb-bottom-nav">{children}</main>
       </div>
+
+      {/* ===== Phone tab bar ===== */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-200 bg-white/95 pb-safe backdrop-blur md:hidden"
+        aria-label={`${portalName} navigation`}
+      >
+        <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around px-1">
+          {(() => {
+            const tabs: ReactNode[] = tabItems.map((item) => {
+              const Icon = item.icon;
+              const active = item.href === activeHref;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className="relative flex flex-1 flex-col items-center justify-center gap-0.5 touch-manipulation"
+                >
+                  <span className={`flex h-7 w-12 items-center justify-center rounded-full transition ${active ? 'bg-electric-50 text-electric-600' : 'text-navy-400'}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className={`max-w-full truncate px-0.5 text-[11px] leading-tight ${active ? 'font-semibold text-electric-700' : 'font-medium text-navy-500'}`}>
+                    {item.shortLabel ?? item.label}
+                  </span>
+                  {item.badge !== undefined && item.badge !== 0 && item.badge !== '' && (
+                    <span className="absolute right-[22%] top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                  )}
+                </Link>
+              );
+            });
+
+            if (primaryAction) {
+              const ActionIcon = primaryAction.icon ?? Plus;
+              tabs.splice(
+                Math.ceil(tabs.length / 2),
+                0,
+                <Link
+                  key="primary-action"
+                  href={primaryAction.href}
+                  className="flex flex-1 flex-col items-center justify-center gap-0.5 touch-manipulation"
+                >
+                  <span className="-mt-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric-600 text-white shadow-lg shadow-electric-600/40 ring-4 ring-white transition active:scale-95">
+                    <ActionIcon className="h-6 w-6" />
+                  </span>
+                  <span className="text-[11px] font-semibold leading-tight text-electric-700">{primaryAction.label}</span>
+                </Link>
+              );
+            }
+
+            if (overflowItems.length > 0) {
+              tabs.push(
+                <button
+                  key="more"
+                  type="button"
+                  onClick={() => setMoreOpen(true)}
+                  className="flex flex-1 flex-col items-center justify-center gap-0.5 touch-manipulation"
+                  aria-haspopup="dialog"
+                >
+                  <span className={`flex h-7 w-12 items-center justify-center rounded-full ${overflowActive ? 'bg-electric-50 text-electric-600' : 'text-navy-400'}`}>
+                    <MoreHorizontal className="h-5 w-5" />
+                  </span>
+                  <span className={`text-[11px] leading-tight ${overflowActive ? 'font-semibold text-electric-700' : 'font-medium text-navy-500'}`}>More</span>
+                </button>
+              );
+            }
+            return tabs;
+          })()}
+        </div>
+      </nav>
+
+      {/* ===== "More" sheet (phones) ===== */}
+      <Modal isOpen={moreOpen} onClose={() => setMoreOpen(false)} title={portalShortName} size="sm">
+        <div className="-mx-2 space-y-0.5">
+          {overflowItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.href === activeHref;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMoreOpen(false)}
+                className={`flex min-h-[52px] items-center gap-3 rounded-xl px-3 transition ${active ? 'bg-electric-50 text-electric-700' : 'text-navy-800 hover:bg-surface-50'}`}
+              >
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-electric-600 text-white' : 'bg-surface-100 text-navy-500'}`}>
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span className="flex-1 text-[15px] font-medium">{item.label}</span>
+                {renderBadge(item.badge, false)}
+                <ChevronRight className="h-4 w-4 text-surface-400" />
+              </Link>
+            );
+          })}
+        </div>
+      </Modal>
+
+      {/* ===== Account sheet ===== */}
+      <Modal isOpen={accountOpen} onClose={() => setAccountOpen(false)} title="Account" size="sm">
+        {user && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <Avatar name={user.fullName || user.email} size="lg" />
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-navy-900">{user.fullName || 'User'}</div>
+                <div className="truncate text-sm text-navy-500">{user.email}</div>
+                <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${portalBadgeColor}`}>{portalName}</span>
+              </div>
+            </div>
+            <DemoSwitcher compact />
+            <button
+              onClick={() => logout()}
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
