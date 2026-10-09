@@ -1,346 +1,443 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PaymentDto } from '@/types/finance';
-import { 
-  CreditCard, 
-  RotateCcw, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle, 
-  Search, 
-  Filter, 
-  DollarSign, 
-  X, 
-  ArrowLeft,
-  Building2,
-  Calendar,
-  Receipt
-} from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { CreditCard, IndianRupee, RotateCcw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { Input } from '@/components/ui/Input';
+import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
+import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Textarea } from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/Toast';
+import { formatDate, formatDateTime, formatINR, formatINRWhole, humanize } from '@/lib/format';
+
+// The API returns a paged object ({ items, totalCount }); a plain array is also accepted.
+function toList(data: unknown): { items: PaymentDto[]; total: number } {
+  if (Array.isArray(data)) return { items: data as PaymentDto[], total: data.length };
+  if (data && typeof data === 'object') {
+    const obj = data as { items?: unknown; totalCount?: unknown };
+    if (Array.isArray(obj.items)) {
+      const total = typeof obj.totalCount === 'number' ? obj.totalCount : obj.items.length;
+      return { items: obj.items as PaymentDto[], total };
+    }
+  }
+  return { items: [], total: 0 };
+}
+
+const METHOD_LABELS: Record<string, string> = {
+  UPI: 'UPI',
+  CARD: 'Card',
+  NETBANKING: 'Net banking',
+  WALLET: 'Wallet',
+  BANKTRANSFER: 'Bank transfer',
+  TESTPROVIDER: 'Test payment',
+};
+
+function methodLabel(method?: string | null): string {
+  if (!method) return '';
+  return METHOD_LABELS[method.replace(/[\s_]/g, '').toUpperCase()] ?? humanize(method);
+}
+
+const refundableAmount = (p: PaymentDto) => Number(p.amount ?? 0) - Number(p.refundedAmount ?? 0);
+const canRefund = (p: PaymentDto) =>
+  (p.status === 'Paid' || p.status === 'PartiallyRefunded') && refundableAmount(p) > 0;
+
+const STATUS_FILTERS = [
+  { value: 'ALL', label: 'All' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'PARTIALLYREFUNDED', label: 'Part refunded' },
+  { value: 'REFUNDED', label: 'Refunded' },
+  { value: 'FAILED', label: 'Failed' },
+];
+
+const statusKey = (status: string) => String(status ?? '').replace(/[\s_]/g, '').toUpperCase();
 
 export default function AdminPaymentsPage() {
+  const toast = useToast();
+
   const [payments, setPayments] = useState<PaymentDto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Refund Modal State
+  // Payment sheet (details / refund)
   const [selectedPayment, setSelectedPayment] = useState<PaymentDto | null>(null);
+  const [sheetMode, setSheetMode] = useState<'details' | 'refund'>('details');
   const [refundAmount, setRefundAmount] = useState<string>('');
   const [refundReason, setRefundReason] = useState<string>('');
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
 
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     setLoading(true);
     const res = await apiFetch<PaymentDto[]>('/admin/finance/payments');
     if (res.success && res.data) {
-      setPayments(res.data);
+      const { items, total } = toList(res.data);
+      setPayments(items);
+      setTotalCount(total);
+      setLoadError(null);
+    } else {
+      setLoadError(res.message || 'Could not load payments.');
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadPayments();
-  }, []);
+  }, [loadPayments]);
 
-  const handleRefundSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openPayment = (p: PaymentDto, mode: 'details' | 'refund') => {
+    setSelectedPayment(p);
+    setSheetMode(mode);
+    setRefundAmount(refundableAmount(p).toString());
+    setRefundReason('');
+    setRefundError(null);
+  };
+
+  const closeSheet = useCallback(() => {
+    if (refunding) return;
+    setSelectedPayment(null);
+  }, [refunding]);
+
+  const handleRefundSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!selectedPayment) return;
 
     const amt = parseFloat(refundAmount);
     if (isNaN(amt) || amt <= 0) {
-      setRefundError('Please provide a valid refund amount greater than 0.');
+      setRefundError('Enter a refund amount greater than ₹0.');
       return;
     }
 
-    const maxRefundable = selectedPayment.amount - selectedPayment.refundedAmount;
+    const maxRefundable = refundableAmount(selectedPayment);
     if (amt > maxRefundable) {
-      setRefundError(`Amount exceeds maximum refundable amount of ₹${maxRefundable.toFixed(2)}.`);
+      setRefundError(`You can refund at most ${formatINR(maxRefundable)} on this payment.`);
       return;
     }
 
     if (!refundReason.trim()) {
-      setRefundError('Mandatory refund justification reason is required.');
+      setRefundError('Add a reason for the refund. It is kept with the payment record.');
       return;
     }
 
     setRefunding(true);
     setRefundError(null);
 
-    const res = await apiFetch<PaymentDto>(
-      `/admin/finance/payments/${selectedPayment.id}/refund`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          refundAmount: amt,
-          reason: refundReason.trim(),
-        }),
-      }
-    );
+    const res = await apiFetch<PaymentDto>(`/admin/finance/payments/${selectedPayment.id}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: amt,
+        reason: refundReason.trim(),
+      }),
+    });
 
     setRefunding(false);
 
     if (res.success && res.data) {
+      toast.success('Refund processed', `${formatINR(amt)} on ${selectedPayment.paymentNumber}`);
       setSelectedPayment(null);
       setRefundAmount('');
       setRefundReason('');
       loadPayments();
     } else {
-      setRefundError(res.message || 'Refund processing failed.');
+      setRefundError(res.message || 'The refund could not be processed. Please try again.');
     }
   };
 
-  const filteredPayments = payments.filter((p) => {
-    const matchesStatus = filterStatus === 'ALL' || p.status.toUpperCase() === filterStatus.toUpperCase();
-    const matchesSearch =
-      p.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.gatewayPaymentId && p.gatewayPaymentId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.gatewayOrderId && p.gatewayOrderId.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesStatus && matchesSearch;
-  });
+  const counts = useMemo(() => {
+    const map: Record<string, number> = { ALL: payments.length };
+    payments.forEach((p) => {
+      const key = statusKey(p.status);
+      map[key] = (map[key] ?? 0) + 1;
+    });
+    return map;
+  }, [payments]);
+
+  const filteredPayments = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return payments.filter((p) => {
+      const matchesStatus = filterStatus === 'ALL' || statusKey(p.status) === filterStatus;
+      const matchesSearch =
+        !q ||
+        (p.paymentNumber ?? '').toLowerCase().includes(q) ||
+        (p.gatewayPaymentId ?? '').toLowerCase().includes(q) ||
+        (p.gatewayOrderId ?? '').toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [payments, filterStatus, searchTerm]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-navy-900 flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-electric-600" />
-            Platform Payments & Refunds
-          </h1>
-          <p className="text-sm text-navy-600 mt-1">
-            Global view of all incoming payments, customer gateways, and administrative refunds
-          </p>
-        </div>
-        <Link href="/admin/finance">
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<ArrowLeft className="w-4 h-4" />}
-          >
-            Finance Overview
-          </Button>
-        </Link>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Payments"
+        description="Customer payments received through the payment gateway. Refund a payment from here."
+        backHref="/admin/finance"
+        backLabel="Finance"
+      />
+
+      <div className="space-y-3">
+        <Input
+          type="search"
+          aria-label="Search payments"
+          placeholder="Search by payment number or gateway reference"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />}
+        />
+        <FilterChips
+          ariaLabel="Payment status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={STATUS_FILTERS.map((f) => ({ ...f, count: loading ? undefined : counts[f.value] ?? 0 }))}
+        />
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-2xl border border-surface-200 shadow-sm">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400" />
-          <input
-            type="text"
-            placeholder="Search payments by payment number, gateway ref..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900 transition-colors"
-          />
+      {loading && payments.length === 0 ? (
+        <div className="space-y-2" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-16 rounded-2xl" />
+          ))}
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-navy-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            aria-label="Filter by payment status"
-            className="px-3 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm text-navy-900 focus:outline-none focus:border-navy-900"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="PAID">Paid</option>
-            <option value="PENDING">Pending</option>
-            <option value="REFUNDED">Refunded</option>
-            <option value="FAILED">Failed</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Table */}
-      {loading ? (
-        <LoadingState message="Loading platform payments..." />
+      ) : loadError && payments.length === 0 ? (
+        <ErrorState title="Payments unavailable" error={loadError} onRetry={loadPayments} />
       ) : filteredPayments.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title="No payments found"
+          title={payments.length === 0 ? 'No payments yet' : 'No matching payments'}
           description={
-            searchTerm || filterStatus !== 'ALL'
-              ? 'No payments match your current search and filter settings.'
-              : 'No customer payments recorded yet.'
+            payments.length === 0
+              ? 'Payments appear here once customers pay for an accepted quote.'
+              : 'Try a different search or status filter.'
           }
         />
       ) : (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-50 border-b border-surface-200 text-navy-500 uppercase text-xs">
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
                 <tr>
-                  <th className="px-6 py-4 font-bold">Payment Ref</th>
-                  <th className="px-6 py-4 font-bold">Gateway Ref</th>
-                  <th className="px-6 py-4 font-bold">Purpose</th>
-                  <th className="px-6 py-4 font-bold">Total Amount</th>
-                  <th className="px-6 py-4 font-bold">Status</th>
-                  <th className="px-6 py-4 font-bold">Date</th>
-                  <th className="px-6 py-4 font-bold text-right">Actions</th>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>For</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100">
-                {filteredPayments.map((p) => {
-                  const maxRefundable = p.amount - p.refundedAmount;
-                  return (
-                    <tr key={p.id} className="hover:bg-surface-50/50 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-xs text-navy-900">
+              </TableHeader>
+              <TableBody>
+                {filteredPayments.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => openPayment(p, 'details')}
+                        className="text-left font-semibold text-navy-900 hover:text-electric-600"
+                      >
                         {p.paymentNumber}
-                      </td>
-                      <td className="px-6 py-4 font-mono text-xs text-navy-600">
-                        {p.gatewayPaymentId || p.gatewayOrderId || 'N/A'}
-                        <div className="text-[10px] text-navy-400">{p.gatewayProvider}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-semibold text-navy-800 bg-surface-100 px-2 py-0.5 rounded-lg border border-surface-200">
-                          {p.purpose}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-navy-900">
-                        ₹{p.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        {p.refundedAmount > 0 && (
-                          <div className="text-[11px] font-normal text-purple-700">
-                            Refunded: ₹{p.refundedAmount.toFixed(2)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={p.status} />
-                      </td>
-                      <td className="px-6 py-4 text-xs text-navy-500">
-                        {new Date(p.createdAtUtc).toLocaleDateString('en-IN', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {(p.status === 'Paid' || p.status === 'PartiallyRefunded') && maxRefundable > 0 ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSelectedPayment(p);
-                              setRefundAmount(maxRefundable.toString());
-                              setRefundReason('');
-                              setRefundError(null);
-                            }}
-                            leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-                          >
-                            Refund
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-navy-400 font-mono">None</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </button>
+                      <div className="max-w-[14rem] truncate text-xs text-navy-500">
+                        {p.gatewayPaymentId || p.gatewayOrderId || 'No gateway reference'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-navy-700">{humanize(p.purpose)}</TableCell>
+                    <TableCell className="text-navy-700">
+                      {methodLabel(p.paymentMethod) || '—'}
+                      {p.gatewayProvider && <div className="text-xs text-navy-500">{p.gatewayProvider}</div>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div className="font-semibold text-navy-900">{formatINR(p.amount, p.currency)}</div>
+                      {Number(p.refundedAmount) > 0 && (
+                        <div className="text-xs text-navy-500">Refunded {formatINR(p.refundedAmount, p.currency)}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-navy-500">{formatDate(p.createdAtUtc)}</TableCell>
+                    <TableCell className="text-right">
+                      {canRefund(p) ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openPayment(p, 'refund')}
+                          leftIcon={<RotateCcw className="h-3.5 w-3.5" />}
+                        >
+                          Refund
+                        </Button>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </Card>
+
+          {/* Phone list */}
+          <div className="md:hidden">
+            <ListGroup>
+              {filteredPayments.map((p) => (
+                <ListItem
+                  key={p.id}
+                  onClick={() => openPayment(p, 'details')}
+                  leading={<IconTile icon={IndianRupee} tone="neutral" />}
+                  title={p.paymentNumber}
+                  subtitle={[humanize(p.purpose), methodLabel(p.paymentMethod)].filter(Boolean).join(' · ')}
+                  meta={
+                    Number(p.refundedAmount) > 0
+                      ? `${formatDate(p.createdAtUtc)} · Refunded ${formatINRWhole(p.refundedAmount)}`
+                      : formatDate(p.createdAtUtc)
+                  }
+                  trailing={
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(p.amount)}</span>
+                      <StatusBadge status={p.status} />
+                    </div>
+                  }
+                />
+              ))}
+            </ListGroup>
+          </div>
+
+          {totalCount > payments.length && (
+            <p className="px-1 text-xs text-navy-500">
+              Showing the latest {payments.length} of {totalCount} payments.
+            </p>
+          )}
+        </>
       )}
 
-      {/* Process Refund Modal */}
-      {selectedPayment && (
-        <div className="fixed inset-0 z-50 bg-navy-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-surface-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
-              <h3 className="text-lg font-bold text-navy-900 flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-purple-600" />
-                Process Payment Refund
-              </h3>
-              <button
-                onClick={() => setSelectedPayment(null)}
-                className="text-navy-400 hover:text-navy-900"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      {/* Payment sheet */}
+      <Modal
+        isOpen={!!selectedPayment}
+        onClose={closeSheet}
+        size="sm"
+        title={sheetMode === 'refund' ? 'Refund payment' : 'Payment details'}
+        description={selectedPayment ? selectedPayment.paymentNumber : undefined}
+        footer={
+          selectedPayment &&
+          (sheetMode === 'refund' ? (
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <Button variant="outline" onClick={closeSheet} disabled={refunding} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button type="submit" form="refund-form" variant="danger" isLoading={refunding} className="w-full sm:w-auto">
+                Refund {(() => {
+                  const amt = parseFloat(refundAmount);
+                  return !isNaN(amt) && amt > 0 ? formatINR(amt) : '';
+                })()}
+              </Button>
             </div>
-
-            <div className="text-xs text-navy-700 space-y-2 bg-surface-50 p-4 rounded-xl border border-surface-200">
-              <div className="flex justify-between">
-                <span className="text-navy-500">Payment Number:</span>
-                <span className="font-mono font-bold text-navy-900">{selectedPayment.paymentNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-navy-500">Original Amount:</span>
-                <span className="font-mono font-bold text-navy-900">₹{selectedPayment.amount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-navy-500">Max Refundable:</span>
-                <span className="font-bold text-purple-700 font-mono">
-                  ₹{(selectedPayment.amount - selectedPayment.refundedAmount).toFixed(2)}
-                </span>
-              </div>
+          ) : (
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <Button variant="outline" onClick={closeSheet} className="w-full sm:w-auto">
+                Close
+              </Button>
+              {canRefund(selectedPayment) && (
+                <Button
+                  variant="outline"
+                  onClick={() => setSheetMode('refund')}
+                  leftIcon={<RotateCcw className="h-4 w-4" />}
+                  className="w-full sm:w-auto"
+                >
+                  Refund
+                </Button>
+              )}
             </div>
+          ))
+        }
+      >
+        {selectedPayment && (
+          <div className="space-y-5">
+            <Card className="p-4 shadow-none">
+              <dl className="space-y-2.5 text-sm">
+                <DetailRow label="Amount paid" value={formatINR(selectedPayment.amount, selectedPayment.currency)} strong />
+                {Number(selectedPayment.refundedAmount) > 0 && (
+                  <DetailRow label="Already refunded" value={formatINR(selectedPayment.refundedAmount, selectedPayment.currency)} />
+                )}
+                <DetailRow
+                  label="Can still be refunded"
+                  value={formatINR(Math.max(0, refundableAmount(selectedPayment)), selectedPayment.currency)}
+                />
+              </dl>
+            </Card>
 
-            <form onSubmit={handleRefundSubmit} className="space-y-4 pt-2">
-              <div>
-                <label className="block text-xs font-bold text-navy-800 mb-1.5">
-                  Refund Amount (INR) <span className="text-rose-600">*</span>
-                </label>
-                <input
+            {sheetMode === 'details' ? (
+              <dl className="space-y-2 text-sm">
+                <DetailRow label="Status" value={<StatusBadge status={selectedPayment.status} />} />
+                <DetailRow label="For" value={humanize(selectedPayment.purpose)} />
+                {selectedPayment.paymentMethod && <DetailRow label="Method" value={methodLabel(selectedPayment.paymentMethod)} />}
+                {selectedPayment.gatewayProvider && <DetailRow label="Gateway" value={selectedPayment.gatewayProvider} />}
+                {selectedPayment.gatewayPaymentId && <DetailRow label="Gateway payment ID" value={selectedPayment.gatewayPaymentId} />}
+                {selectedPayment.gatewayOrderId && <DetailRow label="Gateway order ID" value={selectedPayment.gatewayOrderId} />}
+                <DetailRow label="Created" value={formatDateTime(selectedPayment.createdAtUtc)} />
+                {selectedPayment.paidAtUtc && <DetailRow label="Paid" value={formatDateTime(selectedPayment.paidAtUtc)} />}
+                {selectedPayment.refundReason && <DetailRow label="Refund reason" value={selectedPayment.refundReason} />}
+                {selectedPayment.failureReason && <DetailRow label="Failure reason" value={selectedPayment.failureReason} />}
+              </dl>
+            ) : (
+              <form id="refund-form" onSubmit={handleRefundSubmit} className="space-y-4">
+                <Input
+                  id="refund-amount"
+                  label="Refund amount (₹)"
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900"
+                  helperText={`Up to ${formatINR(refundableAmount(selectedPayment))}`}
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-navy-800 mb-1.5">
-                  Refund Reason / Customer Justification <span className="text-rose-600">*</span>
-                </label>
-                <textarea
+                <Textarea
+                  id="refund-reason"
+                  label="Reason"
                   rows={3}
                   value={refundReason}
                   onChange={(e) => setRefundReason(e.target.value)}
-                  placeholder="e.g. Scope cancellation as approved by technical advisor"
-                  className="w-full px-3.5 py-2 bg-white border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900"
+                  placeholder="e.g. Job cancelled before work started"
                   required
                 />
-              </div>
-
-              {refundError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
-                  {refundError}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setSelectedPayment(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={refunding}
-                >
-                  Authorize Refund
-                </Button>
-              </div>
-            </form>
+                {refundError && (
+                  <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {refundError}
+                  </p>
+                )}
+              </form>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, strong = false }: { label: string; value: React.ReactNode; strong?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className={`shrink-0 ${strong ? 'font-semibold text-navy-900' : 'text-navy-500'}`}>{label}</dt>
+      <dd
+        className={`min-w-0 break-words text-right tabular-nums ${
+          strong ? 'text-base font-bold text-navy-900' : 'font-medium text-navy-800'
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

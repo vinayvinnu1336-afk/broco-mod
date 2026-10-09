@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { formatDate, formatDateTime, formatINR, formatINRWhole, formatRelative, humanize } from '@/lib/format';
 import {
   QuoteComparisonDto,
   QuoteComparisonItemDto,
@@ -11,54 +12,85 @@ import {
   GarageAssignmentDto,
 } from '@/types/customerQuotation';
 import {
-  ArrowLeft,
   Building2,
-  Calendar,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  FileText,
-  MapPin,
-  MessageSquare,
-  ShieldAlert,
-  Send,
-  Trash2,
-  Edit2,
-  AlertCircle,
-  Tag,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Lock,
+  MapPin,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
+import { Modal } from '@/components/ui/Modal';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { Textarea } from '@/components/ui/Textarea';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+
+const linkButtonPrimary =
+  'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-electric-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2';
+
+function formatDuration(days: number, hours: number) {
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+  if (hours > 0) parts.push(`${hours} h`);
+  return parts.length ? parts.join(' ') : 'Not given';
+}
+
+function isPast(value: string) {
+  const t = new Date(value).getTime();
+  return !Number.isNaN(t) && t < Date.now();
+}
+
+function QuoteFact({ label, children, tone }: { label: string; children: React.ReactNode; tone?: 'red' }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-2">
+      <dt className="text-sm text-navy-500">{label}</dt>
+      <dd className={`text-right text-sm font-medium ${tone === 'red' ? 'text-red-600' : 'text-navy-900'}`}>
+        {children}
+      </dd>
+    </div>
+  );
+}
 
 export default function AdvisorRequestQuotationReviewPage() {
   const params = useParams();
-  const router = useRouter();
   const requestId = params.id as string;
+  const toast = useToast();
 
   const [comparison, setComparison] = useState<QuoteComparisonDto | null>(null);
   const [notes, setNotes] = useState<AdvisorRequestNoteDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Expanded items for line item inspection
+  // Expanded quote for line item inspection
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
-  // Assignment Modal
+  // Assignment sheet
   const [selectedQuoteForAssign, setSelectedQuoteForAssign] = useState<QuoteComparisonItemDto | null>(null);
   const [assignmentReason, setAssignmentReason] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  // New Note
+  // New note
   const [newNoteText, setNewNoteText] = useState('');
   const [addingNote, setAddingNote] = useState(false);
 
-  // Edit Note
+  // Edit / delete note
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [deletingNote, setDeletingNote] = useState(false);
 
-  async function loadData() {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     setErrorMsg(null);
 
     const [compRes, notesRes] = await Promise.all([
@@ -77,19 +109,18 @@ export default function AdvisorRequestQuotationReviewPage() {
     }
 
     setLoading(false);
-  }
+  }, [requestId]);
 
   useEffect(() => {
     if (requestId) {
+      setLoading(true);
       loadData();
     }
-  }, [requestId]);
+  }, [requestId, loadData]);
 
   async function handleAssignGarage() {
     if (!selectedQuoteForAssign) return;
     setAssigning(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     const res = await apiFetch<GarageAssignmentDto>(`/advisor/requests/${requestId}/assignment`, {
       method: 'POST',
@@ -101,12 +132,12 @@ export default function AdvisorRequestQuotationReviewPage() {
     });
 
     if (res.success && res.data) {
-      setSuccessMsg(`Garage '${selectedQuoteForAssign.garageName}' successfully assigned!`);
+      toast.success(`${selectedQuoteForAssign.garageName} assigned`, 'Next, prepare the customer quotation.');
       setSelectedQuoteForAssign(null);
       setAssignmentReason('');
       await loadData();
     } else {
-      setErrorMsg(res.message || 'Failed to assign garage.');
+      toast.error('Could not assign garage', res.message || 'Failed to assign garage.');
     }
     setAssigning(false);
   }
@@ -125,13 +156,14 @@ export default function AdvisorRequestQuotationReviewPage() {
       setNewNoteText('');
       await loadData();
     } else {
-      setErrorMsg(res.message || 'Failed to add internal note.');
+      toast.error('Could not add note', res.message || 'Failed to add internal note.');
     }
     setAddingNote(false);
   }
 
   async function handleUpdateNote(noteId: string) {
     if (!editNoteText.trim()) return;
+    setSavingNote(true);
 
     const res = await apiFetch<AdvisorRequestNoteDto>(`/advisor/requests/${requestId}/notes/${noteId}`, {
       method: 'PUT',
@@ -143,442 +175,461 @@ export default function AdvisorRequestQuotationReviewPage() {
       setEditNoteText('');
       await loadData();
     } else {
-      setErrorMsg(res.message || 'Failed to update note.');
+      toast.error('Could not update note', res.message || 'Failed to update note.');
     }
+    setSavingNote(false);
   }
 
-  async function handleDeleteNote(noteId: string) {
-    if (!confirm('Are you sure you want to delete this internal note?')) return;
+  async function handleDeleteNote() {
+    if (!noteToDelete) return;
+    setDeletingNote(true);
 
-    const res = await apiFetch<boolean>(`/advisor/requests/${requestId}/notes/${noteId}`, {
+    const res = await apiFetch<boolean>(`/advisor/requests/${requestId}/notes/${noteToDelete}`, {
       method: 'DELETE',
     });
 
     if (res.success) {
+      setNoteToDelete(null);
       await loadData();
     } else {
-      setErrorMsg(res.message || 'Failed to delete note.');
+      toast.error('Could not delete note', res.message || 'Failed to delete note.');
     }
+    setDeletingNote(false);
   }
 
   if (loading) {
     return (
-      <div className="py-24 text-center text-sm text-navy-500">
-        Loading quotation comparison and workshop analytics...
+      <div className="space-y-5">
+        <Skeleton className="h-16 w-2/3 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
       </div>
     );
   }
 
   if (!comparison) {
     return (
-      <div className="max-w-4xl mx-auto py-12 text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-navy-900">Request Not Found or Ineligible</h2>
-        <p className="text-sm text-navy-600">{errorMsg || 'Unable to retrieve quotation comparison.'}</p>
-        <Link
-          href="/advisor/requests"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-navy-900 text-white rounded-xl text-xs font-bold"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Workbench
-        </Link>
+      <div className="space-y-5">
+        <PageHeader title="Service request" backHref="/advisor/requests" backLabel="Service requests" />
+        <ErrorState
+          title="Could not load this request"
+          error={errorMsg || 'Unable to retrieve quotation comparison.'}
+          onRetry={() => {
+            setLoading(true);
+            loadData();
+          }}
+        />
       </div>
     );
   }
 
   const activeAssignment = comparison.activeAssignment;
+  const quotes = comparison.quotes ?? [];
+  const showLowest = quotes.length > 1 && typeof comparison.lowestQuotedAmount === 'number';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20">
-      {/* Header Breadcrumb & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/advisor/requests"
-            className="inline-flex items-center gap-1.5 text-xs text-navy-500 hover:text-navy-900 transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Requests
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-              Quotation Review: {comparison.requestNumber}
-            </h1>
-            <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              {comparison.requestStatus.replace(/_/g, ' ')}
-            </span>
-          </div>
-          <p className="text-xs text-navy-600">{comparison.vehicleSummary} • {comparison.customerFormattedAddress}</p>
-        </div>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/advisor/requests"
+        backLabel="Service requests"
+        eyebrow={
+          <>
+            <span className="font-mono text-xs font-semibold text-navy-500">{comparison.requestNumber}</span>
+            <StatusBadge status={comparison.requestStatus} />
+          </>
+        }
+        title={comparison.vehicleSummary}
+      />
 
-        {activeAssignment && (
-          <Link
-            href={`/advisor/requests/${requestId}/customer-quotation`}
-            className="flex items-center gap-2 px-5 py-2.5 bg-electric-600 hover:bg-electric-700 text-white text-xs font-bold rounded-xl shadow-sm transition"
-          >
-            <FileText className="w-4 h-4" /> Prepare Customer Quotation
-          </Link>
-        )}
-      </div>
-
-      {/* Notifications */}
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-sm">
-          <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Active Assignment Callout */}
-      {activeAssignment ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-              <span>Assigned Partner Workshop: {activeAssignment.garageName}</span>
-            </div>
-            <p className="text-xs text-emerald-700">
-              Selected Quote: <span className="font-mono font-semibold">{activeAssignment.quoteNumber}</span> (₹{activeAssignment.quotedAmount.toLocaleString()}) • Assigned by {activeAssignment.assignedByAdvisorName}
+      {/* Request summary */}
+      <Card className="p-4 sm:p-5">
+        <div className="space-y-4">
+          <section>
+            <h2 className="text-base font-semibold text-navy-900">Customer&apos;s problem</h2>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-navy-700">
+              {comparison.problemDescription || 'No description given.'}
             </p>
-            {activeAssignment.assignmentReason && (
-              <p className="text-xs text-emerald-800 italic mt-1 font-medium">
-                Reason: &quot;{activeAssignment.assignmentReason}&quot;
+          </section>
+          {comparison.customerFormattedAddress && (
+            <p className="flex items-start gap-2 text-sm text-navy-700">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-400" />
+              <span>{comparison.customerFormattedAddress}</span>
+            </p>
+          )}
+          <dl className="grid grid-cols-2 gap-3 border-t border-surface-200 pt-4 sm:grid-cols-4">
+            <div>
+              <dt className="text-xs text-navy-500">Quotes received</dt>
+              <dd className="mt-0.5 text-lg font-bold tabular-nums text-navy-900">{comparison.totalQuotesCount}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-navy-500">Garages yet to quote</dt>
+              <dd className="mt-0.5 text-lg font-bold tabular-nums text-navy-900">{comparison.pendingGaragesCount}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-navy-500">Lowest quote</dt>
+              <dd className="mt-0.5 text-lg font-bold tabular-nums text-navy-900">
+                {typeof comparison.lowestQuotedAmount === 'number' ? formatINRWhole(comparison.lowestQuotedAmount) : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-navy-500">Latest quote</dt>
+              <dd className="mt-0.5 text-sm font-medium text-navy-900">
+                {comparison.latestQuoteReceivedAtUtc ? formatRelative(comparison.latestQuoteReceivedAtUtc) : '—'}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </Card>
+
+      {/* Assignment status */}
+      {activeAssignment ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-semibold text-emerald-900">Assigned to {activeAssignment.garageName}</p>
+              <p className="text-sm text-emerald-800">
+                Quote <span className="font-mono">{activeAssignment.quoteNumber}</span> ·{' '}
+                {formatINR(activeAssignment.quotedAmount)}
               </p>
-            )}
+              <p className="text-xs text-emerald-700">
+                By {activeAssignment.assignedByAdvisorName} · {formatDateTime(activeAssignment.assignedAtUtc)}
+              </p>
+              {activeAssignment.assignmentReason && (
+                <p className="text-xs text-emerald-800">Reason: {activeAssignment.assignmentReason}</p>
+              )}
+            </div>
           </div>
-          <Link
-            href={`/advisor/requests/${requestId}/customer-quotation`}
-            className="flex-shrink-0 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition shadow-sm"
-          >
-            Review / Build Customer Proposal →
-          </Link>
         </div>
       ) : (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-amber-800 text-xs">
-          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-          <span>
-            No workshop currently assigned. Review the competitive quotes below, compare turnaround and pricing, and click <strong>&quot;Select Garage&quot;</strong> to establish operational assignment.
-          </span>
-        </div>
+        quotes.length > 0 && (
+          <p className="text-sm text-navy-600">
+            No garage assigned yet. Compare the quotes below and choose one.
+          </p>
+        )
       )}
 
-      {/* Quotation Comparison Grid */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-electric-600" />
-            <span>Workshop Quotations ({comparison.quotes.length} received)</span>
-          </h2>
-          {comparison.lowestQuotedAmount && (
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-              Lowest Bid: ₹{comparison.lowestQuotedAmount.toLocaleString()}
-            </span>
-          )}
-        </div>
+      {/* Quote comparison: stacked cards on phones, side by side from md */}
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-navy-900">Garage quotes ({quotes.length})</h2>
 
-        {comparison.quotes.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-surface-200 p-8 text-center text-xs text-navy-500">
-            No workshop quotations submitted yet. Eligible workshops are currently preparing bids.
-          </div>
+        {quotes.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title="No quotes yet"
+            description={
+              comparison.pendingGaragesCount > 0
+                ? `${comparison.pendingGaragesCount} garage${comparison.pendingGaragesCount === 1 ? ' has' : 's have'} not replied yet.`
+                : 'Garage quotes will appear here as they come in.'
+            }
+          />
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {comparison.quotes.map((q) => {
-              const isLowest = comparison.lowestQuotedAmount === q.grandTotal;
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {quotes.map((q) => {
+              const isLowest = showLowest && comparison.lowestQuotedAmount === q.grandTotal;
               const isAssigned = activeAssignment?.selectedQuoteId === q.quoteId;
               const isExpanded = expandedQuoteId === q.quoteId;
+              const expired = isPast(q.validUntil);
+              const lineItems = q.lineItems ?? [];
 
               return (
-                <div
+                <Card
                   key={q.quoteId}
-                  className={`bg-white rounded-2xl border transition shadow-sm overflow-hidden ${
-                    isAssigned
-                      ? 'border-emerald-500 ring-2 ring-emerald-100'
-                      : 'border-surface-200 hover:border-surface-300'
-                  }`}
+                  className={`flex flex-col p-4 sm:p-5 ${isAssigned ? 'border-emerald-400 ring-2 ring-emerald-100' : ''}`}
                 >
-                  <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-bold text-navy-800 bg-surface-100 px-2 py-0.5 rounded-lg">
-                          {q.quoteNumber}
-                        </span>
-                        <span className="text-sm font-bold text-navy-900">{q.garageName}</span>
-                        {isLowest && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
-                            Lowest Bid
-                          </span>
-                        )}
-                        {isAssigned && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-600 text-white">
-                            Selected Workshop
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-4 text-xs text-navy-500 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-navy-400" />
-                          <span>{q.distanceKm} km away</span>
-                        </span>
-                        <span className="flex items-center gap-1 font-semibold text-navy-700">
-                          <Clock className="w-3.5 h-3.5 text-navy-400" />
-                          <span>Est: {q.estimatedDurationDays}d / {q.estimatedDurationHours}h</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-navy-400" />
-                          <span>Valid till {new Date(q.validUntil).toLocaleDateString()}</span>
-                        </span>
-                      </div>
-
-                      {q.notes && (
-                        <p className="text-xs text-navy-600 bg-surface-50 p-2 rounded-lg italic">
-                          Workshop note: &quot;{q.notes}&quot;
-                        </p>
-                      )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-semibold text-navy-900">{q.garageName}</h3>
+                      <p className="font-mono text-xs text-navy-500">{q.quoteNumber}</p>
                     </div>
-
-                    {/* Financial Summary & Actions */}
-                    <div className="flex items-center gap-6 self-end md:self-center">
-                      <div className="text-right">
-                        <div className="text-xs text-navy-500">Workshop Total</div>
-                        <div className="text-lg font-bold text-navy-900">₹{q.grandTotal.toLocaleString()}</div>
-                        <div className="text-[10px] text-navy-400">
-                          Subtotal ₹{q.subtotal.toLocaleString()} + Tax ₹{q.taxAmount.toLocaleString()}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedQuoteId(isExpanded ? null : q.quoteId)}
-                          className="p-2 border border-surface-200 hover:bg-surface-50 text-navy-600 rounded-xl text-xs transition"
-                          title="View line items"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-
-                        {!isAssigned ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedQuoteForAssign(q)}
-                            className="px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white text-xs font-bold rounded-xl transition shadow-sm"
-                          >
-                            Select Garage
-                          </button>
-                        ) : (
-                          <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl">
-                            Assigned
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {isAssigned && (
+                        <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                          Assigned
+                        </span>
+                      )}
+                      {isLowest && (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                          Lowest
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Expandable Line Items Table */}
-                  {isExpanded && (
-                    <div className="bg-surface-50 border-t border-surface-200 p-5 space-y-3">
-                      <div className="text-xs font-bold text-navy-800 uppercase tracking-wider">
-                        Workshop Line Items Breakdown ({q.lineItems.length})
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
-                          <thead className="bg-surface-100 text-navy-600 border-b border-surface-200">
-                            <tr>
-                              <th className="py-2 px-3">Type</th>
-                              <th className="py-2 px-3">Description</th>
-                              <th className="py-2 px-3 text-right">Qty</th>
-                              <th className="py-2 px-3 text-right">Unit Price</th>
-                              <th className="py-2 px-3 text-right">Disc</th>
-                              <th className="py-2 px-3 text-right">Tax Rate</th>
-                              <th className="py-2 px-3 text-right">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-surface-200 text-navy-800 font-medium">
-                            {q.lineItems.map((li) => (
-                              <tr key={li.id}>
-                                <td className="py-2 px-3">
-                                  <span className="px-2 py-0.5 bg-white border border-surface-200 rounded text-[10px] font-bold">
-                                    {li.lineType}
-                                  </span>
-                                </td>
-                                <td className="py-2 px-3">{li.description}</td>
-                                <td className="py-2 px-3 text-right">{li.quantity}</td>
-                                <td className="py-2 px-3 text-right">₹{li.unitPrice.toLocaleString()}</td>
-                                <td className="py-2 px-3 text-right text-rose-600">₹{li.discountAmount.toLocaleString()}</td>
-                                <td className="py-2 px-3 text-right">{li.taxRate}%</td>
-                                <td className="py-2 px-3 text-right font-bold">₹{li.lineTotal.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                  <div className="mt-3">
+                    <div className="text-2xl font-bold tabular-nums tracking-tight text-navy-900">
+                      {formatINR(q.grandTotal)}
                     </div>
+                    <div className="text-xs text-navy-500">
+                      {formatINR(q.subtotal)} + {formatINR(q.taxAmount)} tax
+                      {q.discountAmount > 0 && <> · {formatINR(q.discountAmount)} off</>}
+                    </div>
+                  </div>
+
+                  <dl className="mt-3 divide-y divide-surface-200 border-y border-surface-200">
+                    <QuoteFact label="Time needed">
+                      {formatDuration(q.estimatedDurationDays, q.estimatedDurationHours)}
+                    </QuoteFact>
+                    <QuoteFact label="Valid until" tone={expired ? 'red' : undefined}>
+                      {expired ? `Expired ${formatDate(q.validUntil)}` : formatDate(q.validUntil)}
+                    </QuoteFact>
+                    <QuoteFact label="Distance">
+                      {typeof q.distanceKm === 'number' ? `${q.distanceKm.toFixed(1)} km` : '—'}
+                    </QuoteFact>
+                    <QuoteFact label="Submitted">{formatRelative(q.submittedAtUtc)}</QuoteFact>
+                  </dl>
+
+                  {q.notes && (
+                    <p className="mt-3 rounded-xl bg-surface-50 p-3 text-sm text-navy-700">
+                      <span className="font-medium text-navy-900">Garage note: </span>
+                      {q.notes}
+                    </p>
                   )}
-                </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpandedQuoteId(isExpanded ? null : q.quoteId)}
+                    aria-expanded={isExpanded}
+                    className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 self-start text-sm font-medium text-electric-600 hover:text-electric-700"
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {isExpanded ? 'Hide' : 'Show'} {lineItems.length || q.lineItemsCount} line item
+                    {(lineItems.length || q.lineItemsCount) === 1 ? '' : 's'}
+                  </button>
+
+                  {isExpanded && (
+                    <ul className="mb-2 divide-y divide-surface-200 rounded-xl border border-surface-200">
+                      {lineItems.map((li) => (
+                        <li key={li.id} className="px-3 py-2.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="min-w-0 text-sm text-navy-900">{li.description}</span>
+                            <span className="shrink-0 text-sm font-semibold tabular-nums text-navy-900">
+                              {formatINR(li.lineTotal)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-navy-500">
+                            {humanize(li.lineType)} · {li.quantity} × {formatINR(li.unitPrice)}
+                            {li.discountAmount > 0 && <> · {formatINR(li.discountAmount)} off</>} · {li.taxRate}% tax
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="mt-auto pt-3">
+                    {isAssigned ? (
+                      <div className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-emerald-50 text-sm font-semibold text-emerald-700">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Assigned garage
+                      </div>
+                    ) : (
+                      <Button
+                        variant={activeAssignment ? 'outline' : 'secondary'}
+                        className="w-full"
+                        onClick={() => setSelectedQuoteForAssign(q)}
+                      >
+                        Assign this garage
+                      </Button>
+                    )}
+                  </div>
+                </Card>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Internal Confidential Notes Thread */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-surface-200 pb-4">
-          <div className="space-y-0.5">
-            <h2 className="text-base font-bold text-navy-900 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-amber-500" />
-              <span>Advisor Internal Notes</span>
-            </h2>
-            <div className="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 font-semibold w-fit">
-              <ShieldAlert className="w-3.5 h-3.5" /> Confidential to BroCo Mod Internal Staff — Never exposed to Customers or Garages
-            </div>
+      {/* Internal notes */}
+      <Card className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-navy-900">Internal notes</h2>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-navy-500">
+              <Lock className="h-3.5 w-3.5" />
+              Only advisors and admins see these. Never shown to customers or garages.
+            </p>
           </div>
-          <span className="text-xs font-bold text-navy-500">{notes.length} notes</span>
+          <span className="shrink-0 text-xs text-navy-500">{notes.length}</span>
         </div>
 
-        {/* Notes List */}
-        <div className="space-y-3">
+        <div className="mt-4 space-y-3">
           {notes.length === 0 ? (
-            <div className="text-center py-6 text-xs text-navy-400">
-              No internal notes recorded yet. Record diagnostics, customer preferences, or price margin rationale here.
-            </div>
+            <p className="text-sm text-navy-500">No notes yet.</p>
           ) : (
             notes.map((n) => (
-              <div key={n.id} className="bg-surface-50 rounded-xl p-4 border border-surface-200 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-navy-900">{n.advisorName}</span>
-                  <div className="flex items-center gap-3 text-navy-400 text-[11px]">
-                    <span>{new Date(n.createdAtUtc).toLocaleString()}</span>
-                    {n.isOwnNote && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingNoteId(n.id);
-                            setEditNoteText(n.note);
-                          }}
-                          className="hover:text-navy-700 text-navy-500"
-                          title="Edit note"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteNote(n.id)}
-                          className="hover:text-rose-600 text-rose-400"
-                          title="Delete note"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+              <div key={n.id} className="rounded-xl border border-surface-200 bg-surface-50 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-navy-900">{n.advisorName}</div>
+                    <div className="text-xs text-navy-500">
+                      {formatDateTime(n.createdAtUtc)}
+                      {n.updatedAtUtc ? ' · edited' : ''}
+                    </div>
                   </div>
+                  {n.isOwnNote && editingNoteId !== n.id && (
+                    <div className="-mr-1 -mt-1 flex shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNoteId(n.id);
+                          setEditNoteText(n.note);
+                        }}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-navy-500 hover:bg-surface-100 hover:text-navy-800"
+                        aria-label="Edit note"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNoteToDelete(n.id)}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700"
+                        aria-label="Delete note"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {editingNoteId === n.id ? (
-                  <div className="space-y-2 pt-1">
-                    <textarea
+                  <div className="mt-2 space-y-2">
+                    <Textarea
+                      aria-label="Edit note"
                       value={editNoteText}
                       onChange={(e) => setEditNoteText(e.target.value)}
-                      className="w-full text-xs p-2.5 border border-surface-300 rounded-lg focus:ring-1 focus:ring-navy-900 outline-none"
-                      rows={2}
+                      rows={3}
                     />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
+                    <div className="flex gap-2 sm:justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => setEditingNoteId(null)}
-                        className="px-3 py-1 text-xs border border-surface-300 rounded-lg"
+                        disabled={savingNote}
                       >
                         Cancel
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => handleUpdateNote(n.id)}
-                        className="px-3 py-1 text-xs bg-navy-900 text-white rounded-lg font-bold"
+                        isLoading={savingNote}
+                        disabled={!editNoteText.trim()}
                       >
                         Save
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-navy-700 whitespace-pre-wrap">{n.note}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{n.note}</p>
                 )}
               </div>
             ))
           )}
         </div>
 
-        {/* Add Note Form */}
-        <form onSubmit={handleAddNote} className="space-y-3 pt-2">
-          <textarea
+        <form onSubmit={handleAddNote} className="mt-4 space-y-2 border-t border-surface-200 pt-4">
+          <Textarea
+            label="Add a note"
             value={newNoteText}
             onChange={(e) => setNewNoteText(e.target.value)}
-            placeholder="Record technical findings, OEM part price quotes, or dispatch instructions..."
+            placeholder="Findings, customer preferences, why you chose a garage..."
             rows={3}
-            className="w-full text-xs p-3 border border-surface-200 rounded-xl focus:ring-2 focus:ring-navy-900 outline-none transition"
           />
-          <div className="flex justify-end">
-            <button
+          <div className="flex sm:justify-end">
+            <Button
               type="submit"
-              disabled={addingNote || !newNoteText.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-40"
+              variant="outline"
+              className="w-full sm:w-auto"
+              isLoading={addingNote}
+              disabled={!newNoteText.trim()}
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>{addingNote ? 'Recording...' : 'Add Internal Note'}</span>
-            </button>
+              Add note
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
 
-      {/* Assign Garage Confirmation Modal */}
-      {selectedQuoteForAssign && (
-        <div className="fixed inset-0 bg-navy-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-surface-200">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-navy-900">Confirm Workshop Assignment</h3>
-              <p className="text-xs text-navy-600">
-                You are assigning workshop <strong>{selectedQuoteForAssign.garageName}</strong> with quote{' '}
-                <strong>{selectedQuoteForAssign.quoteNumber}</strong> (₹{selectedQuoteForAssign.grandTotal.toLocaleString()}).
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-navy-800">
-                Assignment Justification / Reason (Optional)
-              </label>
-              <textarea
-                value={assignmentReason}
-                onChange={(e) => setAssignmentReason(e.target.value)}
-                placeholder="E.g., Proven transmission specialist with fastest 1-day turnaround."
-                rows={3}
-                className="w-full text-xs p-3 border border-surface-200 rounded-xl focus:ring-2 focus:ring-navy-900 outline-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedQuoteForAssign(null)}
-                className="px-4 py-2 text-xs font-bold text-navy-600 hover:bg-surface-100 rounded-xl transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={assigning}
-                onClick={handleAssignGarage}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm disabled:opacity-50"
-              >
-                {assigning ? 'Assigning...' : 'Confirm Assignment'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {activeAssignment && (
+        <>
+          <ActionBar
+            summary={
+              <div className="min-w-0">
+                <div className="truncate text-xs text-navy-500">{activeAssignment.garageName}</div>
+                <div className="text-base font-bold tabular-nums text-navy-900">
+                  {formatINRWhole(activeAssignment.quotedAmount)}
+                </div>
+              </div>
+            }
+          >
+            <Link href={`/advisor/requests/${requestId}/customer-quotation`} className={linkButtonPrimary}>
+              <FileText className="h-4 w-4" />
+              Customer quotation
+            </Link>
+          </ActionBar>
+          <ActionBarSpacer />
+        </>
       )}
+
+      {/* Assign garage sheet */}
+      <Modal
+        isOpen={!!selectedQuoteForAssign}
+        onClose={() => !assigning && setSelectedQuoteForAssign(null)}
+        title={selectedQuoteForAssign ? `Assign ${selectedQuoteForAssign.garageName}?` : undefined}
+        description="After assigning, you prepare the customer quotation from this garage's quote."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setSelectedQuoteForAssign(null)}
+              disabled={assigning}
+            >
+              Cancel
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={handleAssignGarage} isLoading={assigning}>
+              Assign garage
+            </Button>
+          </div>
+        }
+      >
+        {selectedQuoteForAssign && (
+          <div className="space-y-4">
+            <dl className="divide-y divide-surface-200 rounded-xl border border-surface-200 px-3">
+              <QuoteFact label="Quote">
+                <span className="font-mono">{selectedQuoteForAssign.quoteNumber}</span>
+              </QuoteFact>
+              <QuoteFact label="Garage total">{formatINR(selectedQuoteForAssign.grandTotal)}</QuoteFact>
+              <QuoteFact label="Time needed">
+                {formatDuration(selectedQuoteForAssign.estimatedDurationDays, selectedQuoteForAssign.estimatedDurationHours)}
+              </QuoteFact>
+              <QuoteFact label="Valid until">{formatDate(selectedQuoteForAssign.validUntil)}</QuoteFact>
+            </dl>
+            <Textarea
+              label="Reason (optional)"
+              value={assignmentReason}
+              onChange={(e) => setAssignmentReason(e.target.value)}
+              placeholder="For example: best price and can start tomorrow"
+              rows={3}
+            />
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmationDialog
+        isOpen={!!noteToDelete}
+        onClose={() => !deletingNote && setNoteToDelete(null)}
+        onConfirm={handleDeleteNote}
+        title="Delete this note?"
+        message="This cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        isLoading={deletingNote}
+      />
     </div>
   );
 }

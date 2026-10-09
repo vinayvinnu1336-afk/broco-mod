@@ -1,4 +1,4 @@
-import React, { forwardRef, SelectHTMLAttributes, ReactNode } from 'react';
+import React, { forwardRef, SelectHTMLAttributes, useId } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export interface SelectOption {
@@ -32,7 +32,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const selectId = id || generatedId;
 
     return (
       <div className="w-full">

@@ -1,26 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PagedResult } from '@/types/adminOperations';
-import {
-  ShieldAlert,
-  Search,
-  Filter,
-  RefreshCw,
-  Eye,
-  X,
-  FileJson,
-  ShieldCheck,
-  Calendar,
-  Lock
-} from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { History, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Pagination } from '@/components/ui/Pagination';
-import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Input } from '@/components/ui/Input';
+import { ListGroup, ListItem } from '@/components/ui/ListItem';
+import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { Select } from '@/components/ui/Select';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { formatDateTime, humanize } from '@/lib/format';
 
 interface AuditLogItem {
   id: string;
@@ -37,6 +32,7 @@ export default function AdminAuditPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
@@ -44,239 +40,212 @@ export default function AdminAuditPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
 
-  // JSON viewer modal
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
-  const loadLogs = async (p = page, size = pageSize, action = actionFilter, entity = entityFilter) => {
+  const requestId = useRef(0);
+
+  const loadLogs = useCallback(async (p: number, size: number, action: string, entity: string) => {
+    const id = ++requestId.current;
     setLoading(true);
     let url = `/admin/audit?page=${p}&pageSize=${size}`;
     if (action.trim()) url += `&action=${encodeURIComponent(action.trim())}`;
     if (entity.trim()) url += `&entityName=${encodeURIComponent(entity.trim())}`;
 
     const res = await apiFetch<PagedResult<AuditLogItem>>(url);
+    if (id !== requestId.current) return; // typing fires a request per keystroke; keep only the latest
     if (res.success && res.data) {
-      setLogs(res.data.items);
-      setPage(res.data.pageNumber);
-      setTotalPages(res.data.totalPages);
-      setTotalCount(res.data.totalCount);
+      const data = res.data as PagedResult<AuditLogItem> & { page?: number };
+      setLogs(data.items ?? []);
+      setPage(data.pageNumber ?? data.page ?? p);
+      setTotalPages(data.totalPages ?? 1);
+      setTotalCount(data.totalCount ?? 0);
+      setLoadError(null);
+    } else {
+      setLoadError(res.message || 'Could not load the audit trail.');
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadLogs(1, pageSize, actionFilter, entityFilter);
-  }, [pageSize, actionFilter, entityFilter]);
+  }, [pageSize, actionFilter, entityFilter, loadLogs]);
+
+  const reload = () => loadLogs(page, pageSize, actionFilter, entityFilter);
+  const closeLog = useCallback(() => setSelectedLog(null), []);
+  const hasFilters = Boolean(actionFilter.trim() || entityFilter.trim());
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-navy-900">Security & Operations Audit Explorer</h1>
-            <Badge variant="red" icon={Lock}>
-              Append-Only Immutable Ledger
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-navy-600">
-            Complete operational audit trail of role actions, garage status changes, quote reviews, and security events.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Audit trail"
+        description="A record of who changed what, and when, across the platform."
+        actions={
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => { setRefreshing(true); loadLogs(); }}
+            onClick={() => {
+              setRefreshing(true);
+              reload();
+            }}
             isLoading={refreshing}
             leftIcon={<RefreshCw className="h-4 w-4" />}
           >
             Refresh
           </Button>
-        </div>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Input
+          type="search"
+          aria-label="Filter by action"
+          placeholder="Action contains, e.g. Garage"
+          value={actionFilter}
+          onChange={(e) => setActionFilter(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />}
+        />
+        <Input
+          type="search"
+          aria-label="Filter by record type"
+          placeholder="Exact record type, e.g. ServiceRequest"
+          value={entityFilter}
+          onChange={(e) => setEntityFilter(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />}
+        />
       </div>
 
-      {/* Retention Policy Banner */}
-      <div className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-          <p className="text-xs text-navy-700">
-            <strong className="text-navy-900 font-bold">Data Retention Policy:</strong> Audit logs are retained permanently in compliance with platform security standards. Events are cryptographically timestamped and protected from manual modification or deletion.
-          </p>
+      {loading && logs.length === 0 ? (
+        <div className="space-y-2" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-16 rounded-2xl" />
+          ))}
         </div>
-      </div>
-
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col sm:flex-row items-center gap-3 max-w-xl">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-navy-400" />
-            <input
-              type="text"
-              placeholder="Filter by action name (e.g. GarageStatusUpdated)..."
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full rounded-xl border border-surface-200 bg-surface-50 pl-9 pr-4 py-2 text-xs text-navy-900 placeholder-navy-400 focus:border-navy-900 focus:outline-none"
-            />
-          </div>
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="Filter by entity (e.g. ServiceRequest)..."
-              value={entityFilter}
-              onChange={(e) => setEntityFilter(e.target.value)}
-              className="w-full rounded-xl border border-surface-200 bg-surface-50 px-4 py-2 text-xs text-navy-900 placeholder-navy-400 focus:border-navy-900 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-navy-500">Page size:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            className="rounded-xl border border-surface-200 bg-surface-50 px-2.5 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Logs Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-surface-200 bg-surface-50 text-navy-500 uppercase tracking-wider text-[11px]">
-              <tr>
-                <th className="px-5 py-3.5 font-bold">Action</th>
-                <th className="px-5 py-3.5 font-bold">Actor / User</th>
-                <th className="px-5 py-3.5 font-bold">Target Entity</th>
-                <th className="px-5 py-3.5 font-bold">Summary / Details</th>
-                <th className="px-5 py-3.5 font-bold">IP Address</th>
-                <th className="px-5 py-3.5 font-bold">Timestamp (UTC)</th>
-                <th className="px-5 py-3.5 font-bold text-right">Inspect</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-100">
-              {loading ? (
+      ) : loadError && logs.length === 0 ? (
+        <ErrorState title="Audit trail unavailable" error={loadError} onRetry={reload} />
+      ) : logs.length === 0 ? (
+        <EmptyState
+          icon={History}
+          title="No entries found"
+          description={hasFilters ? 'Nothing matches these filters. The record type must match exactly, e.g. ServiceRequest or Garage.' : 'Nothing has been recorded yet.'}
+        />
+      ) : (
+        <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-navy-500">
-                    <LoadingState message="Loading immutable audit logs..." />
-                  </td>
+                  <TableHead>Action</TableHead>
+                  <TableHead>By</TableHead>
+                  <TableHead>Record</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>When</TableHead>
                 </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-navy-500">
-                    <EmptyState
-                      icon={ShieldAlert}
-                      title="No audit logs found"
-                      description="No recorded platform actions match the specified filters."
-                    />
-                  </td>
-                </tr>
-              ) : (
-                logs.map((l) => (
-                  <tr key={l.id} className="transition hover:bg-surface-50/50">
-                    <td className="px-5 py-4 font-mono font-bold text-navy-900">
-                      {l.action}
-                    </td>
-                    <td className="px-5 py-4 text-navy-900 font-medium">
-                      {l.userEmail || <span className="text-navy-400 italic font-normal">System / Job</span>}
-                    </td>
-                    <td className="px-5 py-4 text-navy-700">
-                      {l.entityName ? (
-                        <div>
-                          <span className="font-semibold text-navy-900">{l.entityName}</span>
-                          {l.entityId && (
-                            <span className="block font-mono text-[10px] text-navy-400">
-                              ID: {l.entityId.slice(0, 8)}...
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-navy-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-navy-600 max-w-sm truncate" title={l.details}>
-                      {l.details || '—'}
-                    </td>
-                    <td className="px-5 py-4 font-mono text-[11px] text-navy-500">
-                      {l.ipAddress || '—'}
-                    </td>
-                    <td className="px-5 py-4 text-navy-500 whitespace-nowrap font-mono text-[11px]">
-                      {new Date(l.timestampUtc).toLocaleString()}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setSelectedLog(l)}
-                        leftIcon={<FileJson className="h-3.5 w-3.5" />}
-                      >
-                        JSON
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        {totalCount > 0 && (
-          <div className="p-4 border-t border-surface-200">
-            <Pagination
-              currentPage={page}
-              totalPages={Math.max(1, totalPages)}
-              totalItems={totalCount}
-              pageSize={pageSize}
-              onPageChange={(p) => loadLogs(p, pageSize, actionFilter, entityFilter)}
-            />
+              </TableHeader>
+              <TableBody>
+                {logs.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="font-semibold text-navy-900">
+                      <button type="button" className="text-left hover:text-electric-600" onClick={() => setSelectedLog(l)}>
+                        {humanize(l.action)}
+                      </button>
+                    </TableCell>
+                    <TableCell className="max-w-[14rem] truncate text-navy-700">{l.userEmail || 'System'}</TableCell>
+                    <TableCell className="text-navy-700">{l.entityName ? humanize(l.entityName) : '—'}</TableCell>
+                    <TableCell className="max-w-sm text-navy-600">
+                      <span className="line-clamp-2">{l.details || '—'}</span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-navy-500">{formatDateTime(l.timestampUtc)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        )}
-      </Card>
 
-      {/* JSON Inspection Modal */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-surface-200 bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
-              <div className="flex items-center gap-2">
-                <FileJson className="h-5 w-5 text-electric-600" />
-                <h3 className="text-base font-bold text-navy-900 font-mono">
-                  Audit Record: {selectedLog.action}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="text-navy-400 hover:text-navy-900"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          {/* Phone list */}
+          <div className="md:hidden">
+            <ListGroup>
+              {logs.map((l) => (
+                <ListItem
+                  key={l.id}
+                  onClick={() => setSelectedLog(l)}
+                  title={humanize(l.action)}
+                  subtitle={l.details || (l.entityName ? humanize(l.entityName) : undefined)}
+                  meta={`${l.userEmail || 'System'} · ${formatDateTime(l.timestampUtc)}`}
+                />
+              ))}
+            </ListGroup>
+          </div>
 
-            <div className="mt-4 space-y-2">
-              <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">Raw Event Payload:</span>
-              <pre className="max-h-96 overflow-auto rounded-xl border border-surface-200 bg-surface-50 p-4 text-[11px] font-mono text-navy-900">
-                {JSON.stringify(selectedLog, null, 2)}
-              </pre>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedLog(null)}
-              >
-                Close Payload
-              </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {totalCount > 0 && (
+              <Pagination
+                className="flex-1"
+                currentPage={page}
+                totalPages={Math.max(1, totalPages)}
+                totalItems={totalCount}
+                pageSize={pageSize}
+                onPageChange={(p) => loadLogs(p, pageSize, actionFilter, entityFilter)}
+              />
+            )}
+            <div className="hidden w-40 sm:block">
+              <Select
+                aria-label="Rows per page"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                options={[
+                  { value: 25, label: '25 per page' },
+                  { value: 50, label: '50 per page' },
+                  { value: 100, label: '100 per page' },
+                ]}
+              />
             </div>
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={!!selectedLog}
+        onClose={closeLog}
+        size="md"
+        title={selectedLog ? humanize(selectedLog.action) : ''}
+        description={selectedLog ? formatDateTime(selectedLog.timestampUtc) : undefined}
+        footer={
+          <div className="flex sm:justify-end">
+            <Button variant="outline" onClick={closeLog} className="w-full sm:w-auto">
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {selectedLog && (
+          <div className="space-y-5">
+            <dl className="space-y-3 text-sm">
+              <DetailRow label="Done by" value={selectedLog.userEmail || 'System'} />
+              <DetailRow label="Record type" value={selectedLog.entityName ? humanize(selectedLog.entityName) : '—'} />
+              <DetailRow label="Record ID" value={selectedLog.entityId || '—'} mono />
+              <DetailRow label="Details" value={selectedLog.details || '—'} />
+              <DetailRow label="IP address" value={selectedLog.ipAddress || '—'} mono />
+              <DetailRow label="Action code" value={selectedLog.action} mono />
+            </dl>
+            <details className="group rounded-xl border border-surface-200 bg-surface-50">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-navy-700">Raw data</summary>
+              <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all border-t border-surface-200 p-4 text-xs text-navy-800">
+                {JSON.stringify(selectedLog, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="grid grid-cols-[7.5rem_1fr] gap-3">
+      <dt className="text-navy-500">{label}</dt>
+      <dd className={`min-w-0 break-words text-navy-900 ${mono ? 'font-mono text-xs leading-5' : ''}`}>{value}</dd>
     </div>
   );
 }

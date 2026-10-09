@@ -1,54 +1,200 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { 
-  FinanceOverviewDto, 
-  GarageSettlementDto, 
-  FinancialLedgerEntryDto 
-} from '@/types/finance';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
-  RotateCcw, 
-  CreditCard, 
-  Building2, 
-  Search, 
-  Filter, 
-  FileText, 
-  Check, 
-  X,
-  ExternalLink
+import { FinanceOverviewDto, GarageSettlementDto, FinancialLedgerEntryDto } from '@/types/finance';
+import {
+  Banknote,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  FileText,
+  Percent,
+  RotateCcw,
+  Search,
+  Wallet,
 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Input } from '@/components/ui/Input';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { Input } from '@/components/ui/Input';
+import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
+import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StatCard } from '@/components/ui/StatCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { useToast } from '@/components/ui/Toast';
+import { formatDate, formatDateTime, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 
-export default function AdminFinanceControlPage() {
-  const [overview, setOverview] = useState<FinanceOverviewDto | null>(null);
-  const [settlements, setSettlements] = useState<GarageSettlementDto[]>([]);
-  const [ledgerEntries, setLedgerEntries] = useState<FinancialLedgerEntryDto[]>([]);
+// ---------------------------------------------------------------------------------------------
+// Response normalisation. The API returns settlements as a paged object and ledger rows with
+// debit/credit columns; older field names from `@/types/finance` are still accepted.
+// ---------------------------------------------------------------------------------------------
+
+type Raw = Record<string, unknown>;
+
+function pickNumber(obj: Raw | null | undefined, ...keys: string[]): number | undefined {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value);
+  }
+  return undefined;
+}
+
+function pickString(obj: Raw | null | undefined, ...keys: string[]): string | undefined {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim() !== '') return value;
+    if (typeof value === 'number') return String(value);
+  }
+  return undefined;
+}
+
+function toList(data: unknown): { items: Raw[]; total: number } {
+  if (Array.isArray(data)) return { items: data as Raw[], total: data.length };
+  if (data && typeof data === 'object') {
+    const items = (data as Raw).items;
+    if (Array.isArray(items)) {
+      return { items: items as Raw[], total: pickNumber(data as Raw, 'totalCount') ?? items.length };
+    }
+  }
+  return { items: [], total: 0 };
+}
+
+interface SettlementRow {
+  id: string;
+  number: string;
+  garageName: string;
+  jobNumber?: string;
+  gross: number;
+  fee: number;
+  feeRate?: number;
+  feeFixed?: number;
+  gst: number;
+  gstRate?: number;
+  totalFee: number;
+  net: number;
+  status: string;
+  payoutRef?: string;
+  paidAt?: string;
+  createdAt?: string;
+}
+
+function toSettlementRow(r: Raw): SettlementRow {
+  const fee = pickNumber(r, 'platformFeeAmount') ?? 0;
+  const gst = pickNumber(r, 'taxOnPlatformFee', 'platformFeeGstAmount') ?? 0;
+  return {
+    id: pickString(r, 'id') ?? '',
+    number: pickString(r, 'settlementNumber') ?? '—',
+    garageName: pickString(r, 'garageName') ?? 'Unnamed garage',
+    jobNumber: pickString(r, 'jobNumber'),
+    gross: pickNumber(r, 'grossAmount') ?? 0,
+    fee,
+    feeRate: pickNumber(r, 'platformFeePercentage', 'platformFeeRatePercent'),
+    feeFixed: pickNumber(r, 'platformFeeFixed'),
+    gst,
+    gstRate: pickNumber(r, 'platformFeeGstRatePercent'),
+    totalFee: pickNumber(r, 'totalPlatformFee') ?? fee + gst,
+    net: pickNumber(r, 'netPayableToGarage') ?? 0,
+    status: pickString(r, 'status') ?? 'Pending',
+    payoutRef: pickString(r, 'payoutTransactionRef', 'payoutReference'),
+    paidAt: pickString(r, 'settledAtUtc', 'payoutProcessedAtUtc'),
+    createdAt: pickString(r, 'createdAtUtc'),
+  };
+}
+
+const CLOSED_SETTLEMENT = ['COMPLETED', 'CANCELLED'];
+const isPayable = (s: SettlementRow) => !CLOSED_SETTLEMENT.includes(s.status.toUpperCase());
+
+interface LedgerRow {
+  id: string;
+  reference: string;
+  account: string;
+  entryType: string;
+  description: string;
+  debit: number;
+  credit: number;
+  createdAt?: string;
+}
+
+function toLedgerRow(r: Raw): LedgerRow {
+  let debit = pickNumber(r, 'debitAmount');
+  let credit = pickNumber(r, 'creditAmount');
+  if (debit === undefined && credit === undefined) {
+    const amount = pickNumber(r, 'amount') ?? 0;
+    const isDebit = (pickString(r, 'direction') ?? '').toLowerCase() === 'debit';
+    debit = isDebit ? amount : 0;
+    credit = isDebit ? 0 : amount;
+  }
+  return {
+    id: pickString(r, 'id') ?? '',
+    reference: pickString(r, 'transactionReference', 'entryNumber') ?? '—',
+    account: pickString(r, 'accountType') ?? '',
+    entryType: pickString(r, 'entryType') ?? '',
+    description: pickString(r, 'description') ?? '',
+    debit: debit ?? 0,
+    credit: credit ?? 0,
+    createdAt: pickString(r, 'createdAtUtc'),
+  };
+}
+
+const ACCOUNT_LABELS: Record<string, string> = {
+  ESCROW: 'Held in escrow',
+  CUSTOMER: 'Customer',
+  GARAGE_PAYABLE: 'Payable to garage',
+  PLATFORM_REVENUE: 'Platform fee',
+  PLATFORM_TAX_LIABILITY: 'GST on platform fee',
+  PLATFORM_MARGIN: 'Advisor margin',
+};
+
+function accountLabel(account: string): string {
+  if (!account) return 'Other';
+  const key = account.toUpperCase();
+  if (ACCOUNT_LABELS[key]) return ACCOUNT_LABELS[key];
+  const words = key.replace(/_/g, ' ').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function entryAmount(row: LedgerRow) {
+  return row.debit > 0 ? { label: 'Debit', value: row.debit } : { label: 'Credit', value: row.credit };
+}
+
+// ---------------------------------------------------------------------------------------------
+
+type Tab = 'settlements' | 'ledger';
+type SettlementFilter = 'all' | 'to-pay' | 'paid';
+
+export default function AdminFinancePage() {
+  const router = useRouter();
+  const toast = useToast();
+
+  const [overview, setOverview] = useState<Raw | null>(null);
+  const [settlements, setSettlements] = useState<SettlementRow[]>([]);
+  const [settlementsTotal, setSettlementsTotal] = useState(0);
+  const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'settlements' | 'ledger'>('settlements');
+  const [errors, setErrors] = useState<{ overview?: string; settlements?: string; ledger?: string }>({});
 
-  // Complete Payout Modal State
-  const [selectedSettlement, setSelectedSettlement] = useState<GarageSettlementDto | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('settlements');
+  const [settlementSearch, setSettlementSearch] = useState('');
+  const [settlementFilter, setSettlementFilter] = useState<SettlementFilter>('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+
+  // Settlement sheet (details + mark paid)
+  const [selectedSettlement, setSelectedSettlement] = useState<SettlementRow | null>(null);
   const [payoutRef, setPayoutRef] = useState('');
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
 
-  // Settlement Search
-  const [settlementSearch, setSettlementSearch] = useState('');
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     const [ovRes, setRes, ledRes] = await Promise.all([
       apiFetch<FinanceOverviewDto>('/admin/finance/overview'),
@@ -56,21 +202,46 @@ export default function AdminFinanceControlPage() {
       apiFetch<FinancialLedgerEntryDto[]>('/admin/finance/ledger?limit=100'),
     ]);
 
-    if (ovRes.success && ovRes.data) setOverview(ovRes.data);
-    if (setRes.success && setRes.data) setSettlements(setRes.data);
-    if (ledRes.success && ledRes.data) setLedgerEntries(ledRes.data);
+    const nextErrors: { overview?: string; settlements?: string; ledger?: string } = {};
+
+    if (ovRes.success && ovRes.data) setOverview(ovRes.data as unknown as Raw);
+    else nextErrors.overview = ovRes.message || 'Could not load the finance summary.';
+
+    if (setRes.success && setRes.data) {
+      const { items, total } = toList(setRes.data);
+      setSettlements(items.map(toSettlementRow));
+      setSettlementsTotal(total);
+    } else {
+      nextErrors.settlements = setRes.message || 'Could not load settlements.';
+    }
+
+    if (ledRes.success && ledRes.data) setLedger(toList(ledRes.data).items.map(toLedgerRow));
+    else nextErrors.ledger = ledRes.message || 'Could not load ledger entries.';
+
+    setErrors(nextErrors);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
-  const handleCompletePayout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openSettlement = (s: SettlementRow) => {
+    setSelectedSettlement(s);
+    setPayoutRef('');
+    setCompleteError(null);
+  };
+
+  const closeSettlement = useCallback(() => {
+    if (completing) return;
+    setSelectedSettlement(null);
+  }, [completing]);
+
+  const handleCompletePayout = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!selectedSettlement) return;
     if (!payoutRef.trim()) {
-      setCompleteError('Bank/IMPS payout transaction reference is required.');
+      setCompleteError('Enter the bank transfer reference (UTR) for this payout.');
       return;
     }
 
@@ -81,354 +252,457 @@ export default function AdminFinanceControlPage() {
       `/admin/finance/settlements/${selectedSettlement.id}/complete`,
       {
         method: 'POST',
-        body: JSON.stringify({ payoutReference: payoutRef.trim() }),
+        body: JSON.stringify({ payoutTransactionRef: payoutRef.trim() }),
       }
     );
 
     setCompleting(false);
 
     if (res.success && res.data) {
+      toast.success('Settlement marked as paid', `${selectedSettlement.garageName} · ${formatINR(selectedSettlement.net)}`);
       setSelectedSettlement(null);
       setPayoutRef('');
       loadData();
     } else {
-      setCompleteError(res.message || 'Failed to complete settlement payout.');
+      setCompleteError(res.message || 'Could not mark this settlement as paid. Please try again.');
     }
   };
 
-  const filteredSettlements = settlements.filter(
-    (s) =>
-      s.settlementNumber.toLowerCase().includes(settlementSearch.toLowerCase()) ||
-      s.garageName.toLowerCase().includes(settlementSearch.toLowerCase()) ||
-      (s.payoutReference && s.payoutReference.toLowerCase().includes(settlementSearch.toLowerCase()))
+  // ---- Derived lists ----
+  const settlementCounts = useMemo(
+    () => ({
+      all: settlements.length,
+      toPay: settlements.filter(isPayable).length,
+      paid: settlements.filter((s) => s.status.toUpperCase() === 'COMPLETED').length,
+    }),
+    [settlements]
   );
 
+  const filteredSettlements = useMemo(() => {
+    const q = settlementSearch.trim().toLowerCase();
+    return settlements.filter((s) => {
+      if (settlementFilter === 'to-pay' && !isPayable(s)) return false;
+      if (settlementFilter === 'paid' && s.status.toUpperCase() !== 'COMPLETED') return false;
+      if (!q) return true;
+      return (
+        s.number.toLowerCase().includes(q) ||
+        s.garageName.toLowerCase().includes(q) ||
+        (s.payoutRef ?? '').toLowerCase().includes(q) ||
+        (s.jobNumber ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [settlements, settlementSearch, settlementFilter]);
+
+  const accountOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    ledger.forEach((l) => counts.set(l.account, (counts.get(l.account) ?? 0) + 1));
+    return [
+      { value: 'all', label: 'All', count: ledger.length },
+      ...Array.from(counts.entries()).map(([account, count]) => ({ value: account, label: accountLabel(account), count })),
+    ];
+  }, [ledger]);
+
+  const filteredLedger = useMemo(
+    () => (accountFilter === 'all' ? ledger : ledger.filter((l) => l.account === accountFilter)),
+    [ledger, accountFilter]
+  );
+
+  // ---- KPI values (only what the API returns) ----
+  const kpi = {
+    collected: pickNumber(overview, 'totalGrossRevenue'),
+    paymentsCount: pickNumber(overview, 'totalPaymentsCount'),
+    platformFee: pickNumber(overview, 'totalPlatformRevenue'),
+    platformFeeGst: pickNumber(overview, 'totalPlatformFeeGst', 'totalTaxOnPlatformFee'),
+    advisorMargin: pickNumber(overview, 'totalPlatformMargin', 'totalAdvisorMargin'),
+    payable: pickNumber(overview, 'totalGarageSettlements', 'totalGaragePayouts'),
+    pendingCount: pickNumber(overview, 'pendingSettlementsCount'),
+    completedCount: pickNumber(overview, 'completedSettlementsCount'),
+    refunds: pickNumber(overview, 'totalRefunds', 'totalRefundedAmount'),
+  };
+
+  const payableHint = [
+    kpi.pendingCount !== undefined ? `${kpi.pendingCount} to pay` : null,
+    kpi.completedCount !== undefined ? `${kpi.completedCount} paid` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-navy-900 flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-emerald-600" />
-            Financial Control Center
-          </h1>
-          <p className="text-sm text-navy-600 mt-1">
-            Server-authoritative financial monitoring, commission reconciliations, and workshop payouts
-          </p>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Finance"
+        description="Money collected from customers, what the platform keeps, and what is owed to garages."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => router.push('/admin/payments')}
+            leftIcon={<CreditCard className="h-4 w-4" />}
+          >
+            Payments & refunds
+          </Button>
+        }
+      />
+
+      {/* KPIs */}
+      {loading && !overview ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[104px] rounded-2xl" />
+          ))}
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/admin/payments">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<CreditCard className="w-4 h-4 text-electric-600" />}
-            >
-              Manage Payments & Refunds
-            </Button>
-          </Link>
+      ) : errors.overview && !overview ? (
+        <ErrorState title="Finance summary unavailable" error={errors.overview} onRetry={loadData} />
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {kpi.collected !== undefined && (
+            <StatCard
+              label="Collected"
+              value={formatINRShort(kpi.collected)}
+              icon={Wallet}
+              tone="blue"
+              hint={kpi.paymentsCount !== undefined ? `${kpi.paymentsCount} payments` : 'From customers'}
+            />
+          )}
+          {kpi.platformFee !== undefined && (
+            <StatCard
+              label={kpi.platformFeeGst !== undefined ? 'Platform fee' : 'Platform fee incl. GST'}
+              value={formatINRShort(
+                kpi.platformFeeGst !== undefined ? kpi.platformFee - kpi.platformFeeGst : kpi.platformFee
+              )}
+              icon={Percent}
+              tone="green"
+              hint="From settlements"
+            />
+          )}
+          {kpi.platformFeeGst !== undefined && (
+            <StatCard label="GST on fee" value={formatINRShort(kpi.platformFeeGst)} icon={FileText} tone="neutral" />
+          )}
+          {kpi.advisorMargin !== undefined && (
+            <StatCard label="Advisor margin" value={formatINRShort(kpi.advisorMargin)} icon={Banknote} tone="green" />
+          )}
+          {kpi.payable !== undefined && (
+            <StatCard
+              label="Payable to garages"
+              value={formatINRShort(kpi.payable)}
+              icon={Building2}
+              tone="amber"
+              hint={payableHint || undefined}
+            />
+          )}
+          {kpi.refunds !== undefined && (
+            <StatCard label="Refunds" value={formatINRShort(kpi.refunds)} icon={RotateCcw} tone="red" hint="Returned to customers" />
+          )}
         </div>
-      </div>
+      )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5">
-          <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">
-            Gross Platform GMV
-          </span>
-          <div className="text-2xl font-black text-navy-900 mt-1 font-mono">
-            ₹{overview?.totalGrossRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
-          </div>
-          <p className="text-xs text-navy-500 mt-1">
-            <strong className="text-navy-800">{overview?.totalPaymentsCount || 0}</strong> total customer payments
-          </p>
-        </Card>
+      {/* Section switch */}
+      <FilterChips
+        ariaLabel="Finance section"
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as Tab)}
+        options={[
+          { value: 'settlements', label: 'Garage settlements', count: loading ? undefined : settlements.length },
+          { value: 'ledger', label: 'Ledger', count: loading ? undefined : ledger.length },
+        ]}
+      />
 
-        <Card className="p-5">
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-            Platform Net Revenue
-          </span>
-          <div className="text-2xl font-black text-emerald-700 mt-1 font-mono">
-            ₹{overview?.totalPlatformRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
-          </div>
-          <p className="text-xs text-navy-500 mt-1">Commission fee earnings + GST</p>
-        </Card>
-
-        <Card className="p-5">
-          <span className="text-xs font-bold text-electric-700 uppercase tracking-wider">
-            Disbursed Payouts
-          </span>
-          <div className="text-2xl font-black text-electric-700 mt-1 font-mono">
-            ₹{overview?.totalGaragePayouts.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
-          </div>
-          <p className="text-xs text-navy-500 mt-1">
-            <strong className="text-navy-800">{overview?.completedSettlementsCount || 0}</strong> settled to workshops
-          </p>
-        </Card>
-
-        <Card className="p-5">
-          <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
-            Escrow / Pending Payouts
-          </span>
-          <div className="text-2xl font-black text-amber-700 mt-1 font-mono">
-            ₹{overview?.pendingGarageSettlements.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
-          </div>
-          <p className="text-xs text-navy-500 mt-1">Currently held in escrow</p>
-        </Card>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="border-b border-surface-200 flex gap-6">
-        <button
-          onClick={() => setActiveTab('settlements')}
-          className={`pb-3 text-sm font-bold transition-colors flex items-center gap-2 ${
-            activeTab === 'settlements'
-              ? 'text-emerald-700 border-b-2 border-emerald-600'
-              : 'text-navy-500 hover:text-navy-900'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          Workshop Settlements ({settlements.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('ledger')}
-          className={`pb-3 text-sm font-bold transition-colors flex items-center gap-2 ${
-            activeTab === 'ledger'
-              ? 'text-emerald-700 border-b-2 border-emerald-600'
-              : 'text-navy-500 hover:text-navy-900'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Double-Entry Ledger Audit Trail ({ledgerEntries.length})
-        </button>
-      </div>
-
-      {/* Tab: Settlements */}
+      {/* ---------------- Settlements ---------------- */}
       {activeTab === 'settlements' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-surface-200 shadow-sm">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400" />
-              <input
-                type="text"
-                placeholder="Search settlements by ref, workshop name..."
-                value={settlementSearch}
-                onChange={(e) => setSettlementSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900 transition-colors"
-              />
-            </div>
-          </div>
+        <section className="space-y-3" aria-label="Garage settlements">
+          <Input
+            type="search"
+            aria-label="Search settlements"
+            placeholder="Search by garage, settlement or payout reference"
+            value={settlementSearch}
+            onChange={(e) => setSettlementSearch(e.target.value)}
+            leftIcon={<Search className="h-4 w-4" />}
+          />
+          <FilterChips
+            ariaLabel="Settlement status"
+            value={settlementFilter}
+            onChange={(v) => setSettlementFilter(v as SettlementFilter)}
+            options={[
+              { value: 'all', label: 'All', count: settlementCounts.all },
+              { value: 'to-pay', label: 'To pay', count: settlementCounts.toPay },
+              { value: 'paid', label: 'Paid', count: settlementCounts.paid },
+            ]}
+          />
 
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-50 border-b border-surface-200 text-navy-500 uppercase text-xs">
-                  <tr>
-                    <th className="px-6 py-4 font-bold">Settlement Ref</th>
-                    <th className="px-6 py-4 font-bold">Workshop</th>
-                    <th className="px-6 py-4 font-bold">Gross Billed</th>
-                    <th className="px-6 py-4 font-bold">Platform Fee + GST</th>
-                    <th className="px-6 py-4 font-bold">Net Payout</th>
-                    <th className="px-6 py-4 font-bold">Status</th>
-                    <th className="px-6 py-4 font-bold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-100">
-                  {filteredSettlements.length === 0 ? (
+          {loading && settlements.length === 0 ? (
+            <ListSkeleton />
+          ) : errors.settlements && settlements.length === 0 ? (
+            <ErrorState title="Settlements unavailable" error={errors.settlements} onRetry={loadData} />
+          ) : filteredSettlements.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title={settlements.length === 0 ? 'No settlements yet' : 'No matching settlements'}
+              description={
+                settlements.length === 0
+                  ? 'A settlement is created for the garage when a customer payment is received.'
+                  : 'Try a different search or status filter.'
+              }
+            />
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-xs text-navy-500">
-                        No workshop settlements match the search filter.
-                      </td>
+                      <TableHead>Settlement</TableHead>
+                      <TableHead>Garage</TableHead>
+                      <TableHead className="text-right">Garage quote</TableHead>
+                      <TableHead className="text-right">Platform fee</TableHead>
+                      <TableHead className="text-right">GST on fee</TableHead>
+                      <TableHead className="text-right">Net payout</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
                     </tr>
-                  ) : (
-                    filteredSettlements.map((s) => (
-                      <tr key={s.id} className="hover:bg-surface-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-navy-900 font-mono text-xs">{s.settlementNumber}</div>
-                          {s.payoutReference && (
-                            <div className="text-[11px] text-navy-500 font-mono mt-0.5">
-                              Bank Ref: {s.payoutReference}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-navy-900 font-semibold">{s.garageName}</td>
-                        <td className="px-6 py-4 text-navy-700 font-mono">
-                          ₹{s.grossAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-navy-700 text-xs font-mono">
-                          ₹{s.totalPlatformFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          <div className="text-[10px] text-navy-500">
-                            (₹{s.platformFeeAmount.toFixed(2)} + ₹{s.platformFeeGstAmount.toFixed(2)} GST)
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSettlements.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <div className="font-semibold text-navy-900">{s.number}</div>
+                          <div className="text-xs text-navy-500">
+                            {s.payoutRef ? `Ref ${s.payoutRef}` : s.createdAt ? formatDate(s.createdAt) : ''}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-emerald-700 font-mono">
-                          ₹{s.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell className="font-medium text-navy-900">{s.garageName}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatINR(s.gross)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatINR(s.fee)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatINR(s.gst)}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums text-navy-900">{formatINR(s.net)}</TableCell>
+                        <TableCell>
                           <StatusBadge status={s.status} />
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {s.status !== 'Completed' ? (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={() => {
-                                setSelectedSettlement(s);
-                                setPayoutRef(`BANK-PAYOUT-${Date.now()}`);
-                                setCompleteError(null);
-                              }}
-                              leftIcon={<Check className="w-3.5 h-3.5" />}
-                            >
-                              Disburse Payout
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isPayable(s) ? (
+                            <Button size="sm" onClick={() => openSettlement(s)}>
+                              Mark paid
                             </Button>
                           ) : (
-                            <span className="text-xs text-navy-400 font-mono">Disbursed</span>
+                            <Button size="sm" variant="ghost" onClick={() => openSettlement(s)}>
+                              Details
+                            </Button>
                           )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Phone list */}
+              <div className="md:hidden">
+                <ListGroup>
+                  {filteredSettlements.map((s) => (
+                    <ListItem
+                      key={s.id}
+                      onClick={() => openSettlement(s)}
+                      leading={<IconTile icon={Building2} tone={isPayable(s) ? 'amber' : 'green'} />}
+                      title={s.garageName}
+                      subtitle={s.number}
+                      meta={`Quote ${formatINRWhole(s.gross)} · Fee ${formatINRWhole(s.fee)} · GST ${formatINRWhole(s.gst)}`}
+                      trailing={
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(s.net)}</span>
+                          <StatusBadge status={s.status} />
+                        </div>
+                      }
+                    />
+                  ))}
+                </ListGroup>
+              </div>
+
+              {settlementsTotal > settlements.length && (
+                <p className="px-1 text-xs text-navy-500">
+                  Showing the latest {settlements.length} of {settlementsTotal} settlements.
+                </p>
+              )}
+            </>
+          )}
+        </section>
       )}
 
-      {/* Tab: Ledger Explorer */}
+      {/* ---------------- Ledger ---------------- */}
       {activeTab === 'ledger' && (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-50 border-b border-surface-200 text-navy-500 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-4 font-bold">Entry Ref</th>
-                  <th className="px-6 py-4 font-bold">Account</th>
-                  <th className="px-6 py-4 font-bold">Entry Type</th>
-                  <th className="px-6 py-4 font-bold">Direction</th>
-                  <th className="px-6 py-4 font-bold">Amount</th>
-                  <th className="px-6 py-4 font-bold">Description</th>
-                  <th className="px-6 py-4 font-bold">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100">
-                {ledgerEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-xs text-navy-500">
-                      No ledger entries recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  ledgerEntries.map((l) => (
-                    <tr key={l.id} className="hover:bg-surface-50/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs font-bold text-navy-900">{l.entryNumber}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-surface-100 text-navy-800 border border-surface-200">
-                          {l.accountType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-navy-700">{l.entryType}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`text-xs font-bold ${
-                            l.direction === 'Credit' ? 'text-emerald-700' : 'text-rose-600'
-                          }`}
-                        >
-                          {l.direction.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-navy-900">
-                        ₹{l.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-navy-600 max-w-xs truncate">
-                        {l.description}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-navy-500">
-                        {new Date(l.createdAtUtc).toLocaleString('en-IN')}
-                      </td>
+        <section className="space-y-3" aria-label="Ledger">
+          <p className="px-1 text-sm text-navy-500">
+            Every money movement is recorded twice: once leaving one account (debit) and once arriving in another (credit).
+          </p>
+          {ledger.length > 0 && (
+            <FilterChips ariaLabel="Ledger account" value={accountFilter} onChange={setAccountFilter} options={accountOptions} />
+          )}
+
+          {loading && ledger.length === 0 ? (
+            <ListSkeleton />
+          ) : errors.ledger && ledger.length === 0 ? (
+            <ErrorState title="Ledger unavailable" error={errors.ledger} onRetry={loadData} />
+          ) : filteredLedger.length === 0 ? (
+            <EmptyState icon={FileText} title="No ledger entries yet" description="Entries appear once payments and settlements are recorded." />
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Debit</TableHead>
+                      <TableHead className="text-right">Credit</TableHead>
+                      <TableHead>When</TableHead>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLedger.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell className="text-xs font-medium text-navy-700">{l.reference}</TableCell>
+                        <TableCell className="whitespace-nowrap font-medium text-navy-900">{accountLabel(l.account)}</TableCell>
+                        <TableCell className="max-w-xs text-navy-600">
+                          <span className="line-clamp-2">{l.description || '—'}</span>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{l.debit > 0 ? formatINR(l.debit) : '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{l.credit > 0 ? formatINR(l.credit) : '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs text-navy-500">{formatDateTime(l.createdAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="md:hidden">
+                <ListGroup>
+                  {filteredLedger.map((l) => {
+                    const amount = entryAmount(l);
+                    return (
+                      <ListItem
+                        key={l.id}
+                        title={accountLabel(l.account)}
+                        subtitle={l.description || l.reference}
+                        meta={`${l.reference} · ${formatDateTime(l.createdAt)}`}
+                        trailing={
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(amount.value)}</span>
+                            <span className="text-xs text-navy-500">{amount.label}</span>
+                          </div>
+                        }
+                      />
+                    );
+                  })}
+                </ListGroup>
+              </div>
+            </>
+          )}
+        </section>
       )}
 
-      {/* Disburse Payout Modal */}
-      {selectedSettlement && (
-        <div className="fixed inset-0 z-50 bg-navy-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-surface-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
-              <h3 className="text-lg font-bold text-navy-900 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                Disburse Workshop Settlement
-              </h3>
-              <button
-                onClick={() => setSelectedSettlement(null)}
-                className="text-navy-400 hover:text-navy-900"
+      {/* ---------------- Settlement sheet ---------------- */}
+      <Modal
+        isOpen={!!selectedSettlement}
+        onClose={closeSettlement}
+        size="sm"
+        title={selectedSettlement && isPayable(selectedSettlement) ? 'Mark settlement as paid' : 'Settlement details'}
+        description={selectedSettlement ? `${selectedSettlement.garageName} · ${selectedSettlement.number}` : undefined}
+        footer={
+          selectedSettlement && isPayable(selectedSettlement) ? (
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <Button variant="outline" onClick={closeSettlement} disabled={completing} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="mark-paid-form"
+                isLoading={completing}
+                leftIcon={<CheckCircle2 className="h-4 w-4" />}
+                className="w-full sm:w-auto"
               >
-                <X className="w-5 h-5" />
-              </button>
+                Mark paid
+              </Button>
             </div>
-
-            <div className="text-xs text-navy-700 space-y-2 bg-surface-50 p-4 rounded-xl border border-surface-200">
-              <div className="flex justify-between">
-                <span className="text-navy-500">Workshop:</span>
-                <span className="font-bold text-navy-900">{selectedSettlement.garageName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-navy-500">Settlement Ref:</span>
-                <span className="font-mono font-bold text-navy-900">{selectedSettlement.settlementNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-navy-500">Net Payable Amount:</span>
-                <span className="font-black text-emerald-700 text-sm font-mono">
-                  ₹{selectedSettlement.netPayableToGarage.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
+          ) : (
+            <div className="flex sm:justify-end">
+              <Button variant="outline" onClick={closeSettlement} className="w-full sm:w-auto">
+                Close
+              </Button>
             </div>
+          )
+        }
+      >
+        {selectedSettlement && (
+          <div className="space-y-5">
+            <Card className="p-4 shadow-none">
+              <dl className="space-y-2.5 text-sm">
+                <BreakdownRow label="Garage quote total" value={formatINR(selectedSettlement.gross)} />
+                <BreakdownRow
+                  label={`Platform fee${feeRateLabel(selectedSettlement)}`}
+                  value={`− ${formatINR(selectedSettlement.fee)}`}
+                />
+                <BreakdownRow
+                  label={`GST on fee${selectedSettlement.gstRate !== undefined ? ` (${selectedSettlement.gstRate}%)` : ''}`}
+                  value={`− ${formatINR(selectedSettlement.gst)}`}
+                />
+                <div className="border-t border-surface-200 pt-2.5">
+                  <BreakdownRow label="Net payout to garage" value={formatINR(selectedSettlement.net)} strong />
+                </div>
+              </dl>
+            </Card>
 
-            <form onSubmit={handleCompletePayout} className="space-y-4 pt-2">
-              <div>
-                <label className="block text-xs font-bold text-navy-800 mb-1.5">
-                  Bank / IMPS / UTR Transfer Reference <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
+            <dl className="space-y-2 text-sm">
+              <BreakdownRow label="Status" value={<StatusBadge status={selectedSettlement.status} />} />
+              {selectedSettlement.jobNumber && <BreakdownRow label="Job" value={selectedSettlement.jobNumber} />}
+              {selectedSettlement.createdAt && <BreakdownRow label="Created" value={formatDate(selectedSettlement.createdAt)} />}
+              {selectedSettlement.payoutRef && <BreakdownRow label="Payout reference" value={selectedSettlement.payoutRef} />}
+              {selectedSettlement.paidAt && <BreakdownRow label="Paid on" value={formatDate(selectedSettlement.paidAt)} />}
+            </dl>
+
+            {isPayable(selectedSettlement) && (
+              <form id="mark-paid-form" onSubmit={handleCompletePayout} className="space-y-3">
+                <Input
+                  id="payout-reference"
+                  label="Bank transfer reference (UTR)"
+                  placeholder="e.g. UTR number from your bank"
                   value={payoutRef}
                   onChange={(e) => setPayoutRef(e.target.value)}
-                  placeholder="e.g. UTR-98234823498"
-                  className="w-full px-3.5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:border-navy-900"
+                  autoComplete="off"
                   required
+                  error={completeError ?? undefined}
+                  helperText="Send the net payout to the garage first, then record the transfer reference here."
                 />
-              </div>
-
-              {completeError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
-                  {completeError}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setSelectedSettlement(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={completing}
-                >
-                  Confirm Disbursed
-                </Button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function feeRateLabel(s: SettlementRow): string {
+  const parts: string[] = [];
+  if (s.feeRate !== undefined && s.feeRate > 0) parts.push(`${s.feeRate}%`);
+  if (s.feeFixed !== undefined && s.feeFixed > 0) parts.push(`${formatINRWhole(s.feeFixed)} fixed`);
+  return parts.length ? ` (${parts.join(' + ')})` : '';
+}
+
+function BreakdownRow({ label, value, strong = false }: { label: string; value: React.ReactNode; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className={strong ? 'font-semibold text-navy-900' : 'text-navy-500'}>{label}</dt>
+      <dd className={`text-right tabular-nums ${strong ? 'text-base font-bold text-navy-900' : 'font-medium text-navy-800'}`}>{value}</dd>
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-16 rounded-2xl" />
+      ))}
     </div>
   );
 }

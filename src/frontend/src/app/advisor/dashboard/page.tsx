@@ -1,43 +1,52 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { AttentionItem } from '@/types/adminOperations';
-import { 
-  Inbox, 
-  Calculator, 
-  CheckSquare, 
-  ShieldCheck, 
-  Clock, 
-  ArrowRight, 
-  Wrench, 
-  AlertTriangle, 
-  UserCheck, 
-  CheckCircle2, 
-  ListTodo, 
-  RefreshCw,
-  FileSpreadsheet,
-  Layers,
-  ChevronRight
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { formatRelative } from '@/lib/format';
+import { Calculator, Clock, Inbox, ListTodo, RefreshCw, Wrench, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+// Shape returned by GET /advisor/dashboard (AdvisorDashboardKpiDto on the API).
+interface AdvisorDashboardRequest {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleLicensePlate?: string;
+  vehicleSummary?: string;
+  locationSummary?: string;
+  status: string;
+  quotesReceivedCount?: number;
+  assignedGarageName?: string | null;
+  createdAtUtc: string;
+}
 
 interface AdvisorDashboardData {
-  assignedRequestsCount: number;
-  pendingQuoteReviewsCount: number;
-  awaitingCustomerDecisionCount: number;
-  activeServiceJobsCount: number;
-  additionalWorkPendingReviewCount: number;
-  completedJobsThisMonth: number;
-  priorityAttentionItems: AttentionItem[];
+  assignedRequestsCount?: number;
+  quotesAwaitingReviewCount?: number;
+  customerQuotationsPendingCount?: number;
+  activeJobsOverseeingCount?: number;
+  additionalWorkPendingCount?: number;
+  recentAssignedRequests?: AdvisorDashboardRequest[];
+}
+
+const linkButtonPrimary =
+  'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-electric-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2';
+
+function vehicleLabel(r: AdvisorDashboardRequest) {
+  const summary = r.vehicleSummary?.trim();
+  if (summary) return summary;
+  return [r.vehicleMake, r.vehicleModel].filter(Boolean).join(' ') || r.requestNumber;
 }
 
 export default function AdvisorDashboardPage() {
@@ -45,212 +54,157 @@ export default function AdvisorDashboardPage() {
   const [data, setData] = useState<AdvisorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     setRefreshing(true);
-    try {
-      const res = await apiFetch<AdvisorDashboardData>('/advisor/dashboard');
-      if (res.success && res.data) {
-        setData(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching advisor dashboard:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const res = await apiFetch<AdvisorDashboardData>('/advisor/dashboard');
+    if (res.success && res.data) {
+      setData(res.data);
+      setError(null);
+    } else {
+      setError(res.message || 'Could not load your overview.');
     }
-  };
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [loadDashboard]);
 
-  if (loading) {
-    return <LoadingState message="Loading Technical Advisor Console..." />;
-  }
+  const firstName = user?.fullName?.split(' ')[0];
+  const extraWork = data?.additionalWorkPendingCount ?? 0;
+  const recent = data?.recentAssignedRequests ?? [];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
-      {/* 1. Header Command Bar */}
-      <div className="bg-white rounded-2xl p-6 border border-surface-200 shadow-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-electric-50 text-electric-700 text-xs font-bold border border-electric-200 mb-2">
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Technical Review Duty • Verified Advisor Console</span>
-          </div>
-          <h1 className="text-2xl font-black text-navy-900 tracking-tight">
-            Advisor Operational Command Center
-          </h1>
-          <p className="text-xs text-navy-500 mt-0.5">
-            Logged in as <strong className="text-navy-800">{user?.fullName || 'Advisor'}</strong>. Oversee quote curations, markup models, garage assignments, and execution milestones.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadDashboard}
-            isLoading={refreshing}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh Data
-          </Button>
-          <Link href="/advisor/work-queue">
-            <Button variant="primary" size="sm" leftIcon={<ListTodo className="w-4 h-4" />}>
-              Open Work Queue
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title={firstName ? `Hi, ${firstName}` : 'Overview'}
+        description={
+          data
+            ? `You have ${data.assignedRequestsCount ?? 0} open request${(data.assignedRequestsCount ?? 0) === 1 ? '' : 's'}. Here is what needs you now.`
+            : 'What needs your attention today.'
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={loadDashboard}
+              isLoading={refreshing && !loading}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+            >
+              Refresh
             </Button>
-          </Link>
-        </div>
-      </div>
+            <Link href="/advisor/work-queue" className={linkButtonPrimary}>
+              <ListTodo className="h-4 w-4" />
+              Open work queue
+            </Link>
+          </>
+        }
+      />
 
-      {/* 2. Key Triage KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        <Card hoverEffect className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-navy-400 uppercase tracking-wider">
-              Pending Quote Reviews
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Calculator className="w-4 h-4" />
-            </div>
+      {loading ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[104px] rounded-2xl" />
+            ))}
           </div>
-          <div className="text-3xl font-black text-navy-900 mt-2">
-            {data?.pendingQuoteReviewsCount ?? 0}
+          <Skeleton className="h-64 rounded-2xl" />
+        </>
+      ) : error && !data ? (
+        <ErrorState title="Could not load your overview" error={error} onRetry={loadDashboard} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard
+              label="Quotes to review"
+              value={data?.quotesAwaitingReviewCount ?? 0}
+              icon={Calculator}
+              tone="amber"
+              hint="Pick a garage"
+              href="/advisor/work-queue?stage=pending-quotes"
+            />
+            <StatCard
+              label="Awaiting customer"
+              value={data?.customerQuotationsPendingCount ?? 0}
+              icon={Clock}
+              tone="blue"
+              hint="Quotations sent"
+              href="/advisor/work-queue?stage=awaiting-customer"
+            />
+            <StatCard
+              label="Extra work to approve"
+              value={extraWork}
+              icon={AlertTriangle}
+              tone={extraWork > 0 ? 'red' : 'neutral'}
+              hint="Raised by garages"
+              href="/advisor/work-queue?stage=additional-work"
+            />
+            <StatCard
+              label="Active jobs"
+              value={data?.activeJobsOverseeingCount ?? 0}
+              icon={Wrench}
+              tone="green"
+              hint="At garages now"
+              href="/advisor/work-queue?stage=active-jobs"
+            />
           </div>
-          <div className="text-xs text-navy-500 mt-1">Workshop proposals awaiting audit</div>
-          <Link
-            href="/advisor/quotes"
-            className="text-xs font-bold text-electric-600 hover:text-electric-700 flex items-center gap-1 mt-3"
-          >
-            <span>Audit workshop quotes</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </Card>
 
-        <Card hoverEffect className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-navy-400 uppercase tracking-wider">
-              Active Service Jobs
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-electric-50 text-electric-600 flex items-center justify-center">
-              <Wrench className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-black text-navy-900 mt-2">
-            {data?.activeServiceJobsCount ?? 0}
-          </div>
-          <div className="text-xs text-navy-500 mt-1">In workshop bays across territory</div>
-          <Link
-            href="/advisor/jobs"
-            className="text-xs font-bold text-electric-600 hover:text-electric-700 flex items-center gap-1 mt-3"
-          >
-            <span>Monitor active bays</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </Card>
-
-        <Card hoverEffect className="p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-navy-400 uppercase tracking-wider">
-              Awaiting Customer Decisions
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckSquare className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-black text-navy-900 mt-2">
-            {data?.awaitingCustomerDecisionCount ?? 0}
-          </div>
-          <div className="text-xs text-navy-500 mt-1">Sanitized customer proposals dispatched</div>
-          <Link
-            href="/advisor/requests"
-            className="text-xs font-bold text-electric-600 hover:text-electric-700 flex items-center gap-1 mt-3"
-          >
-            <span>View proposals</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </Card>
-      </div>
-
-      {/* 3. Priority Attention Triage Queue */}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <span>Priority Attention & Action Items</span>
-            </CardTitle>
-            <p className="text-xs text-navy-500 mt-0.5">
-              Service requests requiring triage, garage reassignment, or customer escalation.
-            </p>
-          </div>
-          <Link href="/advisor/work-queue">
-            <Button variant="outline" size="sm">
-              Full Triage Queue
-            </Button>
-          </Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          {data?.priorityAttentionItems && data.priorityAttentionItems.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Reference</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Summary & Context</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.priorityAttentionItems.map((item, idx) => (
-                  <TableRow key={item.referenceId || idx}>
-                    <TableCell>
-                      <span className="font-mono font-bold text-xs text-navy-900">
-                        {item.referenceNumber || item.referenceId?.substring(0, 8)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-semibold text-navy-800">
-                        {item.category || 'Quote Review'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-xs text-navy-700 line-clamp-1 max-w-md">
-                        <span className="font-medium text-navy-900">{item.title}</span> - {item.description}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={item.severity === 'CRITICAL' ? 'red' : item.severity === 'WARNING' ? 'amber' : 'blue'}
-                        dot
-                      >
-                        {item.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link href={item.actionUrl || '/advisor/work-queue'}>
-                        <Button size="sm" variant="primary">
-                          Triage
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="p-6">
-              <EmptyState
-                icon={<CheckCircle2 className="w-7 h-7 text-emerald-600" />}
-                title="All Operational Queues Clear"
-                description="No urgent service requests or quotation reviews are currently blocked."
+          {extraWork > 0 && (
+            <ListGroup>
+              <ListItem
+                href="/advisor/work-queue?stage=additional-work"
+                leading={<IconTile icon={AlertTriangle} tone="red" />}
+                title={`${extraWork} extra work request${extraWork === 1 ? '' : 's'} waiting for you`}
+                subtitle="Garages are waiting for your approval before they continue."
               />
-            </div>
+            </ListGroup>
           )}
-        </CardContent>
-      </Card>
+
+          {recent.length > 0 ? (
+            <ListGroup
+              title="Your latest requests"
+              action={
+                <Link
+                  href="/advisor/requests"
+                  className="inline-flex min-h-[36px] items-center text-sm font-medium text-electric-600 hover:text-electric-700"
+                >
+                  See all
+                </Link>
+              }
+            >
+              {recent.map((r) => (
+                <ListItem
+                  key={r.id}
+                  href={`/advisor/requests/${r.id}`}
+                  leading={<IconTile icon={Inbox} tone="blue" />}
+                  title={vehicleLabel(r)}
+                  subtitle={[r.customerName, r.locationSummary].filter(Boolean).join(' · ')}
+                  meta={
+                    <>
+                      <span className="font-mono">{r.requestNumber}</span>
+                      {' · '}
+                      {formatRelative(r.createdAtUtc)}
+                      {typeof r.quotesReceivedCount === 'number' && r.quotesReceivedCount > 0 && (
+                        <> · {r.quotesReceivedCount} quote{r.quotesReceivedCount === 1 ? '' : 's'}</>
+                      )}
+                    </>
+                  }
+                  trailing={<StatusBadge status={r.status} />}
+                />
+              ))}
+            </ListGroup>
+          ) : (
+            <EmptyState
+              icon={Inbox}
+              title="No requests assigned yet"
+              description="New service requests assigned to you will show up here."
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
