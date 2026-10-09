@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
@@ -46,6 +46,9 @@ public class ServiceJobService : IServiceJobService
 
     #region Queries
 
+    // Job lists are newest first; older jobs stay reachable from their request and from admin search.
+    private const int MaxJobListResults = 200;
+
     public async Task<IEnumerable<ServiceJobSummaryDto>> GetGarageJobsAsync(
         Guid garageId,
         string? status = null,
@@ -64,6 +67,7 @@ public class ServiceJobService : IServiceJobService
 
         var jobs = await query
             .OrderByDescending(j => j.CreatedAtUtc)
+            .Take(MaxJobListResults)
             .ToListAsync(cancellationToken);
 
         return jobs.Select(MapToSummaryDto);
@@ -187,6 +191,7 @@ public class ServiceJobService : IServiceJobService
 
         var jobs = await query
             .OrderByDescending(j => j.CreatedAtUtc)
+            .Take(MaxJobListResults)
             .ToListAsync(cancellationToken);
 
         return jobs.Select(MapToSummaryDto);

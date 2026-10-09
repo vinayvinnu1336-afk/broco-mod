@@ -38,7 +38,14 @@ interface PaymentResult {
   paymentNumber?: string;
   gatewayPaymentId?: string;
   gatewayOrderId?: string;
+  gatewayProvider?: string;
+  checkoutUrl?: string | null;
+  status?: string;
+  customerQuotationId?: string | null;
 }
+
+// The development gateway has no checkout page; it is confirmed straight away. Only used when the API says so.
+const DEV_GATEWAY = 'DevelopmentFake';
 
 const REJECTION_CATEGORIES = [
   { key: 'PRICE_TOO_HIGH', label: 'The price is too high' },
@@ -84,9 +91,18 @@ export default function CustomerQuotationDetailPage() {
     async function loadQuote() {
       setLoading(true);
       setErrorMsg(null);
-      const res = await apiFetch<QuoteDetail>(`/customer/quotes/${quoteId}`);
+      const [res, paymentsRes] = await Promise.all([
+        apiFetch<QuoteDetail>(`/customer/quotes/${quoteId}`),
+        apiFetch<PaymentResult[] | { items?: PaymentResult[] }>('/customer/payments'),
+      ]);
       if (res.success && res.data) {
         setQuote(res.data);
+        // Already paid? Show the receipt instead of offering "Pay now" again.
+        const list = Array.isArray(paymentsRes.data) ? paymentsRes.data : paymentsRes.data?.items ?? [];
+        const paid = list.find(
+          (p) => p.customerQuotationId === quoteId && ['paid', 'partiallyrefunded', 'refunded'].includes((p.status ?? '').toLowerCase())
+        );
+        setPaymentComplete(paid ? { ...paid, paymentId: paid.id } : null);
       } else {
         setErrorMsg(res.message || 'Quotation not found or not yet approved for viewing.');
       }
@@ -144,21 +160,28 @@ export default function CustomerQuotationDetailPage() {
     });
 
     if (res.success && res.data) {
-      // In development / test environment, verify immediately with fake gateway signature
-      const verifyRes = await apiFetch<PaymentResult>('/customer/payments/verify', {
-        method: 'POST',
-        body: JSON.stringify({
-          paymentId: res.data.paymentId,
-          gatewayPaymentId: `pay_direct_${Date.now()}`,
-          gatewaySignature: 'sig_fake_valid',
-          gatewayOrderId: res.data.gatewayOrderId,
-        }),
-      });
+      if (res.data.gatewayProvider === DEV_GATEWAY) {
+        const verifyRes = await apiFetch<PaymentResult>('/customer/payments/verify', {
+          method: 'POST',
+          body: JSON.stringify({
+            paymentId: res.data.paymentId,
+            gatewayPaymentId: `pay_direct_${Date.now()}`,
+            gatewaySignature: 'sig_fake_valid',
+            gatewayOrderId: res.data.gatewayOrderId,
+          }),
+        });
 
-      if (verifyRes.success && verifyRes.data) {
-        setPaymentComplete(verifyRes.data);
+        if (verifyRes.success && verifyRes.data) {
+          setPaymentComplete(verifyRes.data);
+        } else {
+          setPaymentError(verifyRes.message || 'We could not confirm the payment. Please try again.');
+        }
+      } else if (res.data.checkoutUrl) {
+        // Real payment provider: continue on its secure checkout page.
+        window.location.href = res.data.checkoutUrl;
+        return;
       } else {
-        setPaymentComplete(res.data);
+        setPaymentError('Online payment is not available right now. Please try again later.');
       }
     } else {
       setPaymentError(res.message || 'Payment initiation failed. Please try again.');

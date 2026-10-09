@@ -167,6 +167,11 @@ export default function NewServiceBookingPage() {
       return true;
     }
     if (currentStep === 2) {
+      // Garages are matched by distance, so a real position is required; never fall back to a default city point.
+      if (!locationPinned) {
+        setErrorMsg('Tap “Use my current location” so we can find garages near your car. If you blocked location access, allow it in your browser settings and try again.');
+        return false;
+      }
       if (!addressLine1.trim() || !city.trim() || !state.trim() || !pincode.trim()) {
         setErrorMsg('Please complete all location fields.');
         return false;
