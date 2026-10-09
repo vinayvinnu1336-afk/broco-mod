@@ -125,6 +125,49 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         body!.Success.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("SUPER_ADMIN")]
+    [InlineData("ADVISOR")]
+    [InlineData("GARAGE_STAFF")]
+    [InlineData("SOME_NEW_ROLE")]
+    public async Task Register_CannotSelfAssignPrivilegedRoles(string role)
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
+            $"escalate_{Guid.NewGuid():N}@brocomod.com", "Password123!", "Escalation Attempt", "+91 90000 22222", Role: role));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_GarageOwner_CreatesOwnPendingGarage_AndCannotJoinExistingGarage()
+    {
+        var client = _factory.CreateClient();
+        Guid existingGarageId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BroCoMod.Infrastructure.Persistence.ApplicationDbContext>();
+            existingGarageId = db.Garages.Select(g => g.Id).First();
+        }
+
+        var email = $"newgarage_{Guid.NewGuid():N}@brocomod.com";
+        var response = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
+            email, "Password123!", "New Garage Owner", "+91 90000 33333",
+            Role: "GARAGE_OWNER", GarageName: "Brand New Motors", Address: "1 Test Road, Bengaluru",
+            GarageId: existingGarageId, Latitude: 12.95, Longitude: 77.60));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<BroCoMod.Infrastructure.Persistence.ApplicationDbContext>();
+        var link = verifyDb.GarageUsers.Single(gu => gu.User.Email == email);
+        link.GarageId.Should().NotBe(existingGarageId);
+        var garage = verifyDb.Garages.Single(g => g.Id == link.GarageId);
+        garage.Name.Should().Be("Brand New Motors");
+        garage.IsVerified.Should().BeFalse();
+        garage.Status.Should().Be(BroCoMod.Domain.Enums.GarageStatus.PendingVerification);
+    }
+
     [Fact]
     public async Task HealthProbes_LiveAndReady_AreAvailable()
     {

@@ -1,35 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  Wrench, 
-  ArrowRight, 
-  Lock, 
-  Mail, 
-  User, 
-  Phone, 
-  Building2, 
-  MapPin,
-  ShieldCheck, 
-  CheckCircle2, 
-  Car,
-  Clock,
-  CreditCard,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+import { Wrench, ArrowRight, Eye, EyeOff, Car, Store } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const { register, isLoading } = useAuth();
+type Role = 'CUSTOMER' | 'GARAGE_OWNER';
 
-  const [role, setRole] = useState<'CUSTOMER' | 'GARAGE_OWNER'>('CUSTOMER');
+/** Only allow same-origin relative paths so `?redirect=` can't send users to another site. */
+function safeRedirect(value: string | null): string {
+  if (!value) return '';
+  if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '';
+  return value;
+}
+
+const roleOptions: { value: Role; label: string; hint: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'CUSTOMER', label: 'Car owner', hint: 'Book a service', icon: Car },
+  { value: 'GARAGE_OWNER', label: 'Garage', hint: 'Get jobs nearby', icon: Store },
+];
+
+function RegisterForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = safeRedirect(searchParams.get('redirect'));
+  const initialRole: Role = searchParams.get('role')?.toLowerCase() === 'garage' ? 'GARAGE_OWNER' : 'CUSTOMER';
+
+  const { register } = useAuth();
+
+  const [role, setRole] = useState<Role>(initialRole);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -38,6 +40,7 @@ export default function RegisterPage() {
   const [garageName, setGarageName] = useState('');
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +57,11 @@ export default function RegisterPage() {
     }
 
     if (role === 'GARAGE_OWNER' && (!garageName.trim() || !address.trim())) {
-      setError('Please provide your workshop name and physical address.');
+      setError('Please add your garage name and address.');
       return;
     }
 
+    setSubmitting(true);
     try {
       const res = await register({
         email: email.trim(),
@@ -70,256 +74,237 @@ export default function RegisterPage() {
       });
 
       if (!res.success) {
-        // Sanitize technical messages to clean human-readable copy
         const rawErr = res.error || '';
-        if (rawErr.toLowerCase().includes('already exists')) {
-          setError(`An account with email ${email} already exists. Please sign in.`);
-        } else if (rawErr.toLowerCase().includes('failed to fetch') || rawErr.toLowerCase().includes('network')) {
-          setError('Unable to reach the server. Please check your connection and try again.');
-        } else if (rawErr.length < 100 && !rawErr.includes('Exception')) {
+        const lower = rawErr.toLowerCase();
+        if (lower.includes('already exists')) {
+          setError(`An account with ${email.trim()} already exists. Sign in instead.`);
+        } else if (lower.includes('failed to fetch') || lower.includes('network')) {
+          setError('We can’t reach the server. Check your connection and try again.');
+        } else if (rawErr && rawErr.length < 100 && !rawErr.includes('Exception')) {
           setError(rawErr);
         } else {
-          setError('Unable to create your account right now. Please try again.');
+          setError('We couldn’t create your account right now. Please try again.');
         }
+        setSubmitting(false);
         return;
       }
 
       if (role === 'GARAGE_OWNER') {
         router.push('/garage/dashboard');
       } else {
-        router.push('/customer/dashboard');
+        // e.g. "Book a service" on the landing page sends new customers here with ?redirect=/customer/requests/new
+        router.push(redirect.startsWith('/customer/') ? redirect : '/customer/dashboard');
       }
     } catch (err: unknown) {
       console.error('Registration exception:', err);
-      setError('Unable to create your account right now. Please try again.');
+      setError('We couldn’t create your account right now. Please try again.');
+      setSubmitting(false);
     }
   };
 
-  const benefits = [
-    {
-      icon: <ShieldCheck className="w-5 h-5 text-electric-400" />,
-      title: 'Verified Garages',
-      desc: 'Accredited workshops screened for tools, OEM parts compliance, and certified mechanics.',
-    },
-    {
-      icon: <CheckCircle2 className="w-5 h-5 text-electric-400" />,
-      title: 'Transparent Pricing',
-      desc: 'Every quote is reviewed by certified automotive advisors with zero hidden markup.',
-    },
-    {
-      icon: <Clock className="w-5 h-5 text-electric-400" />,
-      title: 'Live Service Tracking',
-      desc: 'Real-time milestones from inspection through vehicle ready and digital handover.',
-    },
-    {
-      icon: <CreditCard className="w-5 h-5 text-electric-400" />,
-      title: 'Secure Payments',
-      desc: 'Escrow-protected payments released only upon customer satisfaction and vehicle delivery.',
-    },
-  ];
+  const isGarage = role === 'GARAGE_OWNER';
 
   return (
-    <div className="min-h-screen bg-surface-50 flex flex-col justify-center font-sans">
-      <div className="w-full flex-1 flex flex-col lg:flex-row min-h-screen">
-        {/* LEFT SIDE: Brand Showcase & Automotive Benefits */}
-        <div className="lg:w-1/2 bg-navy-900 text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle Glow Background */}
-          <div className="absolute top-0 -left-10 w-96 h-96 bg-electric-600/20 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Logo Header */}
-          <div className="relative z-10">
-            <Link href="/" className="inline-flex items-center gap-3 group">
-              <div className="w-11 h-11 rounded-2xl bg-electric-600 flex items-center justify-center text-white shadow-lg shadow-electric-600/30 group-hover:scale-105 transition-transform">
-                <Wrench className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center">
-                  <span className="text-xl font-black tracking-tight text-white uppercase">BroCo</span>
-                  <span className="text-xl font-light tracking-widest text-electric-400 uppercase ml-1">Mod</span>
-                </div>
-                <span className="text-[10px] text-surface-400 font-semibold tracking-wider uppercase block">
-                  Automotive Service Platform
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          {/* Hero Branding Content */}
-          <div className="my-12 relative z-10 space-y-8 max-w-lg">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-electric-950/60 border border-electric-700/60 text-electric-300 text-xs font-semibold mb-4">
-                <span>The Modern Automotive Care Experience</span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-                Your Vehicle. <br />
-                <span className="text-electric-400">Our Responsibility.</span>
-              </h1>
-              <p className="mt-3 text-sm text-surface-300 leading-relaxed">
-                Connect with the highest-rated workshops in your area with independent advisor oversight and complete digital milestone tracking.
-              </p>
-            </div>
-
-            {/* 4 Supporting Benefits */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4">
-              {benefits.map((b) => (
-                <div key={b.title} className="bg-navy-800/80 rounded-2xl p-4 border border-navy-700/80 space-y-1">
-                  <div className="flex items-center gap-2 font-bold text-sm text-white">
-                    {b.icon}
-                    <span>{b.title}</span>
-                  </div>
-                  <p className="text-xs text-surface-300 leading-relaxed pl-7">{b.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Security Assurance */}
-          <div className="relative z-10 pt-6 border-t border-navy-800 text-xs text-surface-400 flex items-center justify-between">
-            <span>Enterprise Data Encryption & Privacy</span>
-            <span>Accredited Workshop Network</span>
-          </div>
+    <div className="flex min-h-screen flex-col bg-surface-50">
+      <header className="pt-safe">
+        <div className="mx-auto flex h-14 max-w-md items-center px-4 sm:h-16">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="BroCo Mod home">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
+              <Wrench className="h-[18px] w-[18px]" />
+            </span>
+            <span className="text-[15px] font-extrabold tracking-tight text-navy-900 sm:text-lg">
+              BroCo<span className="font-light text-electric-600"> Mod</span>
+            </span>
+          </Link>
         </div>
+      </header>
 
-        {/* RIGHT SIDE: Clean White Registration Form */}
-        <div className="lg:w-1/2 bg-white p-6 sm:p-12 lg:p-16 flex flex-col justify-center items-center">
-          <div className="w-full max-w-md space-y-6">
-            <div>
-              <h2 className="text-2xl font-black text-navy-900 tracking-tight">Create Your Account</h2>
-              <p className="mt-1 text-xs text-navy-500">
-                Join BroCo Mod as a vehicle owner or workshop service partner.
-              </p>
-            </div>
+      <main className="pb-safe flex flex-1 items-start justify-center px-4 pb-10 pt-4 sm:items-center sm:py-8">
+        <div className="w-full max-w-md">
+          <div className="rounded-3xl border border-surface-200 bg-white p-5 shadow-elevated sm:p-8">
+            <h1 className="text-2xl font-extrabold tracking-tight text-navy-900">Create your account</h1>
+            <p className="mt-1 text-sm text-navy-500">
+              {isGarage
+                ? 'Register your workshop to receive service requests nearby.'
+                : 'Book car service from verified garages near you.'}
+            </p>
 
-            {/* Account Role Selector */}
-            <div className="grid grid-cols-2 gap-2 p-1.5 bg-surface-100 rounded-2xl border border-surface-200">
-              <button
-                type="button"
-                onClick={() => setRole('CUSTOMER')}
-                className={`py-2.5 px-3 text-xs font-bold rounded-xl transition ${
-                  role === 'CUSTOMER'
-                    ? 'bg-white text-navy-900 shadow-sm border border-surface-200'
-                    : 'text-navy-600 hover:text-navy-900'
-                }`}
-              >
-                Vehicle Owner
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('GARAGE_OWNER')}
-                className={`py-2.5 px-3 text-xs font-bold rounded-xl transition ${
-                  role === 'GARAGE_OWNER'
-                    ? 'bg-white text-navy-900 shadow-sm border border-surface-200'
-                    : 'text-navy-600 hover:text-navy-900'
-                }`}
-              >
-                Workshop Partner
-              </button>
+            <div className="mt-5 grid grid-cols-2 gap-2" role="group" aria-label="Account type">
+              {roleOptions.map((opt) => {
+                const Icon = opt.icon;
+                const active = role === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRole(opt.value)}
+                    aria-pressed={active}
+                    className={`flex min-h-[60px] items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition ${
+                      active
+                        ? 'border-electric-600 bg-electric-50 ring-1 ring-electric-600'
+                        : 'border-surface-200 bg-white hover:border-surface-300'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        active ? 'bg-electric-600 text-white' : 'bg-surface-100 text-navy-500'
+                      }`}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-semibold ${active ? 'text-electric-800' : 'text-navy-800'}`}>
+                        {opt.label}
+                      </span>
+                      <span className="block truncate text-xs text-navy-500">{opt.hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {error && (
-              <Alert type="error" onClose={() => setError(null)}>
+              <Alert type="error" onClose={() => setError(null)} className="mt-4">
                 {error}
               </Alert>
             )}
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
               <Input
-                label="Full Legal Name"
-                placeholder="e.g. Alex Morgan"
+                id="fullName"
+                label="Full name"
+                autoComplete="name"
+                autoCapitalize="words"
+                placeholder="e.g. Priya Sharma"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                leftIcon={<User className="w-4 h-4" />}
                 required
               />
 
               <Input
-                label="Email Address"
+                id="email"
+                label="Email"
                 type="email"
-                placeholder="alex@example.com"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                leftIcon={<Mail className="w-4 h-4" />}
                 required
               />
 
               <Input
-                label="Phone Number"
+                id="phoneNumber"
+                label="Mobile number"
                 type="tel"
-                placeholder="+1 (555) 019-2834"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="e.g. +91 98765 43210"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                leftIcon={<Phone className="w-4 h-4" />}
+                helperText="We'll use this to update you about your booking."
                 required
               />
 
-              <div className="w-full">
-                <Input
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Minimum 8 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  leftIcon={<Lock className="w-4 h-4" />}
-                  rightIcon={
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-navy-400 hover:text-navy-700 pointer-events-auto"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  }
-                  required
-                />
-              </div>
+              <Input
+                id="password"
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                className="pr-12"
+                helperText="Use at least 8 characters."
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="pointer-events-auto -mr-3.5 flex h-11 w-11 items-center justify-center rounded-xl text-navy-400 transition hover:text-navy-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                }
+                required
+              />
 
-              {role === 'GARAGE_OWNER' && (
-                <div className="p-4 bg-surface-50 rounded-2xl border border-surface-200 space-y-4">
-                  <div className="text-xs font-bold text-navy-800 uppercase tracking-wider">
-                    Workshop Profile Details
-                  </div>
+              {isGarage && (
+                <fieldset className="space-y-4 rounded-2xl border border-surface-200 bg-surface-50 p-4">
+                  <legend className="px-1 text-sm font-semibold text-navy-800">Your garage</legend>
                   <Input
-                    label="Workshop / Business Name"
-                    placeholder="Apex Motorsport Tuning & Repair"
+                    id="garageName"
+                    label="Garage or workshop name"
+                    autoComplete="organization"
+                    placeholder="e.g. Sharma Auto Works"
                     value={garageName}
                     onChange={(e) => setGarageName(e.target.value)}
-                    leftIcon={<Building2 className="w-4 h-4" />}
                     required
                   />
-
                   <Input
-                    label="Workshop Physical Address"
-                    placeholder="400 Speed Blvd, Industrial Area"
+                    id="address"
+                    label="Workshop address"
+                    autoComplete="street-address"
+                    placeholder="Street, area, city, PIN code"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    leftIcon={<MapPin className="w-4 h-4" />}
+                    helperText="Used to send you requests from car owners within 10 km."
                     required
                   />
-                </div>
+                </fieldset>
               )}
 
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
-                className="w-full mt-4"
-                isLoading={isLoading}
-                rightIcon={<ArrowRight className="w-4 h-4" />}
+                className="w-full"
+                isLoading={submitting}
+                rightIcon={<ArrowRight className="h-5 w-5" />}
               >
-                {isLoading ? 'Creating Account...' : 'Complete Registration'}
+                {submitting ? 'Creating account…' : isGarage ? 'Register garage' : 'Create account'}
               </Button>
             </form>
 
-            <div className="pt-2 text-center text-xs text-navy-600">
-              <span>Already have an account? </span>
-              <Link href="/login" className="font-bold text-electric-600 hover:text-electric-700 hover:underline">
+            <p className="mt-6 text-center text-sm text-navy-500">
+              Already have an account?{' '}
+              <Link
+                href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
+                className="font-semibold text-electric-600 hover:text-electric-700 hover:underline"
+              >
                 Sign in
               </Link>
-            </div>
+            </p>
           </div>
+
+          <p className="mt-6 text-center text-xs text-navy-400">
+            <Link href="/" className="hover:text-navy-600 hover:underline">
+              ← Back to home
+            </Link>
+          </p>
         </div>
-      </div>
+      </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-surface-50">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-electric-600 text-white shadow-lg shadow-electric-600/30">
+            <Wrench className="h-6 w-6" />
+          </span>
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }
