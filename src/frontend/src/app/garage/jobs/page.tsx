@@ -132,8 +132,10 @@ export default function GarageJobsPage() {
                   key={job.id}
                   href={`/garage/jobs/${job.id}`}
                   leading={jobTile(String(job.status))}
-                  title={job.jobNumber}
-                  subtitle={`Request ${job.requestNumber || '—'}`}
+                  title={job.vehicleSummary || job.jobNumber}
+                  subtitle={[job.vehicleLicensePlate, job.vehicleSummary ? job.jobNumber : null, `Request ${job.requestNumber || '—'}`]
+                    .filter(Boolean)
+                    .join(' · ')}
                   meta={jobMeta(job)}
                   trailing={<StatusBadge status={job.status} />}
                 />

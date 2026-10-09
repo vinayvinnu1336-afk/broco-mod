@@ -66,7 +66,7 @@ export const ListItem: React.FC<ListItemProps> = ({
     <>
       {leading && <div className="shrink-0">{leading}</div>}
       <div className="min-w-0 flex-1">
-        <div className={`${clamp} text-[15px] font-semibold leading-snug text-navy-900`}>{title}</div>
+        <div className={`${wrap ? clamp : 'line-clamp-2 break-words'} text-[15px] font-semibold leading-snug text-navy-900`}>{title}</div>
         {subtitle && <div className={`mt-0.5 ${clamp} text-sm text-navy-500`}>{subtitle}</div>}
         {meta && <div className="mt-1 text-xs text-navy-400">{meta}</div>}
       </div>

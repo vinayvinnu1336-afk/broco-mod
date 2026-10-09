@@ -75,6 +75,8 @@ export interface ServiceJobSummaryDto {
   estimatedCompletionAtUtc?: string | null;
   actualWorkCompletedAtUtc?: string | null;
   createdAtUtc: string;
+  vehicleSummary?: string | null;
+  vehicleLicensePlate?: string | null;
 }
 
 export interface GarageServiceJobDetailDto {

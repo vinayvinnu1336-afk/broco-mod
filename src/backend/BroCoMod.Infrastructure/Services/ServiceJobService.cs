@@ -957,7 +957,11 @@ public class ServiceJobService : IServiceJobService
             ScheduledStartAtUtc: job.ScheduledStartAtUtc,
             EstimatedCompletionAtUtc: job.EstimatedCompletionAtUtc,
             ActualWorkCompletedAtUtc: job.ActualWorkCompletedAtUtc,
-            CreatedAtUtc: job.CreatedAtUtc
+            CreatedAtUtc: job.CreatedAtUtc,
+            VehicleSummary: job.ServiceRequest != null
+                ? $"{job.ServiceRequest.VehicleYear} {job.ServiceRequest.VehicleMake} {job.ServiceRequest.VehicleModel}"
+                : null,
+            VehicleLicensePlate: job.ServiceRequest?.VehicleLicensePlate
         );
     }
 

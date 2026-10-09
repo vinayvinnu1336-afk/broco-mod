@@ -61,7 +61,9 @@ public record ServiceJobSummaryDto(
     DateTime? ScheduledStartAtUtc,
     DateTime? EstimatedCompletionAtUtc,
     DateTime? ActualWorkCompletedAtUtc,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    string? VehicleSummary = null,
+    string? VehicleLicensePlate = null
 );
 
 public record GarageServiceJobDetailDto(

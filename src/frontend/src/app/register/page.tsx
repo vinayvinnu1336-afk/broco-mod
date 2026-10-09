@@ -181,7 +181,7 @@ function RegisterForm() {
                       <span className={`block text-sm font-semibold ${active ? 'text-electric-800' : 'text-navy-800'}`}>
                         {opt.label}
                       </span>
-                      <span className="block truncate text-xs text-navy-500">{opt.hint}</span>
+                      <span className="block text-xs leading-snug text-navy-500">{opt.hint}</span>
                     </span>
                   </button>
                 );
