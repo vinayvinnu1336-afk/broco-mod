@@ -663,7 +663,9 @@ public class ServiceRequestService : IServiceRequestService
         ServiceRequestStatus.InProgress => "IN_PROGRESS",
         ServiceRequestStatus.Completed => "COMPLETED",
         ServiceRequestStatus.Cancelled => "CANCELLED",
-        _ => status.ToString().ToUpperInvariant()
+        ServiceRequestStatus.AdvisorReview => "ADVISOR_REVIEW",
+        ServiceRequestStatus.GarageSelected => "GARAGE_SELECTED",
+        _ => System.Text.RegularExpressions.Regex.Replace(status.ToString(), "([a-z0-9])([A-Z])", "$1_$2").ToUpperInvariant()
     };
 
     private static string FormatStatus(GarageRequestStatus status) => status switch
