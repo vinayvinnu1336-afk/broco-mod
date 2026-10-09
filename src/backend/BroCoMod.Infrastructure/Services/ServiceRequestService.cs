@@ -156,6 +156,24 @@ public class ServiceRequestService : IServiceRequestService
             serviceRequest.MarkGaragesNotified();
         }
 
+        // 7b. Give the request an owner: the active advisor with the fewest open requests.
+        // Without an owner the request never appears on any advisor's dashboard or work queue.
+        var responsibleAdvisorId = await _context.AdvisorProfiles
+            .AsNoTracking()
+            .Where(a => a.User.IsActive)
+            .OrderBy(a => _context.ServiceRequests.Count(sr =>
+                sr.AssignedAdvisorId == a.Id &&
+                sr.Status != ServiceRequestStatus.Completed &&
+                sr.Status != ServiceRequestStatus.Cancelled))
+            .ThenBy(a => a.Id)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (responsibleAdvisorId.HasValue)
+        {
+            serviceRequest.SetResponsibleAdvisor(responsibleAdvisorId.Value);
+        }
+
         // 8. Atomic Database Transaction
         var dbContext = _context as DbContext;
         if (dbContext != null && dbContext.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")

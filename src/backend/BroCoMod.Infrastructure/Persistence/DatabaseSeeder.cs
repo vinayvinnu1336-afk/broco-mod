@@ -123,6 +123,9 @@ public class DatabaseSeeder
         }
 
 
+        // 4b-2. Give open requests created before advisor auto-assignment existed an owning advisor.
+        await AssignUnownedOpenRequestsAsync();
+
         // 4c. Bootstrap the first Super Admin from configuration (BootstrapAdmin__Email / BootstrapAdmin__Password).
         // Runs only while no Super Admin exists, so the credentials can be removed from the environment afterwards.
         await SeedBootstrapAdminAsync();
@@ -320,8 +323,12 @@ public class DatabaseSeeder
                     _context.ServiceLocations.Add(location);
                     await _context.SaveChangesAsync();
 
+                    // Take the number from the same sequence real bookings use; a hard-coded number
+                    // collides with the sequence's first value and makes the first real booking fail.
+                    var demoRequestNumber = await new Services.RequestNumberGenerator(_context).GenerateNextRequestNumberAsync();
+
                     var demoRequest = new ServiceRequest(
-                        requestNumber: "BM-100001",
+                        requestNumber: demoRequestNumber,
                         customerId: customerProfile.Id,
                         customerVehicleId: demoVehicle.Id,
                         vehicleMake: demoVehicle.Make,
@@ -349,6 +356,38 @@ public class DatabaseSeeder
         }
 
         _logger.LogInformation("Database initialization and seeding completed successfully.");
+    }
+
+    private async Task AssignUnownedOpenRequestsAsync()
+    {
+        var unowned = await _context.ServiceRequests
+            .Where(sr => sr.AssignedAdvisorId == null &&
+                         sr.Status != ServiceRequestStatus.Completed &&
+                         sr.Status != ServiceRequestStatus.Cancelled)
+            .ToListAsync();
+        if (unowned.Count == 0) return;
+
+        var advisorLoads = await _context.AdvisorProfiles
+            .Where(a => a.User.IsActive)
+            .Select(a => new
+            {
+                a.Id,
+                Open = _context.ServiceRequests.Count(sr => sr.AssignedAdvisorId == a.Id &&
+                    sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled)
+            })
+            .ToListAsync();
+        if (advisorLoads.Count == 0) return;
+
+        var loads = advisorLoads.ToDictionary(a => a.Id, a => a.Open);
+        foreach (var request in unowned)
+        {
+            var advisorId = loads.OrderBy(kv => kv.Value).ThenBy(kv => kv.Key).First().Key;
+            request.SetResponsibleAdvisor(advisorId);
+            loads[advisorId]++;
+        }
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Assigned an owning advisor to {Count} open service requests.", unowned.Count);
     }
 
     private async Task SeedBootstrapAdminAsync()

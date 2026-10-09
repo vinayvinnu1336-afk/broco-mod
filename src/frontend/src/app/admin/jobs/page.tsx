@@ -66,7 +66,7 @@ export default function AdminJobsPage() {
     const res = await apiFetch<PagedResult<AdminJobListItem>>(url);
     if (res.success && res.data) {
       setJobs(res.data.items);
-      setPage(res.data.pageNumber);
+      setPage(res.data.page ?? res.data.pageNumber ?? 1);
       setTotalPages(res.data.totalPages);
       setTotalCount(res.data.totalCount);
       setError(null);

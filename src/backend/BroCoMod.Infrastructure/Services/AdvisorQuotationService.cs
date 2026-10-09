@@ -450,6 +450,19 @@ public class AdvisorQuotationService : IAdvisorQuotationService
         // Update service request status
         serviceRequest.MarkGarageSelected();
 
+        // An advisor who acts on an unowned request takes ownership, so it shows on their dashboard and queue.
+        if (serviceRequest.AssignedAdvisorId == null)
+        {
+            var advisorProfileId = await _context.AdvisorProfiles
+                .Where(a => a.UserId == advisorId || a.Id == advisorId)
+                .Select(a => (Guid?)a.Id)
+                .FirstOrDefaultAsync(ct);
+            if (advisorProfileId.HasValue)
+            {
+                serviceRequest.SetResponsibleAdvisor(advisorProfileId.Value);
+            }
+        }
+
         // Audit events
         await _auditService.LogAsync(
             action: "GARAGE_SELECTED",

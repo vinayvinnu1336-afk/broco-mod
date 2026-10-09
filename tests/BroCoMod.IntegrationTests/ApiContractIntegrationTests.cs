@@ -6,6 +6,7 @@ using System.Text.Json;
 using BroCoMod.Application.DTOs;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace BroCoMod.IntegrationTests;
@@ -84,6 +85,35 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
         var body = await res.Content.ReadFromJsonAsync<ApiResponse<List<CustomerQuotationDto>>>(JsonOptions);
         body!.Success.Should().BeTrue();
         body.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task NewServiceRequest_IsOwnedByAnAdvisor_AndAppearsOnTheirDashboard()
+    {
+        var customer = await SignedInAsync("customer@brocomod.com");
+        var vehicles = await customer.GetFromJsonAsync<ApiResponse<List<CustomerVehicleDetailDto>>>("/api/v1/customer/vehicles", JsonOptions);
+        var vehicleId = vehicles!.Data!.First().Id;
+
+        var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
+            VehicleId: vehicleId,
+            AddressLine1: "12 Residency Road",
+            AddressLine2: null,
+            City: "Bengaluru",
+            State: "Karnataka",
+            Pincode: "560025",
+            Country: "India",
+            Latitude: 12.9716,
+            Longitude: 77.5946,
+            ProblemDescription: "Engine warning light is on",
+            ServiceCategory: "Electrical & Diagnostics",
+            PreferredServiceDate: null));
+        booking.EnsureSuccessStatusCode();
+        var created = await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BroCoMod.Infrastructure.Persistence.ApplicationDbContext>();
+        var stored = await db.ServiceRequests.FindAsync(created!.Data!.Id);
+        stored!.AssignedAdvisorId.Should().NotBeNull("an unowned request never reaches any advisor's dashboard");
     }
 
     [Fact]

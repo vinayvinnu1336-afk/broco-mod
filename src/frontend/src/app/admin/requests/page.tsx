@@ -61,7 +61,7 @@ export default function AdminRequestsPage() {
     const res = await apiFetch<PagedResult<AdminRequestSummary>>(url);
     if (res.success && res.data) {
       setRequests(res.data.items);
-      setPage(res.data.pageNumber);
+      setPage(res.data.page ?? res.data.pageNumber ?? 1);
       setTotalPages(res.data.totalPages);
       setTotalCount(res.data.totalCount);
       setError(null);
