@@ -76,3 +76,8 @@ $RECYCLE.BIN/
 # Database backups (contain customer data)
 backups/
 
+
+# Playwright output
+src/frontend/e2e-report/
+src/frontend/e2e-results/
+
