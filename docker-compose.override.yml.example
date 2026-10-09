@@ -1,6 +1,7 @@
-# Local development overrides example
-# Rename or copy to docker-compose.override.yml for local modifications
-# Note: docker-compose.override.yml is ignored by git to prevent accidental credential commits.
+# Local development overrides.
+# Copy to docker-compose.override.yml (git-ignored) to run the stack on your own machine
+# with demo accounts, the fake payment gateway and direct access to the database and API.
+# NEVER use this file on a server that is reachable from the internet.
 
 services:
   postgres:
@@ -13,15 +14,17 @@ services:
 
   backend:
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Logging__LogLevel__Default=Debug
-    volumes:
-      - ./src/backend:/src/src/backend:ro
+      ASPNETCORE_ENVIRONMENT: Development
+      Payment__AllowFakeGateway: "true"
+      EnableDemoSeeding: "true"
+      Swagger__Enabled: "true"
+      Logging__LogLevel__Default: Debug
+    ports:
+      - "5000:5000"
 
   frontend:
-    environment:
-      - NODE_ENV=development
-    volumes:
-      - ./src/frontend:/app
-      - /app/node_modules
-      - /app/.next
+    build:
+      args:
+        NEXT_PUBLIC_DEMO_MODE: "true"
+    ports:
+      - "3005:3000"

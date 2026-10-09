@@ -34,15 +34,23 @@ spec:
                 secretKeyRef:
                   name: broco-mod-secrets
                   key: redis-url
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: broco-mod-secrets
+                  key: jwt-secret
+            # Run migrations from a single release Job instead of every pod in production clusters
+            - name: Database__MigrateOnStartup
+              value: "true"
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /healthz/live
               port: 5000
             initialDelaySeconds: 15
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /healthz/ready
               port: 5000
             initialDelaySeconds: 10
             periodSeconds: 5

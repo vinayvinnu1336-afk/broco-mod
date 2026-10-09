@@ -72,3 +72,7 @@ desktop.ini
 $RECYCLE.BIN/
 *.swp
 *~
+
+# Database backups (contain customer data)
+backups/
+

@@ -1,3 +1,21 @@
+# ==============================================================================
+# BroCo Mod - production stack for a single VPS (e.g. Hostinger KVM 1/2)
+#
+#   cp .env.example .env      # then fill in every value marked REQUIRED
+#   docker compose up -d
+#
+# Only Nginx is reachable from the internet (ports 80/443). PostgreSQL, Redis,
+# the API and the Next.js server live on a private Docker network.
+# Docker publishes ports past the host firewall (ufw), so never add "ports:" to
+# the internal services here; use docker-compose.override.yml for local dev.
+# ==============================================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
@@ -6,18 +24,32 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-broco_mod}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    # Tuned for a 4-8 GB VPS shared with the rest of the stack.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=100
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-postgis.sql:/docker-entrypoint-initdb.d/01-init-postgis.sql:ro
+      - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d broco_mod"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
+    mem_limit: 1g
+    logging: *default-logging
     networks:
       - broco-network
 
@@ -25,9 +57,7 @@ services:
     image: redis:7-alpine
     container_name: broco-mod-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -35,6 +65,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 192m
+    logging: *default-logging
     networks:
       - broco-network
 
@@ -42,7 +74,7 @@ services:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
-    image: broco-mod-backend:latest
+    image: ${BACKEND_IMAGE:-broco-mod-backend:latest}
     container_name: broco-mod-backend
     restart: unless-stopped
     depends_on:
@@ -51,19 +83,29 @@ services:
       redis:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-broco_mod};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-broco_mod};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD};Maximum Pool Size=50
       ConnectionStrings__Redis: redis:6379
-      PlatformSettings__DefaultSearchRadiusKm: 10.0
-    ports:
-      - "5000:5000"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env (64+ random characters)}
+      Jwt__Issuer: ${JWT_ISSUER:-BroCoMod}
+      Jwt__Audience: ${JWT_AUDIENCE:-BroCoModApp}
+      PlatformSettings__DefaultSearchRadiusKm: ${DEFAULT_SEARCH_RADIUS_KM:-10.0}
+      Cors__AllowedOrigins__0: ${PUBLIC_ORIGIN:-http://localhost}
+      RateLimiting__AuthPermitPerMinute: ${AUTH_RATE_LIMIT_PER_MINUTE:-10}
+      RateLimiting__ApiPermitPerMinute: ${API_RATE_LIMIT_PER_MINUTE:-300}
+      BootstrapAdmin__Email: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BootstrapAdmin__Password: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      Payment__AllowFakeGateway: ${ALLOW_FAKE_PAYMENTS:-false}
+      EnableDemoSeeding: ${ENABLE_DEMO_SEEDING:-false}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz/live"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 20s
+    mem_limit: 768m
+    logging: *default-logging
     networks:
       - broco-network
 
@@ -72,16 +114,22 @@ services:
       context: ./src/frontend
       dockerfile: ../../docker/frontend/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
-    image: broco-mod-frontend:latest
+        NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_DEMO_MODE: ${ENABLE_DEMO_SEEDING:-false}
+    image: ${FRONTEND_IMAGE:-broco-mod-frontend:latest}
     container_name: broco-mod-frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: /api/v1
-    ports:
-      - "${FRONTEND_PORT:-3005}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 512m
+    logging: *default-logging
     networks:
       - broco-network
 
@@ -93,12 +141,30 @@ services:
     container_name: broco-mod-nginx
     restart: unless-stopped
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    mem_limit: 128m
+    logging: *default-logging
     networks:
       - broco-network
+
+  # One-off: docker compose --profile tls run --rm certbot certonly ...  (see docs/deployment/vps-hostinger.md)
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["tls"]
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
 
 networks:
   broco-network:
@@ -110,3 +176,7 @@ volumes:
     name: broco-mod-postgres-data
   redis_data:
     name: broco-mod-redis-data
+  letsencrypt:
+    name: broco-mod-letsencrypt
+  certbot_www:
+    name: broco-mod-certbot-www
