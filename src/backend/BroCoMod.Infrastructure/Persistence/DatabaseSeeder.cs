@@ -1,4 +1,4 @@
-using BroCoMod.Application.Interfaces;
+﻿using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
@@ -106,6 +106,7 @@ public class DatabaseSeeder
 
         // 4. Seed Essential Vehicle Master Catalog (Manufacturers, Models, Variants)
         await SeedVehicleMasterAsync();
+        await SeedIndianMarketCatalogAsync();
 
         // 4b. Seed Default Platform Fee Policy (10% standard fee, 18% GST)
         if (!await _context.PlatformFeeConfigurations.AnyAsync())
@@ -149,8 +150,8 @@ public class DatabaseSeeder
             garage = new Garage(
                 name: "Central Metro Motors",
                 email: "info@centralmetro.com",
-                phoneNumber: "+1 555 987 6543",
-                address: "100 Performance Way, Metro City",
+                phoneNumber: "+91 80 4000 1234",
+                address: "100 MG Road, Bengaluru, Karnataka 560001",
                 longitude: 77.5946,
                 latitude: 12.9716
             );
@@ -165,7 +166,7 @@ public class DatabaseSeeder
         await SeedUserIfNotExists(
             email: "admin@brocomod.com",
             fullName: "Super Admin",
-            phoneNumber: "+1 555 000 0001",
+            phoneNumber: "+91 90000 00001",
             password: defaultPassword,
             roleName: AppRoles.SuperAdmin);
 
@@ -173,7 +174,7 @@ public class DatabaseSeeder
         var advisorUser = await SeedUserIfNotExists(
             email: "advisor@brocomod.com",
             fullName: "Alex Vance (Lead Advisor)",
-            phoneNumber: "+1 555 000 0002",
+            phoneNumber: "+91 90000 00002",
             password: defaultPassword,
             roleName: AppRoles.Advisor);
 
@@ -187,7 +188,7 @@ public class DatabaseSeeder
         var garageOwnerUser = await SeedUserIfNotExists(
             email: "garage.owner@centralmetro.com",
             fullName: "Marcus Sterling (Owner)",
-            phoneNumber: "+1 555 000 0003",
+            phoneNumber: "+91 90000 00003",
             password: defaultPassword,
             roleName: AppRoles.GarageOwner);
 
@@ -201,7 +202,7 @@ public class DatabaseSeeder
         var customerUser = await SeedUserIfNotExists(
             email: "customer@brocomod.com",
             fullName: "Jordan Hayes",
-            phoneNumber: "+1 555 000 0004",
+            phoneNumber: "+91 90000 00004",
             password: defaultPassword,
             roleName: AppRoles.Customer);
 
@@ -210,7 +211,7 @@ public class DatabaseSeeder
             var customerProfile = await _context.CustomerProfiles.FirstOrDefaultAsync(cp => cp.UserId == customerUser.Id);
             if (customerProfile == null)
             {
-                customerProfile = new CustomerProfile(customerUser.Id, "45 Skyline Boulevard, Suite 12", "Email");
+                customerProfile = new CustomerProfile(customerUser.Id, "45 Residency Road, Bengaluru 560025", "Email");
                 _context.CustomerProfiles.Add(customerProfile);
                 await _context.SaveChangesAsync();
             }
@@ -312,8 +313,8 @@ public class DatabaseSeeder
                 if (demoVehicle != null)
                 {
                     var location = new ServiceLocation(
-                        addressLine1: "45 Skyline Boulevard, Suite 12",
-                        addressLine2: "Central Residency",
+                        addressLine1: "45 Residency Road",
+                        addressLine2: "Shanthala Nagar",
                         city: "Bengaluru",
                         state: "Karnataka",
                         pincode: "560001",
@@ -457,6 +458,79 @@ public class DatabaseSeeder
 
         await _context.SaveChangesAsync();
         return user;
+    }
+
+    /// <summary>
+    /// Reference catalogue for the Indian market: the brands and models most cars on Indian roads belong to.
+    /// Idempotent - adds only the manufacturers and models that are missing, so it also upgrades existing databases.
+    /// Variants are optional when a customer adds a car ("Not sure / base model").
+    /// </summary>
+    private async Task SeedIndianMarketCatalogAsync()
+    {
+        var catalogue = new (string Make, string Country, (string Model, string Body, int Since)[] Models)[]
+        {
+            ("Maruti Suzuki", "India", new[] { ("Swift", "Hatchback", 2005), ("Baleno", "Hatchback", 2015), ("Wagon R", "Hatchback", 1999), ("Alto K10", "Hatchback", 2010), ("Dzire", "Sedan", 2008), ("Ertiga", "MUV", 2012), ("Brezza", "SUV", 2016), ("Fronx", "SUV", 2023), ("Grand Vitara", "SUV", 2022), ("Celerio", "Hatchback", 2014), ("Ciaz", "Sedan", 2014), ("XL6", "MUV", 2019), ("Eeco", "Van", 2010) }),
+            ("Hyundai", "South Korea", new[] { ("i20", "Hatchback", 2008), ("Grand i10 Nios", "Hatchback", 2019), ("Creta", "SUV", 2015), ("Venue", "SUV", 2019), ("Verna", "Sedan", 2006), ("Aura", "Sedan", 2020), ("Exter", "SUV", 2023), ("Alcazar", "SUV", 2021), ("Tucson", "SUV", 2016) }),
+            ("Tata Motors", "India", new[] { ("Nexon", "SUV", 2017), ("Punch", "SUV", 2021), ("Tiago", "Hatchback", 2016), ("Tigor", "Sedan", 2017), ("Altroz", "Hatchback", 2020), ("Harrier", "SUV", 2019), ("Safari", "SUV", 2021), ("Nexon EV", "SUV", 2020), ("Curvv", "SUV", 2024) }),
+            ("Mahindra", "India", new[] { ("Scorpio-N", "SUV", 2022), ("Scorpio Classic", "SUV", 2002), ("XUV700", "SUV", 2021), ("XUV 3XO", "SUV", 2024), ("Thar", "SUV", 2010), ("Bolero", "SUV", 2000), ("Bolero Neo", "SUV", 2021), ("XUV400", "SUV", 2023) }),
+            ("Kia", "South Korea", new[] { ("Seltos", "SUV", 2019), ("Sonet", "SUV", 2020), ("Carens", "MUV", 2022), ("Carnival", "MUV", 2020) }),
+            ("Honda", "Japan", new[] { ("City", "Sedan", 1998), ("Amaze", "Sedan", 2013), ("Elevate", "SUV", 2023), ("Jazz", "Hatchback", 2009), ("WR-V", "SUV", 2017) }),
+            ("Toyota", "Japan", new[] { ("Innova Crysta", "MUV", 2016), ("Innova Hycross", "MUV", 2022), ("Fortuner", "SUV", 2009), ("Glanza", "Hatchback", 2019), ("Urban Cruiser Hyryder", "SUV", 2022), ("Camry", "Sedan", 2002), ("Etios", "Sedan", 2010) }),
+            ("Renault", "France", new[] { ("Kwid", "Hatchback", 2015), ("Kiger", "SUV", 2021), ("Triber", "MUV", 2019), ("Duster", "SUV", 2012) }),
+            ("Nissan", "Japan", new[] { ("Magnite", "SUV", 2020) }),
+            ("Skoda", "Czech Republic", new[] { ("Kushaq", "SUV", 2021), ("Slavia", "Sedan", 2022), ("Kylaq", "SUV", 2025), ("Octavia", "Sedan", 2001) }),
+            ("Volkswagen", "Germany", new[] { ("Virtus", "Sedan", 2022), ("Taigun", "SUV", 2021), ("Polo", "Hatchback", 2010) }),
+            ("MG", "United Kingdom", new[] { ("Hector", "SUV", 2019), ("Astor", "SUV", 2021), ("ZS EV", "SUV", 2020), ("Comet EV", "Hatchback", 2023), ("Windsor EV", "MUV", 2024) }),
+        };
+
+        var added = 0;
+        var sortOrder = 0;
+        foreach (var (make, country, models) in catalogue)
+        {
+            sortOrder++;
+            var normalizedMake = make.Trim().ToUpperInvariant();
+            var manufacturer = await _context.VehicleManufacturers.FirstOrDefaultAsync(m => m.NormalizedName == normalizedMake);
+            if (manufacturer == null)
+            {
+                manufacturer = new VehicleManufacturer(make, country, string.Empty, sortOrder);
+                _context.VehicleManufacturers.Add(manufacturer);
+                await _context.SaveChangesAsync();
+                added++;
+            }
+            else if (manufacturer.DisplayOrder != sortOrder)
+            {
+                manufacturer.Update(manufacturer.Name, manufacturer.Country, manufacturer.LogoUrl, manufacturer.IsActive, sortOrder);
+                added++;
+            }
+
+            var existingModels = await _context.VehicleModels
+                .Where(m => m.ManufacturerId == manufacturer.Id)
+                .Select(m => m.NormalizedName)
+                .ToListAsync();
+
+            foreach (var (model, body, since) in models)
+            {
+                if (existingModels.Contains(model.Trim().ToUpperInvariant())) continue;
+                _context.VehicleModels.Add(new VehicleModel(manufacturer.Id, model, body, since));
+                added++;
+            }
+        }
+
+        // Brands outside the Indian mass market (BMW, Porsche...) are listed after it.
+        var indianMakes = catalogue.Select(c => c.Make.ToUpperInvariant()).ToHashSet();
+        var others = await _context.VehicleManufacturers.Where(m => m.DisplayOrder < 100).ToListAsync();
+        foreach (var other in others.Where(m => !indianMakes.Contains(m.NormalizedName)))
+        {
+            other.Update(other.Name, other.Country, other.LogoUrl, other.IsActive, 100 + other.DisplayOrder);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await _context.SaveChangesAsync();
+            await VehicleMasterService.InvalidateCatalogCacheAsync(_cache);
+            _logger.LogInformation("Indian market vehicle catalogue: added {Count} manufacturers/models.", added);
+        }
     }
 
     private async Task SeedVehicleMasterAsync()
