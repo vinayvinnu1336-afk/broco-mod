@@ -1,133 +1,197 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { CustomerQuotationSummaryDto } from '@/types/customerQuotation';
-import {
-  FileText,
-  Calendar,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  Search,
-  Building2,
-  ShieldAlert,
-} from 'lucide-react';
+import { FileText, Search } from 'lucide-react';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { ListGroup, ListItem } from '@/components/ui/ListItem';
+import { StatusBadge, statusLabel } from '@/components/ui/StatusBadge';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { formatDate, formatINR, formatINRWhole } from '@/lib/format';
+
+// Client-side filter on the quotation status.
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'All' },
+  { value: 'ReadyToSend', label: 'Ready to send' },
+  { value: 'Sent', label: 'Sent' },
+  { value: 'Accepted', label: 'Accepted' },
+  { value: 'Rejected', label: 'Declined' },
+  { value: 'Expired', label: 'Expired' },
+  { value: 'Draft', label: 'Draft' },
+  { value: 'Cancelled', label: 'Cancelled' },
+];
+
+const rowLink =
+  'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
 
 export default function AdminCustomerQuotationsPage() {
   const [quotations, setQuotations] = useState<CustomerQuotationSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  useEffect(() => {
-    async function loadQuotations() {
-      setLoading(true);
-      const res = await apiFetch<CustomerQuotationSummaryDto[]>('/admin/customer-quotations');
-      if (res.success && res.data) {
-        setQuotations(res.data);
-      }
-      setLoading(false);
+  const loadQuotations = useCallback(async () => {
+    setLoading(true);
+    const res = await apiFetch<CustomerQuotationSummaryDto[]>('/admin/customer-quotations');
+    if (res.success && res.data) {
+      setQuotations(res.data);
+      setError(null);
+    } else {
+      setError(res.message || 'Could not load customer quotations.');
     }
-    loadQuotations();
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    loadQuotations();
+  }, [loadQuotations]);
+
+  const counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    quotations.forEach((q) => {
+      map[q.status] = (map[q.status] ?? 0) + 1;
+    });
+    return map;
+  }, [quotations]);
+
   const filtered = quotations.filter((q) => {
+    if (statusFilter !== 'ALL' && q.status !== statusFilter) return false;
     const term = search.toLowerCase();
     return (
       q.quotationNumber.toLowerCase().includes(term) ||
       q.requestNumber.toLowerCase().includes(term) ||
-      q.assignedGarageName.toLowerCase().includes(term) ||
-      q.status.toLowerCase().includes(term)
+      (q.assignedGarageName ?? '').toLowerCase().includes(term) ||
+      q.status.toLowerCase().includes(term) ||
+      statusLabel(q.status).toLowerCase().includes(term)
     );
   });
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-            Customer Proposals Audit
-          </h1>
-          <p className="text-xs text-navy-600 mt-1">
-            Global administrative overview of all customer quotations, pricing models, and dispatch lifecycle statuses.
-          </p>
-        </div>
+  const statusOptions = STATUS_OPTIONS.map((o) => ({
+    ...o,
+    count: o.value === 'ALL' ? quotations.length : counts[o.value] ?? 0,
+  }));
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-navy-400 absolute left-3 top-3" />
-          <input
-            type="text"
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Customer quotations"
+        description="Prices sent to customers after advisors pick a garage quote. Tap one to open its request."
+      />
+
+      {/* Search and filters */}
+      <div className="space-y-3">
+        <div className="sm:max-w-md">
+          <Input
+            type="search"
+            aria-label="Search customer quotations"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search quote #, request, workshop..."
-            className="w-full text-xs pl-9 pr-3 py-2.5 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-navy-900"
+            placeholder="Quotation number, request or garage"
+            leftIcon={<Search className="h-4 w-4" />}
           />
         </div>
+        {quotations.length > 0 && (
+          <FilterChips options={statusOptions} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
+        )}
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-xs text-navy-500">Loading customer proposals audit...</div>
+        <LoadingState message="Loading customer quotations..." />
+      ) : error ? (
+        <ErrorState title="Could not load customer quotations" error={error} onRetry={loadQuotations} />
       ) : filtered.length === 0 ? (
-        <div className="py-16 bg-white rounded-2xl border border-dashed border-surface-300 text-center p-8">
-          <FileText className="w-12 h-12 text-navy-400 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-navy-900">No Customer Proposals Found</h3>
-          <p className="text-xs text-navy-600 mt-1">
-            No customer quotations match your current filter criteria.
-          </p>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No customer quotations found"
+          description={
+            search || statusFilter !== 'ALL'
+              ? 'No quotations match this search or filter.'
+              : 'Quotations appear here once an advisor prepares one for a customer.'
+          }
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-surface-50 text-navy-600 border-b border-surface-200">
-                <tr>
-                  <th className="py-3 px-4">Quotation #</th>
-                  <th className="py-3 px-4">Request #</th>
-                  <th className="py-3 px-4">Fulfillment Workshop</th>
-                  <th className="py-3 px-4">Version</th>
-                  <th className="py-3 px-4 text-right">Customer Total</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Valid Until</th>
-                  <th className="py-3 px-4">Created At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100 text-navy-800 font-medium">
-                {filtered.map((q) => (
-                  <tr key={q.id} className="hover:bg-surface-50 transition">
-                    <td className="py-3 px-4 font-mono font-bold text-electric-600">{q.quotationNumber}</td>
-                    <td className="py-3 px-4 font-mono">{q.requestNumber}</td>
-                    <td className="py-3 px-4 font-bold">{q.assignedGarageName}</td>
-                    <td className="py-3 px-4">v{q.versionNumber}</td>
-                    <td className="py-3 px-4 text-right font-black text-navy-900">
-                      ₹{q.customerTotal.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          q.status === 'Sent'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : q.status === 'Accepted'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : q.status === 'ReadyToSend'
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : 'bg-surface-100 text-navy-700 border border-surface-200'
-                        }`}
-                      >
-                        {q.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-navy-500">
-                      {new Date(q.validUntilUtc).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-4 text-navy-500">
-                      {new Date(q.createdAtUtc).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          <p className="text-xs text-navy-500">
+            {filtered.length} {filtered.length === 1 ? 'quotation' : 'quotations'}
+          </p>
+
+          {/* Phones */}
+          <div className="md:hidden">
+            <ListGroup>
+              {filtered.map((q) => (
+                <ListItem
+                  key={q.id}
+                  href={`/admin/requests/${q.serviceRequestId}`}
+                  title={q.assignedGarageName || 'Garage not set'}
+                  subtitle={
+                    <>
+                      <span className="font-mono">{q.quotationNumber}</span> · {q.requestNumber}
+                    </>
+                  }
+                  meta={`Version ${q.versionNumber} · valid until ${formatDate(q.validUntilUtc)}`}
+                  trailing={
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(q.customerTotal)}</span>
+                      <StatusBadge status={q.status} />
+                    </div>
+                  }
+                />
+              ))}
+            </ListGroup>
           </div>
-        </div>
+
+          {/* Tablets and laptops */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Quotation</TableHead>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Garage</TableHead>
+                  <TableHead className="hidden lg:table-cell">Version</TableHead>
+                  <TableHead className="text-right">Customer total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Valid until</TableHead>
+                  <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="text-right">
+                    <span className="sr-only">Open request</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((q) => (
+                  <TableRow key={q.id}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs font-semibold text-navy-900">{q.quotationNumber}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-navy-600">{q.requestNumber}</TableCell>
+                    <TableCell className="font-medium text-navy-900">{q.assignedGarageName || '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell">v{q.versionNumber}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-navy-900">
+                      {formatINR(q.customerTotal, q.currency)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={q.status} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-navy-500">{formatDate(q.validUntilUtc)}</TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-navy-500 lg:table-cell">{formatDate(q.createdAtUtc)}</TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/admin/requests/${q.serviceRequestId}`} className={rowLink}>
+                        Open
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );
