@@ -184,6 +184,26 @@ dotnet test tests/BroCoMod.IntegrationTests
 dotnet test BroCoMod.sln
 ```
 
+Integration tests need PostgreSQL + PostGIS. Point them at it with `ConnectionStrings__DefaultConnection`.
+
+### End-to-end (Playwright)
+
+Drives the real app on a phone-sized screen (and desktop for the page sweep) against a running API and frontend with demo data:
+
+```bash
+cd src/frontend
+npx playwright test                       # everything
+npx playwright test e2e/journey.spec.ts   # booking → quote → payment → job → payout
+```
+
+`E2E_BASE_URL`, `E2E_API_URL` and `E2E_CHANNEL` (default `msedge`) configure where it runs.
+
+---
+
+## Deployment
+
+See [docs/deployment/vps-hostinger.md](docs/deployment/vps-hostinger.md) for a single-VPS production setup (Docker Compose, HTTPS, backups) and [docs/design/mobile-ui-guidelines.md](docs/design/mobile-ui-guidelines.md) for the UI rules.
+
 ---
 
 ## Branching Strategy
