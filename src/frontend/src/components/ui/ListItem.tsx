@@ -40,6 +40,8 @@ export interface ListItemProps {
   onClick?: () => void;
   /** Hide the chevron even when the item is tappable. */
   hideChevron?: boolean;
+  /** Let title and subtitle wrap onto several lines instead of truncating. */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -55,15 +57,17 @@ export const ListItem: React.FC<ListItemProps> = ({
   href,
   onClick,
   hideChevron = false,
+  wrap = false,
   className = '',
 }) => {
+  const clamp = wrap ? 'break-words' : 'truncate';
   const interactive = Boolean(href || onClick);
   const content = (
     <>
       {leading && <div className="shrink-0">{leading}</div>}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-semibold leading-snug text-navy-900">{title}</div>
-        {subtitle && <div className="mt-0.5 truncate text-sm text-navy-500">{subtitle}</div>}
+        <div className={`${clamp} text-[15px] font-semibold leading-snug text-navy-900`}>{title}</div>
+        {subtitle && <div className={`mt-0.5 ${clamp} text-sm text-navy-500`}>{subtitle}</div>}
         {meta && <div className="mt-1 text-xs text-navy-400">{meta}</div>}
       </div>
       {trailing && <div className="shrink-0 text-right">{trailing}</div>}

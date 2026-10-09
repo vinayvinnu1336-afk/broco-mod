@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -141,7 +141,7 @@ public class CustomerQuotationService : ICustomerQuotationService
             userEmail: "Advisor",
             entityName: "CustomerQuotation",
             entityId: quotation.Id.ToString(),
-            details: $"Created customer quotation draft {quotation.QuotationNumber} with {quotation.LineItems.Count} items totaling {quotation.CustomerTotal:C}",
+            details: $"Created customer quotation draft {quotation.QuotationNumber} with {quotation.LineItems.Count} items totaling ₹{quotation.CustomerTotal:N2}",
             cancellationToken: ct
         );
 

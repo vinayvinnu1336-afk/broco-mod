@@ -10,6 +10,10 @@ export interface PaginationProps {
   className?: string;
 }
 
+/**
+ * Phones: full-width Previous / Next with "page / total" between them (44px targets).
+ * From `sm` up: summary on the left, numbered page buttons on the right.
+ */
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
@@ -20,70 +24,91 @@ export const Pagination: React.FC<PaginationProps> = ({
 }) => {
   if (totalPages <= 1 && !totalItems) return null;
 
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < totalPages;
+  const go = (page: number) => {
+    onPageChange(page);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navButton =
+    'inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-surface-200 bg-white px-3 text-sm font-medium text-navy-700 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation';
+
   return (
-    <div
-      className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm ${className}`}
-    >
-      <div className="text-xs text-navy-500">
-        {totalItems !== undefined && pageSize !== undefined ? (
-          <span>
-            Showing <strong className="font-semibold text-navy-800">{(currentPage - 1) * pageSize + 1}</strong> to{' '}
-            <strong className="font-semibold text-navy-800">
-              {Math.min(currentPage * pageSize, totalItems)}
-            </strong>{' '}
-            of <strong className="font-semibold text-navy-800">{totalItems}</strong> entries
-          </span>
-        ) : (
-          <span>
-            Page <strong className="font-semibold text-navy-800">{currentPage}</strong> of{' '}
-            <strong className="font-semibold text-navy-800">{totalPages}</strong>
-          </span>
-        )}
+    <div className={className}>
+      {/* Phones */}
+      <div className="flex items-center gap-2 sm:hidden">
+        <button onClick={() => go(currentPage - 1)} disabled={!canPrev} className={`${navButton} flex-1`} aria-label="Previous page">
+          <ChevronLeft className="h-4 w-4" /> Previous
+        </button>
+        <span className="min-w-[64px] text-center text-sm tabular-nums text-navy-500">
+          {currentPage} / {Math.max(totalPages, 1)}
+        </span>
+        <button onClick={() => go(currentPage + 1)} disabled={!canNext} className={`${navButton} flex-1`} aria-label="Next page">
+          Next <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="p-1.5 rounded-lg border border-surface-200 hover:bg-surface-50 text-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
+      {/* Tablet and up */}
+      <div className="hidden items-center justify-between gap-3 rounded-xl border border-surface-200 bg-white px-4 py-3 text-sm sm:flex">
+        <div className="text-sm text-navy-500">
+          {totalItems !== undefined && pageSize !== undefined ? (
+            <span>
+              Showing <span className="font-semibold text-navy-800">{totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span>–
+              <span className="font-semibold text-navy-800">{Math.min(currentPage * pageSize, totalItems)}</span> of{' '}
+              <span className="font-semibold text-navy-800">{totalItems}</span>
+            </span>
+          ) : (
+            <span>
+              Page <span className="font-semibold text-navy-800">{currentPage}</span> of{' '}
+              <span className="font-semibold text-navy-800">{totalPages}</span>
+            </span>
+          )}
+        </div>
 
-        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-          let pageNum = i + 1;
-          if (totalPages > 5) {
-            if (currentPage > 3 && currentPage < totalPages - 2) {
-              pageNum = currentPage - 2 + i;
-            } else if (currentPage >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => go(currentPage - 1)}
+            disabled={!canPrev}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-200 text-navy-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum = i + 1;
+            if (totalPages > 5) {
+              if (currentPage > 3 && currentPage < totalPages - 2) {
+                pageNum = currentPage - 2 + i;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              }
             }
-          }
-          const isActive = pageNum === currentPage;
-          return (
-            <button
-              key={pageNum}
-              onClick={() => onPageChange(pageNum)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold transition ${
-                isActive
-                  ? 'bg-electric-600 text-white shadow-sm'
-                  : 'text-navy-700 hover:bg-surface-100'
-              }`}
-            >
-              {pageNum}
-            </button>
-          );
-        })}
+            const isActive = pageNum === currentPage;
+            return (
+              <button
+                key={pageNum}
+                onClick={() => go(pageNum)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`h-10 min-w-[40px] rounded-xl px-2 text-sm font-semibold tabular-nums transition ${
+                  isActive ? 'bg-electric-600 text-white shadow-sm' : 'text-navy-700 hover:bg-surface-100'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
 
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-lg border border-surface-200 hover:bg-surface-50 text-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
-          aria-label="Next page"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => go(currentPage + 1)}
+            disabled={!canNext}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-surface-200 text-navy-600 transition hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

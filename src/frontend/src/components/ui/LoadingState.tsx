@@ -8,7 +8,7 @@ export interface LoadingStateProps {
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
-  message = 'Loading data...',
+  message = 'Loading…',
   className = '',
   inline = false,
 }) => {
@@ -29,7 +29,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
         <Loader2 className="w-6 h-6 animate-spin" />
       </div>
       <p className="text-sm font-semibold text-navy-800">{message}</p>
-      <p className="text-xs text-navy-400 mt-1">Please wait while we fetch the latest records.</p>
+
     </div>
   );
 };
