@@ -148,6 +148,16 @@ function severityVariant(severity: string): BadgeVariant {
   }
 }
 
+// API routes (GarageController) for actions whose route differs from the action key.
+const JOB_ACTION_ROUTES: Record<string, string> = {
+  'receive-vehicle': 'receive',
+  'start-inspection': 'inspection/start',
+  'complete-inspection': 'inspection/complete',
+  'start-work': 'work/start',
+  progress: 'work/progress',
+  'complete-work': 'work/complete',
+};
+
 const SUCCESS_MESSAGES: Record<string, string> = {
   schedule: 'Job scheduled',
   'receive-vehicle': 'Car marked as received',
@@ -268,7 +278,7 @@ export default function GarageJobDetailPage() {
   async function handleAction(endpoint: string, payload: any) {
     setActionLoading(true);
     setErrorMsg(null);
-    const res = await apiFetch(`/garage/jobs/${id}/${endpoint}`, {
+    const res = await apiFetch(`/garage/jobs/${id}/${JOB_ACTION_ROUTES[endpoint] ?? endpoint}`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
