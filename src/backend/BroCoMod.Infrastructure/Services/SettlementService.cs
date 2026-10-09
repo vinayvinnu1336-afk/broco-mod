@@ -78,8 +78,21 @@ public class SettlementService : ISettlementService
 
         if (serviceJobId == Guid.Empty)
         {
-            // If no job was created yet, use a fallback empty or linked reference
-            serviceJobId = payment.Id; // Fallback placeholder
+            // A service job is created when the customer accepts the quotation, before any payment.
+            // Settling without one would point the settlement at a non-existent job.
+            throw new InvalidOperationException(
+                $"Cannot create settlement for payment {payment.PaymentNumber}: no service job is linked to it.");
+        }
+
+        // 3b. The garage is paid on its own quoted amount, not on the customer's price.
+        // The difference between what the customer paid and the garage's quote is the advisor margin kept by the platform.
+        var garageQuotedAmount = await ResolveGarageQuotedAmountAsync(payment, cancellationToken);
+        if (garageQuotedAmount > payment.Amount)
+        {
+            _logger.LogWarning(
+                "Garage quote {GarageAmount} exceeds customer payment {PaidAmount} for {PaymentNumber}; settling on the paid amount.",
+                garageQuotedAmount, payment.Amount, payment.PaymentNumber);
+            garageQuotedAmount = payment.Amount;
         }
 
         // 4. Fetch Platform Fee Configuration snapshot
@@ -102,7 +115,7 @@ public class SettlementService : ISettlementService
             garageId: payment.GarageId,
             serviceJobId: serviceJobId,
             paymentId: payment.Id,
-            grossAmount: payment.Amount,
+            grossAmount: garageQuotedAmount,
             platformFeePercentage: feePercentage,
             platformFeeFixed: fixedFee,
             taxPercentageOnFee: taxPercentage,
@@ -112,8 +125,8 @@ public class SettlementService : ISettlementService
         _context.GarageSettlements.Add(settlement);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // 6. Record compensating ledger entries
-        await _ledgerService.RecordSettlementEntriesAsync(settlement, cancellationToken);
+        // 6. Record compensating ledger entries (releases the full customer payment from escrow)
+        await _ledgerService.RecordSettlementEntriesAsync(settlement, payment.Amount, cancellationToken);
 
         // 7. Audit log & Notification
         var garageUser = await _context.GarageUsers
@@ -211,6 +224,51 @@ public class SettlementService : ISettlementService
             settlement.SettlementNumber, payoutTransactionRef);
 
         return MapToDto(settlement);
+    }
+
+    private async Task<decimal> ResolveGarageQuotedAmountAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        if (payment.CustomerQuotationId.HasValue)
+        {
+            var quotation = await _context.CustomerQuotations
+                .AsNoTracking()
+                .Include(cq => cq.GarageAssignment!)
+                    .ThenInclude(a => a.SelectedQuote)
+                .FirstOrDefaultAsync(cq => cq.Id == payment.CustomerQuotationId.Value, cancellationToken);
+
+            var selectedQuote = quotation?.GarageAssignment?.SelectedQuote;
+            if (selectedQuote == null && quotation != null)
+            {
+                selectedQuote = await _context.GarageAssignments
+                    .AsNoTracking()
+                    .Where(a => a.ServiceRequestId == quotation.ServiceRequestId && a.GarageId == payment.GarageId)
+                    .OrderByDescending(a => a.AssignedAtUtc)
+                    .Select(a => a.SelectedQuote)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            if (selectedQuote != null && selectedQuote.TotalAmount > 0m)
+            {
+                return selectedQuote.TotalAmount;
+            }
+        }
+
+        if (payment.AdditionalWorkQuotationId.HasValue)
+        {
+            var estimate = await _context.AdditionalWorkQuotations
+                .AsNoTracking()
+                .Where(q => q.Id == payment.AdditionalWorkQuotationId.Value)
+                .Join(_context.AdditionalWorkRequests, q => q.AdditionalWorkRequestId, r => r.Id, (q, r) => r.EstimatedAdditionalAmount)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (estimate > 0m)
+            {
+                return estimate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot create settlement for payment {payment.PaymentNumber}: the garage's quoted amount could not be determined.");
     }
 
     private static GarageSettlementDto MapToDto(GarageSettlement s) => new(

@@ -245,10 +245,13 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
 
         settlement.Should().NotBeNull();
         settlement!.SettlementNumber.Should().StartWith("SET-");
-        settlement.GrossAmount.Should().Be(expectedTotal);
+        // The garage is settled on its own quote (3500 + 600 + 1000 + 18% GST = 6018), not on the customer's marked-up price.
+        const decimal garageQuotedTotal = 6018m;
+        settlement.GrossAmount.Should().Be(garageQuotedTotal);
         settlement.GarageId.Should().Be(garageId);
-        settlement.NetPayableToGarage.Should().BeLessThan(expectedTotal);
-        settlement.TotalPlatformFee.Should().BeGreaterThan(0m);
+        settlement.PlatformFeeAmount.Should().Be(601.80m);
+        settlement.TaxOnPlatformFee.Should().Be(108.32m);
+        settlement.NetPayableToGarage.Should().Be(garageQuotedTotal - 601.80m - 108.32m);
         settlement.Status.Should().Be(SettlementStatus.Pending);
 
         // Act 5: Verify Ledger entries
@@ -259,6 +262,13 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         ledgerEntries.Should().NotBeEmpty();
         ledgerEntries.Should().Contain(l => l.AccountType == "ESCROW");
         ledgerEntries.Should().Contain(l => l.AccountType == "CUSTOMER");
+
+        // The advisor margin (customer total minus garage quote) is booked as platform margin,
+        // and the settlement entries balance: everything released from escrow is allocated.
+        var settlementEntries = ledgerEntries.Where(l => l.SettlementId == settlement.Id).ToList();
+        settlementEntries.Should().Contain(l => l.AccountType == "PLATFORM_MARGIN" && l.DebitAmount == expectedTotal - garageQuotedTotal);
+        settlementEntries.Sum(l => l.DebitAmount).Should().Be(settlementEntries.Sum(l => l.CreditAmount));
+        settlementEntries.Single(l => l.AccountType == "ESCROW").CreditAmount.Should().Be(expectedTotal);
     }
 
     [Fact]

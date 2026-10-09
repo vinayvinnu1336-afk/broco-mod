@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -26,7 +26,11 @@ public class JwtTokenService : ITokenService
         Guid? garageId = null,
         string? garageRole = null)
     {
-        var secret = _configuration["Jwt:Secret"] ?? "BroCoMod-Super-Secret-Production-Grade-Key-2026-Security-First!";
+        var secret = _configuration["Jwt:Secret"];
+        if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
+        {
+            throw new InvalidOperationException("Jwt:Secret is not configured (minimum 32 characters).");
+        }
         var issuer = _configuration["Jwt:Issuer"] ?? "BroCoMod";
         var audience = _configuration["Jwt:Audience"] ?? "BroCoModApp";
         var expiryMinutesStr = _configuration["Jwt:ExpiryMinutes"] ?? "60";

@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
@@ -75,6 +75,7 @@ public class FinancialLedgerService : IFinancialLedgerService
 
     public async Task RecordSettlementEntriesAsync(
         GarageSettlement settlement,
+        decimal escrowReleaseAmount,
         CancellationToken cancellationToken = default)
     {
         var txRef = $"TXN-{settlement.SettlementNumber}";
@@ -130,12 +131,30 @@ public class FinancialLedgerService : IFinancialLedgerService
             ));
         }
 
-        // 4. Balancing Escrow Credit (Gross payout from Escrow)
+        // 4. Platform margin: what the customer paid above the garage's own quote (advisor markup)
+        var releaseAmount = Math.Max(escrowReleaseAmount, settlement.GrossAmount);
+        var platformMargin = releaseAmount - settlement.GrossAmount;
+        if (platformMargin > 0.0m)
+        {
+            entries.Add(new FinancialLedgerEntry(
+                transactionReference: txRef,
+                entryType: LedgerEntryType.PlatformFee,
+                debitAmount: platformMargin,
+                creditAmount: 0.0m,
+                accountType: "PLATFORM_MARGIN",
+                description: $"Advisor margin retained for settlement {settlement.SettlementNumber}",
+                currency: settlement.Currency,
+                paymentId: settlement.PaymentId,
+                settlementId: settlement.Id
+            ));
+        }
+
+        // 5. Balancing Escrow Credit (the full customer payment leaves escrow)
         entries.Add(new FinancialLedgerEntry(
             transactionReference: txRef,
             entryType: LedgerEntryType.GaragePayable,
             debitAmount: 0.0m,
-            creditAmount: settlement.GrossAmount,
+            creditAmount: releaseAmount,
             accountType: "ESCROW",
             description: $"Escrow funds released for settlement {settlement.SettlementNumber}",
             currency: settlement.Currency,

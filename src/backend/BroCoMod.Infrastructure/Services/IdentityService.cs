@@ -1,7 +1,8 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities.Identity;
+using NotificationChannel = BroCoMod.Domain.Enums.NotificationChannel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,7 @@ public class IdentityService : IIdentityService
     private readonly ITokenService _tokenService;
     private readonly IOtpProvider _otpProvider;
     private readonly IAuditService _auditService;
+    private readonly IEnumerable<INotificationProvider> _notificationProviders;
     private readonly ILogger<IdentityService> _logger;
 
     public IdentityService(
@@ -22,8 +24,10 @@ public class IdentityService : IIdentityService
         ITokenService tokenService,
         IOtpProvider otpProvider,
         IAuditService auditService,
-        ILogger<IdentityService> logger)
+        ILogger<IdentityService> logger,
+        IEnumerable<INotificationProvider>? notificationProviders = null)
     {
+        _notificationProviders = notificationProviders ?? Array.Empty<INotificationProvider>();
         _context = context;
         this._passwordHasher = _passwordHasher;
         _tokenService = tokenService;
@@ -466,11 +470,23 @@ public class IdentityService : IIdentityService
 
         if (user == null)
         {
-            // Return dummy OTP to prevent email enumeration attacks
-            return "123456";
+            // Same observable behaviour as a real account to prevent email enumeration.
+            return string.Empty;
         }
 
         var otp = await _otpProvider.GenerateOtpAsync(user.Email, "PasswordReset", cancellationToken);
+
+        // Deliver the code out-of-band. It is never returned to the HTTP caller.
+        var message = new NotificationMessage(
+            UserId: user.Id,
+            Title: "Your BroCo password reset code",
+            Message: $"Your password reset code is {otp}. It expires in 10 minutes. If you did not request this, ignore this message.",
+            Type: "PASSWORD_RESET",
+            Channel: NotificationChannel.Email);
+        foreach (var provider in _notificationProviders.Where(p => p.Channel is NotificationChannel.Email or NotificationChannel.Sms))
+        {
+            await provider.SendAsync(message with { Channel = provider.Channel }, cancellationToken);
+        }
 
         await _auditService.LogAsync(
             action: AuditActions.PasswordResetRequested,

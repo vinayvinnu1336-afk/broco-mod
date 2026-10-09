@@ -119,6 +119,10 @@ public class DatabaseSeeder
         }
 
 
+        // 4c. Bootstrap the first Super Admin from configuration (BootstrapAdmin__Email / BootstrapAdmin__Password).
+        // Runs only while no Super Admin exists, so the credentials can be removed from the environment afterwards.
+        await SeedBootstrapAdminAsync();
+
         // 5. Check if demo data should be seeded (strictly disabled in production unless explicit flag is enabled)
         var isDev = _environment.IsDevelopment();
         var enableDemoSeeding = _configuration.GetValue<bool>("EnableDemoSeeding", false);
@@ -341,6 +345,38 @@ public class DatabaseSeeder
         }
 
         _logger.LogInformation("Database initialization and seeding completed successfully.");
+    }
+
+    private async Task SeedBootstrapAdminAsync()
+    {
+        var email = _configuration["BootstrapAdmin:Email"];
+        var password = _configuration["BootstrapAdmin:Password"];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+
+        var superAdminRole = AppRoles.SuperAdmin.ToUpperInvariant();
+        var hasSuperAdmin = await _context.UserRoles.AnyAsync(ur => ur.Role.NormalizedName == superAdminRole);
+        if (hasSuperAdmin)
+        {
+            return;
+        }
+
+        if (password.Length < 12)
+        {
+            _logger.LogError("BootstrapAdmin:Password must be at least 12 characters. Super Admin was not created.");
+            return;
+        }
+
+        await SeedUserIfNotExists(
+            email: email.Trim(),
+            fullName: _configuration["BootstrapAdmin:FullName"] ?? "Platform Admin",
+            phoneNumber: _configuration["BootstrapAdmin:Phone"] ?? string.Empty,
+            password: password,
+            roleName: AppRoles.SuperAdmin);
+
+        _logger.LogInformation("Bootstrap Super Admin {Email} created. Remove BootstrapAdmin settings from the environment now.", email);
     }
 
     private async Task<User?> SeedUserIfNotExists(

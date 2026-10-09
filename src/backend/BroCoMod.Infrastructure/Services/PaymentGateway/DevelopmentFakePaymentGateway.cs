@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BroCoMod.Application.Interfaces;
@@ -127,12 +127,13 @@ public class DevelopmentFakePaymentGateway : IPaymentGateway
         {
             // Verify HMAC signature if secret is configured
             var secret = webhookSecret ?? _configuration["Payment:WebhookSecret"] ?? "brocomod_test_webhook_secret";
-            if (!string.IsNullOrWhiteSpace(secret) && !string.IsNullOrWhiteSpace(signature))
+            var expectedSig = ComputeHmacSha256(payload, secret);
+            var allowTestSignatures = _environment.IsDevelopment();
+            var signatureValid = !string.IsNullOrWhiteSpace(signature) &&
+                (string.Equals(expectedSig, signature, StringComparison.OrdinalIgnoreCase) ||
+                 (allowTestSignatures && (signature == "test_signature" || signature.StartsWith("sim_sig_"))));
             {
-                var expectedSig = ComputeHmacSha256(payload, secret);
-                // Allow exact match or mock test signature "test_signature"
-                if (!string.Equals(expectedSig, signature, StringComparison.OrdinalIgnoreCase) &&
-                    signature != "test_signature" && !signature.StartsWith("sim_sig_"))
+                if (!signatureValid)
                 {
                     _logger.LogWarning("FakePaymentGateway: Invalid webhook signature. Expected {Expected}, got {Actual}", expectedSig, signature);
                     return Task.FromResult(new WebhookProcessResult(
@@ -227,14 +228,12 @@ public class DevelopmentFakePaymentGateway : IPaymentGateway
 
     private void AssertNotProduction()
     {
-        if (_environment.IsProduction())
+        // The fake gateway marks payments as paid without moving money. It is only allowed in Development,
+        // or when explicitly enabled for a demo deployment (Payment__AllowFakeGateway=true).
+        if (!_environment.IsDevelopment() && !_configuration.GetValue<bool>("Payment:AllowFakeGateway", false))
         {
-            var allowInProd = _configuration.GetValue<bool>("Payment:AllowFakeInProduction", false);
-            if (!allowInProd)
-            {
-                throw new InvalidOperationException(
-                    "CRITICAL SECURITY ASSERTION: DevelopmentFakePaymentGateway must NOT be used in Production environment.");
-            }
+            throw new InvalidOperationException(
+                "CRITICAL SECURITY ASSERTION: DevelopmentFakePaymentGateway is disabled outside Development. Configure a real payment provider.");
         }
     }
 

@@ -1,4 +1,4 @@
-using BroCoMod.Application.Authorization;
+﻿using BroCoMod.Application.Authorization;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using BroCoMod.Infrastructure.Services;
@@ -124,6 +124,7 @@ public static class DependencyInjection
             Console.WriteLine($"[Warning] Failed to connect to Redis on startup: {ex.Message}. Running in degraded cache mode.");
         }
 
+        services.AddMemoryCache();
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         return services;
