@@ -3,7 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { User, Mail, Phone, MapPin, ShieldCheck, Calendar } from 'lucide-react';
+import { Mail, MapPin, MessageSquare, Phone } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface CustomerProfileData {
   customerId: string;
@@ -14,6 +17,8 @@ interface CustomerProfileData {
   address: string;
   preferredContactMethod: string;
 }
+
+const NOT_ADDED = <span className="text-navy-400">Not added</span>;
 
 export default function CustomerProfilePage() {
   const { user } = useAuth();
@@ -31,65 +36,59 @@ export default function CustomerProfilePage() {
     loadProfile();
   }, []);
 
+  const name = profile?.fullName || user?.fullName || '';
+  const email = profile?.email || user?.email || '';
+  const phone = profile?.phoneNumber || user?.phoneNumber || '';
+  const initial = name ? name.trim().charAt(0).toUpperCase() : '?';
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900">Customer Account Profile</h1>
-          <p className="text-xs text-navy-600 mt-1">Manage personal contact details and communication preferences.</p>
+    <div className="mx-auto max-w-2xl space-y-5 sm:space-y-6">
+      <PageHeader title="Profile" description="Your contact details." />
+
+      {loading ? (
+        <div className="space-y-3" aria-busy="true" aria-label="Loading profile">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-56" />
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 max-w-3xl">
-        <div className="flex items-center gap-4 pb-6 border-b border-surface-200">
-          <div className="w-16 h-16 rounded-2xl bg-electric-500/10 text-electric-600 flex items-center justify-center font-bold text-2xl border border-electric-500/20">
-            {profile?.fullName ? profile.fullName[0] : user?.fullName ? user.fullName[0] : 'C'}
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-navy-900">{profile?.fullName || user?.fullName || 'Customer'}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Active Client
-              </span>
-              <span className="text-xs text-navy-600 font-mono">ID: {profile?.customerId?.slice(0, 8)}...</span>
+      ) : (
+        <>
+          <div className="flex items-center gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5">
+            <div
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-electric-50 text-xl font-bold text-electric-700"
+              aria-hidden="true"
+            >
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-semibold text-navy-900">{name || 'Your account'}</h2>
+              {email && <p className="truncate text-sm text-navy-500">{email}</p>}
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-6">
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-navy-600" />
-              <span>Email Address</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.email || user?.email}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-navy-600" />
-              <span>Contact Number</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.phoneNumber || user?.phoneNumber || '+1 555 000 0004'}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-navy-600" />
-              <span>Primary Address</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.address || '45 Skyline Boulevard, Suite 12'}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-navy-600" />
-              <span>Preferred Contact Method</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.preferredContactMethod || 'Email'}</div>
-          </div>
-        </div>
-      </div>
+          <ListGroup title="Contact details">
+            <ListItem
+              leading={<IconTile icon={Mail} tone="neutral" />}
+              title="Email"
+              subtitle={email || NOT_ADDED}
+            />
+            <ListItem
+              leading={<IconTile icon={Phone} tone="neutral" />}
+              title="Phone"
+              subtitle={phone || NOT_ADDED}
+            />
+            <ListItem
+              leading={<IconTile icon={MapPin} tone="neutral" />}
+              title="Address"
+              subtitle={profile?.address ? <span className="whitespace-normal break-words">{profile.address}</span> : NOT_ADDED}
+            />
+            <ListItem
+              leading={<IconTile icon={MessageSquare} tone="neutral" />}
+              title="Preferred contact"
+              subtitle={profile?.preferredContactMethod || NOT_ADDED}
+            />
+          </ListGroup>
+        </>
+      )}
     </div>
   );
 }

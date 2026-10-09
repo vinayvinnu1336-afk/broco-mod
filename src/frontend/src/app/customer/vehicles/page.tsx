@@ -1,23 +1,22 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api';
-import {
-  Car,
-  Plus,
-  Star,
-  Trash2,
-  Edit2,
-  CheckCircle2,
-  AlertCircle,
-  Fuel,
-  Settings2,
-  Calendar,
-  Gauge,
-  Shield,
-  Layers,
-  Sparkles
-} from 'lucide-react';
+import { Car, Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { Alert } from '@/components/ui/Alert';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { IconTile } from '@/components/ui/ListItem';
+import { useToast } from '@/components/ui/Toast';
 
 interface CustomerVehicle {
   id: string;
@@ -86,21 +85,31 @@ const FUEL_TYPE_MAP: Record<string, number> = {
   LPG: 7,
 };
 
+const TRANSMISSIONS = [
+  { value: 'Automatic', label: 'Automatic' },
+  { value: 'Manual', label: 'Manual' },
+  { value: 'Dual-Clutch', label: 'Dual-clutch (DCT)' },
+  { value: 'Direct Drive', label: 'Direct drive (EV)' },
+];
+
 export default function CustomerVehiclesPage() {
+  const toast = useToast();
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CustomerVehicle | null>(null);
+  const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
 
-  // Master Data state
+  // Master data
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [fuelTypes, setFuelTypes] = useState<FuelTypeOption[]>([]);
 
-  // Modal & Edit State
+  // Modal & edit state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
 
-  // Form Fields
+  // Form fields
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<VehicleModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -121,35 +130,33 @@ export default function CustomerVehiclesPage() {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Load customer vehicles
-  const loadVehicles = async () => {
+  const loadVehicles = useCallback(async () => {
     const res = await apiFetch<CustomerVehicle[]>('/customer/vehicles');
     if (res.success && res.data) {
       setVehicles(res.data);
+      setLoadError(null);
+    } else {
+      setLoadError(res.message || 'Unable to load your vehicles.');
     }
     setLoading(false);
-  };
+  }, []);
 
-  // Load Master Manufacturers and Fuel Types
   useEffect(() => {
     loadVehicles();
 
-    // Fetch manufacturers
     apiFetch<Manufacturer[]>('/vehicle-manufacturers').then((res) => {
       if (res.success && res.data) {
         setManufacturers(res.data);
       }
     });
 
-    // Fetch fuel types
     apiFetch<FuelTypeOption[]>('/vehicle-master/fuel-types').then((res) => {
       if (res.success && res.data) {
         setFuelTypes(res.data);
       }
     });
-  }, []);
+  }, [loadVehicles]);
 
-  // When manufacturer changes, load its models
   const handleManufacturerChange = async (manufacturerId: string) => {
     setSelectedManufacturerId(manufacturerId);
     setSelectedModelId('');
@@ -167,7 +174,6 @@ export default function CustomerVehiclesPage() {
     setLoadingModels(false);
   };
 
-  // When model changes, load its variants
   const handleModelChange = async (modelId: string) => {
     setSelectedModelId(modelId);
     setSelectedVariantId('');
@@ -188,7 +194,6 @@ export default function CustomerVehiclesPage() {
     setLoadingVariants(false);
   };
 
-  // When variant changes, auto-populate fuel type and transmission
   const handleVariantChange = (variantId: string) => {
     setSelectedVariantId(variantId);
     if (!variantId) return;
@@ -200,7 +205,6 @@ export default function CustomerVehiclesPage() {
     }
   };
 
-  // Allowed year range for selected model
   const selectedModel = useMemo(() => {
     return availableModels.find((m) => m.id === selectedModelId);
   }, [availableModels, selectedModelId]);
@@ -215,7 +219,6 @@ export default function CustomerVehiclesPage() {
     return years;
   }, [selectedModel]);
 
-  // Open modal in Add mode
   const openAddModal = () => {
     setEditingVehicleId(null);
     setSelectedManufacturerId('');
@@ -235,13 +238,12 @@ export default function CustomerVehiclesPage() {
     setModalOpen(true);
   };
 
-  // Open modal in Edit mode
   const openEditModal = async (v: CustomerVehicle) => {
+    setEditLoadingId(v.id);
     setEditingVehicleId(v.id);
     setFormError(null);
     setSelectedManufacturerId(v.manufacturerId);
 
-    // Preload models for this manufacturer
     setLoadingModels(true);
     const mRes = await apiFetch<VehicleModel[]>(`/vehicle-manufacturers/${v.manufacturerId}/models`);
     if (mRes.success && mRes.data) {
@@ -251,7 +253,6 @@ export default function CustomerVehiclesPage() {
 
     setSelectedModelId(v.modelId);
 
-    // Preload variants for this model
     setLoadingVariants(true);
     const vRes = await apiFetch<VehicleVariant[]>(`/vehicle-models/${v.modelId}/variants`);
     if (vRes.success && vRes.data) {
@@ -268,21 +269,21 @@ export default function CustomerVehiclesPage() {
     setMileage(v.mileage || 0);
     setColor(v.color || '');
     setIsPrimary(v.isPrimary);
+    setEditLoadingId(null);
     setModalOpen(true);
   };
 
-  // Submit Add or Edit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
     if (!selectedManufacturerId || !selectedModelId) {
-      setFormError('Please select both a vehicle manufacturer and model.');
+      setFormError('Please choose the make and model.');
       return;
     }
 
     if (!licensePlate.trim()) {
-      setFormError('License plate is required.');
+      setFormError('Number plate is required.');
       return;
     }
 
@@ -321,18 +322,13 @@ export default function CustomerVehiclesPage() {
 
     if (res.success) {
       setModalOpen(false);
-      setStatusMessage({
-        type: 'success',
-        text: editingVehicleId ? 'Vehicle specifications updated.' : 'New vehicle registered successfully.',
-      });
+      toast.success(editingVehicleId ? 'Vehicle updated' : 'Vehicle added');
       await loadVehicles();
-      setTimeout(() => setStatusMessage(null), 4000);
     } else {
-      setFormError(res.message || res.errors?.[0] || 'Failed to save vehicle. Please review required specifications.');
+      setFormError(res.message || res.errors?.[0] || 'Could not save the vehicle. Please check the details.');
     }
   };
 
-  // Set as Primary Vehicle
   const handleSetPrimary = async (vehicleId: string) => {
     setActionLoading(vehicleId);
     const res = await apiFetch(`/customer/vehicles/${vehicleId}/set-primary`, {
@@ -341,486 +337,319 @@ export default function CustomerVehiclesPage() {
     setActionLoading(null);
 
     if (res.success) {
-      setStatusMessage({ type: 'success', text: 'Primary vehicle updated.' });
+      toast.success('Primary vehicle updated');
       await loadVehicles();
-      setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      setStatusMessage({ type: 'error', text: res.message || res.errors?.[0] || 'Failed to update primary vehicle.' });
+      toast.error('Could not update primary vehicle', res.message || res.errors?.[0]);
     }
   };
 
-  // Delete Vehicle
   const handleDelete = async (vehicleId: string) => {
-    if (!confirm('Are you sure you want to remove this vehicle from your profile?')) {
-      return;
-    }
-
     setActionLoading(vehicleId);
     const res = await apiFetch(`/customer/vehicles/${vehicleId}`, {
       method: 'DELETE',
     });
     setActionLoading(null);
+    setPendingDelete(null);
 
     if (res.success) {
-      setStatusMessage({ type: 'success', text: 'Vehicle removed from your garage.' });
+      toast.success('Vehicle removed');
       await loadVehicles();
-      setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      setStatusMessage({ type: 'error', text: res.message || res.errors?.[0] || 'Failed to remove vehicle.' });
+      toast.error('Could not remove vehicle', res.message || res.errors?.[0]);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-navy-900 uppercase">My Registered Vehicles</h1>
-          <p className="text-xs text-navy-600 mt-1">
-            Standardized garage inventory linked to verified OEM manufacturer specifications and workshop dispatches.
-          </p>
-        </div>
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2.5 bg-electric-500 hover:bg-electric-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-electric-500/25 transition active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Vehicle</span>
-        </button>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <PageHeader
+        title="My vehicles"
+        description="The cars you can book a service for."
+        actions={
+          vehicles.length > 0 ? (
+            <Button variant="primary" onClick={openAddModal} leftIcon={<Plus className="h-4 w-4" />}>
+              Add vehicle
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {/* Status Banners */}
-      {statusMessage && (
-        <div
-          className={`p-3.5 rounded-xl text-xs font-medium flex items-center gap-2.5 border transition ${
-            statusMessage.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-red-50 text-red-800 border-red-200'
-          }`}
-        >
-          {statusMessage.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
-          ) : (
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
-          )}
-          <span>{statusMessage.text}</span>
-        </div>
-      )}
-
-      {/* Vehicles Grid / Empty State */}
       {loading ? (
-        <div className="py-16 text-center text-sm text-navy-600 flex flex-col items-center justify-center gap-2">
-          <div className="w-8 h-8 border-2 border-electric-500 border-t-transparent rounded-full animate-spin" />
-          <span>Loading vehicle catalog from database...</span>
+        <div className="space-y-3" aria-busy="true" aria-label="Loading vehicles">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
         </div>
-      ) : vehicles.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {vehicles.map((v) => (
-            <div
-              key={v.id}
-              className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden relative ${
-                v.isPrimary
-                  ? 'border-electric-500 shadow-md ring-1 ring-electric-500/20'
-                  : 'border-surface-200 hover:border-surface-300 shadow-sm'
-              }`}
-            >
-              {/* Primary Ribbon */}
-              {v.isPrimary && (
-                <div className="bg-gradient-to-r from-electric-600 to-electric-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5">
-                  <Star className="w-3 h-3 fill-current text-amber-300" />
-                  <span>Primary Service Vehicle</span>
-                </div>
-              )}
-
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-bold text-electric-600 uppercase tracking-widest">
-                        {v.year}
-                      </span>
-                      <span className="text-surface-300">•</span>
-                      <span className="text-xs font-semibold text-navy-700 uppercase">
-                        {v.make}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-black text-navy-950 tracking-tight">
-                      {v.model}
-                    </h3>
-                    {v.variantName && (
-                      <p className="text-xs font-semibold text-electric-700 mt-0.5">
-                        {v.variantName}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* License Plate Badge */}
-                  <div className="flex flex-col items-end">
-                    <div className="border-2 border-navy-900 bg-surface-50 text-navy-950 font-mono font-black text-xs px-2.5 py-1 rounded-md tracking-wider shadow-inner">
-                      {v.licensePlate}
-                    </div>
-                    {v.color && (
-                      <span className="text-[11px] text-navy-600 mt-1 capitalize font-medium">
-                        {v.color}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Specs Pill List */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 pt-4 border-t border-surface-100 text-xs">
-                  <div className="bg-surface-50 rounded-xl p-2.5 border border-surface-200/60">
-                    <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-navy-600 mb-0.5">
-                      <Fuel className="w-3 h-3 text-electric-500" />
-                      <span>Fuel</span>
-                    </div>
-                    <span className="font-semibold text-navy-900">{v.fuelType}</span>
-                  </div>
-
-                  <div className="bg-surface-50 rounded-xl p-2.5 border border-surface-200/60">
-                    <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-navy-600 mb-0.5">
-                      <Settings2 className="w-3 h-3 text-electric-500" />
-                      <span>Gearbox</span>
-                    </div>
-                    <span className="font-semibold text-navy-900 truncate block">{v.transmission}</span>
-                  </div>
-
-                  <div className="bg-surface-50 rounded-xl p-2.5 border border-surface-200/60">
-                    <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-navy-600 mb-0.5">
-                      <Gauge className="w-3 h-3 text-electric-500" />
-                      <span>Mileage</span>
-                    </div>
-                    <span className="font-semibold text-navy-900">{v.mileage.toLocaleString()} KM</span>
-                  </div>
-
-                  <div className="bg-surface-50 rounded-xl p-2.5 border border-surface-200/60">
-                    <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-navy-600 mb-0.5">
-                      <Calendar className="w-3 h-3 text-electric-500" />
-                      <span>Year</span>
-                    </div>
-                    <span className="font-semibold text-navy-900">{v.year}</span>
-                  </div>
-                </div>
-
-                {/* VIN Row */}
-                {v.vin && (
-                  <div className="mt-3 text-[11px] text-navy-600 flex items-center gap-1.5 bg-surface-50/50 px-3 py-1.5 rounded-lg border border-surface-100">
-                    <Shield className="w-3.5 h-3.5 text-navy-400" />
-                    <span className="font-mono uppercase tracking-wide truncate">VIN: {v.vin}</span>
-                  </div>
-                )}
-
-                {/* Card Actions */}
-                <div className="flex items-center justify-between mt-5 pt-4 border-t border-surface-100 text-xs">
-                  <div>
-                    {!v.isPrimary && (
-                      <button
-                        type="button"
-                        disabled={actionLoading === v.id}
-                        onClick={() => handleSetPrimary(v.id)}
-                        className="text-xs font-bold text-electric-600 hover:text-electric-700 flex items-center gap-1 transition"
-                      >
-                        <Star className="w-3.5 h-3.5" />
-                        <span>Set as Default</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={actionLoading === v.id}
-                      onClick={() => openEditModal(v)}
-                      className="p-2 text-navy-600 hover:text-navy-950 hover:bg-surface-100 rounded-lg transition"
-                      title="Edit specifications"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading === v.id}
-                      onClick={() => handleDelete(v.id)}
-                      className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
-                      title="Delete vehicle"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      ) : loadError && vehicles.length === 0 ? (
+        <ErrorState
+          title="Could not load your vehicles"
+          error={loadError}
+          onRetry={() => {
+            setLoading(true);
+            loadVehicles();
+          }}
+        />
+      ) : vehicles.length === 0 ? (
+        <EmptyState
+          icon={Car}
+          title="No vehicles yet"
+          description="Add your car once and use it for every booking."
+          action={
+            <Button variant="primary" onClick={openAddModal} leftIcon={<Plus className="h-4 w-4" />}>
+              Add your vehicle
+            </Button>
+          }
+        />
       ) : (
-        <div className="py-16 bg-white rounded-2xl border border-dashed border-surface-300 text-center p-8 max-w-lg mx-auto shadow-sm">
-          <div className="w-14 h-14 bg-surface-100 rounded-2xl flex items-center justify-center text-navy-400 mx-auto mb-3 border border-surface-200">
-            <Car className="w-7 h-7" />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {vehicles.map((v) => {
+            const busy = actionLoading === v.id || editLoadingId === v.id;
+            const specs = [
+              v.fuelType,
+              v.transmission,
+              typeof v.mileage === 'number' ? `${v.mileage.toLocaleString('en-IN')} km` : null,
+              v.color,
+            ].filter(Boolean);
+            return (
+              <Card key={v.id} className={`p-4 sm:p-5 ${v.isPrimary ? 'border-electric-200' : ''}`}>
+                <div className="flex items-start gap-3">
+                  <IconTile icon={Car} tone={v.isPrimary ? 'blue' : 'neutral'} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h2 className="min-w-0 text-[15px] font-semibold leading-snug text-navy-900">
+                        {v.year} {v.make} {v.model}
+                      </h2>
+                      {v.isPrimary && (
+                        <Badge variant="blue" className="shrink-0">
+                          Primary
+                        </Badge>
+                      )}
+                    </div>
+                    {v.variantName && <p className="truncate text-sm text-navy-500">{v.variantName}</p>}
+                    <span className="mt-1.5 inline-block rounded-md border border-navy-900/80 bg-surface-50 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-navy-900">
+                      {v.licensePlate}
+                    </span>
+                  </div>
+                </div>
+
+                {specs.length > 0 && <p className="mt-3 text-sm text-navy-600">{specs.join(' · ')}</p>}
+                {v.vin && <p className="mt-1 truncate font-mono text-xs text-navy-400">VIN {v.vin}</p>}
+
+                <div className="mt-3 flex items-center gap-2 border-t border-surface-200 pt-3">
+                  {!v.isPrimary && (
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => handleSetPrimary(v.id)}
+                      leftIcon={<Star className="h-4 w-4" />}
+                      className="-ml-2"
+                    >
+                      Make primary
+                    </Button>
+                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      isLoading={editLoadingId === v.id}
+                      onClick={() => openEditModal(v)}
+                      leftIcon={<Pencil className="h-4 w-4" />}
+                    >
+                      Edit
+                    </Button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setPendingDelete(v)}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                      aria-label={`Remove ${v.make} ${v.model} ${v.licensePlate}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Remove confirmation */}
+      <ConfirmationDialog
+        isOpen={pendingDelete !== null}
+        onClose={() => !actionLoading && setPendingDelete(null)}
+        onConfirm={() => pendingDelete && handleDelete(pendingDelete.id)}
+        title="Remove this vehicle?"
+        message={
+          pendingDelete
+            ? `${pendingDelete.year} ${pendingDelete.make} ${pendingDelete.model} (${pendingDelete.licensePlate}) will be removed from your profile.`
+            : ''
+        }
+        confirmText="Remove"
+        cancelText="Keep"
+        variant="danger"
+        isLoading={pendingDelete !== null && actionLoading === pendingDelete.id}
+      />
+
+      {/* Add / edit */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => !formSubmitting && setModalOpen(false)}
+        title={editingVehicleId ? 'Edit vehicle' : 'Add vehicle'}
+        description="Choose the make and model, then add the number plate."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setModalOpen(false)}
+              disabled={formSubmitting}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form="vehicle-form" variant="primary" isLoading={formSubmitting} className="w-full sm:w-auto">
+              {editingVehicleId ? 'Save changes' : 'Add vehicle'}
+            </Button>
           </div>
-          <h3 className="text-base font-bold text-navy-900">No Vehicles in Your Garage</h3>
-          <p className="text-xs text-navy-600 mt-1 mb-5">
-            Add your vehicle from our standardized OEM master catalog to receive custom tuning bids and service matching from certified local workshops.
-          </p>
-          <button
-            onClick={openAddModal}
-            className="px-5 py-2.5 bg-electric-500 hover:bg-electric-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2 shadow-sm"
+        }
+      >
+        <form id="vehicle-form" onSubmit={handleSubmit} className="space-y-4">
+          {formError && <Alert type="error">{formError}</Alert>}
+
+          <Select
+            id="vehicle-make"
+            label="Make"
+            value={selectedManufacturerId}
+            onChange={(e) => handleManufacturerChange(e.target.value)}
+            placeholder="Choose make"
+            options={manufacturers.map((m) => ({ value: m.id, label: m.name }))}
+            required
+          />
+
+          <Select
+            id="vehicle-model"
+            label="Model"
+            value={selectedModelId}
+            onChange={(e) => handleModelChange(e.target.value)}
+            disabled={!selectedManufacturerId || loadingModels}
+            required
           >
-            <Plus className="w-4 h-4" />
-            <span>Add First Vehicle</span>
-          </button>
-        </div>
-      )}
+            <option value="" disabled>
+              {loadingModels ? 'Loading models…' : !selectedManufacturerId ? 'Choose make first' : 'Choose model'}
+            </option>
+            {availableModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+                {m.bodyType ? ` (${m.bodyType})` : ''}
+              </option>
+            ))}
+          </Select>
 
-      {/* Add / Edit Vehicle Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-navy-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-surface-200 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100">
-              <div>
-                <h3 className="text-lg font-black text-navy-900 uppercase tracking-tight">
-                  {editingVehicleId ? 'Edit Vehicle Specifications' : 'Add Vehicle to Garage'}
-                </h3>
-                <p className="text-xs text-navy-600 mt-0.5">
-                  Select your OEM manufacturer, model line, and variant from the master catalog.
-                </p>
-              </div>
-            </div>
+          <Select
+            id="vehicle-variant"
+            label="Variant (optional)"
+            value={selectedVariantId}
+            onChange={(e) => handleVariantChange(e.target.value)}
+            disabled={!selectedModelId || loadingVariants}
+          >
+            <option value="">
+              {loadingVariants
+                ? 'Loading variants…'
+                : !selectedModelId
+                ? 'Choose model first'
+                : availableVariants.length === 0
+                ? 'No variants listed'
+                : 'Not sure / base model'}
+            </option>
+            {availableVariants.map((v) => (
+              <option key={v.id} value={v.id}>
+                {[v.name, v.transmission, v.fuelType, v.horsepower ? `${v.horsepower} hp` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </option>
+            ))}
+          </Select>
 
-            {formError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              {/* Step 1: Manufacturer */}
-              <div>
-                <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                  1. Manufacturer / Make <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedManufacturerId}
-                  onChange={(e) => handleManufacturerChange(e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                  required
-                >
-                  <option value="">-- Choose Manufacturer (e.g. BMW, Audi, Porsche) --</option>
-                  {manufacturers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.country})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 2: Model (Cascading) */}
-              <div>
-                <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                  2. Model Line <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedModelId}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  disabled={!selectedManufacturerId || loadingModels}
-                  className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500 disabled:bg-surface-100 disabled:opacity-60"
-                  required
-                >
-                  <option value="">
-                    {loadingModels
-                      ? 'Loading models from catalog...'
-                      : !selectedManufacturerId
-                      ? '-- Select manufacturer first --'
-                      : '-- Choose Model Line --'}
-                  </option>
-                  {availableModels.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.bodyType}) [{m.yearFrom}–{m.yearTo || 'Present'}]
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 3: Variant (Cascading) */}
-              <div>
-                <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                  3. Variant / Trim Specification <span className="text-navy-400 font-normal">(Optional)</span>
-                </label>
-                <select
-                  value={selectedVariantId}
-                  onChange={(e) => handleVariantChange(e.target.value)}
-                  disabled={!selectedModelId || loadingVariants}
-                  className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500 disabled:bg-surface-100 disabled:opacity-60"
-                >
-                  <option value="">
-                    {loadingVariants
-                      ? 'Loading variants...'
-                      : !selectedModelId
-                      ? '-- Select model first --'
-                      : availableVariants.length === 0
-                      ? 'No specific variants listed (Base model)'
-                      : '-- Choose Variant / Engine Trim --'}
-                  </option>
-                  {availableVariants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} • {v.transmission} • {v.fuelType}{' '}
-                      {v.horsepower ? `(${v.horsepower} HP)` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 4: Model Year, Fuel Type, Transmission */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    Model Year <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={year}
-                    onChange={(e) => setYear(Number(e.target.value))}
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                    required
-                  >
-                    {yearRange.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    Fuel Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={fuelType}
-                    onChange={(e) => setFuelType(e.target.value)}
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                    required
-                  >
-                    {fuelTypes.map((ft) => (
-                      <option key={ft.value} value={ft.name}>
-                        {ft.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    Transmission
-                  </label>
-                  <select
-                    value={transmission}
-                    onChange={(e) => setTransmission(e.target.value)}
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                  >
-                    <option value="Automatic">Automatic</option>
-                    <option value="Manual">Manual</option>
-                    <option value="Dual-Clutch">Dual-Clutch (DCT)</option>
-                    <option value="Direct Drive">Direct Drive (EV)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Step 5: Identification & Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    License Plate <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={licensePlate}
-                    onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-                    placeholder="e.g. BROCO-01"
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm font-mono uppercase text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    Odometer Mileage (KM)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={2000000}
-                    value={mileage}
-                    onChange={(e) => setMileage(Number(e.target.value))}
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    Exterior Color
-                  </label>
-                  <input
-                    type="text"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    placeholder="e.g. Portimao Blue, Nardo Grey"
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-navy-800 uppercase tracking-wider mb-1">
-                    VIN (Chassis Number)
-                  </label>
-                  <input
-                    type="text"
-                    value={vin}
-                    onChange={(e) => setVin(e.target.value.toUpperCase())}
-                    placeholder="17-character VIN"
-                    className="block w-full px-3 py-2.5 border border-surface-300 rounded-xl text-sm font-mono uppercase text-navy-900 focus:outline-none focus:ring-2 focus:ring-electric-500"
-                  />
-                </div>
-              </div>
-
-              {/* Step 6: Primary Checkbox */}
-              <div className="pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-navy-900">
-                  <input
-                    type="checkbox"
-                    checked={isPrimary}
-                    onChange={(e) => setIsPrimary(e.target.checked)}
-                    className="w-4 h-4 text-electric-600 rounded border-surface-300 focus:ring-electric-500"
-                  />
-                  <span>Set as primary vehicle for quotes and dispatch requests</span>
-                </label>
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-surface-200 mt-5">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2.5 border border-surface-300 text-navy-700 text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-surface-100 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={formSubmitting}
-                  className="px-5 py-2.5 bg-electric-500 hover:bg-electric-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md shadow-electric-500/25 transition disabled:opacity-50"
-                >
-                  {formSubmitting
-                    ? 'Saving...'
-                    : editingVehicleId
-                    ? 'Update Vehicle'
-                    : 'Register Vehicle'}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              id="vehicle-year"
+              label="Year"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              options={yearRange.map((y) => ({ value: y, label: String(y) }))}
+              required
+            />
+            <Select
+              id="vehicle-fuel"
+              label="Fuel"
+              value={fuelType}
+              onChange={(e) => setFuelType(e.target.value)}
+              options={fuelTypes.map((ft) => ({ value: ft.name, label: ft.displayName }))}
+              required
+            />
           </div>
-        </div>
-      )}
+
+          <Select
+            id="vehicle-transmission"
+            label="Transmission"
+            value={transmission}
+            onChange={(e) => setTransmission(e.target.value)}
+            options={TRANSMISSIONS}
+          />
+
+          <Input
+            id="vehicle-plate"
+            label="Number plate"
+            value={licensePlate}
+            onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+            placeholder="e.g. KA 01 AB 1234"
+            autoCapitalize="characters"
+            autoComplete="off"
+            className="font-mono uppercase"
+            required
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              id="vehicle-mileage"
+              label="Odometer (km)"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={2000000}
+              value={mileage}
+              onChange={(e) => setMileage(Number(e.target.value))}
+            />
+            <Input
+              id="vehicle-color"
+              label="Colour"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              placeholder="e.g. White"
+            />
+          </div>
+
+          <Input
+            id="vehicle-vin"
+            label="VIN / chassis number (optional)"
+            value={vin}
+            onChange={(e) => setVin(e.target.value.toUpperCase())}
+            placeholder="17 characters"
+            autoCapitalize="characters"
+            autoComplete="off"
+            className="font-mono uppercase"
+          />
+
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-navy-800">
+            <input
+              type="checkbox"
+              checked={isPrimary}
+              onChange={(e) => setIsPrimary(e.target.checked)}
+              className="h-5 w-5 rounded border-surface-300 accent-electric-600"
+            />
+            <span>Use this as my main vehicle for bookings</span>
+          </label>
+        </form>
+      </Modal>
     </div>
   );
 }
