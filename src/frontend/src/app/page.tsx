@@ -140,17 +140,17 @@ function HighlightRow({ className = '' }: { className?: string }) {
   return (
     <ul
       aria-label="Why BroCo"
-      className={`no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:flex-nowrap lg:overflow-visible ${className}`}
+      className={`no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:scroll-px-6 sm:px-6 md:justify-between lg:-mx-8 lg:scroll-px-8 lg:px-8 xl:mx-0 xl:justify-start xl:overflow-visible xl:px-0 ${className}`}
     >
       {HIGHLIGHTS.map((h) => (
         <li
           key={h.label}
-          className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-electric-100 bg-white px-3 py-2 text-xs font-semibold text-navy-700 shadow-subtle lg:w-[78px] lg:flex-col lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:text-center lg:shadow-none"
+          className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-electric-100 bg-white px-3 py-2 text-xs font-semibold text-navy-700 shadow-subtle xl:w-[78px] xl:flex-col xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:text-center xl:shadow-none"
         >
-          <span className="flex h-6 w-6 items-center justify-center text-electric-600 lg:h-10 lg:w-10 lg:rounded-xl lg:bg-white lg:shadow-card">
-            <h.icon className="h-4 w-4 lg:h-5 lg:w-5" aria-hidden />
+          <span className="flex h-6 w-6 items-center justify-center text-electric-600 xl:h-10 xl:w-10 xl:rounded-xl xl:bg-white xl:shadow-card">
+            <h.icon className="h-4 w-4 xl:h-5 xl:w-5" aria-hidden />
           </span>
-          <span className="lg:leading-tight">{h.label}</span>
+          <span className="xl:leading-tight">{h.label}</span>
         </li>
       ))}
     </ul>
@@ -174,8 +174,9 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [tab, setTab] = useState<'book' | 'track'>('book');
-  const [cardVisible, setCardVisible] = useState(true);
+  const [ctaVisible, setCtaVisible] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLElement | null>(null);
   const mobileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -205,14 +206,15 @@ export default function HomePage() {
     };
   }, []);
 
-  // Phones: show a sticky "Check prices" bar once the booking card has scrolled away.
+  // Phones: a sticky "Book a service" bar whenever the card's main button is not on screen
+  // (below the fold on first load, or scrolled past). Re-observed when the tab swaps the button.
   useEffect(() => {
-    const el = cardRef.current;
+    const el = ctaRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(([entry]) => setCardVisible(entry.isIntersecting), { threshold: 0.05 });
+    const io = new IntersectionObserver(([entry]) => setCtaVisible(entry.intersectionRatio >= 0.6), { threshold: [0, 0.6, 1] });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [tab]);
 
   // The saved intent has no logo; fill it in once the brand list is here.
   const logoFor = useMemo(() => {
@@ -246,7 +248,8 @@ export default function HomePage() {
 
   const scrollToCard = (focusMobile = false) => {
     setTab('book');
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    cardRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
     if (focusMobile) setTimeout(() => mobileRef.current?.focus({ preventScroll: true }), 450);
   };
 
@@ -310,23 +313,25 @@ export default function HomePage() {
             Laptops (lg+): the photo fills the band, right-aligned at its natural shape, and the headline sits
             on its faded left side. Nothing overlaps the bottom of the photo: the car's tyres touch that edge.
           */}
-          <div className="relative lg:flex lg:h-[clamp(440px,42vw,600px)] lg:items-center lg:overflow-hidden">
-            <div className="relative aspect-[2/1] overflow-hidden bg-[#F4F8FC] sm:aspect-[21/9] lg:absolute lg:inset-0 lg:aspect-auto lg:bg-white">
+          <div className="relative lg:flex lg:h-[clamp(400px,34vw,520px)] lg:items-center lg:overflow-hidden">
+            <div className="relative aspect-[9/4] max-h-[52svh] w-full overflow-hidden bg-[#F4F8FC] sm:aspect-[21/9] lg:absolute lg:inset-0 lg:aspect-auto lg:max-h-none lg:bg-white">
               <picture>
                 <source media="(min-width: 640px)" srcSet="/images/hero-service-centre-890.jpg" />
                 {/* eslint-disable-next-line @next/next/no-img-element -- art-directed <picture>; sizes are pre-generated */}
                 <img
                   src="/images/hero-service-centre-640.jpg"
+                  srcSet="/images/hero-service-centre-640.jpg 640w, /images/hero-service-centre-890.jpg 890w"
+                  sizes="100vw"
                   alt="A car parked outside the BroCo service centre"
                   width={890}
                   height={380}
                   fetchPriority="high"
                   decoding="async"
-                  className="h-full w-full object-cover [object-position:90%_100%] sm:[object-position:100%_100%] lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:h-full lg:w-auto lg:max-w-none"
+                  className="h-full w-full object-cover [object-position:90%_100%] sm:[object-position:100%_100%] lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:h-full lg:w-auto lg:max-w-none lg:[mask-image:linear-gradient(to_right,transparent,#000_14%)] min-[1800px]:right-[calc((100vw-1600px)/2)] min-[1800px]:[mask-image:linear-gradient(to_right,transparent,#000_14%,#000_86%,transparent)]"
                 />
               </picture>
               {/* Keeps the headline readable over the photo's faded left side (laptops). */}
-              <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-[46%] bg-gradient-to-r from-white via-white/80 to-transparent lg:block" />
+              <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-[40%] bg-gradient-to-r from-white via-white/75 to-transparent lg:block" />
               <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-electric-700 shadow-subtle backdrop-blur sm:left-6 sm:top-4 lg:hidden">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
               </span>
@@ -340,31 +345,15 @@ export default function HomePage() {
                 <h1 id="hero-title" className="text-[30px] font-extrabold leading-[1.08] tracking-tight text-navy-950 sm:text-[44px] lg:mt-3 lg:text-[40px] xl:text-[52px]">
                   Your Vehicle,
                   <br />
-                  Our <span className="bg-gradient-to-r from-electric-700 to-sky-500 bg-clip-text text-transparent">Responsibility.</span>
+                  Our <span className="bg-gradient-to-r from-electric-700 to-electric-500 bg-clip-text text-transparent">Responsibility.</span>
                 </h1>
                 <p className="mt-2.5 text-[15px] leading-relaxed text-navy-600 sm:mt-3 sm:text-lg lg:mt-4 lg:text-[17px] xl:text-lg">
                   Fixed-price car service from verified garages.{' '}
-                  <span className="hidden sm:inline">Free pick-up &amp; drop and live updates. </span>
-                  Pay just 10% to book<span className="hidden sm:inline"> — the rest after the job is done</span>.
+                  <span className="hidden sm:inline">Free pick‑up&nbsp;&amp;&nbsp;drop and live updates. </span>
+                  Pay&nbsp;just 10%&nbsp;to&nbsp;book<span className="hidden sm:inline"> — the rest after the job is&nbsp;done</span>.
                 </p>
 
-                <div className="mt-6 hidden gap-3 lg:flex">
-                  <button
-                    type="button"
-                    onClick={() => scrollToCard(true)}
-                    className="inline-flex min-h-[50px] items-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-semibold text-white shadow-lg shadow-electric-600/25 transition hover:bg-electric-700"
-                  >
-                    Book a Service <ArrowRight className="h-5 w-5" aria-hidden />
-                  </button>
-                  <Link
-                    href="/track"
-                    className="inline-flex min-h-[50px] items-center rounded-xl border-2 border-electric-600 bg-white px-6 text-base font-semibold text-electric-700 transition hover:bg-electric-50"
-                  >
-                    Track My Vehicle
-                  </Link>
-                </div>
-
-                <HighlightRow className="mt-7 hidden lg:flex" />
+                <HighlightRow className="mt-6 hidden xl:flex" />
               </div>
             </div>
           </div>
@@ -372,16 +361,27 @@ export default function HomePage() {
           {/* Booking: a card on phones, a bar under the photo from tablets up. */}
           <div className="relative mx-auto max-w-7xl px-4 pb-6 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pb-10">
             <div ref={cardRef} className="relative z-10 min-w-0">
-              <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-modal">
+              <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-modal [overflow:clip]">
                 <div className="border-b border-surface-200 bg-surface-50 p-1 md:flex md:items-center md:justify-between md:pr-4">
                   <div role="tablist" aria-label="Book or track" className="grid grid-cols-2 md:inline-grid md:w-[340px]">
                     {(['book', 'track'] as const).map((t) => (
                       <button
                         key={t}
+                        id={`home-tab-${t}`}
                         type="button"
                         role="tab"
                         aria-selected={tab === t}
+                        aria-controls={`home-panel-${t}`}
+                        tabIndex={tab === t ? 0 : -1}
                         onClick={() => setTab(t)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
+                            e.preventDefault();
+                            const next = e.key === 'Home' ? 'book' : e.key === 'End' ? 'track' : t === 'book' ? 'track' : 'book';
+                            setTab(next);
+                            document.getElementById(`home-tab-${next}`)?.focus();
+                          }
+                        }}
                         className={`min-h-[42px] rounded-xl text-sm font-semibold transition ${
                           tab === t ? 'bg-white text-electric-700 shadow-card' : 'text-navy-500 hover:text-navy-800'
                         }`}
@@ -390,14 +390,17 @@ export default function HomePage() {
                       </button>
                     ))}
                   </div>
-                  <p className="hidden items-center gap-1.5 text-xs font-medium text-navy-500 md:inline-flex">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden /> Pay only 10% online to book · the rest at the garage
-                  </p>
+                  {tab === 'book' && (
+                    <p className="hidden items-center gap-1.5 text-xs font-medium text-navy-500 md:inline-flex">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden /> Pay only 10% online to book · the rest at the garage
+                    </p>
+                  )}
                 </div>
 
                 {tab === 'book' ? (
-                  <form onSubmit={submit} noValidate aria-label="Check car service prices" className="p-4 sm:p-5">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-[200px_minmax(0,1.45fr)_minmax(0,1fr)_auto] lg:items-start">
+                  <form id="home-panel-book" role="tabpanel" aria-labelledby="home-tab-book" onSubmit={submit} noValidate className="p-4 sm:p-5">
+                    <h2 className="sr-only">Check car service prices</h2>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-start md:gap-4 xl:grid-cols-[180px_minmax(0,1.3fr)_minmax(250px,1fr)_auto]">
                       <Select
                         label="Location"
                         value={city}
@@ -442,7 +445,7 @@ export default function HomePage() {
                             autoComplete="tel-national"
                             pattern="[6-9][0-9]{9}"
                             maxLength={14}
-                            placeholder="10-digit mobile number"
+                            placeholder="10-digit number"
                             value={mobile}
                             onChange={(e) => onMobileChange(e.target.value)}
                             onPaste={(e) => {
@@ -451,11 +454,11 @@ export default function HomePage() {
                             }}
                             aria-invalid={!!errors.mobile}
                             aria-describedby={errors.mobile ? 'home-mobile-error' : undefined}
-                            className="min-w-0 flex-1 bg-transparent px-3 text-base font-semibold tracking-wide text-navy-900 outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-surface-400"
+                            className="min-w-0 flex-1 bg-transparent px-3 text-base font-semibold tracking-wide text-navy-900 outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-navy-400"
                           />
                         </div>
                         {errors.mobile && (
-                          <p id="home-mobile-error" className="mt-1 text-sm text-semantic-error">
+                          <p id="home-mobile-error" role="alert" className="mt-1.5 text-xs font-medium text-semantic-error">
                             {errors.mobile}
                           </p>
                         )}
@@ -463,11 +466,22 @@ export default function HomePage() {
 
                       {/* md+: lines up with the inputs, under their labels */}
                       <button
+                        ref={(el) => {
+                          ctaRef.current = el;
+                        }}
                         type="submit"
                         disabled={submitting}
-                        className="mt-1 inline-flex min-h-[54px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-electric-600 px-6 text-base font-bold tracking-wide text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 active:scale-[0.99] disabled:opacity-70 md:mt-[26px] md:min-h-[52px]"
+                        className="mt-1 inline-flex min-h-[54px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-electric-600 px-4 text-[15px] font-bold text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 active:scale-[0.99] disabled:opacity-70 xs:px-6 xs:text-base xs:tracking-wide md:mt-[26px] md:min-h-[52px]"
                       >
-                        {submitting ? 'Checking prices…' : 'CHECK PRICES FOR FREE'}
+                        {submitting ? (
+                          'Checking prices…'
+                        ) : (
+                          <>
+                            <span>
+                              CHECK PRICES<span className="hidden min-[350px]:inline"> FOR FREE</span>
+                            </span>
+                          </>
+                        )}
                         {!submitting && <ArrowRight className="h-5 w-5" aria-hidden />}
                       </button>
                     </div>
@@ -486,14 +500,14 @@ export default function HomePage() {
                     )}
                   </form>
                 ) : (
-                  <div className="p-4 sm:p-5 md:flex md:items-center md:justify-between md:gap-6">
+                  <div id="home-panel-track" role="tabpanel" aria-labelledby="home-tab-track" className="p-4 sm:p-5 md:flex md:items-center md:justify-between md:gap-6">
                     <div className="min-w-0">
                       <p className="text-[15px] font-semibold text-navy-900">Where is my car?</p>
                       <p className="mt-1 text-sm text-navy-500">
                         Follow every step — booking confirmed, car received, inspection, work in progress and ready for
                         delivery.
                       </p>
-                      <ul className="mt-3 space-y-2 text-sm text-navy-700 md:flex md:flex-wrap md:gap-x-5 md:space-y-0">
+                      <ul className="mt-3 space-y-2 text-sm text-navy-700 md:flex md:flex-wrap md:gap-x-5 md:gap-y-1.5 md:space-y-0">
                         {['Status updates at every stage', 'Approve extra work before it is done', 'See what you have paid and what is left'].map((t) => (
                           <li key={t} className="flex items-center gap-2">
                             <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> {t}
@@ -502,6 +516,9 @@ export default function HomePage() {
                       </ul>
                     </div>
                     <Link
+                      ref={(el) => {
+                        ctaRef.current = el;
+                      }}
                       href={customer ? '/customer/requests' : `/login?next=${encodeURIComponent('/customer/requests')}`}
                       className="mt-5 inline-flex min-h-[54px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-bold text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 md:mt-0 md:w-auto"
                     >
@@ -512,7 +529,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <HighlightRow className="mt-4 lg:hidden" />
+            <HighlightRow className="mt-4 xl:hidden" />
           </div>
         </section>
 
@@ -830,9 +847,9 @@ export default function HomePage() {
       {/* Phones: sticky call to action once the booking card is off screen */}
       <div
         className={`fixed inset-x-0 bottom-0 z-30 border-t border-surface-200 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-bar backdrop-blur transition-transform duration-200 lg:hidden ${
-          cardVisible ? 'translate-y-full' : 'translate-y-0'
+          ctaVisible ? 'translate-y-full' : 'translate-y-0'
         }`}
-        aria-hidden={cardVisible}
+        aria-hidden={ctaVisible}
       >
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -841,7 +858,7 @@ export default function HomePage() {
           </div>
           <button
             type="button"
-            tabIndex={cardVisible ? -1 : 0}
+            tabIndex={ctaVisible ? -1 : 0}
             onClick={() => (car ? router.push(carServiceHref) : scrollToCard(false))}
             className="inline-flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-xl bg-electric-600 px-5 text-sm font-bold text-white shadow-md shadow-electric-600/30"
           >

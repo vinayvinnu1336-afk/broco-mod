@@ -19,11 +19,11 @@ export function BrandMark({ dark = false, tagline = false }: { dark?: boolean; t
   );
 }
 
-const MAIN_NAV = [
+const MAIN_NAV: { href: string; label: string; wideOnly?: boolean }[] = [
   { href: '/', label: 'Home' },
   { href: '/track', label: 'Track Service' },
   { href: '/#why', label: 'Why BroCo' },
-  { href: '/#how-it-works', label: 'How it works' },
+  { href: '/#how-it-works', label: 'How it works', wideOnly: true },
   { href: '/#support', label: 'Support' },
 ];
 
@@ -72,14 +72,8 @@ export function PublicHeader() {
   return (
     <header className="pt-safe sticky top-0 z-40 bg-navy-950/95 text-white shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-[72px] lg:px-8">
-        <span className="min-w-0">
-          <span className="hidden sm:block">
-            <BrandMark dark tagline />
-          </span>
-          <span className="sm:hidden">
-            <BrandMark dark />
-          </span>
-        </span>
+        {/* No tagline here: the hero headline already says it. */}
+        <BrandMark dark />
 
         {/* Desktop navigation */}
         <nav className="hidden items-center gap-1 text-[14px] font-medium lg:flex" aria-label="Main">
@@ -125,7 +119,7 @@ export function PublicHeader() {
             )}
           </div>
           {MAIN_NAV.slice(1).map((item) => (
-            <Link key={item.href} href={item.href} className={navLink(isActive(item.href))}>
+            <Link key={item.href} href={item.href} className={`${navLink(isActive(item.href))} ${item.wideOnly ? 'hidden xl:inline-flex' : ''}`}>
               {item.label}
             </Link>
           ))}
@@ -232,7 +226,7 @@ export function PublicHeader() {
 }
 
 function navLink(active: boolean) {
-  return `relative inline-flex min-h-[44px] items-center rounded-lg px-3 transition ${
+  return `relative inline-flex min-h-[44px] items-center whitespace-nowrap rounded-lg px-2.5 transition xl:px-3 ${
     active ? 'text-white after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-electric-500' : 'text-white/75 hover:text-white'
   }`;
 }
