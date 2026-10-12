@@ -1084,6 +1084,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(p => p.Code).IsUnique();
             builder.Property(p => p.Name).IsRequired().HasMaxLength(100);
             builder.Property(p => p.Tagline).HasMaxLength(300);
+            builder.Property(p => p.DurationHours).HasPrecision(4, 1);
             builder.Property(p => p.Includes).HasColumnType("text[]");
 
             builder.HasMany(p => p.Prices)
