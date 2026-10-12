@@ -975,9 +975,16 @@ public class ServiceJobService : IServiceJobService
             VehicleSummary: job.ServiceRequest != null
                 ? $"{job.ServiceRequest.VehicleYear} {job.ServiceRequest.VehicleMake} {job.ServiceRequest.VehicleModel}"
                 : null,
-            VehicleLicensePlate: job.ServiceRequest?.VehicleLicensePlate
+            VehicleLicensePlate: job.ServiceRequest?.VehicleLicensePlate,
+            ServicePackageName: job.ServiceRequest?.ServicePackageName,
+            IsAdvancePaid: job.ServiceRequest?.IsAdvancePaid ?? false
         );
     }
+
+    /// <summary>What the customer owes for the job in total: accepted quote/package plus approved extra work.</summary>
+    private static decimal ServiceValueOf(ServiceJob job) =>
+        (job.CustomerQuotation?.CustomerTotal ?? job.ServiceRequest?.PackagePrice ?? 0m) +
+        job.AdditionalWorkRequests.Where(a => a.Status == AdditionalWorkStatus.Approved).Sum(a => a.EstimatedAdditionalAmount);
 
     private static GarageServiceJobDetailDto MapToGarageDetailDto(ServiceJob job)
     {
@@ -1036,7 +1043,12 @@ public class ServiceJobService : IServiceJobService
                 CreatedAtUtc: a.CreatedAtUtc
             )).ToList(),
             AdditionalWorkRequests: job.AdditionalWorkRequests.OrderBy(r => r.CreatedAtUtc).Select(MapToAdditionalWorkDto).ToList(),
-            ConcurrencyToken: job.ConcurrencyToken
+            ConcurrencyToken: job.ConcurrencyToken,
+            ServicePackageName: job.ServiceRequest?.ServicePackageName,
+            ServiceValue: ServiceValueOf(job),
+            AdvancePaidAmount: job.ServiceRequest?.AdvancePaidAmount ?? 0m,
+            IsAdvancePaid: job.ServiceRequest?.IsAdvancePaid ?? false,
+            BalanceToCollect: Math.Max(0m, ServiceValueOf(job) - (job.ServiceRequest?.AdvancePaidAmount ?? 0m))
         );
     }
 

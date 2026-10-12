@@ -523,7 +523,10 @@ public class ServiceRequestService : IServiceRequestService
             FormatStatus(sr.Status),
             sr.GarageRequests.Count,
             sr.GarageRequests.Count,
-            sr.SubmittedAtUtc)).ToList();
+            sr.SubmittedAtUtc,
+            sr.ServicePackageName,
+            sr.PackagePrice,
+            sr.AdvancePaidAtUtc != null)).ToList();
 
         return new PagedResult<AdvisorServiceRequestSummaryDto>(dtos, page, pageSize, totalCount);
     }

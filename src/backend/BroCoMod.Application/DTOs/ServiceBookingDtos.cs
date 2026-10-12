@@ -122,7 +122,10 @@ public record AdvisorServiceRequestSummaryDto(
     string Status,
     int EligibleGaragesCount,
     int DispatchedGaragesCount,
-    DateTime SubmittedAtUtc
+    DateTime SubmittedAtUtc,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    bool IsAdvancePaid = false
 );
 
 public record DispatchedGarageSummaryDto(

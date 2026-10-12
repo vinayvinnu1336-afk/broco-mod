@@ -56,12 +56,17 @@ sequenceDiagram
     API->>Garage: 3. Dispatches notification to eligible garages
     Garage->>API: 4. Reviews request & submits internal quote (costs + notes)
     API->>Advisor: 5. Advisor receives confidential garage quotations
-    Advisor->>Advisor: 6. Reviews quotations & applies margin
+    Advisor->>Advisor: 6. Reviews quotations (no markup: customer price = garage price)
     Advisor->>API: 7. Assigns garage & prepares customer-facing quotation
     API->>Customer: 8. Customer receives sanitized quotation (zero garage internal costs)
-    Customer->>API: 9. Customer accepts or rejects quotation
-    API->>Garage: 10. Service workflow continues / garage scheduled
+    Customer->>API: 9. Accepts quotation & pays 10% booking advance online
+    API->>Garage: 10. Job confirmed; customer pays the rest at the garage
+    Garage->>API: 11. Hands car over; pays BroCo 10% commission + GST
 ```
+
+---
+
+**Fixed-price packages (Basic / Standard / Premium)** skip steps 2-8: the customer picks a car and package on the website, sees the price, pays 10% to book, and an advisor assigns a nearby garage. BroCo currently serves **Hyderabad** only. Full money rules: [docs/architecture/money-flow.md](docs/architecture/money-flow.md).
 
 ---
 

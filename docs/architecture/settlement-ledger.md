@@ -1,5 +1,7 @@
 # Workshop Settlement & Financial Ledger
 
+> **Legacy:** garage settlements (BroCo collecting the full amount and paying garages out) are no longer created. Customers now pay garages directly and garages pay BroCo a commission — see [money-flow.md](money-flow.md).
+
 ## 1. Escrow & Commission Model
 
 BroCoMod operates on a marketplace escrow model:
