@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { ServiceRequestDetailDto } from '@/types/serviceRequest';
 import { CustomerServiceJobDetailDto, ServiceJobStatus } from '@/types/serviceJob';
-import { Building2, ClipboardList, MessageSquare } from 'lucide-react';
+import { Building2, CheckCircle2, ClipboardList, CreditCard, MessageSquare, Store } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,14 +17,27 @@ import { Alert } from '@/components/ui/Alert';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import { formatDate, formatDateTime, humanize } from '@/lib/format';
+import { formatDate, formatDateTime, formatINRWhole, humanize } from '@/lib/format';
+import { advanceFor, payBookingAdvance } from '@/components/booking/advancePayment';
 import {
   DetailRow,
   RequestProgress,
   StepList,
   requestNextStep,
+  requestStageIndex,
   statusKey,
 } from '@/app/customer/_lib/customer-ui';
+
+/** Package / advance fields returned by GET /customer/requests/{id}. */
+type RequestDetail = ServiceRequestDetailDto & {
+  servicePackageCode?: string | null;
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  advanceAmountDue?: number | null;
+  advancePaidAmount?: number | null;
+  advancePaidAtUtc?: string | null;
+  vehicleFuel?: string | null;
+};
 
 const JOB_ORDER: ServiceJobStatus[] = [
   'BookingConfirmed',
@@ -68,7 +81,8 @@ export default function CustomerRequestDetailPage() {
   const id = params?.id as string;
   const toast = useToast();
 
-  const [request, setRequest] = useState<ServiceRequestDetailDto | null>(null);
+  const [request, setRequest] = useState<RequestDetail | null>(null);
+  const [paying, setPaying] = useState(false);
   const [job, setJob] = useState<CustomerServiceJobDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -84,7 +98,7 @@ export default function CustomerRequestDetailPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const reqRes = await apiFetch<ServiceRequestDetailDto>(`/customer/requests/${id}`);
+    const reqRes = await apiFetch<RequestDetail>(`/customer/requests/${id}`);
     if (reqRes.success && reqRes.data) {
       setRequest(reqRes.data);
 
@@ -125,6 +139,20 @@ export default function CustomerRequestDetailPage() {
     }
   }
 
+  async function handlePayAdvance() {
+    if (!request) return;
+    setPaying(true);
+    const result = await payBookingAdvance(request.id);
+    if (result.kind === 'redirect') return; // continuing on the provider's checkout page
+    setPaying(false);
+    if (result.kind === 'paid') {
+      toast.success('Booking confirmed', `${formatINRWhole(result.amount)} advance received. An advisor will assign a verified garage near you shortly.`);
+      loadData();
+    } else {
+      toast.error('Payment not completed', result.message);
+    }
+  }
+
   if (loading && !request) {
     return (
       <div className="mx-auto max-w-3xl space-y-5" aria-busy="true" aria-label="Loading request">
@@ -147,7 +175,15 @@ export default function CustomerRequestDetailPage() {
 
   const reqKey = statusKey(request.status);
   const canCancel = reqKey !== 'CANCELLED' && reqKey !== 'COMPLETED';
-  const nextStep = requestNextStep(request.status);
+  const isPackageBooking = !!request.servicePackageCode;
+  const advancePaid = !!request.advancePaidAtUtc;
+  // Package bookings have a fixed price: no garage quotes, an advisor assigns a garage once the advance is paid.
+  const nextStep =
+    isPackageBooking && requestStageIndex(request.status) === 0
+      ? advancePaid
+        ? 'Booking confirmed. An advisor will assign a verified garage near you shortly.'
+        : 'Pay the 10% booking advance below to confirm your booking.'
+      : requestNextStep(request.status);
 
   const jobIdx = job ? JOB_ORDER.indexOf(job.status as ServiceJobStatus) : -1;
   const jobFinished = jobIdx >= JOB_ORDER.indexOf('HandedOver');
@@ -225,13 +261,15 @@ export default function CustomerRequestDetailPage() {
           <h2 className="text-base font-semibold text-navy-900">Where things stand</h2>
           <RequestProgress status={request.status} className="mt-3" />
           {nextStep && <p className="mt-3 text-sm text-navy-700">{nextStep}</p>}
-          {request.matchedGaragesCount > 0 && reqKey !== 'CANCELLED' && (
+          {request.matchedGaragesCount > 0 && reqKey !== 'CANCELLED' && !isPackageBooking && (
             <p className="mt-1 text-sm text-navy-500">
               {request.matchedGaragesCount} garage{request.matchedGaragesCount === 1 ? '' : 's'} contacted so far.
             </p>
           )}
         </Card>
       )}
+
+      <PaymentCard request={request} paying={paying} onPay={handlePayAdvance} />
 
       {/* Inspection */}
       {job?.inspection && (
@@ -371,5 +409,80 @@ export default function CustomerRequestDetailPage() {
         />
       </Modal>
     </div>
+  );
+}
+
+function PaymentCard({ request, paying, onPay }: { request: RequestDetail; paying: boolean; onPay: () => void }) {
+  const cancelled = statusKey(request.status) === 'CANCELLED';
+  const isPackage = !!request.servicePackageCode;
+
+  if (!isPackage) {
+    if (cancelled) return null;
+    return (
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Payment</h2>
+        <p className="mt-1 text-sm leading-relaxed text-navy-600">
+          Nothing to pay yet. Once you accept a garage quote, you pay 10% online to BroCo to confirm the booking and the
+          remaining 90% directly at the garage after the service.
+        </p>
+      </Card>
+    );
+  }
+
+  const price = Number(request.packagePrice ?? 0);
+  const due = Number(request.advanceAmountDue ?? advanceFor(price));
+  const paidAmount = Number(request.advancePaidAmount ?? 0);
+  const paid = !!request.advancePaidAtUtc || (due > 0 && paidAmount >= due);
+  const balance = Math.max(0, price - (paid ? paidAmount : due));
+
+  return (
+    <Card className="p-4 sm:p-5">
+      <h2 className="text-base font-semibold text-navy-900">Payment</h2>
+      <dl className="mt-3 divide-y divide-surface-200 rounded-xl border border-surface-200 px-3">
+        <DetailRow label={request.servicePackageName || 'Package'} strong>
+          {formatINRWhole(price)}
+        </DetailRow>
+        <div className="flex items-start justify-between gap-4 py-2.5">
+          <dt className="text-sm text-navy-500">Booking advance (10%)</dt>
+          <dd className="text-right text-sm">
+            {paid ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" />
+                {formatINRWhole(paidAmount || due)} paid
+              </span>
+            ) : (
+              <span className="font-semibold text-amber-700">{formatINRWhole(due)} due</span>
+            )}
+            {paid && request.advancePaidAtUtc && (
+              <span className="block text-xs text-navy-400">{formatDateTime(request.advancePaidAtUtc)}</span>
+            )}
+          </dd>
+        </div>
+        <div className="flex items-start justify-between gap-4 py-2.5">
+          <dt className="flex items-center gap-1.5 text-sm text-navy-500">
+            <Store className="h-4 w-4 shrink-0 text-navy-400" />
+            Balance at the garage
+          </dt>
+          <dd className="text-right text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(balance)}</dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs text-navy-500">
+        Balance {formatINRWhole(balance)} payable at the garage after the service.
+      </p>
+      {!paid && !cancelled && (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm text-navy-700">Your booking is saved but not confirmed yet. Pay the advance to confirm it.</p>
+          <Button
+            variant="primary"
+            className="w-full sm:w-auto"
+            onClick={onPay}
+            isLoading={paying}
+            leftIcon={!paying ? <CreditCard className="h-4 w-4" /> : undefined}
+          >
+            {paying ? 'Processing…' : `Pay ${formatINRWhole(due)} advance to confirm`}
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }

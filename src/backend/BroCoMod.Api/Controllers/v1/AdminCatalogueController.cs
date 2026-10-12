@@ -102,6 +102,16 @@ public class AdminCatalogueController : ControllerBase
     public async Task<IActionResult> Waive(Guid id, [FromBody] WaiveCommissionRequest request, CancellationToken ct) =>
         Ok(ApiResponse<GarageCommissionDto>.Ok(await _commissions.WaiveAsync(id, request, AdminId, ct), "Commission waived."));
 
+    // ----- Commission terms -----
+
+    [HttpGet("settings/commission")]
+    public async Task<IActionResult> GetCommissionTerms(CancellationToken ct) =>
+        Ok(ApiResponse<CommissionTermsDto>.Ok(await _commissions.GetTermsAsync(ct)));
+
+    [HttpPut("settings/commission")]
+    public async Task<IActionResult> UpdateCommissionTerms([FromBody] UpdateCommissionTermsRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<CommissionTermsDto>.Ok(await _commissions.UpdateTermsAsync(request, AdminId, ct), "Commission terms saved."));
+
     // ----- Website enquiries -----
 
     [HttpGet("leads")]

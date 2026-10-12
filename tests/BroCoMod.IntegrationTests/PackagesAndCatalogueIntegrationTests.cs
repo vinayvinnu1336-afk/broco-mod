@@ -227,6 +227,20 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
         var customer = await SignedInAsync("customer@brocomod.com");
         var res = await customer.PostAsJsonAsync("/api/v1/admin/catalogue/manufacturers", new UpsertManufacturerRequest("Nope", "India", 1));
         res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var terms = await customer.PutAsJsonAsync("/api/v1/admin/settings/commission", new UpdateCommissionTermsRequest(1m, 0m));
+        terms.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Admin_SeesCommissionTerms_AndInvalidRatesAreRejected()
+    {
+        var admin = await SignedInAsync("admin@brocomod.com");
+        var terms = await admin.GetFromJsonAsync<ApiResponse<CommissionTermsDto>>("/api/v1/admin/settings/commission", JsonOptions);
+        terms!.Data!.BookingAdvancePercentage.Should().Be(10m);
+        terms.Data.CommissionPercentage.Should().BeGreaterThan(0);
+
+        var invalid = await admin.PutAsJsonAsync("/api/v1/admin/settings/commission", new UpdateCommissionTermsRequest(90m, 18m));
+        invalid.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

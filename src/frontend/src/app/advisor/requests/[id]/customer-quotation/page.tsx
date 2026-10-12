@@ -12,7 +12,7 @@ import {
   GarageQuoteLineItemDto,
   QuoteLineType,
 } from '@/types/customerQuotation';
-import { AlertCircle, Lock, Plus, Save, Send, Trash2 } from 'lucide-react';
+import { AlertCircle, Download, Lock, Plus, Save, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -27,7 +27,15 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
 const LINE_TYPES: QuoteLineType[] = ['Labour', 'Part', 'Service', 'Other'];
-const DEFAULT_MARKUP_PERCENT = 15;
+/** The API accepts a customer total within ₹1 of the garage quote (rounding). */
+const TOTAL_TOLERANCE = 1;
+
+/** Garage quote detail as GET /advisor/garage-quotes/{id} returns it (only the fields used here). */
+interface AdvisorGarageQuoteDetail {
+  id: string;
+  totalAmount: number;
+  lineItems: GarageQuoteLineItemDto[];
+}
 
 /** The API may return the line type as its enum number (1-4); show it as a name. */
 function lineTypeName(value: unknown): QuoteLineType {
@@ -57,14 +65,30 @@ interface BuilderLine {
   item: CustomerQuotationLineItemInputDto;
 }
 
+/** Copies the garage's lines 1:1 (same price, discount and tax), so the customer total equals the garage quote. */
+function linesFromGarageQuote(garageLines: GarageQuoteLineItemDto[]): BuilderLine[] {
+  return garageLines.map((li, idx) => ({
+    key: nextKey(),
+    garageUnitCost: garageUnitNet(li),
+    item: {
+      lineType: lineTypeName(li.lineType),
+      description: li.description,
+      quantity: li.quantity,
+      unitPrice: li.unitPrice,
+      taxRate: li.taxRate ?? 0,
+      discountAmount: li.discountAmount ?? 0,
+      sortOrder: li.sortOrder || idx + 1,
+    },
+  }));
+}
+
+function isBlankDraft(items: { description?: string; unitPrice?: number }[]) {
+  return items.length === 0 || items.every((li) => !li.description?.trim() && !li.unitPrice);
+}
+
 function lineNet(item: CustomerQuotationLineItemInputDto) {
   const gross = (item.quantity || 0) * (item.unitPrice || 0);
   return Math.max(0, gross - (item.discountAmount || 0));
-}
-
-function percent(value: number | null) {
-  if (value === null || !Number.isFinite(value)) return '';
-  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
 function SummaryRow({
@@ -110,8 +134,11 @@ export default function CustomerQuotationBuilderPage() {
   const [customerDiscount, setCustomerDiscount] = useState<number>(0);
   const [lines, setLines] = useState<BuilderLine[]>([]);
   const [dirty, setDirty] = useState(false);
-  const [markupInput, setMarkupInput] = useState(String(DEFAULT_MARKUP_PERCENT));
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  /** Line items and total of the selected (assigned) garage quote. */
+  const [garageLines, setGarageLines] = useState<GarageQuoteLineItemDto[]>([]);
+  const [garageQuoteTotal, setGarageQuoteTotal] = useState<number | null>(null);
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
 
   // The request body uses exactly these objects.
   const lineItems = useMemo(() => lines.map((l) => l.item), [lines]);
@@ -130,9 +157,25 @@ export default function CustomerQuotationBuilderPage() {
 
     const assignedQuoteId = compRes.data.activeAssignment?.selectedQuoteId;
     const winningQuote = compRes.data.quotes.find((q) => q.quoteId === assignedQuoteId);
-    const garageLines = winningQuote?.lineItems ?? [];
+    let selectedLines: GarageQuoteLineItemDto[] = winningQuote?.lineItems ?? [];
+    let selectedTotal: number | null =
+      typeof winningQuote?.grandTotal === 'number'
+        ? winningQuote.grandTotal
+        : typeof compRes.data.activeAssignment?.selectedQuoteAmount === 'number'
+        ? compRes.data.activeAssignment.selectedQuoteAmount
+        : null;
+    if (assignedQuoteId && selectedLines.length === 0) {
+      // The comparison may leave out line items; read them from the garage quote itself.
+      const quoteRes = await apiFetch<AdvisorGarageQuoteDetail>(`/advisor/garage-quotes/${assignedQuoteId}`);
+      if (quoteRes.success && quoteRes.data) {
+        selectedLines = quoteRes.data.lineItems ?? [];
+        if (typeof quoteRes.data.totalAmount === 'number') selectedTotal = quoteRes.data.totalAmount;
+      }
+    }
+    setGarageLines(selectedLines);
+    setGarageQuoteTotal(selectedTotal);
     const costForDescription = (description: string): number | null => {
-      const match = garageLines.find(
+      const match = selectedLines.find(
         (g) => g.description.trim().toLowerCase() === description.trim().toLowerCase()
       );
       return match ? garageUnitNet(match) : null;
@@ -146,7 +189,18 @@ export default function CustomerQuotationBuilderPage() {
       setExistingQuote(activeQuote);
     }
 
-    if (activeQuote) {
+    let prefilledDraft = false;
+    const draftIsEmpty = !!activeQuote && activeQuote.status === 'Draft' && isBlankDraft(activeQuote.lineItems ?? []);
+
+    if (activeQuote && draftIsEmpty && selectedLines.length > 0) {
+      // Empty draft: start from the garage's own items (no markup).
+      setScopeSummary(activeQuote.scopeSummary || '');
+      setAdvisorRemarks(activeQuote.advisorRemarks || '');
+      setValidUntil(new Date(activeQuote.validUntilUtc).toISOString().split('T')[0]);
+      setCustomerDiscount(0);
+      setLines(linesFromGarageQuote(selectedLines));
+      prefilledDraft = true;
+    } else if (activeQuote) {
       setScopeSummary(activeQuote.scopeSummary || '');
       setAdvisorRemarks(activeQuote.advisorRemarks || '');
       setValidUntil(new Date(activeQuote.validUntilUtc).toISOString().split('T')[0]);
@@ -166,23 +220,10 @@ export default function CustomerQuotationBuilderPage() {
           },
         }))
       );
-    } else if (garageLines.length > 0) {
-      // Start from the assigned garage's quote with the default markup on each line.
-      setLines(
-        garageLines.map((li, idx) => ({
-          key: nextKey(),
-          garageUnitCost: garageUnitNet(li),
-          item: {
-            lineType: (li.lineType as QuoteLineType) || 'Service',
-            description: li.description,
-            quantity: li.quantity,
-            unitPrice: Math.round(li.unitPrice * (1 + DEFAULT_MARKUP_PERCENT / 100)),
-            taxRate: li.taxRate || 18,
-            discountAmount: 0,
-            sortOrder: idx + 1,
-          },
-        }))
-      );
+    } else if (selectedLines.length > 0) {
+      // Start from the assigned garage's quote at the garage's prices: BroCo doesn't add a markup.
+      setCustomerDiscount(0);
+      setLines(linesFromGarageQuote(selectedLines));
     } else {
       // Nothing to copy from: start with one empty line for the advisor to fill in.
       setLines([
@@ -202,7 +243,8 @@ export default function CustomerQuotationBuilderPage() {
       ]);
     }
 
-    setDirty(false);
+    // A prefilled empty draft differs from what's saved, so it is saved before marking ready or sending.
+    setDirty(prefilledDraft);
     setLoading(false);
   }, [requestId]);
 
@@ -223,18 +265,19 @@ export default function CustomerQuotationBuilderPage() {
   }, 0);
   const calculatedTotal = taxableAfterDiscount + calculatedTax;
 
-  // Advisor-only margin view
-  const winningQuote = comparison?.quotes.find((q) => q.quoteId === comparison.activeAssignment?.selectedQuoteId);
-  const garagePreTax = winningQuote ? winningQuote.grandTotal - winningQuote.taxAmount : null;
-  const totalMargin = garagePreTax !== null ? taxableAfterDiscount - garagePreTax : null;
-  const totalMarginPct = garagePreTax && garagePreTax > 0 && totalMargin !== null ? (totalMargin / garagePreTax) * 100 : null;
-  const hasCostLines = lines.some((l) => l.garageUnitCost !== null);
-
+  // BroCo doesn't add a markup: the customer total must equal the selected garage quote.
+  const totalDifference = garageQuoteTotal !== null ? calculatedTotal - garageQuoteTotal : null;
+  const totalsMatch = totalDifference === null || Math.abs(totalDifference) <= TOTAL_TOLERANCE;
   const status = existingQuote?.status;
   const editable = !existingQuote || status === 'Draft';
   const canSave = !existingQuote || status === 'Draft';
   const canMarkReady = !!existingQuote && status === 'Draft';
   const canSend = !!existingQuote && (status === 'ReadyToSend' || status === 'Draft');
+  // Only warn while the quotation can still change or be sent; older sent quotations are history.
+  const markupWarning =
+    garageQuoteTotal !== null && !totalsMatch && (editable || canSend)
+      ? `BroCo doesn't add a markup — the customer total must equal the garage quote (${formatINR(garageQuoteTotal)}).`
+      : null;
 
   function markDirty() {
     setDirty(true);
@@ -274,21 +317,19 @@ export default function CustomerQuotationBuilderPage() {
     markDirty();
   }
 
-  function applyMarkupToAll() {
-    const pct = parseFloat(markupInput);
-    if (!Number.isFinite(pct)) {
-      toast.error('Enter a margin percentage');
-      return;
-    }
-    setLines((prev) =>
-      prev.map((l) =>
-        l.garageUnitCost === null
-          ? l
-          : { ...l, item: { ...l.item, unitPrice: Math.round(l.garageUnitCost * (1 + pct / 100)) } }
-      )
-    );
+  /** Replaces the builder lines with the selected garage quote's items at the garage's prices. */
+  function applyGarageQuoteItems() {
+    if (garageLines.length === 0) return;
+    setLines(linesFromGarageQuote(garageLines));
+    setCustomerDiscount(0);
     markDirty();
-    toast.success(`Prices set to garage cost + ${pct}%`);
+    setConfirmReplaceOpen(false);
+    toast.success('Garage quote items loaded', 'Prices match the garage quote exactly.');
+  }
+
+  function requestGarageQuoteItems() {
+    if (isBlankDraft(lineItems)) applyGarageQuoteItems();
+    else setConfirmReplaceOpen(true);
   }
 
   /** Creates or updates the draft. Returns the saved quotation, or null when it failed. */
@@ -478,8 +519,8 @@ export default function CustomerQuotationBuilderPage() {
 
       <p className="flex items-start gap-2 text-xs text-navy-500">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Garage costs and margins on this page are only visible to advisors. The customer sees the scope, line
-        descriptions and your prices.
+        BroCo doesn&apos;t add a markup: the customer pays exactly the garage&apos;s quote. Garage prices on this page
+        are only visible to advisors; the customer sees the scope, line descriptions and prices.
       </p>
 
       {/* Details */}
@@ -528,28 +569,49 @@ export default function CustomerQuotationBuilderPage() {
         </div>
       </Card>
 
-      {/* Margin helper */}
-      {editable && hasCostLines && (
+      {/* Selected garage quote */}
+      {assignment && (
         <Card className="p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="sm:w-56">
-              <Input
-                id="markup-percent"
-                label="Margin over garage cost (%)"
-                type="number"
-                inputMode="decimal"
-                value={markupInput}
-                onChange={(e) => setMarkupInput(e.target.value)}
-              />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-navy-900">Garage quote</h2>
+              <p className="mt-0.5 text-sm text-navy-500">
+                {assignment.garageName} · <span className="font-mono">{assignment.selectedQuoteNumber}</span> ·{' '}
+                {garageLines.length} item{garageLines.length === 1 ? '' : 's'}
+              </p>
             </div>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={applyMarkupToAll}>
-              Apply to all garage lines
-            </Button>
+            <div className="text-left sm:text-right">
+              <div className="text-xs text-navy-500">Garage quote total</div>
+              <div className="text-lg font-bold tabular-nums text-navy-900">
+                {garageQuoteTotal !== null ? formatINR(garageQuoteTotal) : '—'}
+              </div>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-navy-500">
-            Sets each customer price to the garage&apos;s price plus this margin. You can still edit any line.
-          </p>
+          {editable && garageLines.length > 0 && (
+            <Button
+              variant="outline"
+              className="mt-3 w-full sm:w-auto"
+              leftIcon={<Download className="h-4 w-4" />}
+              onClick={requestGarageQuoteItems}
+            >
+              Use garage quote items
+            </Button>
+          )}
         </Card>
+      )}
+
+      {markupWarning && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+          <div>
+            <p className="font-semibold">{markupWarning}</p>
+            <p className="mt-0.5 text-red-800">
+              Customer total is {formatINR(calculatedTotal)}
+              {totalDifference !== null && ` (${totalDifference > 0 ? '+' : '−'}${formatINR(Math.abs(totalDifference))})`}.
+              {editable && garageLines.length > 0 ? ' Use the garage quote items to match it.' : ''}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Line items */}
@@ -575,8 +637,8 @@ export default function CustomerQuotationBuilderPage() {
           const tax = (net * (item.taxRate || 0)) / 100;
           const total = net + tax;
           const cost = line.garageUnitCost !== null ? line.garageUnitCost * (item.quantity || 0) : null;
-          const margin = cost !== null ? net - cost : null;
-          const marginPct = cost !== null && cost > 0 && margin !== null ? (margin / cost) * 100 : null;
+          const difference = cost !== null ? net - cost : null;
+          const differs = difference !== null && Math.abs(difference) > 0.005;
           const idBase = line.key;
 
           return (
@@ -657,7 +719,7 @@ export default function CustomerQuotationBuilderPage() {
 
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-surface-50 p-3 sm:grid-cols-4">
                 <div>
-                  <dt className="text-xs text-navy-500">Garage cost</dt>
+                  <dt className="text-xs text-navy-500">Garage price</dt>
                   <dd className="text-sm font-medium tabular-nums text-navy-900">
                     {cost !== null ? formatINR(cost) : <span className="text-navy-400">Not in garage quote</span>}
                   </dd>
@@ -667,13 +729,17 @@ export default function CustomerQuotationBuilderPage() {
                   <dd className="text-sm font-medium tabular-nums text-navy-900">{formatINR(net)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-navy-500">Margin</dt>
+                  <dt className="text-xs text-navy-500">Vs garage price</dt>
                   <dd
                     className={`text-sm font-semibold tabular-nums ${
-                      margin === null ? 'text-navy-400' : margin < 0 ? 'text-red-600' : 'text-emerald-700'
+                      difference === null ? 'text-navy-400' : differs ? 'text-red-600' : 'text-emerald-700'
                     }`}
                   >
-                    {margin === null ? '—' : `${formatINR(margin)} ${percent(marginPct)}`}
+                    {difference === null
+                      ? '—'
+                      : differs
+                      ? `${difference > 0 ? '+' : '−'}${formatINR(Math.abs(difference))}`
+                      : 'Same'}
                   </dd>
                 </div>
                 <div>
@@ -719,36 +785,34 @@ export default function CustomerQuotationBuilderPage() {
           </dl>
         </div>
 
-        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+        <div
+          className={`mt-5 rounded-xl border p-3 sm:p-4 ${
+            totalsMatch ? 'border-emerald-200 bg-emerald-50/60' : 'border-red-200 bg-red-50/60'
+          }`}
+        >
+          <p className={`flex items-center gap-1.5 text-xs font-semibold ${totalsMatch ? 'text-emerald-800' : 'text-red-800'}`}>
             <Lock className="h-3.5 w-3.5" />
-            Advisor only
+            Advisor only · no markup
           </p>
           <dl className="mt-2 space-y-2">
+            <SummaryRow label="Garage quote total" value={garageQuoteTotal !== null ? formatINR(garageQuoteTotal) : '—'} />
+            <SummaryRow label="Customer total" value={formatINR(calculatedTotal)} />
             <SummaryRow
-              label="Garage quote (before tax)"
-              value={garagePreTax !== null ? formatINR(garagePreTax) : '—'}
-            />
-            <SummaryRow label="Customer price (before tax)" value={formatINR(taxableAfterDiscount)} />
-            <SummaryRow
-              label="Your margin"
+              label="Difference"
               value={
-                totalMargin !== null ? (
-                  <>
-                    {formatINR(totalMargin)}{' '}
-                    <span className="text-sm font-semibold">{percent(totalMarginPct)}</span>
-                  </>
-                ) : (
-                  '—'
-                )
+                totalDifference === null
+                  ? '—'
+                  : totalsMatch
+                  ? 'Matches'
+                  : `${totalDifference > 0 ? '+' : '−'}${formatINR(Math.abs(totalDifference))}`
               }
               strong
-              tone={totalMargin === null ? undefined : totalMargin < 0 ? 'red' : 'green'}
+              tone={totalDifference === null ? undefined : totalsMatch ? 'green' : 'red'}
             />
           </dl>
-          {totalMargin !== null && totalMargin < 0 && (
-            <p className="mt-2 text-xs font-medium text-red-600">The customer price is below the garage&apos;s quote.</p>
-          )}
+          <p className="mt-2 text-xs text-navy-600">
+            BroCo earns the 10% booking advance and the garage&apos;s commission, so the customer pays exactly what the garage quoted.
+          </p>
         </div>
       </Card>
 
@@ -779,10 +843,10 @@ export default function CustomerQuotationBuilderPage() {
               <div className="flex items-baseline justify-between gap-3 md:block">
                 <div className="text-xs text-navy-500">
                   Customer pays
-                  {totalMargin !== null && (
-                    <span className={totalMargin < 0 ? 'text-red-600' : 'text-emerald-700'}>
+                  {garageQuoteTotal !== null && (
+                    <span className={totalsMatch ? 'text-emerald-700' : 'text-red-600'}>
                       {' '}
-                      · margin {formatINR(totalMargin)}
+                      · garage {formatINR(garageQuoteTotal)}
                     </span>
                   )}
                 </div>
@@ -812,7 +876,8 @@ export default function CustomerQuotationBuilderPage() {
                 {canSend && (
                   <Button
                     onClick={() => setConfirmSendOpen(true)}
-                    disabled={saving}
+                    disabled={saving || !totalsMatch}
+                    title={markupWarning ?? undefined}
                     leftIcon={<Send className="h-4 w-4" />}
                     className="flex-1 md:flex-none"
                   >
@@ -826,6 +891,15 @@ export default function CustomerQuotationBuilderPage() {
           <div className="h-8 md:hidden" aria-hidden="true" />
         </>
       )}
+
+      <ConfirmationDialog
+        isOpen={confirmReplaceOpen}
+        onClose={() => setConfirmReplaceOpen(false)}
+        onConfirm={applyGarageQuoteItems}
+        title="Replace the line items?"
+        message="Your current lines are replaced with the garage quote's items at the garage's prices, and the customer discount is reset to ₹0."
+        confirmText="Use garage items"
+      />
 
       <ConfirmationDialog
         isOpen={confirmSendOpen}

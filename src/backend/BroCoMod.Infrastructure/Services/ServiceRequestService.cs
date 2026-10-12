@@ -589,7 +589,14 @@ public class ServiceRequestService : IServiceRequestService
             FormatStatus(request.Status),
             request.AssignedAdvisorId,
             dispatchedGarages,
-            request.SubmittedAtUtc);
+            request.SubmittedAtUtc,
+            request.ServicePackageCode,
+            request.ServicePackageName,
+            request.PackagePrice,
+            request.PackagePrice.HasValue ? BookingAdvance.Amount(request.PackagePrice.Value, _advancePercentage) : null,
+            request.AdvancePaidAmount,
+            request.AdvancePaidAtUtc,
+            request.VehicleFuel);
     }
 
     public async Task<PagedResult<AdminServiceRequestSummaryDto>> GetAdminRequestsAsync(

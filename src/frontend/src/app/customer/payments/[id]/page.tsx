@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { IconTile } from '@/components/ui/ListItem';
 import { formatDateTime, formatINR } from '@/lib/format';
 import { DetailRow, paymentMethodLabel, paymentPurposeLabel } from '@/app/customer/_lib/customer-ui';
+import { advancePurposeLabel } from '@/components/booking/advancePayment';
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams();
@@ -93,7 +94,7 @@ export default function CustomerPaymentDetailPage() {
       {/* Receipt */}
       <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card">
         <div className="border-b border-dashed border-surface-300 px-4 py-6 text-center sm:px-5">
-          <div className="text-sm text-navy-500">{paymentPurposeLabel(payment.purpose)}</div>
+          <div className="text-sm text-navy-500">{advancePurposeLabel(payment.purpose) ?? paymentPurposeLabel(payment.purpose)}</div>
           <div className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-navy-900">{money(payment.amount)}</div>
           <div className="mt-2 flex justify-center">
             <StatusBadge status={payment.status} />

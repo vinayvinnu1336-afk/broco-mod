@@ -22,6 +22,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
 import { formatDate, formatDateTime, formatINR, humanize } from '@/lib/format';
 import { DetailRow } from '@/app/customer/_lib/customer-ui';
+import { PriceSplit } from '@/components/booking/PriceSplit';
+import { advanceFor } from '@/components/booking/advancePayment';
 
 /** The API also returns the vehicle on the quote. */
 type QuoteDetail = CustomerFacingQuotationDto & {
@@ -42,6 +44,7 @@ interface PaymentResult {
   checkoutUrl?: string | null;
   status?: string;
   customerQuotationId?: string | null;
+  amount?: number;
 }
 
 // The development gateway has no checkout page; it is confirmed straight away. Only used when the API says so.
@@ -76,6 +79,8 @@ export default function CustomerQuotationDetailPage() {
   const [initiatingPayment, setInitiatingPayment] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState<PaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Amount the server asked for when the checkout was created: the source of truth once known.
+  const [initiatedAmount, setInitiatedAmount] = useState<number | null>(null);
 
   // Rejection
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -160,6 +165,7 @@ export default function CustomerQuotationDetailPage() {
     });
 
     if (res.success && res.data) {
+      if (typeof res.data.amount === 'number') setInitiatedAmount(res.data.amount);
       if (res.data.gatewayProvider === DEV_GATEWAY) {
         const verifyRes = await apiFetch<PaymentResult>('/customer/payments/verify', {
           method: 'POST',
@@ -284,6 +290,12 @@ export default function CustomerQuotationDetailPage() {
   }
 
   const showPayBar = isAccepted && !paymentComplete;
+
+  // Only the 10% booking advance is paid online; the rest is paid at the garage after the service.
+  const total = Number(quote.customerTotal ?? 0);
+  const advance = paymentComplete?.amount ?? initiatedAmount ?? advanceFor(total);
+  const atGarage = Math.max(0, total - advance);
+  const splitText = `Pay 10% now (${money(advance)}) to confirm · ${money(atGarage)} at the garage`;
   const showDecisionBar = isSent;
 
   return (
@@ -344,7 +356,10 @@ export default function CustomerQuotationDetailPage() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-navy-900">Payment received</h2>
+              <h2 className="text-base font-semibold text-navy-900">Booking advance received</h2>
+              <p className="mt-0.5 text-sm text-navy-600">
+                {money(advance)} paid online. Pay the remaining {money(atGarage)} directly at the garage after the service.
+              </p>
               {(paymentComplete.paymentNumber || paymentComplete.gatewayPaymentId) && (
                 <p className="mt-0.5 break-all font-mono text-xs text-navy-500">
                   Ref {paymentComplete.paymentNumber || paymentComplete.gatewayPaymentId}
@@ -392,6 +407,22 @@ export default function CustomerQuotationDetailPage() {
           Includes {money(quote.customerTax)} tax
           {quote.customerDiscount > 0 && ` and a ${money(quote.customerDiscount)} discount`}
         </p>
+        {(isSent || isAccepted) && (
+          <PriceSplit
+            className="mt-3"
+            total={total}
+            advance={advance}
+            atGarage={atGarage}
+            totalLabel="Quote total"
+            advancePaid={!!paymentComplete}
+          />
+        )}
+        {isSent && (
+          <p className="mt-2 text-xs leading-relaxed text-navy-500">
+            When you accept, you pay 10% online to BroCo to confirm the booking. The remaining 90% is paid directly at the
+            garage after the service.
+          </p>
+        )}
         {validityText && (
           <div
             className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
@@ -511,8 +542,9 @@ export default function CustomerQuotationDetailPage() {
           <ActionBar
             summary={
               <div>
-                <div className="text-xs text-navy-500">Amount due</div>
-                <div className="truncate text-base font-bold tabular-nums text-navy-900">{money(quote.customerTotal)}</div>
+                <div className="text-xs text-navy-500">Pay now (10%)</div>
+                <div className="truncate text-base font-bold tabular-nums text-navy-900">{money(advance)}</div>
+                <div className="truncate text-[11px] text-navy-500">{money(atGarage)} at the garage</div>
               </div>
             }
           >
@@ -522,7 +554,7 @@ export default function CustomerQuotationDetailPage() {
               isLoading={initiatingPayment}
               leftIcon={<CreditCard className="h-4 w-4" />}
             >
-              {initiatingPayment ? 'Processing…' : 'Pay now'}
+              {initiatingPayment ? 'Processing…' : `Pay ${money(advance)}`}
             </Button>
           </ActionBar>
           <ActionBarSpacer />
@@ -534,7 +566,7 @@ export default function CustomerQuotationDetailPage() {
         isOpen={showAcceptModal}
         onClose={() => !accepting && setShowAcceptModal(false)}
         title="Accept this quote?"
-        description="The garage will be booked at this price."
+        description={splitText}
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
@@ -561,7 +593,15 @@ export default function CustomerQuotationDetailPage() {
             <DetailRow label="Total" strong>
               {money(quote.customerTotal)}
             </DetailRow>
+            <DetailRow label="Pay now (10%)" strong>
+              {money(advance)}
+            </DetailRow>
+            <DetailRow label="Pay at the garage">{money(atGarage)}</DetailRow>
           </dl>
+          <p className="text-xs leading-relaxed text-navy-500">
+            After accepting you pay {money(advance)} online to BroCo to confirm the booking. The remaining {money(atGarage)} is
+            paid directly at the garage after the service.
+          </p>
           <Textarea
             id="acceptRemarks"
             label="Anything the garage should know? (optional)"

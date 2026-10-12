@@ -62,6 +62,9 @@ public interface ICommissionService
     Task<GarageCommissionDto> MarkReceivedAsync(Guid commissionId, MarkCommissionReceivedRequest request, Guid adminUserId, CancellationToken ct = default);
     Task<GarageCommissionDto> WaiveAsync(Guid commissionId, WaiveCommissionRequest request, Guid adminUserId, CancellationToken ct = default);
 
+    Task<CommissionTermsDto> GetTermsAsync(CancellationToken ct = default);
+    Task<CommissionTermsDto> UpdateTermsAsync(UpdateCommissionTermsRequest request, Guid adminUserId, CancellationToken ct = default);
+
     Task<bool> IsGarageBlockedForNewJobsAsync(Guid garageId, CancellationToken ct = default);
     Task<int> SendDueRemindersAsync(CancellationToken ct = default);
 }

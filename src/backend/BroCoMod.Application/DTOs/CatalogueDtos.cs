@@ -235,3 +235,15 @@ public record PackageGarageCandidateDto(
     double DistanceKm,
     bool IsBlocked
 );
+
+/// <summary>What BroCo charges garages per completed job, and the advance customers pay online.</summary>
+public record CommissionTermsDto(
+    decimal CommissionPercentage,
+    decimal GstPercentage,
+    decimal BookingAdvancePercentage
+);
+
+public record UpdateCommissionTermsRequest(
+    [Range(0, 50)] decimal CommissionPercentage,
+    [Range(0, 28)] decimal GstPercentage
+);

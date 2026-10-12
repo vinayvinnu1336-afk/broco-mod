@@ -154,7 +154,14 @@ public record AdvisorServiceRequestDetailDto(
     string Status,
     Guid? AssignedAdvisorId,
     IReadOnlyList<DispatchedGarageSummaryDto> DispatchedGarages,
-    DateTime SubmittedAtUtc
+    DateTime SubmittedAtUtc,
+    string? ServicePackageCode = null,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    decimal? AdvanceAmountDue = null,
+    decimal AdvancePaidAmount = 0,
+    DateTime? AdvancePaidAtUtc = null,
+    string? VehicleFuel = null
 );
 
 public record AdminServiceRequestSummaryDto(

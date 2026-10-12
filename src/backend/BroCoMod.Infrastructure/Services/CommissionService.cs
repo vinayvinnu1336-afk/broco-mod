@@ -28,6 +28,7 @@ public class CommissionService : ICommissionService
     private readonly int _dueHours;
     private readonly int _reminderIntervalHours;
     private readonly int _blockAfterOverdueDays;
+    private readonly decimal _advancePercentage;
 
     public CommissionService(
         ApplicationDbContext context,
@@ -48,6 +49,7 @@ public class CommissionService : ICommissionService
         _logger = logger;
         _dueHours = Math.Max(1, configuration.GetValue<int?>("Commission:DueHours") ?? 24);
         _reminderIntervalHours = Math.Max(1, configuration.GetValue<int?>("Commission:ReminderIntervalHours") ?? 12);
+        _advancePercentage = BookingAdvance.Percentage(configuration);
         _blockAfterOverdueDays = Math.Max(0, configuration.GetValue<int?>("Commission:BlockNewJobsAfterOverdueDays") ?? 3);
     }
 
@@ -303,6 +305,44 @@ public class CommissionService : ICommissionService
             details: $"Waived {commission.CommissionNumber} ({Inr(commission.TotalDue)}): {request.Reason}",
             cancellationToken: ct);
         return await ToDtoAsync(commission.Id, ct);
+    }
+
+    // ---------------- Terms ----------------
+
+    public async Task<CommissionTermsDto> GetTermsAsync(CancellationToken ct = default)
+    {
+        var fee = await ActiveFeeAsync(ct);
+        return new CommissionTermsDto(fee?.FeePercentage ?? 10m, fee?.TaxPercentage ?? 18m, _advancePercentage);
+    }
+
+    /// <summary>Applies to commissions created from now on; existing dues keep the rate they were billed at.</summary>
+    public async Task<CommissionTermsDto> UpdateTermsAsync(UpdateCommissionTermsRequest request, Guid adminUserId, CancellationToken ct = default)
+    {
+        var fee = await ActiveFeeAsync(ct, tracked: true);
+        if (fee == null)
+        {
+            fee = new PlatformFeeConfiguration("Standard Automotive Commission", request.CommissionPercentage, 0m, request.GstPercentage, true, DateTime.UtcNow);
+            _context.PlatformFeeConfigurations.Add(fee);
+        }
+        else
+        {
+            fee.UpdateTerms(request.CommissionPercentage, fee.FixedFee, request.GstPercentage);
+        }
+        await _context.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            action: "COMMISSION_TERMS_UPDATED",
+            userId: adminUserId,
+            entityName: nameof(PlatformFeeConfiguration),
+            entityId: fee.Id.ToString(),
+            details: $"Garage commission set to {request.CommissionPercentage}% + {request.GstPercentage}% GST.",
+            cancellationToken: ct);
+        return await GetTermsAsync(ct);
+    }
+
+    private Task<PlatformFeeConfiguration?> ActiveFeeAsync(CancellationToken ct, bool tracked = false)
+    {
+        var query = tracked ? _context.PlatformFeeConfigurations : _context.PlatformFeeConfigurations.AsNoTracking();
+        return query.Where(f => f.IsActive).OrderByDescending(f => f.EffectiveFromUtc).FirstOrDefaultAsync(ct);
     }
 
     // ---------------- Enforcement & reminders ----------------

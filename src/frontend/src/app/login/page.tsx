@@ -28,7 +28,7 @@ const demoAccounts: { role: 'customer' | 'garage' | 'advisor' | 'admin'; label: 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = safeRedirect(searchParams.get('redirect'));
+  const redirect = safeRedirect(searchParams.get('redirect') ?? searchParams.get('next'));
   const expired = searchParams.get('expired') === 'true';
 
   const { login, quickLogin, user } = useAuth();

@@ -13,7 +13,14 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { formatDate, formatDateTime } from '@/lib/format';
+
+/** Booking fields the API adds to job summaries (not yet in the shared type). */
+type JobSummary = ServiceJobSummaryDto & { servicePackageName?: string | null; isAdvancePaid?: boolean };
+
+/** Until the car is received the garage waits for the customer's 10% BroCo advance. */
+const AWAITING_ADVANCE_STATUSES = ['BookingConfirmed', 'Scheduled'];
 
 const FILTERS = [
   { value: 'ALL', label: 'All' },
@@ -61,7 +68,7 @@ function jobMeta(job: ServiceJobSummaryDto) {
 }
 
 export default function GarageJobsPage() {
-  const [jobs, setJobs] = useState<ServiceJobSummaryDto[]>([]);
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -77,7 +84,7 @@ export default function GarageJobsPage() {
     setLoading(true);
     setError(null);
     const query = statusFilter !== 'ALL' ? `&status=${statusFilter}` : '';
-    const res = await apiFetch<PagedResult<ServiceJobSummaryDto> | ServiceJobSummaryDto[]>(
+    const res = await apiFetch<PagedResult<JobSummary> | JobSummary[]>(
       `/garage/jobs?page=${p}&pageSize=15${query}`
     );
     if (res.success && res.data) {
@@ -137,7 +144,21 @@ export default function GarageJobsPage() {
                     .filter(Boolean)
                     .join(' · ')}
                   meta={jobMeta(job)}
-                  trailing={<StatusBadge status={job.status} />}
+                  trailing={
+                    <div className="flex flex-col items-end gap-1">
+                      <StatusBadge status={job.status} />
+                      {job.servicePackageName && (
+                        <Badge variant="blue" pill className="whitespace-nowrap">
+                          Package
+                        </Badge>
+                      )}
+                      {job.isAdvancePaid === false && AWAITING_ADVANCE_STATUSES.includes(String(job.status)) && (
+                        <Badge variant="amber" pill className="whitespace-nowrap">
+                          Awaiting advance
+                        </Badge>
+                      )}
+                    </div>
+                  }
                 />
               ))}
             </ListGroup>

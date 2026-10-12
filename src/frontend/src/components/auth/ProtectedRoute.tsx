@@ -27,7 +27,7 @@ export function ProtectedRoute({ children, allowedRoles, portalName }: Protected
 
   useEffect(() => {
     if (signedOut) {
-      router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
     }
   }, [signedOut, router]);
 

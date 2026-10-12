@@ -14,6 +14,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Alert } from '@/components/ui/Alert';
 import { formatDate, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 
 /**
@@ -131,11 +132,20 @@ export default function GarageFinancePage() {
   return (
     <div>
       <PageHeader
-        title="Payouts"
+        title="Past payouts"
         description="What you earn on each finished job, after the BroCo platform fee and GST on that fee."
       />
 
       <div className="space-y-5 sm:space-y-6">
+        <Alert type="info" title="Payouts are no longer used for new jobs">
+          Customers now pay you directly at handover (after a 10% advance to BroCo), and BroCo bills you a
+          commission instead.{' '}
+          <Link href="/garage/commission" className="font-semibold underline">
+            See BroCo commission
+          </Link>
+          . This page keeps your older payouts for reference.
+        </Alert>
+
         {loading ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (

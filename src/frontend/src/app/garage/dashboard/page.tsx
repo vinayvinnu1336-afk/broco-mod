@@ -3,8 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { GarageQuoteSummaryDto } from '@/types/garageQuote';
-import { GarageSettlementDto } from '@/types/finance';
-import { Car, FileSpreadsheet, Inbox, Wallet, Wrench } from 'lucide-react';
+import { Car, FileSpreadsheet, IndianRupee, Inbox, Wrench } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
@@ -13,6 +12,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatINRShort, formatINRWhole, formatRelative } from '@/lib/format';
 import { LinkButton } from '../_components/LinkButton';
+import { GarageCommissionSummary } from '@/components/garage/commission';
 
 /** Shape of GET /garage/dashboard (GarageDashboardDto). */
 interface GarageDashboardData {
@@ -41,7 +41,6 @@ interface GarageDashboardData {
 
 const OPEN_REQUEST_STATUSES = ['PENDING', 'NOTIFIED', 'VIEWED'];
 const OPEN_QUOTE_STATUSES = ['Draft', 'Submitted', 'UnderReview'];
-const DUE_SETTLEMENT_STATUSES = ['Pending', 'Processing'];
 
 function formatKm(km: number | null | undefined) {
   const value = Number(km ?? 0);
@@ -52,7 +51,7 @@ export default function GarageDashboardPage() {
   const [data, setData] = useState<GarageDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [payoutsDue, setPayoutsDue] = useState<{ amount: number; count: number } | null>(null);
+  const [commission, setCommission] = useState<GarageCommissionSummary | null>(null);
 
   async function loadDashboard() {
     setLoading(true);
@@ -71,21 +70,15 @@ export default function GarageDashboardPage() {
     }
   }
 
-  async function loadPayoutsDue() {
-    // Same read-only endpoint the Payouts screen uses; the dashboard DTO has no payout figure.
-    const res = await apiFetch<GarageSettlementDto[]>('/garage/finance/settlements');
-    if (res.success && Array.isArray(res.data)) {
-      const due = res.data.filter((s) => DUE_SETTLEMENT_STATUSES.includes(String(s.status)));
-      setPayoutsDue({
-        amount: due.reduce((sum, s) => sum + (Number(s.netPayableToGarage) || 0), 0),
-        count: due.length,
-      });
-    }
+  async function loadCommission() {
+    // BroCo commission owed on handed-over jobs (10% of service value + GST).
+    const res = await apiFetch<GarageCommissionSummary>('/garage/commission/summary');
+    if (res.success && res.data) setCommission(res.data);
   }
 
   useEffect(() => {
     loadDashboard();
-    loadPayoutsDue();
+    loadCommission();
   }, []);
 
   const openRequests = (data?.availableRequests ?? []).filter((r) =>
@@ -137,12 +130,20 @@ export default function GarageDashboardPage() {
               href="/garage/quotes"
             />
             <StatCard
-              label="Payouts due"
-              value={payoutsDue ? formatINRShort(payoutsDue.amount) : '—'}
-              hint={payoutsDue ? `${payoutsDue.count} not paid yet` : 'See payouts'}
-              icon={Wallet}
-              tone="green"
-              href="/garage/finance"
+              label="Commission due"
+              value={commission ? formatINRShort(commission.outstandingAmount) : '—'}
+              hint={
+                !commission
+                  ? 'BroCo commission'
+                  : commission.overdueCount > 0
+                  ? `${formatINRWhole(commission.overdueAmount)} overdue · pay now`
+                  : commission.outstandingCount > 0
+                  ? `${commission.outstandingCount} job${commission.outstandingCount === 1 ? '' : 's'} · pay within 24 h`
+                  : 'All paid up'
+              }
+              icon={IndianRupee}
+              tone={commission && commission.overdueCount > 0 ? 'red' : commission && commission.outstandingCount > 0 ? 'amber' : 'green'}
+              href="/garage/commission"
             />
           </div>
 

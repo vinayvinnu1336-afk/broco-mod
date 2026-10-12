@@ -7,6 +7,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CommissionTermsCard } from '@/components/admin/CommissionTermsCard';
 
 interface AdminSettings {
   defaultSearchRadiusKm: number;
@@ -45,8 +46,10 @@ export default function AdminSettingsPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Settings"
-        description="Current platform rules. They are set on the server and can't be changed from this screen."
+        description="Commission terms can be changed here. The other platform rules are set on the server."
       />
+
+      <CommissionTermsCard />
 
       {loading && !settings ? (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2" aria-busy="true">

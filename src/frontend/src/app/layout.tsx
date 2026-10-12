@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s · BroCo",
   },
   description:
-    "Book car service from verified garages near you. Compare a curated quote, approve it in one tap and track your car until it is handed back.",
+    "Car service in Hyderabad from verified garages. See Basic, Standard and Premium service prices for your car, pay 10% to book and the rest at the garage.",
   applicationName: "BroCo",
   manifest: "/manifest.webmanifest",
   icons: {

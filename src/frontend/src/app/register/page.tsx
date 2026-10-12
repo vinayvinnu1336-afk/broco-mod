@@ -26,7 +26,7 @@ const roleOptions: { value: Role; label: string; hint: string; icon: React.Compo
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = safeRedirect(searchParams.get('redirect'));
+  const redirect = safeRedirect(searchParams.get('redirect') ?? searchParams.get('next'));
   const initialRole: Role = searchParams.get('role')?.toLowerCase() === 'garage' ? 'GARAGE_OWNER' : 'CUSTOMER';
 
   const { register } = useAuth();
