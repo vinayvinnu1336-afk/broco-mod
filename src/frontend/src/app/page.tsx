@@ -46,7 +46,6 @@ import {
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_WHATSAPP, hasSupportContact, telHref } from '@/lib/site';
 import { PublicHeader } from './_public/PublicHeader';
 import { PublicFooter } from './_public/PublicFooter';
-import { HeroArt } from './_public/HeroArt';
 import {
   CAR_SERVICE_PATH,
   CarChoice,
@@ -133,6 +132,28 @@ function SectionHeading({ eyebrow, title, desc, id }: { eyebrow?: string; title:
       </h2>
       {desc && <p className="mt-2 text-sm leading-relaxed text-navy-500 sm:text-base">{desc}</p>}
     </div>
+  );
+}
+
+/** Small promises under the headline: a swipeable row of pills on phones, icon tiles on laptops. */
+function HighlightRow({ className = '' }: { className?: string }) {
+  return (
+    <ul
+      aria-label="Why BroCo"
+      className={`no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:flex-nowrap lg:overflow-visible ${className}`}
+    >
+      {HIGHLIGHTS.map((h) => (
+        <li
+          key={h.label}
+          className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-electric-100 bg-white px-3 py-2 text-xs font-semibold text-navy-700 shadow-subtle lg:w-[78px] lg:flex-col lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:text-center lg:shadow-none"
+        >
+          <span className="flex h-6 w-6 items-center justify-center text-electric-600 lg:h-10 lg:w-10 lg:rounded-xl lg:bg-white lg:shadow-card">
+            <h.icon className="h-4 w-4 lg:h-5 lg:w-5" aria-hidden />
+          </span>
+          <span className="lg:leading-tight">{h.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -282,87 +303,101 @@ export default function HomePage() {
 
       <main className="pb-24 lg:pb-0">
         {/* ============ Hero ============ */}
-        <section id="book" aria-labelledby="hero-title" className="relative overflow-hidden bg-gradient-to-b from-[#EAF2FF] via-[#F5F9FF] to-white">
-          <div aria-hidden className="pointer-events-none absolute -right-32 -top-40 h-96 w-96 rounded-full bg-electric-200/40 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -left-24 top-1/2 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl" />
-
-
-          <div className="relative mx-auto grid max-w-7xl grid-cols-1 gap-5 px-4 pb-8 pt-5 sm:px-6 sm:pt-10 lg:grid-cols-12 lg:items-center lg:gap-10 lg:px-8 lg:pb-16 lg:pt-14">
-            {/* Workshop scene (wide screens): sits behind the booking card, like the photo in a print ad */}
-            <div aria-hidden className="pointer-events-none absolute bottom-8 right-[268px] hidden w-[440px] xl:block">
-              <HeroArt className="h-auto w-full drop-shadow-xl" />
-            </div>
-
-            <div className="relative z-10 min-w-0 lg:col-span-7 xl:col-span-6 xl:pb-24">
-              <p className="inline-flex items-center gap-1.5 rounded-full border border-electric-200 bg-white/80 px-3 py-1 text-xs font-semibold text-electric-700 shadow-subtle">
+        <section id="book" aria-labelledby="hero-title" className="relative bg-white">
+          {/*
+            Photo + headline.
+            Phones & tablets: the photo is a banner under the header and the headline follows it.
+            Laptops (lg+): the photo fills the band, right-aligned at its natural shape, and the headline sits
+            on its faded left side. Nothing overlaps the bottom of the photo: the car's tyres touch that edge.
+          */}
+          <div className="relative lg:flex lg:h-[clamp(440px,42vw,600px)] lg:items-center lg:overflow-hidden">
+            <div className="relative aspect-[2/1] overflow-hidden bg-[#F4F8FC] sm:aspect-[21/9] lg:absolute lg:inset-0 lg:aspect-auto lg:bg-white">
+              <picture>
+                <source media="(min-width: 640px)" srcSet="/images/hero-service-centre-890.jpg" />
+                {/* eslint-disable-next-line @next/next/no-img-element -- art-directed <picture>; sizes are pre-generated */}
+                <img
+                  src="/images/hero-service-centre-640.jpg"
+                  alt="A car parked outside the BroCo service centre"
+                  width={890}
+                  height={380}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-full w-full object-cover [object-position:90%_100%] sm:[object-position:100%_100%] lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:h-full lg:w-auto lg:max-w-none"
+                />
+              </picture>
+              {/* Keeps the headline readable over the photo's faded left side (laptops). */}
+              <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-[46%] bg-gradient-to-r from-white via-white/80 to-transparent lg:block" />
+              <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-electric-700 shadow-subtle backdrop-blur sm:left-6 sm:top-4 lg:hidden">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
-              </p>
-              <h1 id="hero-title" className="mt-3 text-[32px] font-extrabold leading-[1.08] tracking-tight text-navy-950 sm:text-5xl lg:text-[52px]">
-                Your Vehicle,
-                <br />
-                Our <span className="bg-gradient-to-r from-electric-700 to-sky-500 bg-clip-text text-transparent">Responsibility.</span>
-              </h1>
-              <p className="mt-3 max-w-md text-[15px] leading-relaxed text-navy-600 sm:mt-4 sm:text-lg">
-                Fixed-price car service from verified garages.{' '}
-                <span className="hidden sm:inline">Free pick-up &amp; drop and live updates. </span>
-                Pay just 10% to book — the rest after the job is done.
-              </p>
-
-              <div className="mt-6 hidden gap-3 lg:flex">
-                <button
-                  type="button"
-                  onClick={() => scrollToCard(true)}
-                  className="inline-flex min-h-[50px] items-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-semibold text-white shadow-lg shadow-electric-600/25 transition hover:bg-electric-700"
-                >
-                  Book a Service <ArrowRight className="h-5 w-5" aria-hidden />
-                </button>
-                <Link
-                  href="/track"
-                  className="inline-flex min-h-[50px] items-center rounded-xl border-2 border-electric-600 bg-white px-6 text-base font-semibold text-electric-700 transition hover:bg-electric-50"
-                >
-                  Track My Vehicle
-                </Link>
-              </div>
-
-              {/* Highlights: one swipeable row on phones, a row of icons on desktop */}
-              <ul className="no-scrollbar -mx-4 mt-5 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:mt-8 lg:flex-nowrap lg:gap-4" aria-label="Why BroCo">
-                {HIGHLIGHTS.map((h) => (
-                  <li
-                    key={h.label}
-                    className="flex shrink-0 snap-start items-center gap-2 rounded-full border border-electric-100 bg-white px-3 py-2 text-xs font-semibold text-navy-700 shadow-subtle lg:flex-col lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:text-center lg:shadow-none"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center text-electric-600 lg:h-10 lg:w-10 lg:rounded-xl lg:bg-white lg:shadow-card">
-                      <h.icon className="h-4 w-4 lg:h-5 lg:w-5" aria-hidden />
-                    </span>
-                    <span className="lg:max-w-[84px] lg:leading-tight">{h.label}</span>
-                  </li>
-                ))}
-              </ul>
+              </span>
             </div>
 
-            {/* Booking card */}
-            <div ref={cardRef} className="relative z-10 min-w-0 lg:col-span-5 xl:col-span-4 xl:col-start-9">
+            <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-0">
+              <div className="max-w-2xl lg:max-w-[440px] xl:max-w-[560px]">
+                <p className="hidden items-center gap-1.5 rounded-full border border-electric-200 bg-white/90 px-3 py-1 text-xs font-semibold text-electric-700 shadow-subtle lg:inline-flex">
+                  <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
+                </p>
+                <h1 id="hero-title" className="text-[30px] font-extrabold leading-[1.08] tracking-tight text-navy-950 sm:text-[44px] lg:mt-3 lg:text-[40px] xl:text-[52px]">
+                  Your Vehicle,
+                  <br />
+                  Our <span className="bg-gradient-to-r from-electric-700 to-sky-500 bg-clip-text text-transparent">Responsibility.</span>
+                </h1>
+                <p className="mt-2.5 text-[15px] leading-relaxed text-navy-600 sm:mt-3 sm:text-lg lg:mt-4 lg:text-[17px] xl:text-lg">
+                  Fixed-price car service from verified garages.{' '}
+                  <span className="hidden sm:inline">Free pick-up &amp; drop and live updates. </span>
+                  Pay just 10% to book<span className="hidden sm:inline"> — the rest after the job is done</span>.
+                </p>
+
+                <div className="mt-6 hidden gap-3 lg:flex">
+                  <button
+                    type="button"
+                    onClick={() => scrollToCard(true)}
+                    className="inline-flex min-h-[50px] items-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-semibold text-white shadow-lg shadow-electric-600/25 transition hover:bg-electric-700"
+                  >
+                    Book a Service <ArrowRight className="h-5 w-5" aria-hidden />
+                  </button>
+                  <Link
+                    href="/track"
+                    className="inline-flex min-h-[50px] items-center rounded-xl border-2 border-electric-600 bg-white px-6 text-base font-semibold text-electric-700 transition hover:bg-electric-50"
+                  >
+                    Track My Vehicle
+                  </Link>
+                </div>
+
+                <HighlightRow className="mt-7 hidden lg:flex" />
+              </div>
+            </div>
+          </div>
+
+          {/* Booking: a card on phones, a bar under the photo from tablets up. */}
+          <div className="relative mx-auto max-w-7xl px-4 pb-6 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pb-10">
+            <div ref={cardRef} className="relative z-10 min-w-0">
               <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-modal">
-                <div role="tablist" aria-label="Book or track" className="grid grid-cols-2 border-b border-surface-200 bg-surface-50 p-1">
-                  {(['book', 'track'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === t}
-                      onClick={() => setTab(t)}
-                      className={`min-h-[44px] rounded-xl text-sm font-semibold transition ${
-                        tab === t ? 'bg-white text-electric-700 shadow-card' : 'text-navy-500 hover:text-navy-800'
-                      }`}
-                    >
-                      {t === 'book' ? 'Book Service' : 'Track Service'}
-                    </button>
-                  ))}
+                <div className="border-b border-surface-200 bg-surface-50 p-1 md:flex md:items-center md:justify-between md:pr-4">
+                  <div role="tablist" aria-label="Book or track" className="grid grid-cols-2 md:inline-grid md:w-[340px]">
+                    {(['book', 'track'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === t}
+                        onClick={() => setTab(t)}
+                        className={`min-h-[42px] rounded-xl text-sm font-semibold transition ${
+                          tab === t ? 'bg-white text-electric-700 shadow-card' : 'text-navy-500 hover:text-navy-800'
+                        }`}
+                      >
+                        {t === 'book' ? 'Book Service' : 'Track Service'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="hidden items-center gap-1.5 text-xs font-medium text-navy-500 md:inline-flex">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden /> Pay only 10% online to book · the rest at the garage
+                  </p>
                 </div>
 
                 {tab === 'book' ? (
-                  <form onSubmit={submit} noValidate aria-label="Check car service prices" className="p-4 sm:p-6">
-                    <div className="space-y-3.5">
+                  <form onSubmit={submit} noValidate aria-label="Check car service prices" className="p-4 sm:p-5">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-[200px_minmax(0,1.45fr)_minmax(0,1fr)_auto] lg:items-start">
                       <Select
                         label="Location"
                         value={city}
@@ -383,7 +418,7 @@ export default function HomePage() {
                         error={errors.car}
                       />
 
-                      <div>
+                      <div className="min-w-0">
                         <label htmlFor="home-mobile" className="mb-1.5 block text-sm font-medium text-navy-800">
                           Mobile number
                         </label>
@@ -425,23 +460,24 @@ export default function HomePage() {
                           </p>
                         )}
                       </div>
+
+                      {/* md+: lines up with the inputs, under their labels */}
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="mt-1 inline-flex min-h-[54px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-electric-600 px-6 text-base font-bold tracking-wide text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 active:scale-[0.99] disabled:opacity-70 md:mt-[26px] md:min-h-[52px]"
+                      >
+                        {submitting ? 'Checking prices…' : 'CHECK PRICES FOR FREE'}
+                        {!submitting && <ArrowRight className="h-5 w-5" aria-hidden />}
+                      </button>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="mt-5 inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-5 text-base font-bold tracking-wide text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 active:scale-[0.99] disabled:opacity-70"
-                    >
-                      {submitting ? 'Checking prices…' : 'CHECK PRICES FOR FREE'}
-                      {!submitting && <ArrowRight className="h-5 w-5" aria-hidden />}
-                    </button>
-
-                    <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-navy-500">
+                    <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-navy-500 md:hidden">
                       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
                       Pay only 10% online to book. Pay the rest at the garage after the service.
                     </p>
                     {SUPPORT_PHONE && (
-                      <p className="mt-3 border-t border-surface-100 pt-3 text-center text-sm text-navy-500">
+                      <p className="mt-3 border-t border-surface-100 pt-3 text-center text-sm text-navy-500 md:text-left">
                         Need help? Call{' '}
                         <a href={telHref(SUPPORT_PHONE)} className="font-semibold text-electric-700">
                           {SUPPORT_PHONE}
@@ -450,22 +486,24 @@ export default function HomePage() {
                     )}
                   </form>
                 ) : (
-                  <div className="p-4 sm:p-6">
-                    <p className="text-[15px] font-semibold text-navy-900">Where is my car?</p>
-                    <p className="mt-1 text-sm text-navy-500">
-                      Follow every step — booking confirmed, car received, inspection, work in progress and ready for
-                      delivery.
-                    </p>
-                    <ul className="mt-4 space-y-2.5 text-sm text-navy-700">
-                      {['Status updates at every stage', 'Approve extra work before it is done', 'See what you have paid and what is left'].map((t) => (
-                        <li key={t} className="flex items-center gap-2">
-                          <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> {t}
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="p-4 sm:p-5 md:flex md:items-center md:justify-between md:gap-6">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-navy-900">Where is my car?</p>
+                      <p className="mt-1 text-sm text-navy-500">
+                        Follow every step — booking confirmed, car received, inspection, work in progress and ready for
+                        delivery.
+                      </p>
+                      <ul className="mt-3 space-y-2 text-sm text-navy-700 md:flex md:flex-wrap md:gap-x-5 md:space-y-0">
+                        {['Status updates at every stage', 'Approve extra work before it is done', 'See what you have paid and what is left'].map((t) => (
+                          <li key={t} className="flex items-center gap-2">
+                            <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden /> {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                     <Link
                       href={customer ? '/customer/requests' : `/login?next=${encodeURIComponent('/customer/requests')}`}
-                      className="mt-5 inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-5 text-base font-bold text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700"
+                      className="mt-5 inline-flex min-h-[54px] w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-bold text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 md:mt-0 md:w-auto"
                     >
                       {customer ? 'See my bookings' : 'Log in to track'} <ArrowRight className="h-5 w-5" aria-hidden />
                     </Link>
@@ -473,6 +511,8 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+
+            <HighlightRow className="mt-4 lg:hidden" />
           </div>
         </section>
 
