@@ -155,7 +155,8 @@ public class AdminFinanceService : IAdminFinanceService
                 p.GatewayPaymentId,
                 p.RefundedAmount,
                 p.PaidAtUtc,
-                p.CreatedAtUtc
+                p.CreatedAtUtc,
+                p.ServiceRequestId
             ))
             .ToListAsync(cancellationToken);
 

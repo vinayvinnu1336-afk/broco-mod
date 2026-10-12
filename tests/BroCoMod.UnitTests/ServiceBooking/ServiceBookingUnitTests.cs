@@ -9,7 +9,7 @@ namespace BroCoMod.UnitTests.ServiceBooking;
 public class ServiceBookingUnitTests
 {
     [Theory]
-    [InlineData(12.9716, 77.5946)] // Bangalore
+    [InlineData(17.4126, 78.4482)] // Hyderabad
     [InlineData(0.0, 0.0)]
     [InlineData(-90.0, -180.0)]
     [InlineData(90.0, 180.0)]
@@ -19,9 +19,9 @@ public class ServiceBookingUnitTests
         var location = new ServiceLocation(
             addressLine1: "123 Main St",
             addressLine2: null,
-            city: "Bengaluru",
-            state: "Karnataka",
-            pincode: "560001",
+            city: "Hyderabad",
+            state: "Telangana",
+            pincode: "500034",
             latitude: lat,
             longitude: lon);
 
@@ -46,9 +46,9 @@ public class ServiceBookingUnitTests
         Action act = () => new ServiceLocation(
             addressLine1: "123 Main St",
             addressLine2: null,
-            city: "Bengaluru",
-            state: "Karnataka",
-            pincode: "560001",
+            city: "Hyderabad",
+            state: "Telangana",
+            pincode: "500034",
             latitude: lat,
             longitude: lon);
 
@@ -69,7 +69,7 @@ public class ServiceBookingUnitTests
             vehicleYear: 2022,
             vehicleLicensePlate: "KA-01-AB-1234",
             serviceLocationId: Guid.NewGuid(),
-            customerLocation: new Point(77.5946, 12.9716) { SRID = 4326 },
+            customerLocation: new Point(78.4482, 17.4126) { SRID = 4326 },
             problemDescription: "High-speed brake vibration and noise.",
             serviceCategory: "Brakes");
 
@@ -107,7 +107,7 @@ public class ServiceBookingUnitTests
             vehicleYear: 2021,
             vehicleLicensePlate: "KA-02-CD-5678",
             serviceLocationId: Guid.NewGuid(),
-            customerLocation: new Point(77.5946, 12.9716) { SRID = 4326 },
+            customerLocation: new Point(78.4482, 17.4126) { SRID = 4326 },
             problemDescription: "Check engine warning light active.",
             serviceCategory: "Diagnostics");
 
@@ -132,7 +132,7 @@ public class ServiceBookingUnitTests
             vehicleYear: 2020,
             vehicleLicensePlate: "KA-03-EF-9012",
             serviceLocationId: Guid.NewGuid(),
-            customerLocation: new Point(77.5946, 12.9716) { SRID = 4326 },
+            customerLocation: new Point(78.4482, 17.4126) { SRID = 4326 },
             problemDescription: "Suspension knocking sound over speed bumps.",
             serviceCategory: "Suspension");
 
@@ -158,7 +158,7 @@ public class ServiceBookingUnitTests
             vehicleYear: 2023,
             vehicleLicensePlate: "KA-04-GH-3456",
             serviceLocationId: Guid.NewGuid(),
-            customerLocation: new Point(77.5946, 12.9716) { SRID = 4326 },
+            customerLocation: new Point(78.4482, 17.4126) { SRID = 4326 },
             problemDescription: "Oil service required.",
             serviceCategory: "Periodic Service");
 

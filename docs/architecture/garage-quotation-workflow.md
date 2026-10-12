@@ -2,7 +2,7 @@
 
 ## 1. Overview & Architecture
 
-The Garage Quotation Workflow enables partner workshops to review incoming service dispatch requests (`GarageRequest`), formulate comprehensive itemized commercial quotes (`GarageQuote`), submit them to BroCo Mod advisors, revise quotes while preserving immutable version history (`GarageQuoteVersion`), and withdraw quotes when necessary.
+The Garage Quotation Workflow enables partner workshops to review incoming service dispatch requests (`GarageRequest`), formulate comprehensive itemized commercial quotes (`GarageQuote`), submit them to BroCo advisors, revise quotes while preserving immutable version history (`GarageQuoteVersion`), and withdraw quotes when necessary.
 
 ```mermaid
 stateDiagram-v2

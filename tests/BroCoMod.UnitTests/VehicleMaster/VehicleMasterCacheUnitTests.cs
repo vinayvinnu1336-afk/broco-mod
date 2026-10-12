@@ -28,12 +28,12 @@ public class VehicleMasterCacheUnitTests
     public void CatalogDtos_RoundTripThroughSystemTextJson()
     {
         // The Redis-backed cache stores values as JSON, so the cached DTO lists must deserialize losslessly.
-        var manufacturers = new List<VehicleManufacturerDto> { new(Guid.NewGuid(), "BMW", "Germany", "/logos/bmw.svg", true, 1, 4) };
-        var models = new List<VehicleModelDto> { new(Guid.NewGuid(), Guid.NewGuid(), "BMW", "3 Series", "Sedan", 2019, null, true, 3) };
+        var manufacturers = new List<VehicleManufacturerDto> { new(Guid.NewGuid(), "BMW", "Germany", "/logos/bmw.svg", true, 1, 4, true) };
+        var models = new List<VehicleModelDto> { new(Guid.NewGuid(), Guid.NewGuid(), "BMW", "3 Series", "Sedan", 2019, null, true, 3, "Luxury", new List<string> { "Petrol", "Diesel" }) };
         var variants = new List<VehicleVariantDto> { new(Guid.NewGuid(), Guid.NewGuid(), "3 Series", "M340i", "Automatic", "Petrol", 2998, 382, 2020, null, true) };
 
         JsonSerializer.Deserialize<List<VehicleManufacturerDto>>(JsonSerializer.Serialize(manufacturers)).Should().Equal(manufacturers);
-        JsonSerializer.Deserialize<List<VehicleModelDto>>(JsonSerializer.Serialize(models)).Should().Equal(models);
+        JsonSerializer.Deserialize<List<VehicleModelDto>>(JsonSerializer.Serialize(models)).Should().BeEquivalentTo(models); // Fuels is a list, so compare by value
         JsonSerializer.Deserialize<List<VehicleVariantDto>>(JsonSerializer.Serialize(variants)).Should().Equal(variants);
     }
 

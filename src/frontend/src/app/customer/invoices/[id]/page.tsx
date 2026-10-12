@@ -88,7 +88,7 @@ export default function CustomerInvoiceDetailPage() {
         {/* Header */}
         <header className="flex items-start justify-between gap-4 border-b border-surface-200 p-4 sm:p-5">
           <div className="min-w-0">
-            <div className="text-xs font-medium text-navy-400">BroCo Mod · Tax invoice</div>
+            <div className="text-xs font-medium text-navy-400">BroCo · Tax invoice</div>
             <div className="mt-0.5 break-all font-mono text-base font-semibold text-navy-900">{invoice.invoiceNumber}</div>
             <div className="mt-0.5 text-sm text-navy-500">Issued {formatDate(invoice.issuedAtUtc)}</div>
           </div>

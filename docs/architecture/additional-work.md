@@ -5,7 +5,7 @@ During physical intake, diagnostics, or active repair execution, mechanics may i
 
 > [!CAUTION]
 > **STRICT IMMUTABILITY INVARIANT**:
-> An accepted `CustomerQuotation` represents a legally binding commercial agreement between BroCo Mod and the customer. Under **no circumstances** may garage additional work requests automatically mutate an accepted quotation, alter the `CustomerTotal`, or bill the customer without explicit customer approval.
+> An accepted `CustomerQuotation` represents a legally binding commercial agreement between BroCo and the customer. Under **no circumstances** may garage additional work requests automatically mutate an accepted quotation, alter the `CustomerTotal`, or bill the customer without explicit customer approval.
 
 ---
 

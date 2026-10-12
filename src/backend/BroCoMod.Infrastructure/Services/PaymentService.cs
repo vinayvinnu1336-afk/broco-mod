@@ -5,6 +5,7 @@ using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
 using BroCoMod.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace BroCoMod.Infrastructure.Services;
@@ -24,6 +25,8 @@ public class PaymentService : IPaymentService
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<PaymentService> _logger;
+    private readonly ICommissionService _commissionService;
+    private readonly decimal _advancePercentage;
 
     public PaymentService(
         ApplicationDbContext context,
@@ -34,8 +37,12 @@ public class PaymentService : IPaymentService
         IFinancialLedgerService ledgerService,
         IAuditService auditService,
         INotificationService notificationService,
-        ILogger<PaymentService> logger)
+        ILogger<PaymentService> logger,
+        ICommissionService commissionService,
+        IConfiguration configuration)
     {
+        _commissionService = commissionService;
+        _advancePercentage = BookingAdvance.Percentage(configuration);
         _context = context;
         _gatewayFactory = gatewayFactory;
         _numberGenerator = numberGenerator;
@@ -119,7 +126,10 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException($"Cannot initiate payment for quotation with status '{quotation.Status}'. Allowed only when 'Accepted' or 'Sent'.");
 
         // 3. Server-authoritative payable calculation (strictly calculated on server)
-        decimal authoritativeAmount = quotation.CustomerTotal;
+        // BroCo collects only the booking advance online; the customer pays the rest at the garage.
+        if (quotation.ServiceRequest.IsAdvancePaid)
+            throw new InvalidOperationException("The booking advance for this request is already paid.");
+        decimal authoritativeAmount = BookingAdvance.Amount(quotation.CustomerTotal, _advancePercentage);
         if (authoritativeAmount <= 0.0m)
             throw new InvalidOperationException("Authoritative payable amount must be greater than zero.");
 
@@ -138,7 +148,7 @@ public class PaymentService : IPaymentService
             Currency: quotation.Currency,
             CustomerEmail: customerEmail,
             CustomerName: customerName,
-            Description: $"Payment for Quotation {quotation.QuotationNumber}"
+            Description: $"Booking advance for quotation {quotation.QuotationNumber}"
         ), cancellationToken);
 
         // 6. Create Payment entity
@@ -148,11 +158,12 @@ public class PaymentService : IPaymentService
             garageId: quotation.AssignedGarageId,
             amount: authoritativeAmount,
             currency: quotation.Currency,
-            purpose: PaymentPurpose.ServiceQuotation,
+            purpose: PaymentPurpose.BookingAdvance,
             gatewayProvider: gateway.ProviderName,
             customerQuotationId: quotation.Id,
             serviceJobId: quotation.ServiceJob?.Id,
-            idempotencyKey: request.IdempotencyKey
+            idempotencyKey: request.IdempotencyKey,
+            serviceRequestId: quotation.ServiceRequestId
         );
 
         payment.SetGatewayOrder(orderResult.OrderId, gateway.ProviderName);
@@ -368,53 +379,7 @@ public class PaymentService : IPaymentService
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        // 1. Generate Tax Invoice
-        await _invoiceService.GenerateInvoiceForPaymentAsync(payment.Id, cancellationToken);
-
-        // 2. Create Workshop Settlement
-        await _settlementService.CreateSettlementForPaymentAsync(payment.Id, cancellationToken);
-
-        // 3. Record Escrow & Customer Ledger entries
-        await _ledgerService.RecordPaymentEntriesAsync(payment, cancellationToken);
-
-        // 4. Audit Log
-        await _auditService.LogAsync(
-            action: "PAYMENT_PAID",
-            userId: resolvedCustomerUserId,
-            entityName: nameof(Payment),
-            entityId: payment.Id.ToString(),
-            details: $"Payment {payment.PaymentNumber} successfully paid. Amount: {payment.Amount} {payment.Currency}. Gateway Ref: {payment.GatewayPaymentId}",
-            cancellationToken: cancellationToken
-        );
-
-        // 5. Notifications
-        await _notificationService.SendInAppNotificationAsync(
-            userId: resolvedCustomerUserId,
-            title: "Payment Received",
-            message: $"We received your payment {payment.PaymentNumber} for {payment.Amount} {payment.Currency}. Your tax invoice is ready.",
-            type: "PAYMENT_RECEIVED",
-            referenceId: payment.Id,
-            referenceType: nameof(Payment),
-            cancellationToken: cancellationToken
-        );
-
-        // Notify Garage
-        var garageUser = await _context.GarageUsers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(gu => gu.GarageId == payment.GarageId, cancellationToken);
-
-        if (garageUser != null)
-        {
-            await _notificationService.SendInAppNotificationAsync(
-                userId: garageUser.UserId,
-                title: "Customer Payment Received",
-                message: $"Customer payment {payment.PaymentNumber} of {payment.Amount} {payment.Currency} has been received and confirmed in escrow.",
-                type: "GARAGE_PAYMENT_CONFIRMED",
-                referenceId: payment.Id,
-                referenceType: nameof(Payment),
-                cancellationToken: cancellationToken
-            );
-        }
+        await FinalizePaidPaymentAsync(payment, resolvedCustomerUserId, "checkout", cancellationToken);
 
         _logger.LogInformation("Successfully verified and finalized payment {PaymentNumber}", payment.PaymentNumber);
 
@@ -480,48 +445,8 @@ public class PaymentService : IPaymentService
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            await _invoiceService.GenerateInvoiceForPaymentAsync(payment.Id, cancellationToken);
-            await _settlementService.CreateSettlementForPaymentAsync(payment.Id, cancellationToken);
-            await _ledgerService.RecordPaymentEntriesAsync(payment, cancellationToken);
-
-            var customerUserId = await ResolveCustomerUserIdAsync(payment.CustomerId, cancellationToken);
-
-            await _auditService.LogAsync(
-                action: "PAYMENT_PAID",
-                userId: customerUserId,
-                entityName: nameof(Payment),
-                entityId: payment.Id.ToString(),
-                details: $"Webhook captured payment {payment.PaymentNumber}. Amount: {payment.Amount} {payment.Currency}",
-                cancellationToken: cancellationToken
-            );
-
-            await _notificationService.SendInAppNotificationAsync(
-                userId: customerUserId,
-                title: "Payment Received",
-                message: $"We received your payment {payment.PaymentNumber} for {payment.Amount} {payment.Currency}. Your tax invoice is ready.",
-                type: "PAYMENT_RECEIVED",
-                referenceId: payment.Id,
-                referenceType: nameof(Payment),
-                cancellationToken: cancellationToken
-            );
-
-            // Notify Garage
-            var garageUser = await _context.GarageUsers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(gu => gu.GarageId == payment.GarageId, cancellationToken);
-
-            if (garageUser != null)
-            {
-                await _notificationService.SendInAppNotificationAsync(
-                    userId: garageUser.UserId,
-                    title: "Customer Payment Received",
-                    message: $"Customer payment {payment.PaymentNumber} of {payment.Amount} {payment.Currency} has been received and confirmed in escrow.",
-                    type: "GARAGE_PAYMENT_CONFIRMED",
-                    referenceId: payment.Id,
-                    referenceType: nameof(Payment),
-                    cancellationToken: cancellationToken
-                );
-            }
+            var webhookActorId = await ResolveCustomerUserIdAsync(payment.CustomerId, cancellationToken);
+            await FinalizePaidPaymentAsync(payment, webhookActorId, "webhook", cancellationToken);
 
             _logger.LogInformation("Webhook successfully processed payment {PaymentNumber} as Paid", payment.PaymentNumber);
         }
@@ -666,6 +591,189 @@ public class PaymentService : IPaymentService
         throw new UnauthorizedAccessException("You do not have permission to access this payment.");
     }
 
+    /// <summary>
+    /// Booking advance for a fixed-price package request, paid right after booking (before a garage is chosen).
+    /// </summary>
+    public async Task<InitiatePaymentResponseDto> InitiateRequestAdvanceAsync(
+        Guid serviceRequestId,
+        Guid customerId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedCustomerId = await ResolveCustomerIdAsync(customerId, cancellationToken);
+        var resolvedCustomerUserId = await ResolveCustomerUserIdAsync(customerId, cancellationToken);
+
+        var request = await _context.ServiceRequests
+            .FirstOrDefaultAsync(r => r.Id == serviceRequestId, cancellationToken)
+            ?? throw new KeyNotFoundException("Service request not found.");
+        if (request.CustomerId != resolvedCustomerId && request.CustomerId != resolvedCustomerUserId)
+            throw new UnauthorizedAccessException("You are not authorized to pay for this request.");
+        if (!request.IsPackageBooking || request.PackagePrice is not > 0)
+            throw new InvalidOperationException("This request has no fixed price yet. You'll pay the advance after accepting the quote.");
+        if (request.Status == ServiceRequestStatus.Cancelled)
+            throw new InvalidOperationException("This request was cancelled.");
+        if (request.IsAdvancePaid)
+            throw new InvalidOperationException("The booking advance for this request is already paid.");
+
+        // Re-use an open checkout for the same request instead of creating duplicates.
+        var open = await _context.Payments
+            .Where(p => p.ServiceRequestId == request.Id && p.Purpose == PaymentPurpose.BookingAdvance &&
+                        (p.Status == PaymentStatus.Created || p.Status == PaymentStatus.Pending))
+            .OrderByDescending(p => p.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        var amount = BookingAdvance.Amount(request.PackagePrice.Value, _advancePercentage);
+        var gateway = _gatewayFactory.GetGateway();
+
+        if (open != null && open.Amount == amount && open.GatewayProvider == gateway.ProviderName && open.GatewayOrderId != null)
+        {
+            return new InitiatePaymentResponseDto(open.Id, open.PaymentNumber, open.Amount, open.Currency, open.GatewayProvider,
+                open.GatewayOrderId, $"/customer/payments/checkout?orderId={open.GatewayOrderId}&paymentNumber={open.PaymentNumber}",
+                new Dictionary<string, string> { ["order_id"] = open.GatewayOrderId, ["amount"] = ((long)(open.Amount * 100m)).ToString(), ["currency"] = open.Currency });
+        }
+
+        var customer = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == resolvedCustomerUserId, cancellationToken);
+        var paymentNumber = await _numberGenerator.NextPaymentNumberAsync(cancellationToken);
+        var order = await gateway.CreatePaymentOrderAsync(new CreatePaymentOrderParams(
+            PaymentNumber: paymentNumber,
+            Amount: amount,
+            Currency: "INR",
+            CustomerEmail: customer?.Email ?? "customer@example.com",
+            CustomerName: customer?.FullName ?? "Customer",
+            Description: $"Booking advance for {request.ServicePackageName} ({request.RequestNumber})"), cancellationToken);
+
+        var assignedGarageId = await _context.GarageAssignments.AsNoTracking()
+            .Where(a => a.ServiceRequestId == request.Id && (a.Status == GarageAssignmentStatus.Assigned || a.Status == GarageAssignmentStatus.Confirmed))
+            .Select(a => (Guid?)a.GarageId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var payment = new Payment(
+            paymentNumber: paymentNumber,
+            customerId: request.CustomerId,
+            garageId: assignedGarageId,
+            amount: amount,
+            currency: "INR",
+            purpose: PaymentPurpose.BookingAdvance,
+            gatewayProvider: gateway.ProviderName,
+            idempotencyKey: string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
+            serviceRequestId: request.Id);
+        payment.SetGatewayOrder(order.OrderId, gateway.ProviderName);
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            action: "PAYMENT_CREATED",
+            userId: resolvedCustomerUserId,
+            entityName: nameof(Payment),
+            entityId: payment.Id.ToString(),
+            details: $"Booking advance {payment.PaymentNumber} of ₹{payment.Amount:N2} started for {request.RequestNumber}.",
+            cancellationToken: cancellationToken);
+
+        return new InitiatePaymentResponseDto(payment.Id, payment.PaymentNumber, payment.Amount, payment.Currency,
+            payment.GatewayProvider, payment.GatewayOrderId, order.CheckoutUrl, order.ProviderData);
+    }
+
+    /// <summary>
+    /// Everything that follows a confirmed payment, by purpose: booking advances mark the request as
+    /// confirmed, commission payments settle the garage's dues; legacy full payments keep the old
+    /// escrow + settlement path.
+    /// </summary>
+    private async Task FinalizePaidPaymentAsync(Payment payment, Guid actorUserId, string source, CancellationToken cancellationToken)
+    {
+        switch (payment.Purpose)
+        {
+            case PaymentPurpose.GarageCommission:
+                await _commissionService.SettleCommissionsForPaymentAsync(payment.Id, cancellationToken);
+                await _notificationService.SendInAppNotificationAsync(
+                    userId: actorUserId,
+                    title: "Commission paid",
+                    message: $"Thank you! We received ₹{payment.Amount:N2} ({payment.PaymentNumber}).",
+                    type: "COMMISSION_PAID",
+                    referenceId: payment.Id,
+                    referenceType: nameof(Payment),
+                    cancellationToken: cancellationToken);
+                break;
+
+            case PaymentPurpose.BookingAdvance:
+                await RecordAdvanceAsync(payment, cancellationToken);
+                await _invoiceService.GenerateInvoiceForPaymentAsync(payment.Id, cancellationToken);
+                await _notificationService.SendInAppNotificationAsync(
+                    userId: actorUserId,
+                    title: "Booking advance received",
+                    message: $"We received your booking advance of ₹{payment.Amount:N2}. You'll pay the rest directly at the garage after the service.",
+                    type: "PAYMENT_RECEIVED",
+                    referenceId: payment.Id,
+                    referenceType: nameof(Payment),
+                    cancellationToken: cancellationToken);
+                if (payment.GarageId.HasValue)
+                {
+                    var garageUserIds = await _context.GarageUsers.AsNoTracking()
+                        .Where(gu => gu.GarageId == payment.GarageId.Value)
+                        .Select(gu => gu.UserId)
+                        .ToListAsync(cancellationToken);
+                    foreach (var garageUserId in garageUserIds)
+                    {
+                        await _notificationService.SendInAppNotificationAsync(
+                            userId: garageUserId,
+                            title: "Booking confirmed",
+                            message: "The customer paid the BroCo booking advance. You can receive the car now and collect the balance at handover.",
+                            type: "GARAGE_PAYMENT_CONFIRMED",
+                            referenceId: payment.Id,
+                            referenceType: nameof(Payment),
+                            cancellationToken: cancellationToken);
+                    }
+                }
+                break;
+
+            default:
+                await _invoiceService.GenerateInvoiceForPaymentAsync(payment.Id, cancellationToken);
+                await _settlementService.CreateSettlementForPaymentAsync(payment.Id, cancellationToken);
+                await _ledgerService.RecordPaymentEntriesAsync(payment, cancellationToken);
+                await _notificationService.SendInAppNotificationAsync(
+                    userId: actorUserId,
+                    title: "Payment Received",
+                    message: $"We received your payment {payment.PaymentNumber} for ₹{payment.Amount:N2}. Your tax invoice is ready.",
+                    type: "PAYMENT_RECEIVED",
+                    referenceId: payment.Id,
+                    referenceType: nameof(Payment),
+                    cancellationToken: cancellationToken);
+                break;
+        }
+
+        await _auditService.LogAsync(
+            action: "PAYMENT_PAID",
+            userId: actorUserId,
+            entityName: nameof(Payment),
+            entityId: payment.Id.ToString(),
+            details: $"Payment {payment.PaymentNumber} ({payment.Purpose}) paid via {source}. Amount: ₹{payment.Amount:N2}. Gateway ref: {payment.GatewayPaymentId}",
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task RecordAdvanceAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        var requestId = payment.ServiceRequestId;
+        if (requestId == null && payment.CustomerQuotationId.HasValue)
+        {
+            requestId = await _context.CustomerQuotations.AsNoTracking()
+                .Where(q => q.Id == payment.CustomerQuotationId.Value)
+                .Select(q => (Guid?)q.ServiceRequestId)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        if (requestId == null) return;
+
+        var request = await _context.ServiceRequests.FirstOrDefaultAsync(r => r.Id == requestId.Value, cancellationToken);
+        request?.RecordAdvancePaid(payment.Amount, payment.Id, payment.PaidAtUtc ?? DateTime.UtcNow);
+
+        var txRef = $"TXN-{payment.PaymentNumber}";
+        if (!await _context.FinancialLedgerEntries.AnyAsync(l => l.PaymentId == payment.Id && l.EntryType == LedgerEntryType.BookingAdvance, cancellationToken))
+        {
+            _context.FinancialLedgerEntries.Add(new FinancialLedgerEntry(txRef, LedgerEntryType.BookingAdvance, payment.Amount, 0m,
+                "PLATFORM_CASH", $"Booking advance {payment.PaymentNumber} received", payment.Currency, payment.CustomerId, payment.Id));
+            _context.FinancialLedgerEntries.Add(new FinancialLedgerEntry(txRef, LedgerEntryType.BookingAdvance, 0m, payment.Amount,
+                "PLATFORM_BOOKING_FEE", $"Booking advance revenue {payment.PaymentNumber}", payment.Currency, payment.CustomerId, payment.Id));
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     private static PaymentDto MapToDto(Payment p) => new(
         Id: p.Id,
         PaymentNumber: p.PaymentNumber,
@@ -684,6 +792,7 @@ public class PaymentService : IPaymentService
         GatewayPaymentId: p.GatewayPaymentId,
         RefundedAmount: p.RefundedAmount,
         PaidAtUtc: p.PaidAtUtc,
-        CreatedAtUtc: p.CreatedAtUtc
+        CreatedAtUtc: p.CreatedAtUtc,
+        ServiceRequestId: p.ServiceRequestId
     );
 }

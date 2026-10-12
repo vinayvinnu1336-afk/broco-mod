@@ -1,4 +1,4 @@
-name: BroCo Mod CI Pipeline
+name: BroCo CI Pipeline
 
 on:
   push:

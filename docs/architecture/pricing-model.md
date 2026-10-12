@@ -1,7 +1,9 @@
 # Commercial Pricing Model & Financial Calculations
 
+> **Since October 2026 BroCo no longer adds an advisor markup**: the customer quotation must equal the garage quote, the customer pays a 10% booking advance online and the rest at the garage, and the garage pays BroCo a commission after the job. See [money-flow.md](money-flow.md). The calculation rules below (line items, tax, discounts) still apply.
+
 ## 1. Overview
-BroCo Mod implements a two-tier financial architecture:
+BroCo implements a two-tier financial architecture:
 1. **Tier 1 (Wholesale Execution Cost):** The raw cost submitted by the partner garage (`GarageQuote`), encompassing workshop labor hours and supplier parts cost.
 2. **Tier 2 (Commercial Retail Price):** The curated customer price (`CustomerQuotation`), factoring in quality inspections, warranty guarantees, promotional discounts, and statutory taxes.
 

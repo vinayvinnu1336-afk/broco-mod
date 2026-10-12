@@ -112,7 +112,7 @@ public class SettlementService : ISettlementService
 
         var settlement = new GarageSettlement(
             settlementNumber: settlementNumber,
-            garageId: payment.GarageId,
+            garageId: payment.GarageId ?? throw new InvalidOperationException("Payment has no garage yet."),
             serviceJobId: serviceJobId,
             paymentId: payment.Id,
             grossAmount: garageQuotedAmount,

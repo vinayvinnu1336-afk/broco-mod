@@ -12,12 +12,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "BroCo Mod — Car service from verified local garages",
-    template: "%s · BroCo Mod",
+    default: "BroCo — Car service from verified local garages",
+    template: "%s · BroCo",
   },
   description:
-    "Book car service from verified garages near you. Compare a curated quote, approve it in one tap and track your car until it is handed back.",
-  applicationName: "BroCo Mod",
+    "Car service in Hyderabad from verified garages. See Basic, Standard and Premium service prices for your car, pay 10% to book and the rest at the garage.",
+  applicationName: "BroCo",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icon.svg",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "BroCo Mod",
+    title: "BroCo",
     statusBarStyle: "default",
   },
   formatDetection: {

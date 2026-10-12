@@ -1,7 +1,7 @@
 # Service Execution Architecture & Multi-Portal Segregation
 
 ## 1. Overview
-The BroCo Mod Service Execution subsystem coordinates automotive work across four distinct portal personas following customer quotation acceptance. It enforces strict role boundaries and data isolation.
+The BroCo Service Execution subsystem coordinates automotive work across four distinct portal personas following customer quotation acceptance. It enforces strict role boundaries and data isolation.
 
 ```
 Customer Portal               Garage Portal                 Advisor Console               Super Admin

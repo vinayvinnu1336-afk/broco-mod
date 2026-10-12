@@ -42,7 +42,7 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
         var makes = await customer.GetFromJsonAsync<ApiResponse<List<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);
         var make = makes!.Data!.First();
         var models = await customer.GetFromJsonAsync<ApiResponse<List<VehicleModelDto>>>($"/api/v1/vehicle-manufacturers/{make.Id}/models", JsonOptions);
-        var model = models!.Data!.First();
+        var model = models!.Data!.First(m => m.YearTo == null);
 
         // fuelType sent as a name, the way the web app sends it
         var json = $$"""
@@ -98,12 +98,12 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
             VehicleId: vehicleId,
             AddressLine1: "12 Residency Road",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560025",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Engine warning light is on",
             ServiceCategory: "Electrical & Diagnostics",
             PreferredServiceDate: null));
@@ -123,8 +123,8 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
         var customer = await SignedInAsync("customer@brocomod.com");
         var vehicles = await customer.GetFromJsonAsync<ApiResponse<List<CustomerVehicleDetailDto>>>("/api/v1/customer/vehicles", JsonOptions);
         var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
-            vehicles!.Data!.First().Id, "8 Lavelle Road", null, "Bengaluru", "Karnataka", "560001", "India",
-            12.9716, 77.5946, "Clutch slipping in third gear", "Transmission & Clutch", null));
+            vehicles!.Data!.First().Id, "8 Lavelle Road", null, "Hyderabad", "Telangana", "500034", "India",
+            17.4126, 78.4482, "Clutch slipping in third gear", "Transmission & Clutch", null));
         booking.EnsureSuccessStatusCode();
         var requestId = (await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!.Id;
 
@@ -151,7 +151,7 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
             new AssignGarageRequest(garageId, quoteId, "Only quote"))).EnsureSuccessStatusCode();
         var cq = await advisor.PostAsJsonAsync($"/api/v1/advisor/requests/{requestId}/customer-quotation", new CreateCustomerQuotationRequest(
             "Clutch replacement", null, DateTime.UtcNow.AddDays(5), 0m, "INR",
-            new List<CustomerQuotationLineItemInputDto> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 7400m, 18m, 0m, 1) }));
+            new List<CustomerQuotationLineItemInputDto> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 18m, 0m, 1) }));
         cq.EnsureSuccessStatusCode();
         var cqId = (await cq.Content.ReadFromJsonAsync<ApiResponse<CustomerQuotationDto>>(JsonOptions))!.Data!.Id;
         (await advisor.PostAsJsonAsync($"/api/v1/advisor/customer-quotations/{cqId}/send", new { })).EnsureSuccessStatusCode();

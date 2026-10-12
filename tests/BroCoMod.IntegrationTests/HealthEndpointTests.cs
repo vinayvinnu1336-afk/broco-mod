@@ -26,7 +26,7 @@ public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("BroCo Mod Platform");
+        content.Should().Contain("BroCo Platform");
         content.Should().Contain("Modular Monolith");
         content.Should().Contain("PostgreSQL + PostGIS");
         content.Should().Contain("Customer Portal");

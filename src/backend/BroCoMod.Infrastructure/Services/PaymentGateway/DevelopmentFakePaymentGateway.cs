@@ -51,7 +51,7 @@ public class DevelopmentFakePaymentGateway : IPaymentGateway
             ["order_id"] = orderId,
             ["amount"] = ((long)(request.Amount * 100m)).ToString(),
             ["currency"] = request.Currency,
-            ["name"] = "BroCo Mod Automotive",
+            ["name"] = "BroCo Automotive",
             ["description"] = request.Description
         };
 

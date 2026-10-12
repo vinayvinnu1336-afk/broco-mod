@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import { formatDate, formatRelative } from '@/lib/format';
+import { formatDate, formatINRWhole, formatRelative } from '@/lib/format';
 import {
   AdvisorServiceRequestSummaryDto,
   AdvisorServiceRequestDetailDto,
@@ -13,6 +13,7 @@ import {
 import { Info, Inbox, MapPin, Phone, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
@@ -24,7 +25,33 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
 // The API names some fields differently from the shared types; read both so counts and contacts show.
-type RequestSummary = AdvisorServiceRequestSummaryDto & { dispatchedGaragesCount?: number };
+type RequestSummary = AdvisorServiceRequestSummaryDto & {
+  dispatchedGaragesCount?: number;
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  isAdvancePaid?: boolean;
+};
+
+/** "Package" and advance badges for fixed-price package bookings. */
+function PackageBadges({ r }: { r: RequestSummary }) {
+  if (!r.servicePackageName) return null;
+  return (
+    <>
+      <Badge variant="blue" pill className="whitespace-nowrap" title={r.servicePackageName}>
+        Package
+      </Badge>
+      {r.isAdvancePaid ? (
+        <Badge variant="green" pill className="whitespace-nowrap">
+          Advance paid
+        </Badge>
+      ) : (
+        <Badge variant="amber" pill className="whitespace-nowrap">
+          Awaiting advance
+        </Badge>
+      )}
+    </>
+  );
+}
 type DispatchedGarage = DispatchedGarageSummaryDto & { garagePhoneNumber?: string; sentAtUtc?: string };
 
 function garagesNotified(r: RequestSummary): number | null {
@@ -187,7 +214,10 @@ export default function AdvisorRequestsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={r.status} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={r.status} />
+                          <PackageBadges r={r} />
+                        </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-navy-600">{formatDate(r.submittedAtUtc)}</TableCell>
                       <TableCell className="text-right">
@@ -199,7 +229,7 @@ export default function AdvisorRequestsPage() {
                             href={`/advisor/requests/${r.id}`}
                             className="inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50"
                           >
-                            Compare quotes
+                            {r.servicePackageName ? 'Assign garage' : 'Compare quotes'}
                           </Link>
                         </div>
                       </TableCell>
@@ -220,12 +250,19 @@ export default function AdvisorRequestsPage() {
                     href={`/advisor/requests/${r.id}`}
                     hideChevron
                     title={r.vehicleSummary}
-                    subtitle={r.problemDescription}
+                    subtitle={
+                      r.servicePackageName
+                        ? [r.servicePackageName, typeof r.packagePrice === 'number' ? formatINRWhole(r.packagePrice) : null]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : r.problemDescription
+                    }
                     meta={
                       <>
                         {r.customerName} · {formatRelative(r.submittedAtUtc)}
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <StatusBadge status={r.status} />
+                          <PackageBadges r={r} />
                         </div>
                       </>
                     }

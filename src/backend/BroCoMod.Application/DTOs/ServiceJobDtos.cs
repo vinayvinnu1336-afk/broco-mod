@@ -63,7 +63,9 @@ public record ServiceJobSummaryDto(
     DateTime? ActualWorkCompletedAtUtc,
     DateTime CreatedAtUtc,
     string? VehicleSummary = null,
-    string? VehicleLicensePlate = null
+    string? VehicleLicensePlate = null,
+    string? ServicePackageName = null,
+    bool IsAdvancePaid = false
 );
 
 public record GarageServiceJobDetailDto(
@@ -100,7 +102,12 @@ public record GarageServiceJobDetailDto(
     List<ServiceInspectionDto> Inspections,
     List<ServiceJobActivityDto> Activities,
     List<AdditionalWorkRequestDto> AdditionalWorkRequests,
-    Guid ConcurrencyToken
+    Guid ConcurrencyToken,
+    string? ServicePackageName = null,
+    decimal ServiceValue = 0,
+    decimal AdvancePaidAmount = 0,
+    bool IsAdvancePaid = false,
+    decimal BalanceToCollect = 0
 );
 
 public record CustomerServiceJobDetailDto(

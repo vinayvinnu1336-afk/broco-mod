@@ -1,7 +1,7 @@
 # Operations Control Center Architecture
 
 ## 1. Overview
-The **Operations Control Center** delivers end-to-end platform management, governance, and operational oversight for Super Admins and Technical Advisors in the BroCo Mod ecosystem. It provides unified real-time visibility across the entire request-to-service lifecycle while preserving strict role and data isolation boundaries.
+The **Operations Control Center** delivers end-to-end platform management, governance, and operational oversight for Super Admins and Technical Advisors in the BroCo ecosystem. It provides unified real-time visibility across the entire request-to-service lifecycle while preserving strict role and data isolation boundaries.
 
 ```mermaid
 flowchart TD

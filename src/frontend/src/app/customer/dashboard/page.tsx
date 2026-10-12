@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { Car, ChevronRight, ClipboardList, FileCheck2, Plus, Wrench } from 'lucide-react';
+import { Car, CheckCircle2, ChevronRight, ClipboardList, FileCheck2, Plus, Wrench, X } from 'lucide-react';
+import { BookingIntent, carLabel, clearBookingIntent, loadBookingIntent } from '@/lib/catalogue';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
@@ -47,6 +48,34 @@ interface CustomerDashboardData {
   }>;
 }
 
+/** Package / advance fields on GET /customer/requests rows. */
+interface RequestSummaryExtras {
+  id: string;
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  isAdvancePaid?: boolean;
+}
+
+const PACKAGE_NAMES: Record<string, string> = {
+  BASIC: 'Basic Service',
+  STANDARD: 'Standard Service',
+  PREMIUM: 'Premium Service',
+};
+
+function intentHref(intent: BookingIntent): string {
+  if (intent.packageCode) return `/customer/requests/new?package=${encodeURIComponent(intent.packageCode)}`;
+  if (intent.serviceCategory) return `/customer/requests/new?category=${encodeURIComponent(intent.serviceCategory)}`;
+  return '/customer/requests/new';
+}
+
+function intentTitle(intent: BookingIntent): string {
+  const service = intent.packageCode
+    ? PACKAGE_NAMES[intent.packageCode.toUpperCase()] ?? `${intent.packageCode} service`
+    : intent.serviceCategory || 'a service';
+  const car = carLabel(intent);
+  return car ? `${service} for ${car}` : service;
+}
+
 type ActivityRow =
   | { kind: 'request'; id: string; at: string; item: CustomerDashboardData['recentRequests'][number] }
   | { kind: 'quote'; id: string; at: string; item: CustomerDashboardData['pendingQuotes'][number] };
@@ -77,11 +106,23 @@ export default function CustomerDashboardPage() {
   const [data, setData] = useState<CustomerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [intent, setIntent] = useState<BookingIntent | null>(null);
+  const [extras, setExtras] = useState<Record<string, RequestSummaryExtras>>({});
+
+  useEffect(() => {
+    const saved = loadBookingIntent();
+    if (saved && (saved.modelId || saved.packageCode || saved.serviceCategory)) setIntent(saved);
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Request rows carry package and advance status; the dashboard summary does not.
+      apiFetch<{ items?: RequestSummaryExtras[] } | RequestSummaryExtras[]>('/customer/requests?page=1&pageSize=20').then((r) => {
+        const items = Array.isArray(r.data) ? r.data : r.data?.items ?? [];
+        setExtras(Object.fromEntries(items.map((i) => [i.id, i])));
+      });
       const res = await apiFetch<CustomerDashboardData>('/customer/dashboard');
       if (res.success && res.data) {
         setData(res.data);
@@ -141,6 +182,34 @@ export default function CustomerDashboardPage() {
         description="Here is what is happening with your car."
       />
 
+      {/* Picked a car and service on the public site but did not finish booking */}
+      {intent && (
+        <div className="relative rounded-2xl border border-electric-200 bg-electric-50 shadow-card">
+          <Link
+            href={intentHref(intent)}
+            className="flex items-center gap-3 rounded-2xl p-4 pr-12 transition active:scale-[0.99] sm:p-5 sm:pr-14"
+          >
+            <IconTile icon={Wrench} tone="blue" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-electric-800">Continue booking</div>
+              <div className="mt-0.5 text-base font-semibold leading-snug text-navy-900">{intentTitle(intent)}</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-electric-700" aria-hidden="true" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              clearBookingIntent();
+              setIntent(null);
+            }}
+            className="absolute right-1.5 top-1.5 flex h-10 w-10 items-center justify-center rounded-full text-navy-400 hover:bg-white/70 hover:text-navy-700"
+            aria-label="Dismiss unfinished booking"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Next thing the customer must do: decide on a quote */}
       {quotesAwaitingDecision.length > 0 && (
         <section aria-labelledby="todo-heading" className="space-y-3">
@@ -197,6 +266,8 @@ export default function CustomerDashboardPage() {
           <div className="space-y-3">
             {activeRequests.slice(0, 3).map((r) => {
               const next = requestNextStep(r.status);
+              const extra = extras[r.id];
+              const isPackage = !!extra?.servicePackageName;
               return (
                 <Link
                   key={r.id}
@@ -212,6 +283,21 @@ export default function CustomerDashboardPage() {
                     </div>
                     <StatusBadge status={r.status} className="shrink-0" />
                   </div>
+                  {isPackage && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-50 px-3 py-2 text-sm">
+                      <span className="font-medium text-navy-800">
+                        {extra.servicePackageName}
+                        {extra.packagePrice ? ` · ${formatINRWhole(extra.packagePrice)}` : ''}
+                      </span>
+                      {extra.isAdvancePaid ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Advance paid
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-amber-700">Advance due · tap to pay</span>
+                      )}
+                    </div>
+                  )}
                   <RequestProgress status={r.status} className="mt-4" />
                   {next && <p className="mt-3 text-sm text-navy-700">{next}</p>}
                   <div className="mt-2 flex items-center justify-between text-xs text-navy-400">
@@ -230,7 +316,7 @@ export default function CustomerDashboardPage() {
       )}
 
       {/* First-run / nothing active */}
-      {activeRequests.length === 0 && quotesAwaitingDecision.length === 0 && (
+      {activeRequests.length === 0 && quotesAwaitingDecision.length === 0 && !intent && (
         <div className="rounded-2xl border border-surface-200 bg-white p-5 shadow-card">
           <div className="flex items-start gap-3">
             <IconTile icon={Wrench} tone="blue" />

@@ -3,6 +3,9 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api';
 import { Car, Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { BrandLogo } from '@/components/catalogue/BrandLogo';
+import { CarSelectField, CarSelection } from '@/components/catalogue/CarPicker';
+import { catalogueApi } from '@/lib/catalogue';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +18,6 @@ import { Alert } from '@/components/ui/Alert';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { IconTile } from '@/components/ui/ListItem';
 import { useToast } from '@/components/ui/Toast';
 
 interface CustomerVehicle {
@@ -39,22 +41,15 @@ interface CustomerVehicle {
   createdAtUtc: string;
 }
 
-interface Manufacturer {
-  id: string;
-  name: string;
-  country: string;
-  logoUrl: string;
-  modelsCount: number;
-}
-
-interface VehicleModel {
-  id: string;
+/** The brand / model / fuel chosen in the car picker. */
+interface CarChoice {
   manufacturerId: string;
-  name: string;
-  bodyType: string;
+  manufacturerName: string;
+  logoUrl?: string | null;
+  modelId: string;
+  modelName: string;
   yearFrom: number;
   yearTo: number | null;
-  variantsCount: number;
 }
 
 interface VehicleVariant {
@@ -68,22 +63,6 @@ interface VehicleVariant {
   yearFrom: number;
   yearTo: number | null;
 }
-
-interface FuelTypeOption {
-  value: number;
-  name: string;
-  displayName: string;
-}
-
-const FUEL_TYPE_MAP: Record<string, number> = {
-  Petrol: 1,
-  Diesel: 2,
-  Electric: 3,
-  Hybrid: 4,
-  PlugInHybrid: 5,
-  CNG: 6,
-  LPG: 7,
-};
 
 const TRANSMISSIONS = [
   { value: 'Automatic', label: 'Automatic' },
@@ -101,25 +80,20 @@ export default function CustomerVehiclesPage() {
   const [pendingDelete, setPendingDelete] = useState<CustomerVehicle | null>(null);
   const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
 
-  // Master data
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
-  const [fuelTypes, setFuelTypes] = useState<FuelTypeOption[]>([]);
+  // Brand logos for the list
+  const [logos, setLogos] = useState<Record<string, string>>({});
 
   // Modal & edit state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
 
   // Form fields
-  const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>('');
-  const [availableModels, setAvailableModels] = useState<VehicleModel[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
-
-  const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const [car, setCar] = useState<CarChoice | null>(null);
   const [availableVariants, setAvailableVariants] = useState<VehicleVariant[]>([]);
   const [loadingVariants, setLoadingVariants] = useState(false);
 
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
-  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [year, setYear] = useState<number | ''>('');
   const [fuelType, setFuelType] = useState<string>('Petrol');
   const [transmission, setTransmission] = useState<string>('Automatic');
   const [licensePlate, setLicensePlate] = useState<string>('');
@@ -144,48 +118,15 @@ export default function CustomerVehiclesPage() {
   useEffect(() => {
     loadVehicles();
 
-    apiFetch<Manufacturer[]>('/vehicle-manufacturers').then((res) => {
+    catalogueApi.manufacturers().then((res) => {
       if (res.success && res.data) {
-        setManufacturers(res.data);
-      }
-    });
-
-    apiFetch<FuelTypeOption[]>('/vehicle-master/fuel-types').then((res) => {
-      if (res.success && res.data) {
-        setFuelTypes(res.data);
+        setLogos(Object.fromEntries(res.data.map((m) => [m.id, m.logoUrl])));
       }
     });
   }, [loadVehicles]);
 
-  const handleManufacturerChange = async (manufacturerId: string) => {
-    setSelectedManufacturerId(manufacturerId);
-    setSelectedModelId('');
-    setAvailableModels([]);
-    setSelectedVariantId('');
+  const loadVariants = async (modelId: string) => {
     setAvailableVariants([]);
-
-    if (!manufacturerId) return;
-
-    setLoadingModels(true);
-    const res = await apiFetch<VehicleModel[]>(`/vehicle-manufacturers/${manufacturerId}/models`);
-    if (res.success && res.data) {
-      setAvailableModels(res.data);
-    }
-    setLoadingModels(false);
-  };
-
-  const handleModelChange = async (modelId: string) => {
-    setSelectedModelId(modelId);
-    setSelectedVariantId('');
-    setAvailableVariants([]);
-
-    if (!modelId) return;
-
-    const chosenModel = availableModels.find((m) => m.id === modelId);
-    if (chosenModel) {
-      setYear(chosenModel.yearFrom || new Date().getFullYear());
-    }
-
     setLoadingVariants(true);
     const res = await apiFetch<VehicleVariant[]>(`/vehicle-models/${modelId}/variants`);
     if (res.success && res.data) {
@@ -194,39 +135,61 @@ export default function CustomerVehiclesPage() {
     setLoadingVariants(false);
   };
 
+  const handleCarPicked = (sel: CarSelection) => {
+    const modelChanged = sel.model.id !== car?.modelId;
+    const maxYear = sel.model.yearTo ?? new Date().getFullYear();
+    setCar({
+      manufacturerId: sel.manufacturer.id,
+      manufacturerName: sel.manufacturer.name,
+      logoUrl: sel.manufacturer.logoUrl,
+      modelId: sel.model.id,
+      modelName: sel.model.name,
+      yearFrom: sel.model.yearFrom,
+      yearTo: sel.model.yearTo,
+    });
+    setFuelType(sel.fuelType);
+    if (sel.fuelType === 'Electric') setTransmission('Direct Drive');
+    setYear((y) => (y !== '' && y >= sel.model.yearFrom && y <= maxYear ? y : ''));
+    if (modelChanged) {
+      setSelectedVariantId('');
+      loadVariants(sel.model.id);
+    } else {
+      // Same model, different fuel: drop a variant that no longer fits.
+      const v = availableVariants.find((x) => x.id === selectedVariantId);
+      if (v?.fuelType && v.fuelType.toLowerCase() !== sel.fuelType.toLowerCase()) setSelectedVariantId('');
+    }
+  };
+
   const handleVariantChange = (variantId: string) => {
     setSelectedVariantId(variantId);
     if (!variantId) return;
 
     const chosenVariant = availableVariants.find((v) => v.id === variantId);
-    if (chosenVariant) {
-      if (chosenVariant.fuelType) setFuelType(chosenVariant.fuelType);
-      if (chosenVariant.transmission) setTransmission(chosenVariant.transmission);
-    }
+    if (chosenVariant?.transmission) setTransmission(chosenVariant.transmission);
   };
 
-  const selectedModel = useMemo(() => {
-    return availableModels.find((m) => m.id === selectedModelId);
-  }, [availableModels, selectedModelId]);
+  // Variants that match the chosen fuel (all of them if none are tagged with it).
+  const fuelVariants = useMemo(() => {
+    const matching = availableVariants.filter((v) => !v.fuelType || v.fuelType.toLowerCase() === fuelType.toLowerCase());
+    return matching.length > 0 ? matching : availableVariants;
+  }, [availableVariants, fuelType]);
 
   const yearRange = useMemo(() => {
-    const min = selectedModel ? selectedModel.yearFrom : 1990;
-    const max = selectedModel && selectedModel.yearTo ? selectedModel.yearTo : new Date().getFullYear() + 1;
+    if (!car) return [];
+    const max = car.yearTo ?? new Date().getFullYear();
     const years: number[] = [];
-    for (let y = max; y >= min; y--) {
+    for (let y = max; y >= car.yearFrom; y--) {
       years.push(y);
     }
     return years;
-  }, [selectedModel]);
+  }, [car]);
 
   const openAddModal = () => {
     setEditingVehicleId(null);
-    setSelectedManufacturerId('');
-    setSelectedModelId('');
+    setCar(null);
     setSelectedVariantId('');
-    setAvailableModels([]);
     setAvailableVariants([]);
-    setYear(new Date().getFullYear());
+    setYear('');
     setFuelType('Petrol');
     setTransmission('Automatic');
     setLicensePlate('');
@@ -242,23 +205,19 @@ export default function CustomerVehiclesPage() {
     setEditLoadingId(v.id);
     setEditingVehicleId(v.id);
     setFormError(null);
-    setSelectedManufacturerId(v.manufacturerId);
 
-    setLoadingModels(true);
-    const mRes = await apiFetch<VehicleModel[]>(`/vehicle-manufacturers/${v.manufacturerId}/models`);
-    if (mRes.success && mRes.data) {
-      setAvailableModels(mRes.data);
-    }
-    setLoadingModels(false);
-
-    setSelectedModelId(v.modelId);
-
-    setLoadingVariants(true);
-    const vRes = await apiFetch<VehicleVariant[]>(`/vehicle-models/${v.modelId}/variants`);
-    if (vRes.success && vRes.data) {
-      setAvailableVariants(vRes.data);
-    }
-    setLoadingVariants(false);
+    const [mRes] = await Promise.all([catalogueApi.model(v.modelId), loadVariants(v.modelId)]);
+    const model = mRes.success && mRes.data ? mRes.data : null;
+    setCar({
+      manufacturerId: v.manufacturerId,
+      manufacturerName: v.make,
+      logoUrl: logos[v.manufacturerId] ?? null,
+      modelId: v.modelId,
+      modelName: v.model,
+      // If the model can't be loaded, still allow the saved year.
+      yearFrom: model ? Math.min(model.yearFrom, v.year) : v.year,
+      yearTo: model ? (model.yearTo !== null ? Math.max(model.yearTo, v.year) : null) : v.year,
+    });
 
     setSelectedVariantId(v.variantId || '');
     setYear(v.year);
@@ -277,8 +236,13 @@ export default function CustomerVehiclesPage() {
     e.preventDefault();
     setFormError(null);
 
-    if (!selectedManufacturerId || !selectedModelId) {
-      setFormError('Please choose the make and model.');
+    if (!car) {
+      setFormError('Please choose your car brand, model and fuel.');
+      return;
+    }
+
+    if (year === '') {
+      setFormError('Please choose the year.');
       return;
     }
 
@@ -289,14 +253,12 @@ export default function CustomerVehiclesPage() {
 
     setFormSubmitting(true);
 
-    const fuelTypeValue = FUEL_TYPE_MAP[fuelType] || 1;
-
     const payload = {
-      manufacturerId: selectedManufacturerId,
-      modelId: selectedModelId,
+      manufacturerId: car.manufacturerId,
+      modelId: car.modelId,
       variantId: selectedVariantId || null,
       year: Number(year),
-      fuelType: fuelTypeValue,
+      fuelType,
       transmission: transmission.trim() || 'Automatic',
       licensePlate: licensePlate.trim().toUpperCase(),
       vin: vin.trim().toUpperCase(),
@@ -404,7 +366,6 @@ export default function CustomerVehiclesPage() {
           {vehicles.map((v) => {
             const busy = actionLoading === v.id || editLoadingId === v.id;
             const specs = [
-              v.fuelType,
               v.transmission,
               typeof v.mileage === 'number' ? `${v.mileage.toLocaleString('en-IN')} km` : null,
               v.color,
@@ -412,7 +373,7 @@ export default function CustomerVehiclesPage() {
             return (
               <Card key={v.id} className={`p-4 sm:p-5 ${v.isPrimary ? 'border-electric-200' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <IconTile icon={Car} tone={v.isPrimary ? 'blue' : 'neutral'} />
+                  <BrandLogo name={v.make} logoUrl={logos[v.manufacturerId]} size={44} className="border border-surface-100" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <h2 className="min-w-0 text-[15px] font-semibold leading-snug text-navy-900">
@@ -424,7 +385,7 @@ export default function CustomerVehiclesPage() {
                         </Badge>
                       )}
                     </div>
-                    {v.variantName && <p className="truncate text-sm text-navy-500">{v.variantName}</p>}
+                    <p className="truncate text-sm text-navy-500">{[v.fuelType, v.variantName].filter(Boolean).join(' · ')}</p>
                     <span className="mt-1.5 inline-block rounded-md border border-navy-900/80 bg-surface-50 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-navy-900">
                       {v.licensePlate}
                     </span>
@@ -495,7 +456,7 @@ export default function CustomerVehiclesPage() {
         isOpen={modalOpen}
         onClose={() => !formSubmitting && setModalOpen(false)}
         title={editingVehicleId ? 'Edit vehicle' : 'Add vehicle'}
-        description="Choose the make and model, then add the number plate."
+        description="Choose the brand, model and fuel, then add the number plate."
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
@@ -515,31 +476,27 @@ export default function CustomerVehiclesPage() {
         <form id="vehicle-form" onSubmit={handleSubmit} className="space-y-4">
           {formError && <Alert type="error">{formError}</Alert>}
 
-          <Select
-            id="vehicle-make"
-            label="Make"
-            value={selectedManufacturerId}
-            onChange={(e) => handleManufacturerChange(e.target.value)}
-            placeholder="Choose make"
-            options={manufacturers.map((m) => ({ value: m.id, label: m.name }))}
-            required
+          <CarSelectField
+            label="Car"
+            value={car ? { manufacturerName: car.manufacturerName, modelName: car.modelName, fuelType, logoUrl: car.logoUrl ?? logos[car.manufacturerId] } : null}
+            onChange={handleCarPicked}
+            placeholder="Select brand, model and fuel"
           />
 
           <Select
-            id="vehicle-model"
-            label="Model"
-            value={selectedModelId}
-            onChange={(e) => handleModelChange(e.target.value)}
-            disabled={!selectedManufacturerId || loadingModels}
+            id="vehicle-year"
+            label="Year"
+            value={year}
+            onChange={(e) => setYear(e.target.value ? Number(e.target.value) : '')}
+            disabled={!car}
             required
           >
             <option value="" disabled>
-              {loadingModels ? 'Loading models…' : !selectedManufacturerId ? 'Choose make first' : 'Choose model'}
+              {car ? 'Select year' : 'Choose your car first'}
             </option>
-            {availableModels.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-                {m.bodyType ? ` (${m.bodyType})` : ''}
+            {yearRange.map((y) => (
+              <option key={y} value={y}>
+                {y}
               </option>
             ))}
           </Select>
@@ -549,18 +506,18 @@ export default function CustomerVehiclesPage() {
             label="Variant (optional)"
             value={selectedVariantId}
             onChange={(e) => handleVariantChange(e.target.value)}
-            disabled={!selectedModelId || loadingVariants}
+            disabled={!car || loadingVariants}
           >
             <option value="">
               {loadingVariants
                 ? 'Loading variants…'
-                : !selectedModelId
-                ? 'Choose model first'
-                : availableVariants.length === 0
+                : !car
+                ? 'Choose your car first'
+                : fuelVariants.length === 0
                 ? 'No variants listed'
                 : 'Not sure / base model'}
             </option>
-            {availableVariants.map((v) => (
+            {fuelVariants.map((v) => (
               <option key={v.id} value={v.id}>
                 {[v.name, v.transmission, v.fuelType, v.horsepower ? `${v.horsepower} hp` : null]
                   .filter(Boolean)
@@ -568,25 +525,6 @@ export default function CustomerVehiclesPage() {
               </option>
             ))}
           </Select>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              id="vehicle-year"
-              label="Year"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              options={yearRange.map((y) => ({ value: y, label: String(y) }))}
-              required
-            />
-            <Select
-              id="vehicle-fuel"
-              label="Fuel"
-              value={fuelType}
-              onChange={(e) => setFuelType(e.target.value)}
-              options={fuelTypes.map((ft) => ({ value: ft.name, label: ft.displayName }))}
-              required
-            />
-          </div>
 
           <Select
             id="vehicle-transmission"

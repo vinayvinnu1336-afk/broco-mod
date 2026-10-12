@@ -1,7 +1,7 @@
 # PostGIS 10 KM Garage Matching & Dispatch Architecture
 
 ## 1. Overview
-The BroCo Mod platform matches customer service requests to partner garages using geospatial queries powered by **PostgreSQL 16** and **PostGIS 3.4** (`NetTopologySuite`).
+The BroCo platform matches customer service requests to partner garages using geospatial queries powered by **PostgreSQL 16** and **PostGIS 3.4** (`NetTopologySuite`).
 
 ---
 

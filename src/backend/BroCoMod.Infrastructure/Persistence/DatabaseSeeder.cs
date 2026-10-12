@@ -106,7 +106,7 @@ public class DatabaseSeeder
 
         // 4. Seed Essential Vehicle Master Catalog (Manufacturers, Models, Variants)
         await SeedVehicleMasterAsync();
-        await SeedIndianMarketCatalogAsync();
+        await new CatalogueSeeder(_context, _cache, _logger).SeedAsync();
 
         // 4b. Seed Default Platform Fee Policy (10% standard fee, 18% GST)
         if (!await _context.PlatformFeeConfigurations.AnyAsync())
@@ -150,12 +150,21 @@ public class DatabaseSeeder
             garage = new Garage(
                 name: "Central Metro Motors",
                 email: "info@centralmetro.com",
-                phoneNumber: "+91 80 4000 1234",
-                address: "100 MG Road, Bengaluru, Karnataka 560001",
-                longitude: 77.5946,
-                latitude: 12.9716
+                phoneNumber: "+91 40 4000 1234",
+                address: "Road No. 12, Banjara Hills, Hyderabad, Telangana 500034",
+                longitude: 78.4482,
+                latitude: 17.4126
             );
             _context.Garages.Add(garage);
+            await _context.SaveChangesAsync();
+        }
+
+        var centralMetro = await _context.Garages.FirstOrDefaultAsync(g => g.Name == "Central Metro Motors");
+        if (centralMetro != null && centralMetro.Location.X < 78.0)
+        {
+            // BroCo launches in Hyderabad: move the demo garage there so demo bookings find it.
+            centralMetro.UpdateContact("Road No. 12, Banjara Hills, Hyderabad, Telangana 500034", "+91 40 4000 1234");
+            centralMetro.UpdateLocation(78.4482, 17.4126);
             await _context.SaveChangesAsync();
         }
 
@@ -211,7 +220,7 @@ public class DatabaseSeeder
             var customerProfile = await _context.CustomerProfiles.FirstOrDefaultAsync(cp => cp.UserId == customerUser.Id);
             if (customerProfile == null)
             {
-                customerProfile = new CustomerProfile(customerUser.Id, "45 Residency Road, Bengaluru 560025", "Email");
+                customerProfile = new CustomerProfile(customerUser.Id, "Plot 45, Road No. 2, Banjara Hills, Hyderabad 500034", "Email");
                 _context.CustomerProfiles.Add(customerProfile);
                 await _context.SaveChangesAsync();
             }
@@ -251,60 +260,36 @@ public class DatabaseSeeder
                 }
             }
 
-            // Seed additional test garages around Bangalore with varying distances & states
-            if (!await _context.Garages.AnyAsync(g => g.Name == "Indiranagar Auto Hub"))
+            // Demo garages around Banjara Hills, Hyderabad at varying distances & states.
+            // Distances from Central Metro mirror the test expectations: ~2-5 km inside the 10 km radius, Uppal ~15 km outside.
+            var hyderabadDemoGarages = new (string Name, string OldName, string Email, string Phone, string Address, double Lng, double Lat, bool Verified)[]
             {
-                _context.Garages.Add(new Garage(
-                    name: "Indiranagar Auto Hub",
-                    email: "indiranagar@autohub.com",
-                    phoneNumber: "+91 80 2520 1122",
-                    address: "12 100 Feet Road, Indiranagar, Bengaluru",
-                    longitude: 77.6412,
-                    latitude: 12.9784,
-                    isVerified: true,
-                    isOperational: true));
-            }
+                ("Jubilee Hills Auto Hub", "Indiranagar Auto Hub", "jubileehills@autohub.com", "+91 40 2520 1122", "Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033", 78.4100, 17.4300, true),
+                ("Ameerpet Speed Works", "Koramangala Speed Works", "ameerpet@speedworks.in", "+91 40 4110 3344", "SR Nagar Main Road, Ameerpet, Hyderabad, Telangana 500038", 78.4482, 17.4375, true),
+                ("Uppal Precision Garage", "Whitefield Precision Garage", "contact@uppalprecision.com", "+91 40 6677 8899", "Uppal Ring Road, Uppal, Hyderabad, Telangana 500039", 78.5900, 17.4010, true),
+                ("Mehdipatnam Auto Care (Pending Verification)", "Jayanagar Auto Care (Pending Verification)", "service@mehdipatnamauto.com", "+91 40 2663 4455", "Rethibowli, Mehdipatnam, Hyderabad, Telangana 500028", 78.4400, 17.3950, false),
+            };
 
-            if (!await _context.Garages.AnyAsync(g => g.Name == "Koramangala Speed Works"))
+            foreach (var demo in hyderabadDemoGarages)
             {
-                _context.Garages.Add(new Garage(
-                    name: "Koramangala Speed Works",
-                    email: "koramangala@speedworks.in",
-                    phoneNumber: "+91 80 4110 3344",
-                    address: "88 80 Feet Road, 4th Block Koramangala, Bengaluru",
-                    longitude: 77.6200,
-                    latitude: 12.9352,
-                    isVerified: true,
-                    isOperational: true));
-            }
-
-            if (!await _context.Garages.AnyAsync(g => g.Name == "Whitefield Precision Garage"))
-            {
-                _context.Garages.Add(new Garage(
-                    name: "Whitefield Precision Garage",
-                    email: "contact@whitefieldprecision.com",
-                    phoneNumber: "+91 80 6677 8899",
-                    address: "205 ITPL Main Road, Whitefield, Bengaluru",
-                    longitude: 77.7499,
-                    latitude: 12.9698,
-                    isVerified: true,
-                    isOperational: true));
-            }
-
-            if (!await _context.Garages.AnyAsync(g => g.Name == "Jayanagar Auto Care (Pending Verification)"))
-            {
-                _context.Garages.Add(new Garage(
-                    name: "Jayanagar Auto Care (Pending Verification)",
-                    email: "service@jayanagarauto.com",
-                    phoneNumber: "+91 80 2663 4455",
-                    address: "4th Main, 9th Block Jayanagar, Bengaluru",
-                    longitude: 77.5833,
-                    latitude: 12.9300,
-                    isVerified: false,
-                    isOperational: true));
+                var legacy = await _context.Garages.FirstOrDefaultAsync(g => g.Name == demo.OldName);
+                if (legacy != null)
+                {
+                    // Older dev databases: move the Bengaluru demo garage to Hyderabad.
+                    _context.Entry(legacy).Property(nameof(Garage.Name)).CurrentValue = demo.Name;
+                    _context.Entry(legacy).Property(nameof(Garage.Email)).CurrentValue = demo.Email;
+                    legacy.UpdateContact(demo.Address, demo.Phone);
+                    legacy.UpdateLocation(demo.Lng, demo.Lat);
+                }
+                else if (!await _context.Garages.AnyAsync(g => g.Name == demo.Name))
+                {
+                    _context.Garages.Add(new Garage(demo.Name, demo.Email, demo.Phone, demo.Address, demo.Lng, demo.Lat,
+                        isVerified: demo.Verified, isOperational: true));
+                }
             }
 
             await _context.SaveChangesAsync();
+
 
             // Seed initial demo service request if none exists
             if (!await _context.ServiceRequests.AnyAsync())
@@ -313,13 +298,13 @@ public class DatabaseSeeder
                 if (demoVehicle != null)
                 {
                     var location = new ServiceLocation(
-                        addressLine1: "45 Residency Road",
-                        addressLine2: "Shanthala Nagar",
-                        city: "Bengaluru",
-                        state: "Karnataka",
-                        pincode: "560001",
-                        latitude: 12.9716,
-                        longitude: 77.5946,
+                        addressLine1: "Plot 45, Road No. 2",
+                        addressLine2: "Banjara Hills",
+                        city: "Hyderabad",
+                        state: "Telangana",
+                        pincode: "500034",
+                        latitude: 17.4126,
+                        longitude: 78.4482,
                         country: "India");
                     _context.ServiceLocations.Add(location);
                     await _context.SaveChangesAsync();
@@ -465,74 +450,6 @@ public class DatabaseSeeder
     /// Idempotent - adds only the manufacturers and models that are missing, so it also upgrades existing databases.
     /// Variants are optional when a customer adds a car ("Not sure / base model").
     /// </summary>
-    private async Task SeedIndianMarketCatalogAsync()
-    {
-        var catalogue = new (string Make, string Country, (string Model, string Body, int Since)[] Models)[]
-        {
-            ("Maruti Suzuki", "India", new[] { ("Swift", "Hatchback", 2005), ("Baleno", "Hatchback", 2015), ("Wagon R", "Hatchback", 1999), ("Alto K10", "Hatchback", 2010), ("Dzire", "Sedan", 2008), ("Ertiga", "MUV", 2012), ("Brezza", "SUV", 2016), ("Fronx", "SUV", 2023), ("Grand Vitara", "SUV", 2022), ("Celerio", "Hatchback", 2014), ("Ciaz", "Sedan", 2014), ("XL6", "MUV", 2019), ("Eeco", "Van", 2010) }),
-            ("Hyundai", "South Korea", new[] { ("i20", "Hatchback", 2008), ("Grand i10 Nios", "Hatchback", 2019), ("Creta", "SUV", 2015), ("Venue", "SUV", 2019), ("Verna", "Sedan", 2006), ("Aura", "Sedan", 2020), ("Exter", "SUV", 2023), ("Alcazar", "SUV", 2021), ("Tucson", "SUV", 2016) }),
-            ("Tata Motors", "India", new[] { ("Nexon", "SUV", 2017), ("Punch", "SUV", 2021), ("Tiago", "Hatchback", 2016), ("Tigor", "Sedan", 2017), ("Altroz", "Hatchback", 2020), ("Harrier", "SUV", 2019), ("Safari", "SUV", 2021), ("Nexon EV", "SUV", 2020), ("Curvv", "SUV", 2024) }),
-            ("Mahindra", "India", new[] { ("Scorpio-N", "SUV", 2022), ("Scorpio Classic", "SUV", 2002), ("XUV700", "SUV", 2021), ("XUV 3XO", "SUV", 2024), ("Thar", "SUV", 2010), ("Bolero", "SUV", 2000), ("Bolero Neo", "SUV", 2021), ("XUV400", "SUV", 2023) }),
-            ("Kia", "South Korea", new[] { ("Seltos", "SUV", 2019), ("Sonet", "SUV", 2020), ("Carens", "MUV", 2022), ("Carnival", "MUV", 2020) }),
-            ("Honda", "Japan", new[] { ("City", "Sedan", 1998), ("Amaze", "Sedan", 2013), ("Elevate", "SUV", 2023), ("Jazz", "Hatchback", 2009), ("WR-V", "SUV", 2017) }),
-            ("Toyota", "Japan", new[] { ("Innova Crysta", "MUV", 2016), ("Innova Hycross", "MUV", 2022), ("Fortuner", "SUV", 2009), ("Glanza", "Hatchback", 2019), ("Urban Cruiser Hyryder", "SUV", 2022), ("Camry", "Sedan", 2002), ("Etios", "Sedan", 2010) }),
-            ("Renault", "France", new[] { ("Kwid", "Hatchback", 2015), ("Kiger", "SUV", 2021), ("Triber", "MUV", 2019), ("Duster", "SUV", 2012) }),
-            ("Nissan", "Japan", new[] { ("Magnite", "SUV", 2020) }),
-            ("Skoda", "Czech Republic", new[] { ("Kushaq", "SUV", 2021), ("Slavia", "Sedan", 2022), ("Kylaq", "SUV", 2025), ("Octavia", "Sedan", 2001) }),
-            ("Volkswagen", "Germany", new[] { ("Virtus", "Sedan", 2022), ("Taigun", "SUV", 2021), ("Polo", "Hatchback", 2010) }),
-            ("MG", "United Kingdom", new[] { ("Hector", "SUV", 2019), ("Astor", "SUV", 2021), ("ZS EV", "SUV", 2020), ("Comet EV", "Hatchback", 2023), ("Windsor EV", "MUV", 2024) }),
-        };
-
-        var added = 0;
-        var sortOrder = 0;
-        foreach (var (make, country, models) in catalogue)
-        {
-            sortOrder++;
-            var normalizedMake = make.Trim().ToUpperInvariant();
-            var manufacturer = await _context.VehicleManufacturers.FirstOrDefaultAsync(m => m.NormalizedName == normalizedMake);
-            if (manufacturer == null)
-            {
-                manufacturer = new VehicleManufacturer(make, country, string.Empty, sortOrder);
-                _context.VehicleManufacturers.Add(manufacturer);
-                await _context.SaveChangesAsync();
-                added++;
-            }
-            else if (manufacturer.DisplayOrder != sortOrder)
-            {
-                manufacturer.Update(manufacturer.Name, manufacturer.Country, manufacturer.LogoUrl, manufacturer.IsActive, sortOrder);
-                added++;
-            }
-
-            var existingModels = await _context.VehicleModels
-                .Where(m => m.ManufacturerId == manufacturer.Id)
-                .Select(m => m.NormalizedName)
-                .ToListAsync();
-
-            foreach (var (model, body, since) in models)
-            {
-                if (existingModels.Contains(model.Trim().ToUpperInvariant())) continue;
-                _context.VehicleModels.Add(new VehicleModel(manufacturer.Id, model, body, since));
-                added++;
-            }
-        }
-
-        // Brands outside the Indian mass market (BMW, Porsche...) are listed after it.
-        var indianMakes = catalogue.Select(c => c.Make.ToUpperInvariant()).ToHashSet();
-        var others = await _context.VehicleManufacturers.Where(m => m.DisplayOrder < 100).ToListAsync();
-        foreach (var other in others.Where(m => !indianMakes.Contains(m.NormalizedName)))
-        {
-            other.Update(other.Name, other.Country, other.LogoUrl, other.IsActive, 100 + other.DisplayOrder);
-            added++;
-        }
-
-        if (added > 0)
-        {
-            await _context.SaveChangesAsync();
-            await VehicleMasterService.InvalidateCatalogCacheAsync(_cache);
-            _logger.LogInformation("Indian market vehicle catalogue: added {Count} manufacturers/models.", added);
-        }
-    }
-
     private async Task SeedVehicleMasterAsync()
     {
         if (await _context.VehicleManufacturers.AnyAsync())

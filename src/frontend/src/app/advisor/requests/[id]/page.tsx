@@ -11,17 +11,23 @@ import {
   AdvisorRequestNoteDto,
   GarageAssignmentDto,
 } from '@/types/customerQuotation';
+import { AdvisorServiceRequestDetailDto, AdvisorServiceRequestSummaryDto, PagedResult } from '@/types/serviceRequest';
 import {
   Building2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   FileText,
   Lock,
   MapPin,
+  Package,
   Pencil,
+  Phone,
   Trash2,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -48,6 +54,67 @@ function formatDuration(days: number, hours: number) {
 function isPast(value: string) {
   const t = new Date(value).getTime();
   return !Number.isNaN(t) && t < Date.now();
+}
+
+/** Package fields on GET /advisor/requests/{id} and on list items (not yet in the shared types). */
+type PackageFields = {
+  servicePackageCode?: string | null;
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  advanceAmountDue?: number | null;
+  advancePaidAmount?: number | null;
+  advancePaidAtUtc?: string | null;
+  isAdvancePaid?: boolean;
+  vehicleFuel?: string | null;
+};
+type RequestDetail = AdvisorServiceRequestDetailDto & PackageFields;
+type RequestSummary = AdvisorServiceRequestSummaryDto & PackageFields;
+
+/** GET /advisor/requests/{id}/package-garages */
+interface PackageGarage {
+  garageId: string;
+  name: string;
+  address: string;
+  phoneNumber: string;
+  distanceKm: number;
+  isBlocked: boolean;
+}
+
+/** POST /advisor/requests/{id}/package-assignment */
+interface PackageAssignmentResult {
+  serviceJobId: string;
+  jobNumber: string;
+  garageName: string;
+  packagePrice: number;
+}
+
+interface PackageInfo {
+  name: string;
+  price: number | null;
+  advanceDue: number | null;
+  advancePaid: number;
+  /** What was paid, or what is due when not paid yet. */
+  advanceAmount: number;
+  advancePaidAtUtc: string | null;
+  isAdvancePaid: boolean;
+  fuel: string | null;
+}
+
+function toPackageInfo(src: PackageFields | null | undefined): PackageInfo | null {
+  if (!src || !(src.servicePackageCode || src.servicePackageName)) return null;
+  const price = typeof src.packagePrice === 'number' ? src.packagePrice : null;
+  const advancePaid = Number(src.advancePaidAmount ?? 0);
+  const advanceDue = typeof src.advanceAmountDue === 'number' ? src.advanceAmountDue : price !== null ? Math.round(price * 0.1) : null;
+  return {
+    name: src.servicePackageName || src.servicePackageCode || 'Service package',
+    price,
+    advanceDue,
+    advancePaid,
+    advanceAmount: advancePaid > 0 ? advancePaid : advanceDue ?? 0,
+    advancePaidAtUtc: src.advancePaidAtUtc ?? null,
+    isAdvancePaid: Boolean(src.isAdvancePaid) || advancePaid > 0 || Boolean(src.advancePaidAtUtc),
+    fuel: src.vehicleFuel ?? null,
+  };
 }
 
 function QuoteFact({ label, children, tone }: { label: string; children: React.ReactNode; tone?: 'red' }) {
@@ -90,12 +157,38 @@ export default function AdvisorRequestQuotationReviewPage() {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [deletingNote, setDeletingNote] = useState(false);
 
+  // Fixed-price package bookings (no garage bidding)
+  const [packageInfo, setPackageInfo] = useState<PackageInfo | null>(null);
+  const [packageGarages, setPackageGarages] = useState<PackageGarage[] | null>(null);
+  const [packageGaragesError, setPackageGaragesError] = useState<string | null>(null);
+  const [garageToConfirm, setGarageToConfirm] = useState<PackageGarage | null>(null);
+  const [packageReason, setPackageReason] = useState('');
+  const [assigningPackage, setAssigningPackage] = useState(false);
+
+  /** Package fields: from the request detail, or from the request list when the detail doesn't carry them. */
+  const loadPackageInfo = useCallback(async (): Promise<PackageInfo | null> => {
+    const detailRes = await apiFetch<RequestDetail>(`/advisor/requests/${requestId}`);
+    const detail = detailRes.success ? detailRes.data : null;
+    if (detail && ('servicePackageCode' in detail || 'servicePackageName' in detail)) {
+      return toPackageInfo(detail);
+    }
+    for (let page = 1; page <= 5; page += 1) {
+      const listRes = await apiFetch<PagedResult<RequestSummary>>(`/advisor/requests?page=${page}&pageSize=100`);
+      if (!listRes.success || !listRes.data) break;
+      const match = (listRes.data.items ?? []).find((r) => r.id === requestId);
+      if (match) return toPackageInfo(match);
+      if (page >= (listRes.data.totalPages ?? 1)) break;
+    }
+    return null;
+  }, [requestId]);
+
   const loadData = useCallback(async () => {
     setErrorMsg(null);
 
-    const [compRes, notesRes] = await Promise.all([
+    const [compRes, notesRes, pkg] = await Promise.all([
       apiFetch<QuoteComparisonDto>(`/advisor/requests/${requestId}/quotes`),
       apiFetch<AdvisorRequestNoteDto[]>(`/advisor/requests/${requestId}/notes`),
+      loadPackageInfo(),
     ]);
 
     if (compRes.success && compRes.data) {
@@ -108,8 +201,40 @@ export default function AdvisorRequestQuotationReviewPage() {
       setNotes(notesRes.data);
     }
 
+    setPackageInfo(pkg);
+    if (pkg && !compRes.data?.activeAssignment) {
+      const garagesRes = await apiFetch<PackageGarage[]>(`/advisor/requests/${requestId}/package-garages`);
+      if (garagesRes.success && Array.isArray(garagesRes.data)) {
+        setPackageGarages(garagesRes.data);
+        setPackageGaragesError(null);
+      } else {
+        setPackageGarages(null);
+        setPackageGaragesError(garagesRes.message || 'Could not load nearby garages.');
+      }
+    } else {
+      setPackageGarages(null);
+    }
+
     setLoading(false);
-  }, [requestId]);
+  }, [requestId, loadPackageInfo]);
+
+  async function handleAssignPackageGarage() {
+    if (!garageToConfirm) return;
+    setAssigningPackage(true);
+    const res = await apiFetch<PackageAssignmentResult>(`/advisor/requests/${requestId}/package-assignment`, {
+      method: 'POST',
+      body: JSON.stringify({ garageId: garageToConfirm.garageId, reason: packageReason.trim() || undefined }),
+    });
+    if (res.success && res.data) {
+      toast.success(`Booking confirmed with ${res.data.garageName} (${res.data.jobNumber})`);
+      setGarageToConfirm(null);
+      setPackageReason('');
+      await loadData();
+    } else {
+      toast.error('Could not assign garage', res.message || 'Please try again.');
+    }
+    setAssigningPackage(false);
+  }
 
   useEffect(() => {
     if (requestId) {
@@ -229,6 +354,7 @@ export default function AdvisorRequestQuotationReviewPage() {
   const activeAssignment = comparison.activeAssignment;
   const quotes = comparison.quotes ?? [];
   const showLowest = quotes.length > 1 && typeof comparison.lowestQuotedAmount === 'number';
+  const isPackage = !!packageInfo;
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -259,6 +385,7 @@ export default function AdvisorRequestQuotationReviewPage() {
               <span>{comparison.customerFormattedAddress}</span>
             </p>
           )}
+          {!isPackage && (
           <dl className="grid grid-cols-2 gap-3 border-t border-surface-200 pt-4 sm:grid-cols-4">
             <div>
               <dt className="text-xs text-navy-500">Quotes received</dt>
@@ -281,8 +408,54 @@ export default function AdvisorRequestQuotationReviewPage() {
               </dd>
             </div>
           </dl>
+          )}
         </div>
       </Card>
+
+      {/* Fixed-price package booking */}
+      {packageInfo && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <IconTile icon={Package} tone="blue" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-navy-900">{packageInfo.name}</h2>
+                <Badge variant="blue" pill>
+                  Package
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-sm text-navy-500">
+                Fixed price{packageInfo.fuel ? ` · ${humanize(packageInfo.fuel)}` : ''}. No garage bidding needed — pick a
+                nearby garage to confirm the booking.
+              </p>
+            </div>
+          </div>
+          <dl className="mt-3 divide-y divide-surface-200 border-t border-surface-200">
+            <QuoteFact label="Package price">{packageInfo.price !== null ? formatINR(packageInfo.price) : '—'}</QuoteFact>
+            <QuoteFact label="BroCo advance (10%)">
+              {packageInfo.advanceAmount > 0 ? formatINR(packageInfo.advanceAmount) : '—'}
+            </QuoteFact>
+            <QuoteFact label="Advance status">
+              {packageInfo.isAdvancePaid ? (
+                <span className="inline-flex items-center gap-1 text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Paid{packageInfo.advancePaidAtUtc ? ` ${formatDateTime(packageInfo.advancePaidAtUtc)}` : ''}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-amber-700">
+                  <Clock className="h-4 w-4" />
+                  Awaiting payment
+                </span>
+              )}
+            </QuoteFact>
+            {packageInfo.price !== null && (
+              <QuoteFact label="Customer pays the garage">
+                {formatINR(packageInfo.price - packageInfo.advanceAmount)}
+              </QuoteFact>
+            )}
+          </dl>
+        </Card>
+      )}
 
       {/* Assignment status */}
       {activeAssignment ? (
@@ -290,9 +463,13 @@ export default function AdvisorRequestQuotationReviewPage() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-semibold text-emerald-900">Assigned to {activeAssignment.garageName}</p>
+              <p className="text-sm font-semibold text-emerald-900">
+                {isPackage ? `Booking confirmed with ${activeAssignment.garageName}` : `Assigned to ${activeAssignment.garageName}`}
+              </p>
               <p className="text-sm text-emerald-800">
-                Quote <span className="font-mono">{activeAssignment.selectedQuoteNumber}</span> ·{' '}
+                {isPackage ? 'Package price' : 'Quote'}{' '}
+                {!isPackage && <span className="font-mono">{activeAssignment.selectedQuoteNumber}</span>}
+                {!isPackage && ' · '}
                 {formatINR(activeAssignment.selectedQuoteAmount)}
               </p>
               <p className="text-xs text-emerald-700">
@@ -304,7 +481,7 @@ export default function AdvisorRequestQuotationReviewPage() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : isPackage ? null : (
         quotes.length > 0 && (
           <p className="text-sm text-navy-600">
             No garage assigned yet. Compare the quotes below and choose one.
@@ -312,7 +489,81 @@ export default function AdvisorRequestQuotationReviewPage() {
         )
       )}
 
+      {/* Package bookings: the advisor picks a nearby garage directly */}
+      {packageInfo && !activeAssignment && (
+        <section className="space-y-3">
+          <div className="px-1">
+            <h2 className="text-base font-semibold text-navy-900">Assign a garage</h2>
+            <p className="mt-0.5 text-sm text-navy-500">
+              The job is confirmed at the package price. Nearest garages first.
+            </p>
+          </div>
+
+          {!packageInfo.isAdvancePaid && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <p>
+                Waiting for the customer’s 10% advance
+                {packageInfo.advanceDue !== null ? ` (${formatINR(packageInfo.advanceDue)})` : ''}. You can assign a
+                garage once it’s paid.
+              </p>
+            </div>
+          )}
+
+          {packageGaragesError ? (
+            <ErrorState title="Could not load nearby garages" error={packageGaragesError} onRetry={loadData} />
+          ) : !packageGarages || packageGarages.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No garages nearby"
+              description="No active, verified garage was found near the customer’s location."
+            />
+          ) : (
+            <ListGroup>
+              {packageGarages.map((g) => {
+                const disabled = g.isBlocked || !packageInfo.isAdvancePaid;
+                return (
+                  <div key={g.garageId} className="flex items-stretch">
+                    <ListItem
+                      className="min-w-0 flex-1"
+                      onClick={disabled ? undefined : () => setGarageToConfirm(g)}
+                      hideChevron={disabled}
+                      leading={<IconTile icon={Building2} tone={g.isBlocked ? 'neutral' : 'blue'} />}
+                      title={g.name}
+                      subtitle={g.address}
+                      meta={
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>
+                            {typeof g.distanceKm === 'number' ? `${g.distanceKm.toFixed(1)} km away` : '—'}
+                            {g.phoneNumber ? ` · ${g.phoneNumber}` : ''}
+                          </span>
+                          {g.isBlocked && (
+                            <Badge variant="red" pill>
+                              Paused · overdue commission
+                            </Badge>
+                          )}
+                        </span>
+                      }
+                    />
+                    {g.phoneNumber && (
+                      <a
+                        href={`tel:${g.phoneNumber.replace(/\s+/g, '')}`}
+                        aria-label={`Call ${g.name}`}
+                        className="flex w-12 shrink-0 items-center justify-center border-l border-surface-200/80 text-navy-400 transition hover:bg-surface-50 hover:text-navy-700"
+                      >
+                        <Phone className="h-5 w-5" />
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </ListGroup>
+          )}
+        </section>
+      )}
+
       {/* Quote comparison: stacked cards on phones, side by side from md */}
+      {!isPackage && (
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-navy-900">Garage quotes ({quotes.length})</h2>
 
@@ -441,6 +692,7 @@ export default function AdvisorRequestQuotationReviewPage() {
           </div>
         )}
       </section>
+      )}
 
       {/* Internal notes */}
       <Card className="p-4 sm:p-5">
@@ -554,7 +806,7 @@ export default function AdvisorRequestQuotationReviewPage() {
         </form>
       </Card>
 
-      {activeAssignment && (
+      {activeAssignment && !isPackage && (
         <>
           <ActionBar
             summary={
@@ -615,6 +867,52 @@ export default function AdvisorRequestQuotationReviewPage() {
               onChange={(e) => setAssignmentReason(e.target.value)}
               placeholder="For example: best price and can start tomorrow"
               rows={3}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm package garage sheet */}
+      <Modal
+        isOpen={!!garageToConfirm}
+        onClose={() => !assigningPackage && setGarageToConfirm(null)}
+        title={garageToConfirm ? `Confirm booking with ${garageToConfirm.name}?` : undefined}
+        description="The garage gets the job straight away at the package price, and the customer is told."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setGarageToConfirm(null)}
+              disabled={assigningPackage}
+            >
+              Cancel
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={handleAssignPackageGarage} isLoading={assigningPackage}>
+              Confirm booking
+            </Button>
+          </div>
+        }
+      >
+        {garageToConfirm && packageInfo && (
+          <div className="space-y-4">
+            <dl className="divide-y divide-surface-200 rounded-xl border border-surface-200 px-3">
+              <QuoteFact label="Package">{packageInfo.name}</QuoteFact>
+              <QuoteFact label="Package price">{packageInfo.price !== null ? formatINR(packageInfo.price) : '—'}</QuoteFact>
+              <QuoteFact label="Advance paid to BroCo">{formatINR(packageInfo.advanceAmount)}</QuoteFact>
+              {packageInfo.price !== null && (
+                <QuoteFact label="Customer pays the garage">{formatINR(packageInfo.price - packageInfo.advanceAmount)}</QuoteFact>
+              )}
+              <QuoteFact label="Distance">
+                {typeof garageToConfirm.distanceKm === 'number' ? `${garageToConfirm.distanceKm.toFixed(1)} km` : '—'}
+              </QuoteFact>
+            </dl>
+            <Textarea
+              label="Reason (optional)"
+              value={packageReason}
+              onChange={(e) => setPackageReason(e.target.value)}
+              placeholder="For example: nearest garage with a free slot tomorrow"
+              rows={2}
             />
           </div>
         )}

@@ -68,7 +68,7 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
 
         var modelsResponse = await customerClient.GetAsync($"/api/v1/vehicle-manufacturers/{make.Id}/models");
         var modelsBody = await modelsResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>(JsonOptions);
-        var model = modelsBody!.Data!.First();
+        var model = modelsBody!.Data!.First(m => m.YearTo == null); // a model still on sale, so any recent year is valid
 
         var regNum = $"KA-02-{Guid.NewGuid():N}"[..12].ToUpper();
         var addVehResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
@@ -91,12 +91,12 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
             VehicleId: vehicleId,
             AddressLine1: "200 Indiranagar",
             AddressLine2: "100 Feet Road",
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560038",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Scheduled Periodic Maintenance & Engine Oil Change",
             ServiceCategory: "Periodic Service",
             PreferredServiceDate: DateTime.UtcNow.AddDays(3)));
@@ -152,13 +152,13 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
             ScopeSummary: "Comprehensive engine oil service and periodic multipoint inspection",
             AdvisorRemarks: "Standard periodic service package.",
             ValidUntilUtc: DateTime.UtcNow.AddDays(7),
-            CustomerDiscount: 100m,
+            CustomerDiscount: 0m,
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 4000m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 750m, 18m, 0m, 2),
-                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1200m, 18m, 0m, 3)
+                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 3500m, 18m, 0m, 1),
+                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 600m, 18m, 0m, 2),
+                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1000m, 18m, 0m, 3)
             }
         );
 
@@ -184,11 +184,13 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task Scenario01_Customer_InitiateQuotationPayment_And_Verify_Generates_Invoice_And_Settlement()
+    public async Task Scenario01_Customer_PaysTenPercentAdvance_GetsReceipt_AndNoGarageSettlement()
     {
         // Arrange
-        var (_, garageId, customerQuotationId, custToken, expectedTotal) = await CreateAcceptedCustomerQuotationAsync();
+        var (serviceRequestId, _, customerQuotationId, custToken, expectedTotal) = await CreateAcceptedCustomerQuotationAsync();
         var customerClient = CreateAuthenticatedClient(custToken);
+        // BroCo collects 10% online (whole rupees); the customer pays the rest at the garage.
+        var expectedAdvance = Math.Round(expectedTotal * 0.10m, 0, MidpointRounding.AwayFromZero);
 
         // Act 1: Initiate payment
         var initiateResponse = await customerClient.PostAsJsonAsync(
@@ -199,11 +201,8 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var rawContent = await initiateResponse.Content.ReadAsStringAsync();
         initiateResponse.StatusCode.Should().Be(HttpStatusCode.OK, because: rawContent);
         var initiateBody = await initiateResponse.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
-        initiateBody.Should().NotBeNull();
-        initiateBody!.Data.Should().NotBeNull();
-
-        var paymentId = initiateBody.Data!.PaymentId;
-        initiateBody.Data.Amount.Should().Be(expectedTotal);
+        var paymentId = initiateBody!.Data!.PaymentId;
+        initiateBody.Data.Amount.Should().Be(expectedAdvance);
         initiateBody.Data.Currency.Should().Be("INR");
         initiateBody.Data.PaymentNumber.Should().StartWith("PAY-");
         initiateBody.Data.GatewayOrderId.Should().StartWith("ord_fake_");
@@ -212,63 +211,39 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var fakePaymentId = $"pay_test_{Guid.NewGuid():N}";
         var verifyResponse = await customerClient.PostAsJsonAsync(
             "/api/v1/customer/payments/verify",
-            new VerifyPaymentRequestDto(
-                PaymentId: paymentId,
-                GatewayPaymentId: fakePaymentId,
-                GatewaySignature: "sig_fake_valid",
-                GatewayOrderId: initiateBody.Data.GatewayOrderId
-            )
-        );
+            new VerifyPaymentRequestDto(paymentId, fakePaymentId, "sig_fake_valid", initiateBody.Data.GatewayOrderId));
 
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var verifyBody = await verifyResponse.Content.ReadFromJsonAsync<ApiResponse<PaymentDto>>(JsonOptions);
-        verifyBody.Should().NotBeNull();
         verifyBody!.Data!.Status.Should().Be("Paid");
+        verifyBody.Data.Purpose.Should().Be("BookingAdvance");
         verifyBody.Data.GatewayPaymentId.Should().Be(fakePaymentId);
-        verifyBody.Data.PaidAtUtc.Should().NotBeNull();
 
-        // Act 3: Verify Invoice was automatically issued
+        // Act 3: A receipt for the advance only
         var invoiceResponse = await customerClient.GetAsync($"/api/v1/customer/invoices/by-payment/{paymentId}");
         invoiceResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var invoiceBody = await invoiceResponse.Content.ReadFromJsonAsync<ApiResponse<InvoiceDto>>(JsonOptions);
-        invoiceBody.Should().NotBeNull();
         invoiceBody!.Data!.InvoiceNumber.Should().StartWith("INV-");
         invoiceBody.Data.Status.Should().Be("Paid");
-        invoiceBody.Data.TotalAmount.Should().Be(expectedTotal);
+        invoiceBody.Data.TotalAmount.Should().Be(expectedAdvance);
 
-        // Act 4: Verify Settlement was generated in database
+        // Act 4: The request records the advance, no garage payout is created, and the ledger balances.
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var settlement = await db.GarageSettlements
-            .FirstOrDefaultAsync(s => s.PaymentId == paymentId);
+        var request = await db.ServiceRequests.AsNoTracking().FirstAsync(r => r.Id == serviceRequestId);
+        request.AdvancePaidAmount.Should().Be(expectedAdvance);
+        request.AdvancePaymentId.Should().Be(paymentId);
 
-        settlement.Should().NotBeNull();
-        settlement!.SettlementNumber.Should().StartWith("SET-");
-        // The garage is settled on its own quote (3500 + 600 + 1000 + 18% GST = 6018), not on the customer's marked-up price.
-        const decimal garageQuotedTotal = 6018m;
-        settlement.GrossAmount.Should().Be(garageQuotedTotal);
-        settlement.GarageId.Should().Be(garageId);
-        settlement.PlatformFeeAmount.Should().Be(601.80m);
-        settlement.TaxOnPlatformFee.Should().Be(108.32m);
-        settlement.NetPayableToGarage.Should().Be(garageQuotedTotal - 601.80m - 108.32m);
-        settlement.Status.Should().Be(SettlementStatus.Pending);
+        (await db.GarageSettlements.AnyAsync(s => s.PaymentId == paymentId)).Should().BeFalse();
 
-        // Act 5: Verify Ledger entries
-        var ledgerEntries = await db.FinancialLedgerEntries
-            .Where(l => l.PaymentId == paymentId)
-            .ToListAsync();
+        var ledgerEntries = await db.FinancialLedgerEntries.Where(l => l.PaymentId == paymentId).ToListAsync();
+        ledgerEntries.Should().Contain(l => l.AccountType == "PLATFORM_BOOKING_FEE" && l.CreditAmount == expectedAdvance);
+        ledgerEntries.Sum(l => l.DebitAmount).Should().Be(ledgerEntries.Sum(l => l.CreditAmount));
 
-        ledgerEntries.Should().NotBeEmpty();
-        ledgerEntries.Should().Contain(l => l.AccountType == "ESCROW");
-        ledgerEntries.Should().Contain(l => l.AccountType == "CUSTOMER");
-
-        // The advisor margin (customer total minus garage quote) is booked as platform margin,
-        // and the settlement entries balance: everything released from escrow is allocated.
-        var settlementEntries = ledgerEntries.Where(l => l.SettlementId == settlement.Id).ToList();
-        settlementEntries.Should().Contain(l => l.AccountType == "PLATFORM_MARGIN" && l.DebitAmount == expectedTotal - garageQuotedTotal);
-        settlementEntries.Sum(l => l.DebitAmount).Should().Be(settlementEntries.Sum(l => l.CreditAmount));
-        settlementEntries.Single(l => l.AccountType == "ESCROW").CreditAmount.Should().Be(expectedTotal);
+        // Paying the advance twice is refused.
+        var again = await customerClient.PostAsJsonAsync("/api/v1/customer/payments/initiate", new InitiatePaymentRequestDto(customerQuotationId));
+        again.IsSuccessStatusCode.Should().BeFalse();
     }
 
     [Fact]
@@ -411,28 +386,52 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task Scenario05_Data_Isolation_Garage_Cannot_Access_Others_Settlement()
+    public async Task Scenario05_Commission_IsBilledToTheRightGarage_AndHiddenFromOthers()
     {
-        // Arrange
-        var (_, garageId, customerQuotationId, custToken, _) = await CreateAcceptedCustomerQuotationAsync();
+        // Arrange: customer pays the advance, the job is handed over and BroCo bills the garage its commission.
+        var (_, garageId, customerQuotationId, custToken, total) = await CreateAcceptedCustomerQuotationAsync();
         var customerClient = CreateAuthenticatedClient(custToken);
 
         var initRes = await customerClient.PostAsJsonAsync("/api/v1/customer/payments/initiate", new InitiatePaymentRequestDto(customerQuotationId));
         initRes.EnsureSuccessStatusCode();
         var initBody = await initRes.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
-        var fakePaymentId = $"pay_settle_iso_{Guid.NewGuid():N}";
         var verifyRes = await customerClient.PostAsJsonAsync(
             "/api/v1/customer/payments/verify",
-            new VerifyPaymentRequestDto(initBody!.Data!.PaymentId, fakePaymentId, "sig_fake_valid", initBody.Data.GatewayOrderId));
+            new VerifyPaymentRequestDto(initBody!.Data!.PaymentId, $"pay_com_{Guid.NewGuid():N}", "sig_fake_valid", initBody.Data.GatewayOrderId));
         verifyRes.EnsureSuccessStatusCode();
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var settlement = await db.GarageSettlements.FirstOrDefaultAsync(s => s.PaymentId == initBody.Data.PaymentId);
-        settlement.Should().NotBeNull();
+        var job = await db.ServiceJobs.AsNoTracking().FirstAsync(j => j.CustomerQuotationId == customerQuotationId);
+        var commission = await scope.ServiceProvider.GetRequiredService<ICommissionService>().CreateForJobAsync(job.Id);
 
-        // Register a distinct second garage user
-        var diffGarage = new Garage("Other Workshop", $"other_{Guid.NewGuid():N}@garage.com", "+91 91111 22222", "Other St", 77.60, 12.98);
+        // 10% of the service value + 18% GST on it; the advance is netted off what the garage collected.
+        commission!.GarageId.Should().Be(garageId);
+        commission.ServiceValue.Should().Be(total);
+        commission.CommissionAmount.Should().Be(Math.Round(total * 0.10m, 2, MidpointRounding.AwayFromZero));
+        commission.TaxAmount.Should().Be(Math.Round(commission.CommissionAmount * 0.18m, 2, MidpointRounding.AwayFromZero));
+        commission.TotalDue.Should().Be(commission.CommissionAmount + commission.TaxAmount);
+        commission.BalanceCollectedByGarage.Should().Be(total - commission.AdvanceCollectedByPlatform);
+        commission.Status.Should().Be("Due");
+
+        // Garage A sees and can pay it
+        var garageToken = await AuthenticateAsync("garage.owner@centralmetro.com", "Password123!");
+        var garageClient = CreateAuthenticatedClient(garageToken);
+        var mine = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
+        mine!.Data.Should().Contain(c => c.Id == commission.Id);
+
+        var pay = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/pay", new PayCommissionsRequest(new List<Guid> { commission.Id }, null));
+        pay.EnsureSuccessStatusCode();
+        var payBody = await pay.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
+        payBody!.Data!.Amount.Should().Be(commission.TotalDue);
+        var verifyCommission = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/verify",
+            new VerifyPaymentRequestDto(payBody.Data.PaymentId, $"pay_cpay_{Guid.NewGuid():N}", "sig_fake_valid", payBody.Data.GatewayOrderId));
+        verifyCommission.EnsureSuccessStatusCode();
+        var paidList = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
+        paidList!.Data!.Single(c => c.Id == commission.Id).Status.Should().Be("Paid");
+
+        // A different garage never sees it
+        var diffGarage = new Garage("Other Workshop", $"other_{Guid.NewGuid():N}@garage.com", "+91 91111 22222", "Other St", 78.45, 17.42);
         db.Garages.Add(diffGarage);
         await db.SaveChangesAsync();
 
@@ -448,12 +447,11 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         db.GarageUsers.Add(new GarageUser(otherUser.Id, diffGarage.Id, AppRoles.GarageOwner, "Owner"));
         await db.SaveChangesAsync();
 
-        var otherGarageToken = await AuthenticateAsync(otherEmail, "Password123!");
-        var otherGarageClient = CreateAuthenticatedClient(otherGarageToken);
-
-        // Act: Attempt to access Garage A's settlement
-        var res = await otherGarageClient.GetAsync($"/api/v1/garage/finance/settlements/{settlement!.Id}");
-        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var otherGarageClient = CreateAuthenticatedClient(await AuthenticateAsync(otherEmail, "Password123!"));
+        var theirs = await otherGarageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
+        theirs!.Data.Should().NotContain(c => c.Id == commission.Id);
+        var theirPay = await otherGarageClient.PostAsJsonAsync("/api/v1/garage/commission/pay", new PayCommissionsRequest(new List<Guid> { commission.Id }, null));
+        theirPay.IsSuccessStatusCode.Should().BeFalse();
     }
 
     [Fact]

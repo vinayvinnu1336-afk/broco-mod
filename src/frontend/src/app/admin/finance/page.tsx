@@ -29,6 +29,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
+import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
 import { formatDate, formatDateTime, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 
 // ---------------------------------------------------------------------------------------------
@@ -394,6 +395,9 @@ export default function AdminFinancePage() {
           )}
         </div>
       )}
+
+      {/* Garage commission dues (10% + GST owed by garages after each job) */}
+      <CommissionSummaryCard />
 
       {/* Section switch */}
       <FilterChips

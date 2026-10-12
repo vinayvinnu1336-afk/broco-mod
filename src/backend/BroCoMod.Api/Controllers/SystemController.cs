@@ -27,7 +27,7 @@ public class SystemController : ControllerBase
     {
         return Ok(new
         {
-            platform = "BroCo Mod Platform",
+            platform = "BroCo Platform",
             version = "1.0.0-foundation",
             architecture = "Modular Monolith (Stateless Core)",
             horizontalScalingReady = true,

@@ -7,7 +7,7 @@ Upon successful customer acceptance of a quotation proposal, the platform transi
 sequenceDiagram
     autonumber
     actor Customer as Customer
-    participant API as BroCo Mod API
+    participant API as BroCo API
     participant DB as PostgreSQL
     actor Garage as Partner Workshop
     actor Advisor as Technical Advisor

@@ -1,7 +1,7 @@
 # Advisor Quotation Review & Multi-Garage Comparison
 
 ## 1. Overview
-The **Advisor Quotation Review** workflow serves as the operational intelligence hub for BroCo Mod Technical Advisors. Following dispatch of a customer service request to partner workshops within a 10 KM radius, workshops submit competing bids. The technical advisor reviews, analyzes, and compares these bids on behalf of the customer before selecting an execution partner.
+The **Advisor Quotation Review** workflow serves as the operational intelligence hub for BroCo Technical Advisors. Following dispatch of a customer service request to partner workshops within a 10 KM radius, workshops submit competing bids. The technical advisor reviews, analyzes, and compares these bids on behalf of the customer before selecting an execution partner.
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,7 @@ The advisor workbench provides aggregated comparative metrics across all submitt
 - **Lowest Bid Indicator:** Dynamic highlighting of the most cost-effective bid without automated selection.
 
 > [!IMPORTANT]
-> The system **does not** automatically select the cheapest garage. BroCo Mod relies on the expertise of certified Technical Advisors to weigh proximity, turnaround time, workshop reputation, parts authenticity, and fair pricing.
+> The system **does not** automatically select the cheapest garage. BroCo relies on the expertise of certified Technical Advisors to weigh proximity, turnaround time, workshop reputation, parts authenticity, and fair pricing.
 
 ---
 

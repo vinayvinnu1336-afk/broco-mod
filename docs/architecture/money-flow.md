@@ -1,0 +1,52 @@
+# How money moves in BroCo
+
+BroCo is a booking platform. It doesn't hold the full payment for a service.
+It earns from two 10% charges: a booking advance from the customer and a commission from the garage.
+
+## Example: Standard service priced at ₹5,000
+
+| Step | Who pays | Amount | How |
+|---|---|---|---|
+| 1. Booking | Customer → BroCo | ₹500 (10%) | Online at checkout |
+| 2. After the service | Customer → Garage | ₹4,500 (the rest) | Cash or UPI at the garage at handover |
+| 3. After handover | Garage → BroCo | ₹500 commission + ₹90 GST = ₹590 | Online from Garage portal → Commission, or offline (an admin records it) |
+
+**Result:** the garage keeps ₹4,000 + ₹500 − ₹590 = ₹3,910 net. BroCo earns ₹1,000 plus ₹90 GST that it passes on.
+
+## Prices
+- **Packages** (Basic / Standard / Premium) have a fixed, GST-inclusive price for each car model and fuel type.
+  - Admins set these under Admin → Packages & prices: per model, or in bulk by segment.
+  - The server reads the price from the database when a booking is made; it never trusts a price sent by the browser.
+- **Other services** (AC, batteries, denting and painting, repairs…) work through quotes.
+  - Nearby garages quote, and the advisor sends the customer exactly the garage's quote. There is **no markup**: the API refuses to send a customer quote whose total differs from the garage quote by more than ₹1.
+  - When the customer accepts, they pay the same 10% advance.
+- **Extra work** found during a job: the advisor approves it, and the customer pays for it at the garage. It is added to the service value that commission is calculated on.
+
+## Rules the system enforces
+- **The advance must be paid before work starts.** A garage can't mark the car as received until it is.
+- **Package bookings skip bidding.** Once the customer has paid the advance, the advisor picks a nearby garage (Advisor → request → Assign a garage). The job is then confirmed at the package price.
+- **Commission is created automatically** when the garage marks the car as *handed over*:
+  - Commission = platform fee % (Admin → Settings, default 10%) × service value.
+  - GST = GST % (default 18%) × commission.
+- **Reminders:** a commission is due 24 hours after handover (`Commission:DueHours`). Garages get an in-app reminder, plus SMS, email or WhatsApp once those providers are connected, every 12 hours (`Commission:ReminderIntervalHours`). The Garage portal also shows a banner.
+- **Blocking:** a garage with a commission overdue for more than 3 days (`Commission:BlockNewJobsAfterOverdueDays`, 0 = never) can't be assigned new jobs until it pays.
+- **Admins** can mark a commission as received (UPI or bank reference) or waive it with a reason. Both actions are written to the audit log.
+
+## Ledger entries
+| Event | Debit | Credit |
+|---|---|---|
+| Booking advance paid | PLATFORM_CASH | PLATFORM_BOOKING_FEE |
+| Commission paid | PLATFORM_CASH (total) | PLATFORM_COMMISSION (commission), GST_PAYABLE (GST) |
+
+The old full-payment, escrow and garage-payout records (`GarageSettlement`) are kept for history but are no longer created.
+
+## Settings (`appsettings.json` / `.env`)
+| Setting | Default | `.env` |
+|---|---|---|
+| `Booking:AdvancePercentage` | 10 | `BOOKING_ADVANCE_PERCENT` |
+| `Commission:DueHours` | 24 | `COMMISSION_DUE_HOURS` |
+| `Commission:ReminderIntervalHours` | 12 | `COMMISSION_REMINDER_HOURS` |
+| `Commission:BlockNewJobsAfterOverdueDays` | 3 | `COMMISSION_BLOCK_AFTER_DAYS` |
+| `ServiceAreas` | Hyderabad live; other cities "coming soon" | edit `appsettings.json` |
+| `GoogleMaps:ServerApiKey` | empty (pincode/pin cross-check off) | `GOOGLE_MAPS_SERVER_KEY` |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (frontend build) | empty (fallback address form) | `GOOGLE_MAPS_BROWSER_KEY` |

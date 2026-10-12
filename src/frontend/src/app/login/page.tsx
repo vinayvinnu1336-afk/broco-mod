@@ -28,7 +28,7 @@ const demoAccounts: { role: 'customer' | 'garage' | 'advisor' | 'admin'; label: 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = safeRedirect(searchParams.get('redirect'));
+  const redirect = safeRedirect(searchParams.get('redirect') ?? searchParams.get('next'));
   const expired = searchParams.get('expired') === 'true';
 
   const { login, quickLogin, user } = useAuth();
@@ -98,12 +98,12 @@ function LoginForm() {
     <div className="flex min-h-screen flex-col bg-surface-50">
       <header className="pt-safe">
         <div className="mx-auto flex h-14 max-w-md items-center px-4 sm:h-16">
-          <Link href="/" className="flex items-center gap-2.5" aria-label="BroCo Mod home">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="BroCo home">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
               <Wrench className="h-[18px] w-[18px]" />
             </span>
             <span className="text-[15px] font-extrabold tracking-tight text-navy-900 sm:text-lg">
-              BroCo<span className="font-light text-electric-600"> Mod</span>
+              Bro<span className="text-electric-600">Co</span>
             </span>
           </Link>
         </div>
@@ -188,7 +188,7 @@ function LoginForm() {
             </form>
 
             <p className="mt-6 text-center text-sm text-navy-500">
-              New to BroCo Mod?{' '}
+              New to BroCo?{' '}
               <Link
                 href={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'}
                 className="font-semibold text-electric-600 hover:text-electric-700 hover:underline"

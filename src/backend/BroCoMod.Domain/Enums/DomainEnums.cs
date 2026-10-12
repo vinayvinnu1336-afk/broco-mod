@@ -190,7 +190,9 @@ public enum PaymentPurpose
     ServiceQuotation = 1,
     AdditionalWork = 2,
     Refund = 3,
-    Other = 4
+    Other = 4,
+    BookingAdvance = 5,
+    GarageCommission = 6
 }
 
 public enum PaymentMethod
@@ -227,7 +229,9 @@ public enum LedgerEntryType
     PlatformFee = 2,
     GaragePayable = 3,
     Refund = 4,
-    Adjustment = 5
+    Adjustment = 5,
+    BookingAdvance = 6,
+    Commission = 7
 }
 
 public enum PlatformFeeType
@@ -239,3 +243,18 @@ public enum PlatformFeeType
 
 
 
+
+public enum GarageCommissionStatus
+{
+    Due = 1,
+    Paid = 2,
+    Waived = 3
+}
+
+public enum LeadStatus
+{
+    New = 1,
+    Contacted = 2,
+    Converted = 3,
+    Closed = 4
+}

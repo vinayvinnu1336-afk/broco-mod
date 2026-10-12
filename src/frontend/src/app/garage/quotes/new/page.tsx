@@ -246,7 +246,7 @@ function NewQuoteForm() {
           </div>
           <p className="flex items-start gap-2 px-1 text-xs text-navy-500">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Your item prices are shared only with BroCo Mod advisors, never with customers or other garages.
+            Your item prices are shared only with BroCo advisors, never with customers or other garages.
           </p>
         </section>
       </div>

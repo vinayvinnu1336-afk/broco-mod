@@ -5,7 +5,7 @@ The **Customer Quotation** represents the final, curated commercial agreement pr
 
 ```mermaid
 flowchart LR
-    subgraph Internal_Domain [Internal BroCo Mod Domain]
+    subgraph Internal_Domain [Internal BroCo Domain]
         GQ[GarageQuote / Wholesale Bid]
         AN[Advisor Internal Notes]
         Markup[Platform Margin Calculation]

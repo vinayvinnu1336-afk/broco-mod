@@ -46,7 +46,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         return client;
     }
 
-    private async Task<(Guid ServiceRequestId, Guid GarageId, Guid CustomerQuotationId, string CustomerToken, string GarageToken, string AdvisorToken)> CreateAcceptedBookingAsync()
+    private async Task<(Guid ServiceRequestId, Guid GarageId, Guid CustomerQuotationId, string CustomerToken, string GarageToken, string AdvisorToken)> CreateAcceptedBookingAsync(bool payAdvance = true)
     {
         // 1. Register customer & create vehicle
         var custEmail = $"service_exec_{Guid.NewGuid():N}@brocomod.com";
@@ -66,7 +66,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
 
         var modelsResponse = await customerClient.GetAsync($"/api/v1/vehicle-manufacturers/{make.Id}/models");
         var modelsBody = await modelsResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>(JsonOptions);
-        var model = modelsBody!.Data!.First();
+        var model = modelsBody!.Data!.First(m => m.YearTo == null); // a model still on sale, so any recent year is valid
 
         var regNum = $"KA-05-{Guid.NewGuid():N}"[..12].ToUpper();
         var addVehResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
@@ -89,12 +89,12 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
             VehicleId: vehicleId,
             AddressLine1: "50 MG Road",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Complete brake pad replacement and wheel alignment",
             ServiceCategory: "Brakes",
             PreferredServiceDate: DateTime.UtcNow.AddDays(2)));
@@ -149,12 +149,12 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
                 ScopeSummary: "Complete Brake Service Package",
                 AdvisorRemarks: "Genuine OEM parts guaranteed.",
                 ValidUntilUtc: DateTime.UtcNow.AddDays(5),
-                CustomerDiscount: 100m,
+                CustomerDiscount: 0m,
                 Currency: "INR",
                 LineItems: new List<CustomerQuotationLineItemInputDto>
                 {
-                    new(QuoteLineType.Part, "Front Brake Pads OEM", 1, 3500m, 18m, 0m, 1),
-                    new(QuoteLineType.Labour, "Installation & Inspection", 1, 1200m, 18m, 0m, 2)
+                    new(QuoteLineType.Part, "Front Brake Pads OEM", 1, 3000m, 18m, 0m, 1),
+                    new(QuoteLineType.Labour, "Installation & Inspection", 1, 1000m, 18m, 0m, 2)
                 }
             ));
         cqDraftResponse.EnsureSuccessStatusCode();
@@ -173,7 +173,32 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
             new AcceptQuotationRequest("Please proceed with this service."));
         acceptResponse.EnsureSuccessStatusCode();
 
+        // 6. Customer pays the 10% BroCo booking advance; the garage can start only after that.
+        if (payAdvance)
+        {
+            var init = await customerClient.PostAsJsonAsync("/api/v1/customer/payments/initiate", new InitiatePaymentRequestDto(customerQuotationId));
+            init.EnsureSuccessStatusCode();
+            var initBody = await init.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
+            (await customerClient.PostAsJsonAsync("/api/v1/customer/payments/verify",
+                new VerifyPaymentRequestDto(initBody!.Data!.PaymentId, $"pay_adv_{Guid.NewGuid():N}", "sig_fake_valid", initBody.Data.GatewayOrderId)))
+                .EnsureSuccessStatusCode();
+        }
+
         return (serviceRequestId, garageId, customerQuotationId, custToken, garageToken, advisorToken);
+    }
+
+    [Fact]
+    public async Task Garage_CannotReceiveVehicle_UntilBookingAdvanceIsPaid()
+    {
+        var (serviceRequestId, _, _, _, garageToken, _) = await CreateAcceptedBookingAsync(payAdvance: false);
+        var garageClient = CreateAuthenticatedClient(garageToken);
+
+        var jobs = await garageClient.GetFromJsonAsync<ApiResponse<List<ServiceJobSummaryDto>>>("/api/v1/garage/jobs", JsonOptions);
+        var jobId = jobs!.Data!.First(j => j.ServiceRequestId == serviceRequestId).Id;
+
+        var receive = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/receive", new ReceiveVehicleRequest(15000, "At the gate"));
+        receive.IsSuccessStatusCode.Should().BeFalse();
+        (await receive.Content.ReadAsStringAsync()).Should().Contain("booking advance");
     }
 
     [Fact]
@@ -300,6 +325,14 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var handBody = await handoverResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         handBody!.Data!.Status.Should().Be("HandedOver");
 
+        // Handover bills the garage its BroCo commission, and reminds it to pay.
+        var dues = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
+        var due = dues!.Data!.Single(c => c.ServiceJobId == jobId);
+        due.Status.Should().Be("Due");
+        due.TotalDue.Should().BeGreaterThan(0);
+        var summary = await garageClient.GetFromJsonAsync<ApiResponse<GarageCommissionSummaryDto>>("/api/v1/garage/commission/summary", JsonOptions);
+        summary!.Data!.OutstandingAmount.Should().BeGreaterThanOrEqualTo(due.TotalDue);
+
         // Step 10: Close Job
         var closeResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/close", new CloseJobRequest(
             "Final inspection report archived."
@@ -404,7 +437,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var g2 = new Garage("Competitor Autoworks", "comp@garage.com", "+91 91111 33333", "West St", 77.60, 12.98);
+            var g2 = new Garage("Competitor Autoworks", "comp@garage.com", "+91 91111 33333", "West St", 78.45, 17.42);
             db.Garages.Add(g2);
             await db.SaveChangesAsync();
 

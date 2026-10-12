@@ -14,7 +14,9 @@ public class Payment : BaseEntity
     public Guid? AdditionalWorkQuotationId { get; private set; }
     public Guid? ServiceJobId { get; private set; }
     public Guid CustomerId { get; private set; }
-    public Guid GarageId { get; private set; }
+    public Guid? GarageId { get; private set; }
+    public Guid? ServiceRequestId { get; private set; }
+    public Guid? GarageCommissionId { get; private set; }
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = "INR";
     public PaymentStatus Status { get; private set; } = PaymentStatus.Created;
@@ -44,7 +46,7 @@ public class Payment : BaseEntity
     public Payment(
         string paymentNumber,
         Guid customerId,
-        Guid garageId,
+        Guid? garageId,
         decimal amount,
         string currency,
         PaymentPurpose purpose,
@@ -53,14 +55,14 @@ public class Payment : BaseEntity
         Guid? additionalWorkQuotationId = null,
         Guid? serviceJobId = null,
         string? idempotencyKey = null,
-        PaymentMethod paymentMethod = PaymentMethod.TestProvider)
+        PaymentMethod paymentMethod = PaymentMethod.TestProvider,
+        Guid? serviceRequestId = null,
+        Guid? garageCommissionId = null)
     {
         if (string.IsNullOrWhiteSpace(paymentNumber))
             throw new ArgumentException("PaymentNumber cannot be empty.", nameof(paymentNumber));
         if (customerId == Guid.Empty)
             throw new ArgumentException("CustomerId cannot be empty.", nameof(customerId));
-        if (garageId == Guid.Empty)
-            throw new ArgumentException("GarageId cannot be empty.", nameof(garageId));
         if (amount <= 0.0m)
             throw new ArgumentException("Amount must be greater than zero.", nameof(amount));
 
@@ -76,9 +78,24 @@ public class Payment : BaseEntity
         ServiceJobId = serviceJobId;
         IdempotencyKey = idempotencyKey?.Trim();
         PaymentMethod = paymentMethod;
+        if ((GarageId == null || GarageId == Guid.Empty) && purpose != PaymentPurpose.BookingAdvance)
+            throw new ArgumentException("GarageId cannot be empty.", nameof(garageId));
+        if (GarageId == Guid.Empty) GarageId = null;
+        ServiceRequestId = serviceRequestId;
+        GarageCommissionId = garageCommissionId;
         Status = PaymentStatus.Created;
         RefundedAmount = 0.0m;
         ConcurrencyToken = Guid.NewGuid();
+    }
+
+    /// <summary>Links a booking advance (paid before a garage was chosen) to the garage and job.</summary>
+    public void AttachToGarageJob(Guid garageId, Guid? serviceJobId, Guid? customerQuotationId)
+    {
+        if (garageId == Guid.Empty) throw new ArgumentException("GarageId cannot be empty.", nameof(garageId));
+        GarageId = garageId;
+        if (serviceJobId.HasValue) ServiceJobId = serviceJobId;
+        if (customerQuotationId.HasValue) CustomerQuotationId = customerQuotationId;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void SetGatewayOrder(string gatewayOrderId, string? gatewayProvider = null)

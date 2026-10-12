@@ -35,7 +35,7 @@ public record PaymentDto(
     Guid? AdditionalWorkQuotationId,
     Guid? ServiceJobId,
     Guid CustomerId,
-    Guid GarageId,
+    Guid? GarageId,
     decimal Amount,
     string Currency,
     string Status,
@@ -46,7 +46,8 @@ public record PaymentDto(
     string? GatewayPaymentId,
     decimal RefundedAmount,
     DateTime? PaidAtUtc,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    Guid? ServiceRequestId = null
 );
 
 public record InvoiceDto(
@@ -57,7 +58,7 @@ public record InvoiceDto(
     Guid? AdditionalWorkQuotationId,
     Guid? ServiceJobId,
     Guid CustomerId,
-    Guid GarageId,
+    Guid? GarageId,
     string Status,
     decimal Subtotal,
     decimal DiscountAmount,

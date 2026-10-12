@@ -12,7 +12,8 @@ public record CreateServiceBookingRequest(
     double Longitude,
     string ProblemDescription,
     string? ServiceCategory = "General",
-    DateTime? PreferredServiceDate = null
+    DateTime? PreferredServiceDate = null,
+    string? PackageCode = null
 );
 
 public record CancelServiceRequestCommand(
@@ -50,7 +51,14 @@ public record ServiceRequestDetailDto(
     int MatchedGaragesCount,
     DateTime SubmittedAtUtc,
     DateTime? CancelledAtUtc,
-    string? CancellationReason
+    string? CancellationReason,
+    string? ServicePackageCode = null,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    decimal? AdvanceAmountDue = null,
+    decimal AdvancePaidAmount = 0,
+    DateTime? AdvancePaidAtUtc = null,
+    string? VehicleFuel = null
 );
 
 public record CustomerServiceRequestSummaryDto(
@@ -63,7 +71,10 @@ public record CustomerServiceRequestSummaryDto(
     string Status,
     DateTime CreatedAtUtc,
     DateTime SubmittedAtUtc,
-    int QuotesCount = 0
+    int QuotesCount = 0,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    bool IsAdvancePaid = false
 );
 
 public record GarageIncomingRequestDto(
@@ -111,7 +122,10 @@ public record AdvisorServiceRequestSummaryDto(
     string Status,
     int EligibleGaragesCount,
     int DispatchedGaragesCount,
-    DateTime SubmittedAtUtc
+    DateTime SubmittedAtUtc,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    bool IsAdvancePaid = false
 );
 
 public record DispatchedGarageSummaryDto(
@@ -140,7 +154,14 @@ public record AdvisorServiceRequestDetailDto(
     string Status,
     Guid? AssignedAdvisorId,
     IReadOnlyList<DispatchedGarageSummaryDto> DispatchedGarages,
-    DateTime SubmittedAtUtc
+    DateTime SubmittedAtUtc,
+    string? ServicePackageCode = null,
+    string? ServicePackageName = null,
+    decimal? PackagePrice = null,
+    decimal? AdvanceAmountDue = null,
+    decimal AdvancePaidAmount = 0,
+    DateTime? AdvancePaidAtUtc = null,
+    string? VehicleFuel = null
 );
 
 public record AdminServiceRequestSummaryDto(

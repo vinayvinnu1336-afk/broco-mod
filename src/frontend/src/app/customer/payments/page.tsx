@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDateTime, formatINRWhole } from '@/lib/format';
 import { paymentMethodLabel, paymentPurposeLabel } from '@/app/customer/_lib/customer-ui';
+import { advancePurposeLabel } from '@/components/booking/advancePayment';
 
 export default function CustomerPaymentsPage() {
   const [payments, setPayments] = useState<PaymentDto[]>([]);
@@ -128,7 +129,7 @@ export default function CustomerPaymentsPage() {
                   key={p.id}
                   href={`/customer/payments/${p.id}`}
                   leading={<IconTile icon={CreditCard} tone={p.status === 'Paid' ? 'green' : 'neutral'} />}
-                  title={paymentPurposeLabel(p.purpose)}
+                  title={advancePurposeLabel(p.purpose) ?? paymentPurposeLabel(p.purpose)}
                   subtitle={[p.paymentNumber, paymentMethodLabel(p.paymentMethod)]
                     .filter(Boolean)
                     .join(' · ')}

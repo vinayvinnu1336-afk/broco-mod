@@ -1,7 +1,7 @@
 # Portal Matrix & Route Protection
 
 ## 1. Overview
-The BroCo Mod frontend operates four dedicated portals, each protected by client-side route guards (`ProtectedRoute`) and enforced by backend ASP.NET Core authorization attributes (`[Authorize(Roles = ...)]`, `[HasPermission(...)]`).
+The BroCo frontend operates four dedicated portals, each protected by client-side route guards (`ProtectedRoute`) and enforced by backend ASP.NET Core authorization attributes (`[Authorize(Roles = ...)]`, `[HasPermission(...)]`).
 
 ---
 

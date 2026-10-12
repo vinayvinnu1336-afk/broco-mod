@@ -1,4 +1,4 @@
-# BroCo Mod Cloud Infrastructure (Terraform Scaffold)
+# BroCo Cloud Infrastructure (Terraform Scaffold)
 # Target: Production-ready Managed PostgreSQL (PostGIS enabled) and Managed Redis
 
 terraform {

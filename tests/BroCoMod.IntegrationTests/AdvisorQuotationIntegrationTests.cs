@@ -67,7 +67,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
 
         var modelsResponse = await customerClient.GetAsync($"/api/v1/vehicle-manufacturers/{make.Id}/models");
         var modelsBody = await modelsResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>(JsonOptions);
-        var model = modelsBody!.Data!.First();
+        var model = modelsBody!.Data!.First(m => m.YearTo == null); // a model still on sale, so any recent year is valid
 
         var regNum = $"KA-05-{Guid.NewGuid():N}"[..12].ToUpper();
         var addVehResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
@@ -90,12 +90,12 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
             VehicleId: vehicleId,
             AddressLine1: "500 Indiranagar 100ft Road",
             AddressLine2: "Opposite Metro",
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560038",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Clutch slipping and strange grinding noise",
             ServiceCategory: "Transmission",
             PreferredServiceDate: DateTime.UtcNow.AddDays(2)));
@@ -273,12 +273,12 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
             ScopeSummary: "Complete clutch replacement and flywheel inspection",
             AdvisorRemarks: "OEM Clutch Kit guaranteed for 12 months.",
             ValidUntilUtc: DateTime.UtcNow.AddDays(4),
-            CustomerDiscount: 300m,
+            CustomerDiscount: 0m,
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "OEM Clutch Kit with Bearing", 1, 5200m, 18m, 0m, 1),
-                new(QuoteLineType.Labour, "Clutch Fitting Labour", 1, 1800m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "OEM Clutch Kit with Bearing", 1, 4500m, 18m, 200m, 1),
+                new(QuoteLineType.Labour, "Clutch Fitting Labour", 1, 1500m, 18m, 0m, 2)
             }
         );
 
@@ -294,12 +294,12 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         cqDraftBody.Data.Status.Should().Be("Draft");
         cqDraftBody.Data.QuotationNumber.Should().StartWith("CQ-");
 
-        // Verify calculations: Subtotal = 5200 + 1800 = 7000. CustomerDiscount = 300
-        // Net taxable = 6700. Line taxes = (5200 * 0.18) + (1800 * 0.18) = 1260
-        // Scaled tax = 1260 * (6700 / 7000) = 1206.00. Total = 6700 + 1206 = 7906.00
-        cqDraftBody.Data.CustomerSubtotal.Should().Be(7000.00m);
-        cqDraftBody.Data.CustomerTax.Should().Be(1206.00m);
-        cqDraftBody.Data.CustomerTotal.Should().Be(7906.00m);
+        // Same items as the garage quote (no markup): Subtotal = (4500 - 200) + 1500 = 5800
+        // Tax = 5800 * 0.18 = 1044
+        // Total = 6844, exactly the garage quote total
+        cqDraftBody.Data.CustomerSubtotal.Should().Be(5800.00m);
+        cqDraftBody.Data.CustomerTax.Should().Be(1044.00m);
+        cqDraftBody.Data.CustomerTotal.Should().Be(6844.00m);
 
         // 2. Customer Visibility Verification: In Draft status, customer cannot see quotation
         var customerClient = CreateAuthenticatedClient(customerToken);
@@ -339,7 +339,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         var custQuoteDetail = await custQuoteDetailAfterSend.Content.ReadFromJsonAsync<ApiResponse<CustomerFacingQuotationDto>>(JsonOptions);
         custQuoteDetail!.Data.Should().NotBeNull();
         custQuoteDetail.Data!.Status.Should().Be("Sent");
-        custQuoteDetail.Data.CustomerTotal.Should().Be(7906.00m);
+        custQuoteDetail.Data.CustomerTotal.Should().Be(6844.00m);
         custQuoteDetail.Data.ScopeSummary.Should().Be("Complete clutch replacement and flywheel inspection");
     }
 

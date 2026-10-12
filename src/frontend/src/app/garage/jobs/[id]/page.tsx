@@ -1,6 +1,7 @@
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import {
@@ -16,6 +17,8 @@ import {
 import {
   Calendar,
   CarFront,
+  Clock,
+  IndianRupee,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -25,6 +28,7 @@ import {
   KeyRound,
   Lock,
   MessageSquarePlus,
+  Package,
   Phone,
   PlusCircle,
   Wrench,
@@ -45,6 +49,22 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTime, formatINR, humanize } from '@/lib/format';
+import { GarageCommission } from '@/components/garage/commission';
+
+/** Payment fields the API adds to the garage job detail (not yet in the shared type). */
+type GarageJob = GarageServiceJobDetailDto & {
+  servicePackageName?: string | null;
+  serviceValue?: number;
+  advancePaidAmount?: number;
+  isAdvancePaid?: boolean;
+  balanceToCollect?: number;
+};
+
+/** Before the car arrives the garage waits for the customer's 10% advance. */
+const PRE_RECEIPT_STATUSES = ['BookingConfirmed', 'Scheduled'];
+/** Work finished: remind the workshop to collect the balance at handover. */
+const COLLECT_STATUSES = ['WorkCompleted', 'VehicleReady'];
+const AFTER_HANDOVER_STATUSES = ['HandedOver', 'Closed'];
 
 type ModalKey =
   | 'schedule'
@@ -196,7 +216,8 @@ export default function GarageJobDetailPage() {
   const toast = useToast();
   const id = params?.id as string;
 
-  const [job, setJob] = useState<GarageServiceJobDetailDto | null>(null);
+  const [job, setJob] = useState<GarageJob | null>(null);
+  const [commission, setCommission] = useState<GarageCommission | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -250,9 +271,19 @@ export default function GarageJobDetailPage() {
   async function loadJob() {
     setLoading(true);
     setErrorMsg(null);
-    const res = await apiFetch<GarageServiceJobDetailDto>(`/garage/jobs/${id}`);
+    const res = await apiFetch<GarageJob>(`/garage/jobs/${id}`);
     if (res.success && res.data) {
-      setJob(res.data);
+      const loaded = res.data;
+      setJob(loaded);
+      if (AFTER_HANDOVER_STATUSES.includes(String(loaded.status))) {
+        // The commission BroCo bills for this job once the car is handed back.
+        const dues = await apiFetch<GarageCommission[]>('/garage/commission');
+        setCommission(
+          dues.success && Array.isArray(dues.data) ? dues.data.find((c) => c.serviceJobId === loaded.id) ?? null : null
+        );
+      } else {
+        setCommission(null);
+      }
     } else {
       setErrorMsg(res.message || 'Could not load this job.');
     }
@@ -322,6 +353,15 @@ export default function GarageJobDetailPage() {
   const canRequestExtraWork = status === 'WorkStarted' || status === 'WorkInProgress';
   const vehicleName = `${job.vehicleYear ?? ''} ${job.vehicleMake ?? ''} ${job.vehicleModel ?? ''}`.trim();
 
+  const serviceValue = Number(job.serviceValue ?? 0);
+  const advancePaid = Number(job.advancePaidAmount ?? 0);
+  const balanceToCollect = Number(job.balanceToCollect ?? Math.max(0, serviceValue - advancePaid));
+  const advancePct = serviceValue > 0 && advancePaid > 0 ? Math.round((advancePaid / serviceValue) * 100) : 10;
+  const awaitingAdvance = job.isAdvancePaid === false && PRE_RECEIPT_STATUSES.includes(status);
+  // The API refuses "Car received" until the advance is paid, so hold the button back.
+  const receiveBlocked = awaitingAdvance && next?.primary?.modal === 'receive';
+  const showPaymentCard = serviceValue > 0 || !!job.servicePackageName || job.isAdvancePaid !== undefined;
+
   /** Error shown inside the open sheet, so the mechanic sees why an action failed. */
   const modalError = errorMsg ? (
     <Alert type="error" className="mb-4">
@@ -386,7 +426,13 @@ export default function GarageJobDetailPage() {
                   />
                 ))}
               </div>
-              {next && <p className="mt-3 text-sm text-navy-600">{next.hint}</p>}
+              {next && (
+                <p className="mt-3 text-sm text-navy-600">
+                  {receiveBlocked
+                    ? 'Waiting for the customer to pay the 10% BroCo booking advance. You can receive the car once it’s paid.'
+                    : next.hint}
+                </p>
+              )}
 
               <details className="group mt-3 border-t border-surface-200 pt-3">
                 <summary className="flex min-h-[36px] cursor-pointer list-none items-center text-sm font-medium text-electric-700 [&::-webkit-details-marker]:hidden">
@@ -466,6 +512,96 @@ export default function GarageJobDetailPage() {
             )}
           </div>
         </section>
+
+        {/* Payment */}
+        {showPaymentCard && !isCancelled && (
+          <Section title="Payment">
+            <div className="space-y-3 rounded-2xl border border-surface-200 bg-white p-4 text-sm shadow-card sm:p-5">
+              {job.servicePackageName && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="blue" pill icon={Package}>
+                    Package
+                  </Badge>
+                  <span className="font-semibold text-navy-900">{job.servicePackageName}</span>
+                </div>
+              )}
+              <dl className="space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-navy-500">Service value</dt>
+                  <dd className="font-semibold tabular-nums text-navy-900">{formatINR(serviceValue)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-navy-500">Customer pays you at handover</dt>
+                  <dd className="font-medium tabular-nums text-navy-900">{formatINR(balanceToCollect)}</dd>
+                </div>
+              </dl>
+
+              {job.isAdvancePaid ? (
+                <p className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-emerald-900">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>
+                    Customer paid BroCo {formatINR(advancePaid)} ({advancePct}%) online.
+                  </span>
+                </p>
+              ) : awaitingAdvance ? (
+                <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-amber-900">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    Waiting for the customer’s 10% advance. You can’t receive the car until it’s paid.
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-navy-500">No online BroCo advance was recorded for this job.</p>
+              )}
+
+              {COLLECT_STATUSES.includes(status) && balanceToCollect > 0 && (
+                <p className="flex items-start gap-2 rounded-xl bg-electric-50 p-3 font-medium text-electric-900">
+                  <IndianRupee className="mt-0.5 h-4 w-4 shrink-0 text-electric-600" />
+                  <span>Collect {formatINR(balanceToCollect)} from the customer at handover.</span>
+                </p>
+              )}
+
+              {AFTER_HANDOVER_STATUSES.includes(status) &&
+                (commission ? (
+                  commission.status === 'Due' ? (
+                    <div
+                      className={`flex flex-col gap-2 rounded-xl p-3 sm:flex-row sm:items-center sm:justify-between ${
+                        commission.isOverdue ? 'bg-red-50 text-red-900' : 'bg-amber-50 text-amber-900'
+                      }`}
+                    >
+                      <span>
+                        BroCo commission <strong className="tabular-nums">{formatINR(commission.totalDue)}</strong> (incl.
+                        GST) is {commission.isOverdue ? 'overdue' : 'now due'} — pay from Commission.
+                      </span>
+                      <Link
+                        href="/garage/commission"
+                        className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-white px-4 font-semibold text-navy-900 shadow-sm ring-1 ring-surface-200 hover:bg-surface-50"
+                      >
+                        Pay commission
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-navy-500">
+                      BroCo commission {formatINR(commission.totalDue)}{' '}
+                      {commission.status === 'Paid'
+                        ? `paid${commission.paidAtUtc ? ` on ${formatDateTime(commission.paidAtUtc)}` : ''}.`
+                        : 'waived.'}
+                    </p>
+                  )
+                ) : (
+                  status === 'HandedOver' && (
+                    <p className="text-sm text-navy-600">
+                      BroCo commission for this job is now due —{' '}
+                      <Link href="/garage/commission" className="font-semibold text-electric-700 hover:underline">
+                        pay from Commission
+                      </Link>
+                      .
+                    </p>
+                  )
+                ))}
+            </div>
+          </Section>
+        )}
 
         {/* Customer's problem */}
         <Section title="Customer’s problem">
@@ -639,7 +775,8 @@ export default function GarageJobDetailPage() {
             )}
             <Button
               onClick={() => openModal(next.primary!.modal)}
-              disabled={actionLoading}
+              disabled={actionLoading || receiveBlocked}
+              title={receiveBlocked ? 'Waiting for the customer’s 10% advance' : undefined}
               // Icon only when the button has the bar to itself; two labelled buttons fit 375px without them.
               leftIcon={next.secondary ? undefined : next.primary.icon}
             >
@@ -960,7 +1097,11 @@ export default function GarageJobDetailPage() {
         isOpen={activeModal === 'handover'}
         onClose={closeModal}
         title="Hand over the car"
-        description="Confirm the car and keys are back with the customer."
+        description={
+          balanceToCollect > 0
+            ? `Collect ${formatINR(balanceToCollect)} from the customer, then confirm the car and keys are back with them. BroCo’s commission for this job becomes due after handover.`
+            : 'Confirm the car and keys are back with the customer.'
+        }
         footer={modalFooter(
           <Button className="w-full sm:w-auto" isLoading={actionLoading} onClick={() => handleAction('handover', { handoverNotes })}>
             Confirm handover

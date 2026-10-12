@@ -21,6 +21,9 @@ import {
   FileCheck2,
   Calculator,
   CheckSquare,
+  HandCoins,
+  Inbox,
+  PackageCheck,
 } from 'lucide-react';
 
 const adminNavItems: NavItem[] = [
@@ -31,12 +34,15 @@ const adminNavItems: NavItem[] = [
   { label: 'Customer quotations', href: '/admin/customer-quotations', icon: FileCheck2, section: 'Operations' },
   { label: 'Assignments', href: '/admin/assignments', icon: CheckSquare, section: 'Operations' },
   { label: 'Service jobs', href: '/admin/jobs', icon: Wrench, section: 'Operations' },
+  { label: 'Website enquiries', shortLabel: 'Enquiries', href: '/admin/leads', icon: Inbox, section: 'Operations' },
   { label: 'Finance', href: '/admin/finance', icon: IndianRupee, primary: true, section: 'Money' },
+  { label: 'Commissions', href: '/admin/commissions', icon: HandCoins, section: 'Money' },
   { label: 'Payments', href: '/admin/payments', icon: CreditCard, section: 'Money' },
   { label: 'Garages', href: '/admin/garages', icon: Building2, section: 'Network' },
   { label: 'Advisors', href: '/admin/advisors', icon: UserCheck, section: 'Network' },
   { label: 'Customers', href: '/admin/customers', icon: Users, section: 'Network' },
-  { label: 'Vehicle catalogue', href: '/admin/vehicle-master', icon: CarFront, section: 'Platform' },
+  { label: 'Vehicle catalogue', href: '/admin/vehicle-master', icon: CarFront, section: 'Catalogue' },
+  { label: 'Packages & prices', href: '/admin/packages', icon: PackageCheck, section: 'Catalogue' },
   { label: 'Notifications', href: '/admin/notifications', icon: Bell, section: 'Platform' },
   { label: 'System health', href: '/admin/system-health', icon: Activity, section: 'Platform' },
   { label: 'Audit trail', href: '/admin/audit', icon: ShieldAlert, section: 'Platform' },

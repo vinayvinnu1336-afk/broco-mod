@@ -1,259 +1,238 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  Wrench,
-  ShieldCheck,
-  MapPin,
-  ClipboardCheck,
-  CreditCard,
-  Activity,
-  CalendarCheck,
-  Disc,
-  Snowflake,
-  Zap,
-  Paintbrush,
-  Cog,
   ArrowRight,
+  BadgeCheck,
+  BadgeIndianRupee,
+  Car,
   Check,
   ChevronDown,
+  CreditCard,
+  MapPin,
+  ReceiptText,
+  ShieldCheck,
   Store,
-  FileText,
-  Car,
-  MessageSquare,
-  BadgeCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { homePathForRoles } from '@/components/auth/ProtectedRoute';
-import { formatINRWhole } from '@/lib/format';
+import { useToast } from '@/components/ui/Toast';
+import { Select } from '@/components/ui/Select';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { BrandLogo } from '@/components/catalogue/BrandLogo';
+import { CarPicker, CarSelectField, CarSelection } from '@/components/catalogue/CarPicker';
+import { Manufacturer, ServiceArea, catalogueApi, loadBookingIntent, saveBookingIntent } from '@/lib/catalogue';
+import { PublicHeader } from './_public/PublicHeader';
+import { PublicFooter } from './_public/PublicFooter';
+import { ServiceGrid } from './_public/ServiceGrid';
+import { CAR_SERVICE_PATH, CarChoice, carChoiceFrom } from './_public/services';
 
-const NEW_REQUEST_PATH = '/customer/requests/new';
+const DEFAULT_CITY = 'Hyderabad';
+const MOBILE_RE = /^[6-9]\d{9}$/;
+const FALLBACK_AREAS: ServiceArea[] = [
+  { city: DEFAULT_CITY, state: 'Telangana', latitude: 17.385, longitude: 78.4867, radiusKm: 40, isLive: true },
+];
 
 const steps = [
+  { icon: Car, title: 'Pick your car', desc: 'Choose the brand, model and fuel type. It takes a few taps.' },
   {
-    icon: Car,
-    title: 'Tell us what your car needs',
-    desc: 'Add your car, pick a service or describe the problem, and choose where the car is.',
+    icon: BadgeIndianRupee,
+    title: 'Choose a service and see the price',
+    desc: 'Service packages show a fixed price for your car. For repairs, verified garages send you quotes.',
   },
+  { icon: CreditCard, title: 'Pay 10% to book', desc: 'Pay just 10% online to BroCo to confirm your booking.' },
   {
-    icon: MapPin,
-    title: 'We ask garages near you',
-    desc: 'Your service advisor asks verified garages within 10 km to quote for the job.',
+    icon: Store,
+    title: 'Pay the rest at the garage',
+    desc: 'Pay the remaining 90% directly at the garage once the service is done.',
   },
-  {
-    icon: ClipboardCheck,
-    title: 'Approve one clear quote',
-    desc: 'The advisor compares the quotes and sends you one itemised quote. Nothing starts until you approve and pay.',
-  },
-  {
-    icon: Activity,
-    title: 'Track it until handover',
-    desc: 'Follow each stage, from inspection to ready for pickup, right from your phone.',
-  },
-];
-
-// Indicative starting prices only. The real price is always in the quote the customer approves.
-const services: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string; from: number | null; unit?: string }[] = [
-  {
-    icon: CalendarCheck,
-    title: 'Periodic service',
-    desc: 'Engine oil and filter change, top-ups and a full multi-point check.',
-    from: 2499,
-  },
-  {
-    icon: Disc,
-    title: 'Brakes and suspension',
-    desc: 'Brake pads, discs, shock absorbers, noises and pulling to one side.',
-    from: 999,
-  },
-  {
-    icon: Snowflake,
-    title: 'AC service',
-    desc: 'Gas top-up, cooling issues, cabin filter and leak checks.',
-    from: 1499,
-  },
-  {
-    icon: Zap,
-    title: 'Electrical and diagnostics',
-    desc: 'Battery, warning lights, starting trouble and scanner diagnosis.',
-    from: 499,
-  },
-  {
-    icon: Paintbrush,
-    title: 'Denting and painting',
-    desc: 'Scratches, dents and panel repaint with colour matching.',
-    from: 2199,
-    unit: 'per panel',
-  },
-  {
-    icon: Cog,
-    title: 'Engine, clutch and gearbox',
-    desc: 'Clutch wear, gear shifting, engine noise or loss of power.',
-    from: null,
-  },
-];
-
-const reasons = [
-  {
-    icon: ShieldCheck,
-    title: 'Verified garages only',
-    desc: 'Every workshop is checked by our team before it can quote on your car.',
-  },
-  {
-    icon: FileText,
-    title: 'One curated quote',
-    desc: 'No calling around. Your advisor compares the quotes and sends you the one that makes sense, itemised.',
-  },
-  {
-    icon: CreditCard,
-    title: 'Pay only after you approve',
-    desc: 'You see the full price first. Work starts only after you approve and pay online.',
-  },
-  {
-    icon: Activity,
-    title: 'Live tracking',
-    desc: 'See where your car is in the process, and approve any extra work before it is done.',
-  },
-];
-
-const garagePoints = [
-  'Get service requests from car owners within 10 km of your workshop',
-  'Send your quote for each job — a service advisor handles the customer',
-  'Update job progress from your phone and get paid through the platform',
 ];
 
 const faqs = [
   {
-    q: 'How are garages chosen for my car?',
-    a: 'When you book, we look for verified garages within 10 km of the location you choose. Your service advisor asks them to quote, then compares price, parts and timing before sending you the quote they recommend.',
+    q: 'How does payment work?',
+    a: 'You see the price before you book. You pay 10% of it online to BroCo to confirm the booking, and the remaining 90% directly at the garage after the service is done.',
   },
   {
-    q: 'Do I have to accept the quote?',
-    a: 'No. You see the full itemised quote first. Nothing is booked and you pay nothing until you approve it.',
+    q: 'Which services have a fixed price?',
+    a: 'Our Basic, Standard and Premium periodic service packages have a fixed price for your car model and fuel type. For everything else (AC, batteries, tyres, denting and painting, detailing, clutch, suspension and other repairs) verified garages send you quotes, and you pay 10% online and the rest at the garage in the same way.',
   },
   {
-    q: 'What if the garage finds more work once they start?',
-    a: 'The garage has to raise it as a separate request. Your advisor reviews it and you approve or decline it before any extra work is done.',
+    q: 'What if the garage finds more work?',
+    a: 'Nothing extra is done without your approval. The garage has to raise the extra work with its price, and you can approve or decline it.',
   },
   {
-    q: 'How do I know what is happening with my car?',
-    a: 'Your booking shows each stage — inspection, work in progress, ready for handover — and updates as the garage moves the job along.',
+    q: 'Can I cancel a booking?',
+    a: 'Yes. The 10% advance is refundable if you cancel before the garage starts work.',
   },
   {
-    q: 'Are the prices on this page final?',
-    a: 'No, they are indicative starting prices. The exact price depends on your car and the work needed, and it is always shown in your quote before you pay.',
+    q: 'Which cities do you serve?',
+    a: 'BroCo is live in Hyderabad. Other cities are coming soon. Leave your number and we will let you know when we reach yours.',
   },
   {
     q: 'I run a garage. How do I join?',
-    a: 'Create a workshop partner account with your business name and address. Once our team has verified your workshop, you will start receiving requests from car owners nearby.',
+    a: 'Create a garage partner account with your business details. Once our team has verified your workshop, you will start receiving bookings from car owners nearby.',
   },
 ];
 
-function BrandMark() {
+function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: string; desc?: string }) {
   return (
-    <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="BroCo Mod home">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
-        <Wrench className="h-[18px] w-[18px]" />
-      </span>
-      <span className="text-[15px] font-extrabold tracking-tight text-navy-900 sm:text-lg">
-        BroCo<span className="font-light text-electric-600"> Mod</span>
-      </span>
-    </Link>
-  );
-}
-
-function SectionHeading({ eyebrow, title, desc, center = false }: { eyebrow: string; title: string; desc?: string; center?: boolean }) {
-  return (
-    <div className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
+    <div className="max-w-2xl">
       <p className="text-sm font-semibold text-electric-600">{eyebrow}</p>
-      <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">{title}</h2>
-      {desc && <p className="mt-3 text-sm leading-relaxed text-navy-500 sm:text-base">{desc}</p>}
+      <h2 className="mt-1 text-xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">{title}</h2>
+      {desc && <p className="mt-2 text-sm leading-relaxed text-navy-500 sm:text-base">{desc}</p>}
     </div>
   );
 }
 
 export default function HomePage() {
+  const router = useRouter();
+  const toast = useToast();
   const { user, isAuthenticated } = useAuth();
   const signedIn = isAuthenticated && !!user;
 
-  // Signed-out visitors create an account first and then land on the booking form.
-  const bookHref = signedIn ? NEW_REQUEST_PATH : `/register?redirect=${encodeURIComponent(NEW_REQUEST_PATH)}`;
-  const accountHref = signedIn && user ? homePathForRoles(user.roles) : '/login';
+  const [areas, setAreas] = useState<ServiceArea[] | null>(null);
+  const [manufacturers, setManufacturers] = useState<Manufacturer[] | null>(null);
+  const [city, setCity] = useState(DEFAULT_CITY);
+  const [car, setCar] = useState<CarChoice | null>(null);
+  const [mobile, setMobile] = useState('');
+  const [errors, setErrors] = useState<{ city?: string; car?: string; mobile?: string }>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mobileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    catalogueApi.serviceAreas().then((res) => {
+      if (active) setAreas(res.success && res.data?.length ? res.data : FALLBACK_AREAS);
+    });
+    catalogueApi.manufacturers().then((res) => {
+      if (active) setManufacturers(res.success && res.data ? res.data : []);
+    });
+    // Remember the car from a previous visit.
+    const intent = loadBookingIntent();
+    if (intent?.modelId && intent.manufacturerId && intent.manufacturerName && intent.modelName && intent.fuelType) {
+      setCar({
+        manufacturerId: intent.manufacturerId,
+        manufacturerName: intent.manufacturerName,
+        modelId: intent.modelId,
+        modelName: intent.modelName,
+        fuelType: intent.fuelType,
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // The saved intent has no logo; fill it in once the brand list is here.
+  const logoFor = useMemo(() => {
+    const map = new Map((manufacturers ?? []).map((m) => [m.id, m.logoUrl]));
+    return (id: string) => map.get(id) ?? null;
+  }, [manufacturers]);
+
+  const cityOptions = (areas ?? FALLBACK_AREAS)
+    .slice()
+    .sort((a, b) => Number(b.isLive) - Number(a.isLive))
+    .map((a) => ({ value: a.city, label: a.isLive ? a.city : `${a.city} (coming soon)`, disabled: !a.isLive }));
+  const liveArea = (areas ?? FALLBACK_AREAS).find((a) => a.city === city && a.isLive);
+  const hyderabad = (areas ?? FALLBACK_AREAS).find((a) => a.city === DEFAULT_CITY);
+  const popularBrands = (manufacturers ?? []).filter((m) => m.isPopular).slice(0, 12);
+
+  const chooseCar = (sel: CarSelection) => {
+    setCar(carChoiceFrom(sel.manufacturer, sel.model, sel.fuelType));
+    setErrors((e) => ({ ...e, car: undefined }));
+  };
+
+  const onMobileChange = (raw: string) => {
+    let digits = raw.replace(/\D/g, '');
+    // Accept pasted/autofilled numbers like "+91 98765 43210" or "098765 43210".
+    if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+    if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+    setMobile(digits.slice(0, 10));
+    if (errors.mobile) setErrors((e) => ({ ...e, mobile: undefined }));
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const next: typeof errors = {};
+    if (!liveArea) next.city = 'We are only in Hyderabad for now.';
+    if (!car) next.car = 'Select your car to see prices.';
+    if (!MOBILE_RE.test(mobile)) {
+      next.mobile = mobile ? 'Enter a valid 10-digit mobile number.' : 'Enter your mobile number.';
+    }
+    setErrors(next);
+    if (Object.keys(next).length > 0 || !car) {
+      if (next.mobile && !next.car) mobileRef.current?.focus();
+      return;
+    }
+
+    setSubmitting(true);
+    // Save the enquiry, but never hold the visitor up for it.
+    const lead = catalogueApi
+      .createLead({
+        mobileNumber: mobile,
+        city,
+        vehicleModelId: car.modelId,
+        fuelType: car.fuelType,
+        serviceInterest: 'Car Services',
+      })
+      .then((res) => res.success)
+      .catch(() => false);
+    const saved = await Promise.race([lead, new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))]);
+    if (saved === false) {
+      toast.info('We could not save your number', 'No problem — you can still see prices and book.');
+    }
+
+    saveBookingIntent({
+      city,
+      manufacturerId: car.manufacturerId,
+      manufacturerName: car.manufacturerName,
+      modelId: car.modelId,
+      modelName: car.modelName,
+      fuelType: car.fuelType,
+    });
+    router.push(`${CAR_SERVICE_PATH}?model=${encodeURIComponent(car.modelId)}&fuel=${encodeURIComponent(car.fuelType)}`);
+  };
+
+  const pickFromBrands = (sel: CarSelection) => {
+    chooseCar(sel);
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => mobileRef.current?.focus({ preventScroll: true }), 400);
+  };
 
   return (
     <div className="min-h-screen bg-surface-50 text-navy-900">
-      {/* Header */}
-      <header className="pt-safe sticky top-0 z-40 border-b border-surface-200 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:h-16 sm:px-6 lg:px-8">
-          <BrandMark />
-
-          <nav className="hidden items-center gap-6 text-sm font-medium text-navy-600 md:flex" aria-label="Main">
-            <a href="#how-it-works" className="transition hover:text-electric-600">How it works</a>
-            <a href="#services" className="transition hover:text-electric-600">Services</a>
-            <a href="#garages" className="transition hover:text-electric-600">For garages</a>
-            <a href="#faq" className="transition hover:text-electric-600">FAQ</a>
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <Link
-              href={accountHref}
-              className="inline-flex min-h-[44px] items-center whitespace-nowrap rounded-xl px-2.5 text-sm font-semibold text-navy-700 transition hover:bg-surface-100 hover:text-navy-900 sm:px-3"
-            >
-              {signedIn ? 'Account' : 'Sign in'}
-            </Link>
-            <Link
-              href={bookHref}
-              className="inline-flex min-h-[40px] items-center whitespace-nowrap rounded-xl bg-electric-600 px-3 text-sm sm:px-3.5 font-semibold text-white shadow-sm shadow-electric-600/20 transition hover:bg-electric-700"
-            >
-              Book service
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main>
-        {/* Hero */}
-        <section className="relative overflow-hidden border-b border-surface-200 bg-white">
+        {/* Hero + booking card */}
+        <section id="book" className="relative overflow-hidden bg-navy-900 text-white">
           <div
             aria-hidden
-            className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-electric-100/70 blur-3xl sm:h-96 sm:w-96"
+            className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-electric-600/30 blur-3xl sm:h-[28rem] sm:w-[28rem]"
           />
-          <div className="relative mx-auto grid max-w-6xl gap-10 px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-14 lg:grid-cols-12 lg:items-center lg:px-8 lg:py-20">
-            <div className="lg:col-span-7">
-              <p className="inline-flex items-center gap-1.5 rounded-full border border-electric-200 bg-electric-50 px-3 py-1 text-xs font-semibold text-electric-700">
-                <MapPin className="h-3.5 w-3.5" />
-                Verified garages within 10 km of you
+          <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 pb-8 pt-5 sm:gap-8 sm:px-6 sm:pb-12 sm:pt-10 lg:grid-cols-12 lg:items-center lg:gap-12 lg:px-8 lg:py-16">
+            <div className="min-w-0 lg:col-span-6">
+              <p className="hidden items-center gap-1.5 rounded-full border border-electric-400/30 bg-electric-600/15 px-3 py-1 text-xs font-semibold text-electric-200 sm:inline-flex">
+                <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
               </p>
-
-              <h1 className="mt-4 text-[2rem] font-extrabold leading-[1.15] tracking-tight text-navy-900 sm:text-5xl lg:text-[3.25rem]">
-                Car service without the <span className="text-electric-600">guesswork</span>
+              <h1 className="text-[1.6rem] font-extrabold leading-[1.2] tracking-tight sm:mt-4 sm:text-4xl lg:text-5xl">
+                Experience the best car services in <span className="text-electric-400">Hyderabad</span>
               </h1>
+              <p className="mt-2 text-[15px] text-surface-300 sm:mt-3 sm:text-lg">Get instant prices for your car service</p>
 
-              <p className="mt-4 max-w-xl text-base leading-relaxed text-navy-500 sm:text-lg">
-                Tell us what your car needs. A service advisor gets quotes from verified garages nearby and sends you
-                one clear quote. Approve it, pay online and follow your car until it&apos;s handed back.
-              </p>
-
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={bookHref}
-                  className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-6 text-base font-semibold text-white shadow-sm shadow-electric-600/20 transition hover:bg-electric-700 sm:w-auto"
-                >
-                  Book a service <ArrowRight className="h-5 w-5" />
-                </Link>
-                <Link
-                  href={accountHref}
-                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl border border-surface-300 bg-white px-6 text-base font-semibold text-navy-800 transition hover:border-surface-400 hover:bg-surface-50 sm:w-auto"
-                >
-                  {signedIn ? 'Go to my account' : 'Sign in'}
-                </Link>
-              </div>
-
-              <ul className="mt-7 grid gap-2.5 text-sm text-navy-600 sm:grid-cols-3 sm:gap-4">
-                {['Verified garages', 'Pay after you approve', 'Live progress updates'].map((item) => (
-                  <li key={item} className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <ul className="mt-6 hidden gap-3 text-sm text-surface-200 lg:grid">
+                {[
+                  'Fixed prices for Basic, Standard and Premium service packages',
+                  'Only 10% online to book — pay the rest at the garage after the service',
+                  'Verified garages and a warranty on every service package',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
                       <Check className="h-3.5 w-3.5" strokeWidth={3} />
                     </span>
                     {item}
@@ -262,78 +241,137 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Illustration of the booking journey (no real data) */}
-            <div className="hidden lg:col-span-5 lg:block" aria-hidden>
-              <div className="relative rounded-3xl border border-navy-800 bg-navy-900 p-6 text-white shadow-modal">
-                <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-electric-600/25 blur-3xl" />
-                <div className="relative">
-                  <div className="flex items-center gap-3 border-b border-navy-800 pb-4">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-electric-600/30 text-electric-300">
-                      <Car className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <div className="text-sm font-semibold">Your booking</div>
-                      <div className="text-xs text-surface-400">Every step in one place</div>
+            <div ref={cardRef} className="min-w-0 lg:col-span-6 xl:col-span-5 xl:col-start-8">
+              <form
+                onSubmit={submit}
+                noValidate
+                aria-label="Check car service prices"
+                className="rounded-2xl bg-white p-4 text-navy-900 shadow-modal sm:p-6"
+              >
+                <div className="space-y-3.5">
+                  <Select
+                    label="Location"
+                    value={city}
+                    onChange={(e) => {
+                      setCity(e.target.value);
+                      setErrors((x) => ({ ...x, city: undefined }));
+                    }}
+                    options={cityOptions}
+                    error={errors.city}
+                    className="min-h-[52px] border-surface-300 font-semibold"
+                  />
+
+                  <CarSelectField
+                    label="Car"
+                    value={car ? { ...car, logoUrl: car.logoUrl ?? logoFor(car.manufacturerId) } : null}
+                    onChange={chooseCar}
+                    placeholder="Select your car"
+                    error={errors.car}
+                  />
+
+                  <div>
+                    <label htmlFor="home-mobile" className="mb-1.5 block text-sm font-medium text-navy-800">
+                      Mobile number
+                    </label>
+                    <div
+                      className={`flex min-h-[52px] items-stretch overflow-hidden rounded-xl border bg-white transition focus-within:ring-2 ${
+                        errors.mobile
+                          ? 'border-semantic-error focus-within:ring-semantic-error/20'
+                          : 'border-surface-300 focus-within:border-electric-600 focus-within:ring-electric-600/20'
+                      }`}
+                    >
+                      <span className="flex items-center border-r border-surface-200 bg-surface-50 px-3 text-[15px] font-semibold text-navy-700">
+                        +91
+                      </span>
+                      <input
+                        ref={mobileRef}
+                        id="home-mobile"
+                        name="mobile"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel-national"
+                        pattern="[6-9][0-9]{9}"
+                        maxLength={14}
+                        placeholder="10-digit mobile number"
+                        value={mobile}
+                        onChange={(e) => onMobileChange(e.target.value)}
+                        onPaste={(e) => {
+                          e.preventDefault();
+                          onMobileChange(e.clipboardData.getData('text'));
+                        }}
+                        aria-invalid={!!errors.mobile}
+                        aria-describedby={errors.mobile ? 'home-mobile-error' : undefined}
+                        className="min-w-0 flex-1 bg-transparent px-3 text-base font-semibold tracking-wide text-navy-900 outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-surface-400"
+                      />
                     </div>
-                  </div>
-                  <ol className="mt-5 space-y-4">
-                    {[
-                      { label: 'Request sent', done: true },
-                      { label: 'Quotes collected from nearby garages', done: true },
-                      { label: 'Your curated quote is ready', done: true },
-                      { label: 'Approved and paid', current: true },
-                      { label: 'Car handed back' },
-                    ].map((s) => (
-                      <li key={s.label} className="flex items-center gap-3 text-sm">
-                        {s.done ? (
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                          </span>
-                        ) : s.current ? (
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-electric-400">
-                            <span className="h-2 w-2 rounded-full bg-electric-400" />
-                          </span>
-                        ) : (
-                          <span className="h-6 w-6 shrink-0 rounded-full border border-navy-600" />
-                        )}
-                        <span className={s.done ? 'text-surface-300' : s.current ? 'font-semibold text-white' : 'text-surface-400'}>
-                          {s.label}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="mt-6 flex items-center gap-2 rounded-2xl border border-navy-700 bg-navy-800/80 p-3 text-xs text-surface-300">
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-                    Work starts only after you approve the quote.
+                    {errors.mobile && (
+                      <p id="home-mobile-error" className="mt-1 text-sm text-semantic-error">
+                        {errors.mobile}
+                      </p>
+                    )}
                   </div>
                 </div>
-              </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="mt-5 inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-5 text-base font-bold tracking-wide text-white shadow-md shadow-electric-600/30 transition hover:bg-electric-700 active:scale-[0.99] disabled:opacity-70"
+                >
+                  {submitting ? 'Checking prices…' : 'CHECK PRICES FOR FREE'}
+                  {!submitting && <ArrowRight className="h-5 w-5" aria-hidden />}
+                </button>
+
+                <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-navy-500">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                  Pay only 10% online to book. Pay the rest at the garage after the service.
+                </p>
+              </form>
             </div>
           </div>
         </section>
 
+        {/* Services */}
+        <section id="services" className="py-8 sm:py-14">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="flex items-end justify-between gap-3">
+              <SectionHeading eyebrow="Services" title="Our services" />
+              <Link
+                href="/services"
+                className="inline-flex min-h-[44px] shrink-0 items-center gap-1 text-sm font-semibold text-electric-600 hover:text-electric-700"
+              >
+                View all <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
+            <div className="mt-5">
+              <ServiceGrid variant="compact" />
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-navy-400">
+              Car service packages have fixed prices. Other services are quoted by verified garages for your car.
+            </p>
+          </div>
+        </section>
+
         {/* How it works */}
-        <section id="how-it-works" className="border-b border-surface-200 bg-surface-50 py-12 sm:py-16 lg:py-20">
+        <section id="how-it-works" className="border-y border-surface-200 bg-white py-10 sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
               eyebrow="How it works"
-              title="From booking to handover in four steps"
-              desc="You deal with one service advisor. They deal with the garages."
+              title="How BroCo works"
+              desc="Clear prices before you book, and most of the payment only after the work is done."
             />
 
-            <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, i) => {
                 const Icon = step.icon;
                 return (
-                  <li key={step.title} className="flex gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:flex-col sm:gap-3 sm:p-5">
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-electric-50 text-electric-600">
-                        <Icon className="h-5 w-5" />
+                  <li key={step.title} className="flex gap-4 rounded-2xl border border-surface-200 bg-surface-50 p-4 sm:flex-col sm:gap-3 sm:p-5">
+                    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white">
+                      <Icon className="h-5 w-5" aria-hidden />
+                      <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface-50 bg-navy-900 text-[10px] font-bold">
+                        {i + 1}
                       </span>
-                      <span className="hidden text-sm font-semibold text-navy-400 sm:inline">Step {i + 1}</span>
-                    </div>
+                    </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-navy-400 sm:hidden">Step {i + 1}</p>
                       <h3 className="text-base font-semibold text-navy-900">{step.title}</h3>
                       <p className="mt-1 text-sm leading-relaxed text-navy-500">{step.desc}</p>
                     </div>
@@ -341,79 +379,100 @@ export default function HomePage() {
                 );
               })}
             </ol>
-          </div>
-        </section>
 
-        {/* Services */}
-        <section id="services" className="border-b border-surface-200 bg-white py-12 sm:py-16 lg:py-20">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              eyebrow="Services"
-              title="What we can help with"
-              desc="Routine service or a problem you can't pin down — describe it and we'll get it quoted."
-            />
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {services.map((svc) => {
-                const Icon = svc.icon;
-                return (
-                  <Link
-                    key={svc.title}
-                    href={bookHref}
-                    className="group flex flex-col rounded-2xl border border-surface-200 bg-white p-4 shadow-card transition hover:border-electric-200 hover:shadow-elevated sm:p-5"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-100 text-navy-700 transition group-hover:bg-electric-50 group-hover:text-electric-600">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-navy-900">{svc.title}</h3>
-                        <p className="mt-1 text-sm leading-relaxed text-navy-500">{svc.desc}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-surface-100 pt-3">
-                      <span className="text-sm text-navy-500">
-                        {svc.from !== null ? (
-                          <>
-                            From <span className="tabular-nums font-semibold text-navy-900">{formatINRWhole(svc.from)}</span>
-                            {svc.unit && <span className="text-navy-400"> {svc.unit}</span>}
-                          </>
-                        ) : (
-                          <span className="font-medium text-navy-700">Priced after inspection</span>
-                        )}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-electric-600">
-                        Book <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+            {/* Payment split illustration */}
+            <div className="mt-5 rounded-2xl border border-surface-200 p-4 sm:p-5" aria-label="Payment split: 10% online to book, 90% at the garage">
+              <p className="text-sm font-semibold text-navy-900">How your payment is split</p>
+              <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-surface-100" aria-hidden>
+                <span className="w-[10%] bg-electric-600" />
+                <span className="flex-1 bg-navy-900/80" />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-electric-700">
+                    <span className="h-2.5 w-2.5 rounded-full bg-electric-600" aria-hidden /> 10% online
+                  </p>
+                  <p className="mt-0.5 text-xs text-navy-500">Paid to BroCo to confirm your booking</p>
+                </div>
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-navy-900">
+                    <span className="h-2.5 w-2.5 rounded-full bg-navy-900/80" aria-hidden /> 90% at the garage
+                  </p>
+                  <p className="mt-0.5 text-xs text-navy-500">Paid directly to the garage after the service</p>
+                </div>
+              </div>
             </div>
-
-            <p className="mt-4 text-xs leading-relaxed text-navy-400">
-              Indicative starting prices. Your exact price depends on your car and the work needed, and is shown in your
-              quote before you pay anything.
-            </p>
           </div>
         </section>
 
-        {/* Why us */}
-        <section id="why-us" className="border-b border-surface-200 bg-surface-50 py-12 sm:py-16 lg:py-20">
+        {/* Brands */}
+        <section id="brands" className="py-10 sm:py-14">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              eyebrow="Why BroCo Mod"
-              title="No calling around. No surprise bills."
-              desc="We built BroCo Mod around the things that usually go wrong when you leave your car at a garage."
-            />
+            <SectionHeading eyebrow="Brands" title="We service all popular car brands" />
+            {manufacturers === null ? (
+              <div className="mt-5 grid grid-cols-4 gap-2.5 sm:grid-cols-6 lg:grid-cols-12">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[88px] rounded-2xl" />
+                ))}
+              </div>
+            ) : popularBrands.length > 0 ? (
+              <ul className="mt-5 grid grid-cols-4 gap-2.5 sm:grid-cols-6 lg:grid-cols-12">
+                {popularBrands.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-surface-200 bg-white p-2 text-center shadow-card"
+                  >
+                    <BrandLogo name={m.name} logoUrl={m.logoUrl} size={40} />
+                    <span className="line-clamp-2 text-[11.5px] font-medium leading-tight text-navy-700">{m.name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="mt-4 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-surface-300 bg-white px-5 text-sm font-semibold text-navy-800 transition hover:border-surface-400 hover:bg-surface-50 sm:w-auto"
+            >
+              <Car className="h-4 w-4" aria-hidden /> Find your car
+            </button>
+            <CarPicker isOpen={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={pickFromBrands} />
+          </div>
+        </section>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {reasons.map((r) => {
+        {/* Trust */}
+        <section id="why-us" className="border-y border-surface-200 bg-white py-10 sm:py-16">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <SectionHeading eyebrow="Why BroCo" title="Car care you can trust" />
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  icon: ShieldCheck,
+                  title: 'Verified garages',
+                  desc: 'Every garage is checked by our team before it can take bookings.',
+                },
+                {
+                  icon: ReceiptText,
+                  title: 'Transparent prices',
+                  desc: 'See the price for your car before you book. No extra work without your approval.',
+                },
+                {
+                  icon: BadgeCheck,
+                  title: 'Warranty on packages',
+                  desc: 'Basic, Standard and Premium packages come with a service warranty.',
+                },
+                {
+                  icon: MapPin,
+                  title: 'Serving Hyderabad',
+                  desc: hyderabad
+                    ? `We cover Hyderabad and surroundings, up to ${hyderabad.radiusKm} km from the city centre.`
+                    : 'We cover Hyderabad and surroundings. More cities are coming soon.',
+                },
+              ].map((r) => {
                 const Icon = r.icon;
                 return (
-                  <div key={r.title} className="flex gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white">
-                      <Icon className="h-5 w-5" />
+                  <div key={r.title} className="flex gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:flex-col sm:gap-3 sm:p-5">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                      <Icon className="h-5 w-5" aria-hidden />
                     </span>
                     <div className="min-w-0">
                       <h3 className="text-base font-semibold text-navy-900">{r.title}</h3>
@@ -427,131 +486,88 @@ export default function HomePage() {
         </section>
 
         {/* For garages */}
-        <section id="garages" className="bg-navy-900 py-12 text-white sm:py-16 lg:py-20">
-          <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-12 lg:px-8">
+        <section id="garages" className="bg-navy-900 py-10 text-white sm:py-16">
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-12 lg:px-8">
             <div>
               <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-electric-400">
-                <Store className="h-4 w-4" /> For garages
+                <Store className="h-4 w-4" aria-hidden /> For garages
               </p>
-              <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight sm:text-3xl">
-                Run a workshop? Get jobs from car owners nearby.
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-surface-300 sm:text-base">
-                Join BroCo Mod as a workshop partner. We bring you service requests from your area — you quote, do the
-                work and update the job from your phone.
+              <h2 className="mt-1 text-xl font-extrabold tracking-tight sm:text-3xl">Run a garage in Hyderabad? Get bookings nearby.</h2>
+              <p className="mt-2 text-sm leading-relaxed text-surface-300 sm:text-base">
+                Join BroCo as a garage partner. Car owners book and pay the advance online; you do the work and collect the
+                rest at your garage.
               </p>
+            </div>
+            <div>
               <Link
                 href="/register?role=garage"
-                className="mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-navy-900 transition hover:bg-surface-100 sm:w-auto"
+                className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-navy-900 transition hover:bg-surface-100 sm:w-auto"
               >
-                Register your garage <ArrowRight className="h-5 w-5" />
+                Register your garage <ArrowRight className="h-5 w-5" aria-hidden />
               </Link>
+              <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-surface-400">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                Garages are verified by our team before they receive bookings.
+              </p>
             </div>
-
-            <ul className="space-y-3">
-              {garagePoints.map((point) => (
-                <li key={point} className="flex items-start gap-3 rounded-2xl border border-navy-700 bg-navy-800/70 p-4 text-sm leading-relaxed text-surface-200">
-                  <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-electric-400" />
-                  {point}
-                </li>
-              ))}
-              <li className="flex items-start gap-3 px-1 text-xs leading-relaxed text-surface-400">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                Workshops are verified by our team before they receive requests.
-              </li>
-            </ul>
           </div>
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-b border-surface-200 bg-white py-12 sm:py-16 lg:py-20">
+        <section id="faq" className="bg-white py-10 sm:py-16">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading eyebrow="FAQ" title="Common questions" center />
-
-            <div className="mt-8 divide-y divide-surface-200 overflow-hidden rounded-2xl border border-surface-200 bg-white">
+            <SectionHeading eyebrow="FAQ" title="Common questions" />
+            <div className="mt-6 divide-y divide-surface-200 overflow-hidden rounded-2xl border border-surface-200 bg-white">
               {faqs.map((faq) => (
                 <details key={faq.q} className="group">
                   <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-navy-900 transition hover:bg-surface-50 sm:px-5 sm:text-base [&::-webkit-details-marker]:hidden">
                     {faq.q}
-                    <ChevronDown className="h-5 w-5 shrink-0 text-navy-400 transition-transform group-open:rotate-180" />
+                    <ChevronDown className="h-5 w-5 shrink-0 text-navy-400 transition-transform group-open:rotate-180" aria-hidden />
                   </summary>
                   <p className="px-4 pb-4 text-sm leading-relaxed text-navy-500 sm:px-5">{faq.a}</p>
                 </details>
               ))}
             </div>
-
-            <div className="mt-6 flex items-start gap-3 rounded-2xl bg-surface-50 p-4 text-sm text-navy-500">
-              <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-electric-600" />
-              <p>
-                Once you book, your service advisor is your single point of contact for questions about your car.
-              </p>
-            </div>
           </div>
         </section>
 
         {/* Closing CTA */}
-        <section className="bg-surface-50 py-12 sm:py-16">
+        <section className="bg-surface-50 py-10 sm:py-14">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="rounded-3xl bg-electric-600 px-5 py-8 text-center text-white sm:px-10 sm:py-12">
-              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Ready to book your car in?</h2>
+              <h2 className="text-xl font-extrabold tracking-tight sm:text-3xl">See the price for your car in seconds</h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-electric-100 sm:text-base">
-                It takes a couple of minutes. You won&apos;t pay anything until you approve your quote.
+                Pick your car and compare Basic, Standard and Premium packages. Pay only 10% to book.
               </p>
-              <Link
-                href={bookHref}
-                className="mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-electric-700 transition hover:bg-electric-50 sm:w-auto"
-              >
-                Book a service <ArrowRight className="h-5 w-5" />
-              </Link>
+              <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href={CAR_SERVICE_PATH}
+                  className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-electric-700 transition hover:bg-electric-50"
+                >
+                  View service packages <ArrowRight className="h-5 w-5" aria-hidden />
+                </Link>
+                {signedIn && user ? (
+                  <Link
+                    href={homePathForRoles(user.roles ?? [])}
+                    className="inline-flex min-h-[52px] items-center justify-center rounded-xl border border-white/40 px-6 text-base font-semibold text-white transition hover:bg-white/10"
+                  >
+                    Go to my dashboard
+                  </Link>
+                ) : (
+                  <Link
+                    href="/register"
+                    className="inline-flex min-h-[52px] items-center justify-center rounded-xl border border-white/40 px-6 text-base font-semibold text-white transition hover:bg-white/10"
+                  >
+                    Create a free account
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="pb-safe border-t border-navy-900 bg-navy-950 text-sm text-surface-400">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="grid gap-8 sm:grid-cols-3">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-electric-600 text-white">
-                  <Wrench className="h-4 w-4" />
-                </span>
-                <span className="text-base font-extrabold tracking-tight text-white">
-                  BroCo<span className="font-light text-electric-400"> Mod</span>
-                </span>
-              </div>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed">
-                Car service from verified local garages, with one curated quote and live tracking.
-              </p>
-            </div>
-
-            <nav aria-label="Product">
-              <p className="font-semibold text-white">Product</p>
-              <ul className="mt-3 space-y-1">
-                <li><a href="#how-it-works" className="inline-block py-1.5 transition hover:text-white">How it works</a></li>
-                <li><a href="#services" className="inline-block py-1.5 transition hover:text-white">Services</a></li>
-                <li><a href="#garages" className="inline-block py-1.5 transition hover:text-white">For garages</a></li>
-                <li><a href="#faq" className="inline-block py-1.5 transition hover:text-white">FAQ</a></li>
-              </ul>
-            </nav>
-
-            <nav aria-label="Account">
-              <p className="font-semibold text-white">Account</p>
-              <ul className="mt-3 space-y-1">
-                <li><Link href="/login" className="inline-block py-1.5 transition hover:text-white">Sign in</Link></li>
-                <li><Link href="/register" className="inline-block py-1.5 transition hover:text-white">Create an account</Link></li>
-                <li><Link href="/register?role=garage" className="inline-block py-1.5 transition hover:text-white">Register your garage</Link></li>
-                <li><Link href="/forgot-password" className="inline-block py-1.5 transition hover:text-white">Forgot password</Link></li>
-              </ul>
-            </nav>
-          </div>
-
-          <div className="mt-8 border-t border-navy-900 pt-6 text-xs">
-            © {new Date().getFullYear()} BroCo Mod. Made for car owners in India.
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

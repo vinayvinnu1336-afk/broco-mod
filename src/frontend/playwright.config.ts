@@ -5,12 +5,12 @@ import { defineConfig, devices } from '@playwright/test';
  *
  *   E2E_BASE_URL  frontend under test   (default http://localhost:3005)
  *   E2E_API_URL   API for test setup    (default http://localhost:5000/api/v1)
- *   E2E_CHANNEL   installed browser     (default msedge; use "chrome" or leave empty for bundled chromium)
+ *   E2E_CHANNEL   installed browser     (default chrome; "msedge" also works, empty = bundled chromium)
  *
  * Run:  npx playwright test            (all)
  *       npx playwright test --project=mobile
  */
-const channel = process.env.E2E_CHANNEL ?? 'msedge';
+const channel = process.env.E2E_CHANNEL ?? 'chrome';
 
 export default defineConfig({
   testDir: './e2e',
@@ -26,11 +26,19 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     channel: channel || undefined,
+    // Edge/Chrome 132+ removed the old headless mode Playwright 1.48 asks for; the last --headless flag wins.
+    launchOptions: channel ? { args: ['--headless=new'] } : undefined,
   },
   projects: [
     {
       name: 'mobile',
       use: { ...devices['Pixel 7'], channel: channel || undefined },
+    },
+    {
+      // 360px-wide Android phones are the most common screen size in India.
+      name: 'small-phone',
+      use: { ...devices['Galaxy S9+'], viewport: { width: 360, height: 740 }, channel: channel || undefined },
+      testMatch: /smoke.spec.ts/,
     },
     {
       name: 'desktop',

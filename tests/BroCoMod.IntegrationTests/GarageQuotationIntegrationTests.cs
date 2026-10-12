@@ -69,7 +69,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
 
         var modelsResponse = await customerClient.GetAsync($"/api/v1/vehicle-manufacturers/{make.Id}/models");
         var modelsBody = await modelsResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>(JsonOptions);
-        var model = modelsBody!.Data!.First();
+        var model = modelsBody!.Data!.First(m => m.YearTo == null); // a model still on sale, so any recent year is valid
 
         var regNum = $"KA-01-{Guid.NewGuid():N}"[..12].ToUpper();
         var addVehResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
@@ -87,17 +87,17 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
         var vehBody = await addVehResponse.Content.ReadFromJsonAsync<ApiResponse<CustomerVehicleDetailDto>>(JsonOptions);
         var vehicleId = vehBody!.Data!.Id;
 
-        // Create booking request near seeded Central Metro Motors (12.9716, 77.5946)
+        // Create booking request near seeded Central Metro Motors (17.4126, 78.4482)
         var bookingResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
             VehicleId: vehicleId,
             AddressLine1: "123 MG Road",
             AddressLine2: "Near Metro",
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Suspension noise and brake shuddering at high speed",
             ServiceCategory: "Brakes & Suspension",
             PreferredServiceDate: DateTime.UtcNow.AddDays(1)));
@@ -382,7 +382,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var g2 = new Garage("Northside Autoworks", "northside@garage.com", "+91 91111 22222", "North St", 77.60, 12.98);
+            var g2 = new Garage("Northside Autoworks", "northside@garage.com", "+91 91111 22222", "North St", 78.45, 17.42);
             db.Garages.Add(g2);
             await db.SaveChangesAsync();
             garage2Id = g2.Id;

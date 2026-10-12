@@ -10,6 +10,7 @@ public class VehicleManufacturer : BaseEntity
     public string LogoUrl { get; private set; } = string.Empty;
     public bool IsActive { get; private set; } = true;
     public int DisplayOrder { get; private set; } = 0;
+    public bool IsPopular { get; private set; }
 
     public ICollection<VehicleModel> Models { get; private set; } = new List<VehicleModel>();
 
@@ -33,6 +34,18 @@ public class VehicleManufacturer : BaseEntity
         LogoUrl = logoUrl.Trim();
         IsActive = isActive;
         DisplayOrder = displayOrder;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void SetPopular(bool isPopular)
+    {
+        IsPopular = isPopular;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void SetLogoUrl(string logoUrl)
+    {
+        LogoUrl = logoUrl?.Trim() ?? string.Empty;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

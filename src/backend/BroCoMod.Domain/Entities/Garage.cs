@@ -55,6 +55,13 @@ public class Garage : BaseEntity
         StatusChangedAtUtc = DateTime.UtcNow;
     }
 
+    public void UpdateContact(string address, string phoneNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(address)) Address = address.Trim();
+        if (!string.IsNullOrWhiteSpace(phoneNumber)) PhoneNumber = phoneNumber.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     public void UpdateLocation(double longitude, double latitude)
     {
         Location = new Point(longitude, latitude) { SRID = 4326 };

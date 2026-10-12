@@ -99,12 +99,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleId,
             AddressLine1: "100 MG Road",
             AddressLine2: "Opposite Metro Station",
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716, // Bangalore center
-            Longitude: 77.5946,
+            Latitude: 17.4126, // Hyderabad center
+            Longitude: 78.4482,
             ProblemDescription: "Loud squeaking noise from front brake pads during deceleration.",
             ServiceCategory: "Brakes",
             PreferredServiceDate: DateTime.UtcNow.AddDays(1)
@@ -137,12 +137,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleIdB, // Belongs to customer B!
             AddressLine1: "100 MG Road",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Unauthorized attempt on someone else's vehicle.",
             ServiceCategory: "General"
         );
@@ -169,12 +169,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleIdA,
             AddressLine1: "MG Road",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Engine oil change required.",
             ServiceCategory: "Periodic Service"
         ));
@@ -287,12 +287,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleId,
             AddressLine1: "100 Residency Road",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560025",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Exhaust vibration and rattle.",
             ServiceCategory: "Exhaust"
         ));
@@ -320,12 +320,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleId,
             AddressLine1: "Idempotency Way",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Testing duplicate network retries with idempotency key.",
             ServiceCategory: "General"
         );
@@ -367,12 +367,12 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: Guid.NewGuid(), // Non-existent vehicle
             AddressLine1: "123 Test St",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Invalid vehicle ID test.",
             ServiceCategory: "General"
         );
@@ -393,9 +393,9 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             VehicleId: vehicleId,
             AddressLine1: "123 Out of Bounds St",
             AddressLine2: null,
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
             Latitude: 120.0, // Invalid: Latitude > 90
             Longitude: 250.0, // Invalid: Longitude > 180
@@ -420,15 +420,15 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
         using var scope = _factory.Services.CreateScope();
         var matchingService = scope.ServiceProvider.GetRequiredService<IGarageMatchingService>();
 
-        // Customer at Bangalore Center (12.9716, 77.5946)
-        var customerLocation = new Point(77.5946, 12.9716) { SRID = 4326 };
+        // Customer at Hyderabad Center (17.4126, 78.4482)
+        var customerLocation = new Point(78.4482, 17.4126) { SRID = 4326 };
 
         var matches = await matchingService.FindEligibleGaragesAsync(customerLocation, radiusKm: 10.0);
 
-        // Whitefield is located ~16.8 KM away from Bangalore center
-        matches.Should().NotContain(m => m.GarageName == "Whitefield Precision Garage");
+        // Uppal is ~15 KM from Banjara Hills
+        matches.Should().NotContain(m => m.GarageName == "Uppal Precision Garage");
 
-        // Central Metro Motors (~0 KM) and Indiranagar (~5.2 KM) MUST be matched
+        // Central Metro Motors (~0 KM) MUST be matched
         matches.Should().Contain(m => m.GarageName == "Central Metro Motors");
     }
 
@@ -448,14 +448,14 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             email: "inactive@garage.com",
             phoneNumber: "+91 80 1111 2222",
             address: "Near Center",
-            longitude: 77.6000,
-            latitude: 12.9750);
+            longitude: 78.4535,
+            latitude: 17.4160);
         inactiveGarage.SetActive(false);
 
         context.Garages.Add(inactiveGarage);
         await context.SaveChangesAsync();
 
-        var customerLocation = new Point(77.5946, 12.9716) { SRID = 4326 };
+        var customerLocation = new Point(78.4482, 17.4126) { SRID = 4326 };
         var matches = await matchingService.FindEligibleGaragesAsync(customerLocation, radiusKm: 10.0);
 
         matches.Should().NotContain(m => m.GarageId == inactiveGarage.Id);
@@ -470,10 +470,10 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
         using var scope = _factory.Services.CreateScope();
         var matchingService = scope.ServiceProvider.GetRequiredService<IGarageMatchingService>();
 
-        var customerLocation = new Point(77.5946, 12.9716) { SRID = 4326 };
+        var customerLocation = new Point(78.4482, 17.4126) { SRID = 4326 };
         var matches = await matchingService.FindEligibleGaragesAsync(customerLocation, radiusKm: 10.0);
 
-        // "Jayanagar Auto Care (Pending Verification)" is within 5 KM, but IsVerified = false
+        // "Mehdipatnam Auto Care (Pending Verification)" is within 5 KM, but IsVerified = false
         matches.Should().NotContain(m => m.GarageName.Contains("Pending Verification"));
     }
 

@@ -1,0 +1,5431 @@
+{
+  "source": "Brand and model list based on GoMechanic's Hyderabad sitemap (gomechanic.in/sitemap/hyderabad.xml, read Oct 2026: 45 brands / ~410 models; obvious errors dropped, near-duplicate trims merged), plus newer 2024-26 launches and a few extra luxury models added from general Indian-market knowledge. Fuels, body types, segments and years compiled independently; years are approximate India sale periods.",
+  "brands": [
+    {
+      "name": "Maruti Suzuki",
+      "slug": "maruti-suzuki",
+      "country": "India",
+      "popular": true,
+      "logo": "/brands/maruti-suzuki.svg",
+      "models": [
+        {
+          "name": "Swift",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Baleno",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "Wagon R",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 1999,
+          "yearTo": null
+        },
+        {
+          "name": "Alto K10",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "Alto 800",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2023
+        },
+        {
+          "name": "Alto",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2000,
+          "yearTo": 2012
+        },
+        {
+          "name": "800",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1983,
+          "yearTo": 2014
+        },
+        {
+          "name": "Dzire",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "Ertiga",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Brezza",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "Fronx",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Grand Vitara",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Hybrid",
+            "CNG"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Victoris",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Hybrid",
+            "CNG"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "e Vitara",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Celerio",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2014,
+          "yearTo": null
+        },
+        {
+          "name": "Ciaz",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2025
+        },
+        {
+          "name": "XL6",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Eeco",
+          "bodyType": "Van",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "S-Presso",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Ignis",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "Jimny",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Invicto",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "S-Cross",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2022
+        },
+        {
+          "name": "Ritz",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2016
+        },
+        {
+          "name": "A-Star",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2014
+        },
+        {
+          "name": "Estilo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2013
+        },
+        {
+          "name": "Zen",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1993,
+          "yearTo": 2006
+        },
+        {
+          "name": "Omni",
+          "bodyType": "Van",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1984,
+          "yearTo": 2019
+        },
+        {
+          "name": "Esteem",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1994,
+          "yearTo": 2008
+        },
+        {
+          "name": "SX4",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2014
+        },
+        {
+          "name": "Kizashi",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2014
+        },
+        {
+          "name": "Gypsy",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1985,
+          "yearTo": 2018
+        },
+        {
+          "name": "Versa",
+          "bodyType": "Van",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2010
+        }
+      ]
+    },
+    {
+      "name": "Hyundai",
+      "slug": "hyundai",
+      "country": "South Korea",
+      "popular": true,
+      "logo": "/brands/hyundai.svg",
+      "models": [
+        {
+          "name": "i20",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "Elite i20",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2020
+        },
+        {
+          "name": "i20 N Line",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "i20 Active",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2020
+        },
+        {
+          "name": "Grand i10 Nios",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Grand i10",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2020
+        },
+        {
+          "name": "i10",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2017
+        },
+        {
+          "name": "Creta",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "Creta Electric",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Venue",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Venue N Line",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Verna",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "Aura",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Exter",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Alcazar",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Tucson",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Kona Electric",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2019,
+          "yearTo": 2024
+        },
+        {
+          "name": "Ioniq 5",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Xcent",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2020
+        },
+        {
+          "name": "Santro",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 1998,
+          "yearTo": 2022
+        },
+        {
+          "name": "Santro Xing",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2014
+        },
+        {
+          "name": "Eon",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2019
+        },
+        {
+          "name": "Getz",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2009
+        },
+        {
+          "name": "Getz Prime",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2010
+        },
+        {
+          "name": "Accent",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 1999,
+          "yearTo": 2013
+        },
+        {
+          "name": "Accent Viva",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2006
+        },
+        {
+          "name": "Elantra",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2023
+        },
+        {
+          "name": "Sonata",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2015
+        },
+        {
+          "name": "Santa Fe",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        }
+      ]
+    },
+    {
+      "name": "Tata Motors",
+      "slug": "tata-motors",
+      "country": "India",
+      "popular": true,
+      "logo": "/brands/tata-motors.svg",
+      "models": [
+        {
+          "name": "Nexon",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "Nexon EV",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Punch",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Punch EV",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Tiago",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "Tiago EV",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Tiago NRG",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "Tigor",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "Tigor EV",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Altroz",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Harrier",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Harrier EV",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Safari",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 1998,
+          "yearTo": null
+        },
+        {
+          "name": "Safari Storme",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2019
+        },
+        {
+          "name": "Curvv",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Curvv EV",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Sierra",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Hexa",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2020
+        },
+        {
+          "name": "Aria",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        },
+        {
+          "name": "Zest",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2019
+        },
+        {
+          "name": "Bolt",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2019
+        },
+        {
+          "name": "Nano",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2018
+        },
+        {
+          "name": "Nano GenX",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2018
+        },
+        {
+          "name": "Indica",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1998,
+          "yearTo": 2018
+        },
+        {
+          "name": "Indica V2",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2013
+        },
+        {
+          "name": "Indica eV2",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2018
+        },
+        {
+          "name": "Indica Vista",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2015
+        },
+        {
+          "name": "Indigo",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2002,
+          "yearTo": 2009
+        },
+        {
+          "name": "Indigo CS",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2018
+        },
+        {
+          "name": "Indigo eCS",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2018
+        },
+        {
+          "name": "Indigo Marina",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2010
+        },
+        {
+          "name": "Indigo XL",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2011
+        },
+        {
+          "name": "Manza",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2016
+        },
+        {
+          "name": "Sumo Gold",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2019
+        },
+        {
+          "name": "Sumo Grande",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2016
+        },
+        {
+          "name": "Sumo Spacio",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2000,
+          "yearTo": 2011
+        },
+        {
+          "name": "Sumo Victa",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2011
+        },
+        {
+          "name": "Venture",
+          "bodyType": "Van",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2019
+        },
+        {
+          "name": "Winger",
+          "bodyType": "Van",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": null
+        },
+        {
+          "name": "Xenon",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2016
+        }
+      ]
+    },
+    {
+      "name": "Mahindra",
+      "slug": "mahindra",
+      "country": "India",
+      "popular": true,
+      "logo": "/brands/mahindra.svg",
+      "models": [
+        {
+          "name": "Scorpio-N",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Scorpio Classic",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Scorpio",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2002,
+          "yearTo": 2022
+        },
+        {
+          "name": "XUV700",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "XUV 3XO",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "XUV300",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": 2024
+        },
+        {
+          "name": "XUV500",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2021
+        },
+        {
+          "name": "XUV400",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Thar",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "Thar Roxx",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Bolero",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2000,
+          "yearTo": null
+        },
+        {
+          "name": "Bolero Neo",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "BE 6",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "XEV 9e",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Marazzo",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "Alturas G4",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2022
+        },
+        {
+          "name": "KUV100",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2021
+        },
+        {
+          "name": "TUV300",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2020
+        },
+        {
+          "name": "TUV300 Plus",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2020
+        },
+        {
+          "name": "NuvoSport",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2018
+        },
+        {
+          "name": "Quanto",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2016
+        },
+        {
+          "name": "Xylo",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2019
+        },
+        {
+          "name": "Verito",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2019
+        },
+        {
+          "name": "Verito Vibe",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2018
+        },
+        {
+          "name": "Logan",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2009
+        },
+        {
+          "name": "e2o Plus",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2019
+        },
+        {
+          "name": "Reva",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2012
+        },
+        {
+          "name": "Bolero Pickup",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2000,
+          "yearTo": null
+        },
+        {
+          "name": "Bolero Camper",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": null
+        },
+        {
+          "name": "Imperio",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Scorpio Getaway",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2019
+        }
+      ]
+    },
+    {
+      "name": "Honda",
+      "slug": "honda",
+      "country": "Japan",
+      "popular": true,
+      "logo": "/brands/honda.svg",
+      "models": [
+        {
+          "name": "City",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "Hybrid"
+          ],
+          "yearFrom": 1998,
+          "yearTo": null
+        },
+        {
+          "name": "City ZX",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2008
+        },
+        {
+          "name": "Amaze",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": null
+        },
+        {
+          "name": "Elevate",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Jazz",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2023
+        },
+        {
+          "name": "WR-V",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2023
+        },
+        {
+          "name": "Brio",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2019
+        },
+        {
+          "name": "BR-V",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2020
+        },
+        {
+          "name": "Mobilio",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2017
+        },
+        {
+          "name": "Civic",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2020
+        },
+        {
+          "name": "Accord",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2021
+        },
+        {
+          "name": "CR-V",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2020
+        }
+      ]
+    },
+    {
+      "name": "Toyota",
+      "slug": "toyota",
+      "country": "Japan",
+      "popular": true,
+      "logo": "/brands/toyota.svg",
+      "models": [
+        {
+          "name": "Innova Crysta",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "Innova Hycross",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Innova",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2016
+        },
+        {
+          "name": "Fortuner",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": null
+        },
+        {
+          "name": "Glanza",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Urban Cruiser Hyryder",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Hybrid",
+            "CNG"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Urban Cruiser Taisor",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Urban Cruiser",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": 2022
+        },
+        {
+          "name": "Rumion",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "CNG"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Camry",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2002,
+          "yearTo": null
+        },
+        {
+          "name": "Etios",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2020
+        },
+        {
+          "name": "Etios Liva",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2020
+        },
+        {
+          "name": "Etios Cross",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2019
+        },
+        {
+          "name": "Yaris",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2021
+        },
+        {
+          "name": "Corolla",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2008
+        },
+        {
+          "name": "Corolla Altis",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2020
+        },
+        {
+          "name": "Qualis",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2000,
+          "yearTo": 2005
+        },
+        {
+          "name": "Hilux",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Land Cruiser",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": null
+        },
+        {
+          "name": "Land Cruiser Prado",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2023
+        },
+        {
+          "name": "Vellfire",
+          "bodyType": "MUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Alphard",
+          "bodyType": "MUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2019
+        },
+        {
+          "name": "Sera",
+          "bodyType": "Coupe",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1990,
+          "yearTo": 1995
+        }
+      ]
+    },
+    {
+      "name": "Kia",
+      "slug": "kia",
+      "country": "South Korea",
+      "popular": true,
+      "logo": "/brands/kia.svg",
+      "models": [
+        {
+          "name": "Seltos",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Sonet",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Syros",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Carens",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Carens Clavis",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Carens Clavis EV",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Carnival",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "EV6",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "EV9",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Renault",
+      "slug": "renault",
+      "country": "France",
+      "popular": true,
+      "logo": "/brands/renault.svg",
+      "models": [
+        {
+          "name": "Kwid",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "Kiger",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Triber",
+          "bodyType": "MUV",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Duster",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Captur",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2020
+        },
+        {
+          "name": "Lodgy",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2019
+        },
+        {
+          "name": "Pulse",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        },
+        {
+          "name": "Scala",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        },
+        {
+          "name": "Fluence",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2014
+        },
+        {
+          "name": "Koleos",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2016
+        }
+      ]
+    },
+    {
+      "name": "Nissan",
+      "slug": "nissan",
+      "country": "Japan",
+      "popular": true,
+      "logo": "/brands/nissan.svg",
+      "models": [
+        {
+          "name": "Magnite",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Kicks",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": 2023
+        },
+        {
+          "name": "Micra",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2020
+        },
+        {
+          "name": "Micra Active",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2017
+        },
+        {
+          "name": "Sunny",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2020
+        },
+        {
+          "name": "Terrano",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2020
+        },
+        {
+          "name": "Evalia",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2016
+        },
+        {
+          "name": "Teana",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2014
+        },
+        {
+          "name": "X-Trail",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": null
+        },
+        {
+          "name": "GT-R",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2022
+        }
+      ]
+    },
+    {
+      "name": "Skoda",
+      "slug": "skoda",
+      "country": "Czech Republic",
+      "popular": true,
+      "logo": "/brands/skoda.svg",
+      "models": [
+        {
+          "name": "Kushaq",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Slavia",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Kylaq",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Octavia",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": null
+        },
+        {
+          "name": "Superb",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": null
+        },
+        {
+          "name": "Kodiaq",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "Rapid",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2021
+        },
+        {
+          "name": "Laura",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2013
+        },
+        {
+          "name": "Fabia",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2013
+        },
+        {
+          "name": "Fabia Scout",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2013
+        },
+        {
+          "name": "Yeti",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        }
+      ]
+    },
+    {
+      "name": "Volkswagen",
+      "slug": "volkswagen",
+      "country": "Germany",
+      "popular": true,
+      "logo": "/brands/volkswagen.svg",
+      "models": [
+        {
+          "name": "Virtus",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Taigun",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Polo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2022
+        },
+        {
+          "name": "Cross Polo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2018
+        },
+        {
+          "name": "Vento",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2022
+        },
+        {
+          "name": "Ameo",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2020
+        },
+        {
+          "name": "Tiguan",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "T-Roc",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": 2023
+        },
+        {
+          "name": "Jetta",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2018
+        },
+        {
+          "name": "Passat",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2020
+        },
+        {
+          "name": "Beetle",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2019
+        },
+        {
+          "name": "Golf GTI",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "MG",
+      "slug": "mg",
+      "country": "United Kingdom",
+      "popular": true,
+      "logo": "/brands/mg.svg",
+      "models": [
+        {
+          "name": "Hector",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "Hector Plus",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Astor",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Gloster",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "ZS EV",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Comet EV",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Windsor EV",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "M9",
+          "bodyType": "MUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "Cyberster",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Ford",
+      "slug": "ford",
+      "country": "United States",
+      "popular": false,
+      "logo": "/brands/ford.svg",
+      "models": [
+        {
+          "name": "Figo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2021
+        },
+        {
+          "name": "Figo Aspire",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "CNG"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2021
+        },
+        {
+          "name": "Freestyle",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2021
+        },
+        {
+          "name": "EcoSport",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2021
+        },
+        {
+          "name": "Endeavour",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2021
+        },
+        {
+          "name": "Fiesta",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2015
+        },
+        {
+          "name": "Fiesta Classic",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2014
+        },
+        {
+          "name": "Ikon",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1999,
+          "yearTo": 2011
+        },
+        {
+          "name": "Fusion",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2010
+        },
+        {
+          "name": "Escort",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1996,
+          "yearTo": 2001
+        },
+        {
+          "name": "Mondeo",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2007
+        },
+        {
+          "name": "Mustang",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2020
+        }
+      ]
+    },
+    {
+      "name": "Chevrolet",
+      "slug": "chevrolet",
+      "country": "United States",
+      "popular": false,
+      "logo": "/brands/chevrolet.svg",
+      "models": [
+        {
+          "name": "Beat",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        },
+        {
+          "name": "Spark",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2017
+        },
+        {
+          "name": "Sail",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2017
+        },
+        {
+          "name": "Sail Hatchback",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        },
+        {
+          "name": "Cruze",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2017
+        },
+        {
+          "name": "Enjoy",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2017
+        },
+        {
+          "name": "Tavera",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2017
+        },
+        {
+          "name": "Captiva",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2015
+        },
+        {
+          "name": "Trailblazer",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2017
+        },
+        {
+          "name": "Aveo",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2012
+        },
+        {
+          "name": "Aveo U-VA",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2012
+        },
+        {
+          "name": "Optra",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2008
+        },
+        {
+          "name": "Optra Magnum",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2013
+        },
+        {
+          "name": "Optra SRV",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2008
+        },
+        {
+          "name": "Forester",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2007
+        }
+      ]
+    },
+    {
+      "name": "Fiat",
+      "slug": "fiat",
+      "country": "Italy",
+      "popular": false,
+      "logo": "/brands/fiat.svg",
+      "models": [
+        {
+          "name": "Punto",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2014
+        },
+        {
+          "name": "Punto Evo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2018
+        },
+        {
+          "name": "Abarth Punto",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2018
+        },
+        {
+          "name": "Linea",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2019
+        },
+        {
+          "name": "Linea Classic",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2017
+        },
+        {
+          "name": "Avventura",
+          "bodyType": "Hatchback",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2019
+        },
+        {
+          "name": "Urban Cross",
+          "bodyType": "Hatchback",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2019
+        },
+        {
+          "name": "Palio",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": 2011
+        },
+        {
+          "name": "Palio Stile",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2011
+        },
+        {
+          "name": "Adventure",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2002,
+          "yearTo": 2008
+        },
+        {
+          "name": "Petra",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2008
+        },
+        {
+          "name": "Uno",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1997,
+          "yearTo": 2003
+        }
+      ]
+    },
+    {
+      "name": "Datsun",
+      "slug": "datsun",
+      "country": "Japan",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "redi-GO",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2022
+        },
+        {
+          "name": "GO",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2022
+        },
+        {
+          "name": "GO+",
+          "bodyType": "MUV",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2022
+        }
+      ]
+    },
+    {
+      "name": "Jeep",
+      "slug": "jeep",
+      "country": "United States",
+      "popular": false,
+      "logo": "/brands/jeep.svg",
+      "models": [
+        {
+          "name": "Compass",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "Meridian",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Wrangler",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "Grand Cherokee",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Citroen",
+      "slug": "citroen",
+      "country": "France",
+      "popular": false,
+      "logo": "/brands/citroen.svg",
+      "models": [
+        {
+          "name": "C3",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "eC3",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Aircross",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Basalt",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "C5 Aircross",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "BYD",
+      "slug": "byd",
+      "country": "China",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Atto 3",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "eMAX 7",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "e6",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": 2024
+        },
+        {
+          "name": "Seal",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Sealion 7",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Mercedes-Benz",
+      "slug": "mercedes-benz",
+      "country": "Germany",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "A-Class",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": null
+        },
+        {
+          "name": "B-Class",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2019
+        },
+        {
+          "name": "C-Class",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2001,
+          "yearTo": null
+        },
+        {
+          "name": "CLA",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2019
+        },
+        {
+          "name": "CLS",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2021
+        },
+        {
+          "name": "E-Class",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1995,
+          "yearTo": null
+        },
+        {
+          "name": "S-Class",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1995,
+          "yearTo": null
+        },
+        {
+          "name": "GLA",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": null
+        },
+        {
+          "name": "GLB",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "GLC",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "GLE",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "GLS",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "GL-Class",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2016
+        },
+        {
+          "name": "M-Class",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2015
+        },
+        {
+          "name": "G-Class",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": null
+        },
+        {
+          "name": "R-Class",
+          "bodyType": "MUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2012
+        },
+        {
+          "name": "V-Class",
+          "bodyType": "Van",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "EQA",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "EQB",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "EQC",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2020,
+          "yearTo": 2023
+        },
+        {
+          "name": "EQE SUV",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "EQS",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "EQS SUV",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "AMG GT",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "SL",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2002,
+          "yearTo": null
+        },
+        {
+          "name": "SLK",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2016
+        }
+      ]
+    },
+    {
+      "name": "BMW",
+      "slug": "bmw",
+      "country": "Germany",
+      "popular": false,
+      "logo": "/brands/bmw.svg",
+      "models": [
+        {
+          "name": "1 Series",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2019
+        },
+        {
+          "name": "2 Series",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "3 Series",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "3 Series GT",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2021
+        },
+        {
+          "name": "5 Series",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "5 Series GT",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        },
+        {
+          "name": "6 Series",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2018
+        },
+        {
+          "name": "6 Series GT",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2024
+        },
+        {
+          "name": "7 Series",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "Hybrid"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "X1",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "X3",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "X4",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": 2024
+        },
+        {
+          "name": "X5",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "X6",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2023
+        },
+        {
+          "name": "X7",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "XM",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Z4",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2009,
+          "yearTo": null
+        },
+        {
+          "name": "M3",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2019
+        },
+        {
+          "name": "M5",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "i4",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "i5",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "i7",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "iX",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "iX1",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Audi",
+      "slug": "audi",
+      "country": "Germany",
+      "popular": false,
+      "logo": "/brands/audi.svg",
+      "models": [
+        {
+          "name": "A3",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2014,
+          "yearTo": 2020
+        },
+        {
+          "name": "A4",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "A5",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2023
+        },
+        {
+          "name": "A6",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "A7",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2018
+        },
+        {
+          "name": "A8",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Q2",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": 2022
+        },
+        {
+          "name": "Q3",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Q5",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": null
+        },
+        {
+          "name": "Q7",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "Q8",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "e-tron",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "e-tron GT",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "R8",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2023
+        },
+        {
+          "name": "RS3",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2020
+        },
+        {
+          "name": "RS5",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": null
+        },
+        {
+          "name": "RS7",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2014,
+          "yearTo": null
+        },
+        {
+          "name": "S4",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        },
+        {
+          "name": "TT",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2021
+        }
+      ]
+    },
+    {
+      "name": "Jaguar",
+      "slug": "jaguar",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "XE",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2023
+        },
+        {
+          "name": "XF",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2024
+        },
+        {
+          "name": "XJ",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2019
+        },
+        {
+          "name": "XJR",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2017
+        },
+        {
+          "name": "F-Pace",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "F-Type",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2024
+        },
+        {
+          "name": "I-Pace",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Land Rover",
+      "slug": "land-rover",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Defender",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Discovery",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": null
+        },
+        {
+          "name": "Discovery Sport",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "Freelander 2",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2015
+        },
+        {
+          "name": "Range Rover",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Range Rover Sport",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "Range Rover Evoque",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": null
+        },
+        {
+          "name": "Range Rover Velar",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Volvo",
+      "slug": "volvo",
+      "country": "Sweden",
+      "popular": false,
+      "logo": "/brands/volvo.svg",
+      "models": [
+        {
+          "name": "XC40",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "XC60",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "XC90",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "Hybrid"
+          ],
+          "yearFrom": 2007,
+          "yearTo": null
+        },
+        {
+          "name": "EX40",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "EC40",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "EX30",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "S60",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2024
+        },
+        {
+          "name": "S60 Cross Country",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2019
+        },
+        {
+          "name": "S80",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2016
+        },
+        {
+          "name": "S90",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "S40",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": 2012
+        },
+        {
+          "name": "V40",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2019
+        },
+        {
+          "name": "V40 Cross Country",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2019
+        },
+        {
+          "name": "V60",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2015
+        },
+        {
+          "name": "V90 Cross Country",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2020
+        }
+      ]
+    },
+    {
+      "name": "Lexus",
+      "slug": "lexus",
+      "country": "Japan",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "ES",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "NX",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "RX",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "LX",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "LS",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "LC",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2019,
+          "yearTo": null
+        },
+        {
+          "name": "LM",
+          "bodyType": "MUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Mini",
+      "slug": "mini",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "/brands/mini.svg",
+      "models": [
+        {
+          "name": "Cooper",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Cooper SE",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Countryman",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Countryman Electric",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Clubman",
+          "bodyType": "Hatchback",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2023
+        }
+      ]
+    },
+    {
+      "name": "Porsche",
+      "slug": "porsche",
+      "country": "Germany",
+      "popular": false,
+      "logo": "/brands/porsche.svg",
+      "models": [
+        {
+          "name": "Cayenne",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel",
+            "Hybrid"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Macan",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2014,
+          "yearTo": null
+        },
+        {
+          "name": "Macan Electric",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        },
+        {
+          "name": "Panamera",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "911",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Taycan",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Taycan Cross Turismo",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2021,
+          "yearTo": null
+        },
+        {
+          "name": "Boxster",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Cayman",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Mitsubishi",
+      "slug": "mitsubishi",
+      "country": "Japan",
+      "popular": false,
+      "logo": "/brands/mitsubishi.svg",
+      "models": [
+        {
+          "name": "Pajero Sport",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2020
+        },
+        {
+          "name": "Pajero",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2002,
+          "yearTo": 2012
+        },
+        {
+          "name": "Outlander",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": 2021
+        },
+        {
+          "name": "Montero",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2020
+        },
+        {
+          "name": "Lancer",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1998,
+          "yearTo": 2013
+        },
+        {
+          "name": "Cedia",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2013
+        }
+      ]
+    },
+    {
+      "name": "Isuzu",
+      "slug": "isuzu",
+      "country": "Japan",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "D-Max V-Cross",
+          "bodyType": "Pickup",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "MU-X",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2017,
+          "yearTo": null
+        },
+        {
+          "name": "MU-7",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2017
+        }
+      ]
+    },
+    {
+      "name": "Force Motors",
+      "slug": "force-motors",
+      "country": "India",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Gurkha",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2013,
+          "yearTo": null
+        },
+        {
+          "name": "Trax",
+          "bodyType": "MUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2004,
+          "yearTo": 2017
+        },
+        {
+          "name": "One",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2015
+        },
+        {
+          "name": "Traveller",
+          "bodyType": "Van",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2007,
+          "yearTo": null
+        },
+        {
+          "name": "Urbania",
+          "bodyType": "Van",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Tesla",
+      "slug": "tesla",
+      "country": "United States",
+      "popular": false,
+      "logo": "/brands/tesla.svg",
+      "models": [
+        {
+          "name": "Model Y",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "VinFast",
+      "slug": "vinfast",
+      "country": "Vietnam",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "VF6",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        },
+        {
+          "name": "VF7",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2025,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Hindustan Motors",
+      "slug": "hindustan-motors",
+      "country": "India",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Ambassador",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1958,
+          "yearTo": 2014
+        },
+        {
+          "name": "Contessa",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1984,
+          "yearTo": 2002
+        }
+      ]
+    },
+    {
+      "name": "Premier",
+      "slug": "premier",
+      "country": "India",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Rio",
+          "bodyType": "SUV",
+          "segment": "CompactSUV",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2017
+        },
+        {
+          "name": "Padmini",
+          "bodyType": "Sedan",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1964,
+          "yearTo": 2001
+        }
+      ]
+    },
+    {
+      "name": "Opel",
+      "slug": "opel",
+      "country": "Germany",
+      "popular": false,
+      "logo": "/brands/opel.svg",
+      "models": [
+        {
+          "name": "Astra",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 1996,
+          "yearTo": 2005
+        },
+        {
+          "name": "Corsa",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2006
+        }
+      ]
+    },
+    {
+      "name": "Daewoo",
+      "slug": "daewoo",
+      "country": "South Korea",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Matiz",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1998,
+          "yearTo": 2004
+        },
+        {
+          "name": "Cielo",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1995,
+          "yearTo": 2003
+        },
+        {
+          "name": "Nexia",
+          "bodyType": "Sedan",
+          "segment": "Sedan",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 1997,
+          "yearTo": 2003
+        }
+      ]
+    },
+    {
+      "name": "SsangYong",
+      "slug": "ssangyong",
+      "country": "South Korea",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Rexton",
+          "bodyType": "SUV",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        }
+      ]
+    },
+    {
+      "name": "Foton",
+      "slug": "foton",
+      "country": "China",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "ViW CS2",
+          "bodyType": "Van",
+          "segment": "SUV",
+          "fuels": [
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2018
+        }
+      ]
+    },
+    {
+      "name": "DC Design",
+      "slug": "dc-design",
+      "country": "India",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Avanti",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2019
+        }
+      ]
+    },
+    {
+      "name": "Jayem",
+      "slug": "jayem",
+      "country": "India",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "Neo",
+          "bodyType": "Hatchback",
+          "segment": "Hatchback",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2018,
+          "yearTo": 2021
+        }
+      ]
+    },
+    {
+      "name": "Hummer",
+      "slug": "hummer",
+      "country": "United States",
+      "popular": false,
+      "logo": "",
+      "models": [
+        {
+          "name": "H2",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2003,
+          "yearTo": 2009
+        },
+        {
+          "name": "H3",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2010
+        }
+      ]
+    },
+    {
+      "name": "Maserati",
+      "slug": "maserati",
+      "country": "Italy",
+      "popular": false,
+      "logo": "/brands/maserati.svg",
+      "models": [
+        {
+          "name": "Ghibli",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2015,
+          "yearTo": null
+        },
+        {
+          "name": "Quattroporte",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "Levante",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Diesel"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "GranTurismo",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2008,
+          "yearTo": null
+        },
+        {
+          "name": "GranCabrio",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Bentley",
+      "slug": "bentley",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "/brands/bentley.svg",
+      "models": [
+        {
+          "name": "Bentayga",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2016,
+          "yearTo": null
+        },
+        {
+          "name": "Continental",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Flying Spur",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "Mulsanne",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2020
+        }
+      ]
+    },
+    {
+      "name": "Rolls-Royce",
+      "slug": "rolls-royce",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "/brands/rolls-royce.svg",
+      "models": [
+        {
+          "name": "Ghost",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": null
+        },
+        {
+          "name": "Phantom",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": null
+        },
+        {
+          "name": "Cullinan",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "Wraith",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2023
+        },
+        {
+          "name": "Dawn",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2016,
+          "yearTo": 2023
+        },
+        {
+          "name": "Spectre",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Electric"
+          ],
+          "yearFrom": 2024,
+          "yearTo": null
+        }
+      ]
+    },
+    {
+      "name": "Ferrari",
+      "slug": "ferrari",
+      "country": "Italy",
+      "popular": false,
+      "logo": "/brands/ferrari.svg",
+      "models": [
+        {
+          "name": "Roma",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "Portofino",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "296 GTB",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2022,
+          "yearTo": null
+        },
+        {
+          "name": "Purosangue",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "California",
+          "bodyType": "Convertible",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2009,
+          "yearTo": 2017
+        },
+        {
+          "name": "458 Italia",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2015
+        },
+        {
+          "name": "458 Speciale",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2013,
+          "yearTo": 2015
+        },
+        {
+          "name": "488",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2015,
+          "yearTo": 2019
+        },
+        {
+          "name": "F12 Berlinetta",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2012,
+          "yearTo": 2017
+        },
+        {
+          "name": "FF",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2016
+        }
+      ]
+    },
+    {
+      "name": "Lamborghini",
+      "slug": "lamborghini",
+      "country": "Italy",
+      "popular": false,
+      "logo": "/brands/lamborghini.svg",
+      "models": [
+        {
+          "name": "Urus",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol",
+            "Hybrid"
+          ],
+          "yearFrom": 2018,
+          "yearTo": null
+        },
+        {
+          "name": "Huracan",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2014,
+          "yearTo": null
+        },
+        {
+          "name": "Revuelto",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Hybrid"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "Aventador",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2011,
+          "yearTo": 2022
+        },
+        {
+          "name": "Gallardo",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2005,
+          "yearTo": 2014
+        }
+      ]
+    },
+    {
+      "name": "Aston Martin",
+      "slug": "aston-martin",
+      "country": "United Kingdom",
+      "popular": false,
+      "logo": "/brands/aston-martin.svg",
+      "models": [
+        {
+          "name": "DBX",
+          "bodyType": "SUV",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2020,
+          "yearTo": null
+        },
+        {
+          "name": "DB12",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2023,
+          "yearTo": null
+        },
+        {
+          "name": "DB11",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2017,
+          "yearTo": 2023
+        },
+        {
+          "name": "DB9",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": 2016
+        },
+        {
+          "name": "Vantage",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2006,
+          "yearTo": null
+        },
+        {
+          "name": "Vanquish",
+          "bodyType": "Coupe",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2012,
+          "yearTo": null
+        },
+        {
+          "name": "Rapide",
+          "bodyType": "Sedan",
+          "segment": "Luxury",
+          "fuels": [
+            "Petrol"
+          ],
+          "yearFrom": 2010,
+          "yearTo": 2020
+        }
+      ]
+    }
+  ]
+}

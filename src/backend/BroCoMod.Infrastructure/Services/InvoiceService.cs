@@ -94,7 +94,26 @@ public class InvoiceService : IInvoiceService
         decimal total = payment.Amount;
         var lineItemList = new List<object>();
 
-        if (payment.CustomerQuotation != null)
+        if (payment.Purpose == PaymentPurpose.BookingAdvance)
+        {
+            // Receipt for the BroCo booking advance only; the balance is billed by the garage.
+            var requestId = payment.ServiceRequestId ?? payment.CustomerQuotation?.ServiceRequestId;
+            var request = requestId == null ? null : await _context.ServiceRequests.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == requestId.Value, cancellationToken);
+            var serviceTotal = payment.CustomerQuotation?.CustomerTotal ?? request?.PackagePrice ?? payment.Amount;
+            var what = request?.ServicePackageName ?? payment.CustomerQuotation?.ScopeSummary ?? "car service";
+            var car = request == null ? string.Empty : $" · {request.VehicleMake} {request.VehicleModel}".TrimEnd();
+            subtotal = total;
+            lineItemList.Add(new
+            {
+                description = $"Booking advance for {what}{car} (service total ₹{serviceTotal:N2}; balance ₹{serviceTotal - total:N2} payable at the garage)",
+                itemType = "BookingAdvance",
+                quantity = 1,
+                unitPrice = total,
+                totalPrice = total
+            });
+        }
+        else if (payment.CustomerQuotation != null)
         {
             var quote = payment.CustomerQuotation;
             subtotal = quote.CustomerSubtotal;

@@ -14,13 +14,16 @@ public class AdvisorQuotationService : IAdvisorQuotationService
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<AdvisorQuotationService> _logger;
+    private readonly ICommissionService? _commissionService;
 
     public AdvisorQuotationService(
         ApplicationDbContext context,
         IAuditService auditService,
         INotificationService notificationService,
-        ILogger<AdvisorQuotationService> logger)
+        ILogger<AdvisorQuotationService> logger,
+        ICommissionService? commissionService = null)
     {
+        _commissionService = commissionService;
         _context = context;
         _auditService = auditService;
         _notificationService = notificationService;
@@ -366,6 +369,11 @@ public class AdvisorQuotationService : IAdvisorQuotationService
         if (!garage.IsVerified)
         {
             return ApiResponse<GarageAssignmentDto>.Fail("Cannot assign an unverified garage.");
+        }
+
+        if (_commissionService != null && await _commissionService.IsGarageBlockedForNewJobsAsync(garage.Id, ct))
+        {
+            return ApiResponse<GarageAssignmentDto>.Fail($"{garage.Name} has overdue BroCo commission and can't take new jobs until it is paid.");
         }
 
         // 3. Validate that Garage was dispatched for this ServiceRequest

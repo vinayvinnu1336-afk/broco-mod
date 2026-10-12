@@ -10,7 +10,8 @@ public record VehicleManufacturerDto(
     string LogoUrl,
     bool IsActive,
     int DisplayOrder,
-    int ModelsCount
+    int ModelsCount,
+    bool IsPopular
 );
 
 public record VehicleModelDto(
@@ -22,7 +23,9 @@ public record VehicleModelDto(
     int YearFrom,
     int? YearTo,
     bool IsActive,
-    int VariantsCount
+    int VariantsCount,
+    string Segment,
+    List<string> Fuels
 );
 
 public record VehicleVariantDto(
