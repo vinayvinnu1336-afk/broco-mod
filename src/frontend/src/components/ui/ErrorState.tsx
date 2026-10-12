@@ -23,11 +23,11 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
 
   if (rawMessage) {
     if (rawMessage.toLowerCase().includes('failed to fetch') || rawMessage.toLowerCase().includes('network')) {
-      friendlyMessage = 'Unable to reach the service network. Please check your internet connection or try again in a moment.';
+      friendlyMessage = "We can't reach the server. Check your internet connection and try again.";
     } else if (rawMessage.toLowerCase().includes('unauthorized') || rawMessage.toLowerCase().includes('forbidden')) {
       friendlyMessage = 'You do not have permission to view this section or your session has expired.';
     } else if (rawMessage.toLowerCase().includes('not found') || rawMessage.includes('404')) {
-      friendlyMessage = 'The requested service record or vehicle could not be found.';
+      friendlyMessage = "We couldn't find that record. It may have been removed.";
     } else if (!rawMessage.includes('Exception') && !rawMessage.includes('at ') && rawMessage.length < 120) {
       friendlyMessage = rawMessage;
     }
@@ -42,7 +42,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <AlertCircle className="w-7 h-7" />
       </div>
       <h3 className="text-base font-bold text-navy-900 mb-1">{title}</h3>
-      <p className="text-xs text-navy-600 max-w-md mb-6 leading-relaxed">
+      <p className="text-sm text-navy-600 max-w-md mb-6 leading-relaxed">
         {friendlyMessage}
       </p>
 
@@ -54,7 +54,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             onClick={onRetry}
             leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
           >
-            Try Again
+            Try again
           </Button>
         )}
         {action}

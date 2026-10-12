@@ -61,14 +61,15 @@ export interface AdminDashboardKpis {
   }>;
 }
 
+// Matches the API's PagedResult<T>: { items, page, pageSize, totalCount, totalPages }.
 export interface PagedResult<T> {
   items: T[];
-  pageNumber: number;
+  page: number;
+  /** @deprecated The API sends `page`. Kept optional so older call sites still type-check. */
+  pageNumber?: number;
   pageSize: number;
   totalCount: number;
   totalPages: number;
-  hasPreviousPage: boolean;
-  hasNextPage: boolean;
 }
 
 export interface AdminRequestSummary {

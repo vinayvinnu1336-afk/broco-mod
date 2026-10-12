@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Application.Security;
 using BroCoMod.Domain.Entities;
@@ -13,11 +13,13 @@ public class SystemController : ControllerBase
 {
     private readonly IGarageService _garageService;
     private readonly ILogger<SystemController> _logger;
+    private readonly IHostEnvironment _environment;
 
-    public SystemController(IGarageService garageService, ILogger<SystemController> logger)
+    public SystemController(IGarageService garageService, ILogger<SystemController> logger, IHostEnvironment environment)
     {
         _garageService = garageService;
         _logger = logger;
+        _environment = environment;
     }
 
     [HttpGet("info")]
@@ -50,6 +52,9 @@ public class SystemController : ControllerBase
         [FromQuery] double radiusKm = 10.0,
         CancellationToken cancellationToken = default)
     {
+        // Lists garage contact details without authentication: development diagnostics only.
+        if (!_environment.IsDevelopment()) return NotFound();
+
         var garages = await _garageService.FindEligibleGaragesAsync(longitude, latitude, radiusKm, cancellationToken);
         return Ok(new
         {
@@ -67,6 +72,8 @@ public class SystemController : ControllerBase
     [HttpGet("quote-isolation-demo")]
     public IActionResult DemonstrateQuoteIsolation()
     {
+        if (!_environment.IsDevelopment()) return NotFound();
+
         var dummyServiceRequestId = Guid.NewGuid();
         var dummyGarageId = Guid.NewGuid();
 

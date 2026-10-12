@@ -1,4 +1,4 @@
-import React, { forwardRef, SelectHTMLAttributes, ReactNode } from 'react';
+import React, { forwardRef, SelectHTMLAttributes, useId } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export interface SelectOption {
@@ -32,14 +32,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const selectId = id || generatedId;
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={selectId}
-            className="block text-xs font-semibold text-navy-800 uppercase tracking-wider mb-1.5"
+            className="block text-sm font-medium text-navy-800 mb-1.5"
           >
             {label}
             {required && <span className="text-semantic-error ml-1">*</span>}
@@ -51,7 +52,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             disabled={disabled}
             required={required}
-            className={`w-full appearance-none rounded-xl border bg-white px-3.5 py-2.5 pr-10 text-sm text-navy-900 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
+            className={`w-full appearance-none rounded-xl border bg-white min-h-[44px] px-3.5 py-2.5 pr-10 text-base sm:text-sm text-navy-900 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
               error
                 ? 'border-semantic-error focus:border-semantic-error focus:ring-semantic-error/20'
                 : 'border-surface-200 hover:border-surface-300 focus:border-electric-600 focus:ring-electric-600/20'

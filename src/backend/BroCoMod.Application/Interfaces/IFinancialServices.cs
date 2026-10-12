@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Domain.Entities;
 
 namespace BroCoMod.Application.Interfaces;
@@ -104,6 +104,7 @@ public interface IFinancialLedgerService
 
     Task RecordSettlementEntriesAsync(
         GarageSettlement settlement,
+        decimal escrowReleaseAmount,
         CancellationToken cancellationToken = default);
 
     Task RecordRefundEntriesAsync(

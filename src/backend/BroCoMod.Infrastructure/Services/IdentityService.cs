@@ -1,7 +1,8 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities.Identity;
+using NotificationChannel = BroCoMod.Domain.Enums.NotificationChannel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,7 @@ public class IdentityService : IIdentityService
     private readonly ITokenService _tokenService;
     private readonly IOtpProvider _otpProvider;
     private readonly IAuditService _auditService;
+    private readonly IEnumerable<INotificationProvider> _notificationProviders;
     private readonly ILogger<IdentityService> _logger;
 
     public IdentityService(
@@ -22,8 +24,10 @@ public class IdentityService : IIdentityService
         ITokenService tokenService,
         IOtpProvider otpProvider,
         IAuditService auditService,
-        ILogger<IdentityService> logger)
+        ILogger<IdentityService> logger,
+        IEnumerable<INotificationProvider>? notificationProviders = null)
     {
+        _notificationProviders = notificationProviders ?? Array.Empty<INotificationProvider>();
         _context = context;
         this._passwordHasher = _passwordHasher;
         _tokenService = tokenService;
@@ -46,6 +50,26 @@ public class IdentityService : IIdentityService
             throw new InvalidOperationException($"User with email '{request.Email}' already exists.");
         }
 
+        // Public sign-up may only create car owners and new garage owners. Advisors, admins and garage
+        // staff are created by administrators; accepting any role here would let anyone become an admin.
+        var requestedRoleName = string.IsNullOrWhiteSpace(request.Role)
+            ? AppRoles.Customer
+            : request.Role.Trim().ToUpperInvariant();
+
+        if (requestedRoleName != AppRoles.Customer && requestedRoleName != AppRoles.GarageOwner)
+        {
+            throw new InvalidOperationException("This account type cannot be created through sign-up.");
+        }
+
+        if (requestedRoleName == AppRoles.GarageOwner && string.IsNullOrWhiteSpace(request.GarageName))
+        {
+            throw new InvalidOperationException("Garage name is required to register a garage.");
+        }
+
+        var role = await _context.Roles
+            .FirstOrDefaultAsync(r => r.NormalizedName == requestedRoleName, cancellationToken)
+            ?? throw new InvalidOperationException("Registration is temporarily unavailable. Please try again later.");
+
         var passwordHash = _passwordHasher.HashPassword(request.Password, out var salt);
         var user = new User(
             email: request.Email,
@@ -55,21 +79,6 @@ public class IdentityService : IIdentityService
             salt: salt);
 
         _context.Users.Add(user);
-
-        // Determine requested role (default to Customer)
-        var requestedRoleName = string.IsNullOrWhiteSpace(request.Role)
-            ? AppRoles.Customer
-            : request.Role.Trim().ToUpperInvariant();
-
-        // Validate role exists in system
-        var role = await _context.Roles
-            .FirstOrDefaultAsync(r => r.NormalizedName == requestedRoleName, cancellationToken);
-
-        if (role == null)
-        {
-            role = new Role(requestedRoleName);
-            _context.Roles.Add(role);
-        }
 
         _context.UserRoles.Add(new UserRole { User = user, Role = role });
 
@@ -84,20 +93,26 @@ public class IdentityService : IIdentityService
             _context.CustomerProfiles.Add(profile);
             customerId = profile.Id;
         }
-        else if (AppRoles.IsGarageRole(requestedRoleName))
+        else
         {
-            if (request.GarageId.HasValue)
-            {
-                garageId = request.GarageId.Value;
-                garageRole = requestedRoleName;
-                var garageUser = new GarageUser(user.Id, garageId.Value, requestedRoleName, "Service Representative");
-                _context.GarageUsers.Add(garageUser);
-            }
-        }
-        else if (requestedRoleName == AppRoles.Advisor)
-        {
-            var advisorProfile = new AdvisorProfile(user.Id, $"ADV-{Random.Shared.Next(1000, 9999)}");
-            _context.AdvisorProfiles.Add(advisorProfile);
+            // New garage owner: register a new garage that stays out of customer matching until an
+            // administrator verifies it. Never attach the user to an existing garage from client input.
+            var hasLocation = request.Latitude is >= -90 and <= 90 && request.Longitude is >= -180 and <= 180
+                              && !(request.Latitude == 0 && request.Longitude == 0);
+            var garage = new Domain.Entities.Garage(
+                name: request.GarageName!.Trim(),
+                email: request.Email.Trim(),
+                phoneNumber: request.PhoneNumber,
+                address: request.Address?.Trim() ?? string.Empty,
+                longitude: hasLocation ? request.Longitude!.Value : 0,
+                latitude: hasLocation ? request.Latitude!.Value : 0,
+                isVerified: false,
+                isOperational: hasLocation);
+            _context.Garages.Add(garage);
+
+            garageId = garage.Id;
+            garageRole = AppRoles.GarageOwner;
+            _context.GarageUsers.Add(new GarageUser(user.Id, garage.Id, AppRoles.GarageOwner, "Owner"));
         }
 
         // Fetch permissions for this role
@@ -466,11 +481,23 @@ public class IdentityService : IIdentityService
 
         if (user == null)
         {
-            // Return dummy OTP to prevent email enumeration attacks
-            return "123456";
+            // Same observable behaviour as a real account to prevent email enumeration.
+            return string.Empty;
         }
 
         var otp = await _otpProvider.GenerateOtpAsync(user.Email, "PasswordReset", cancellationToken);
+
+        // Deliver the code out-of-band. It is never returned to the HTTP caller.
+        var message = new NotificationMessage(
+            UserId: user.Id,
+            Title: "Your BroCo password reset code",
+            Message: $"Your password reset code is {otp}. It expires in 10 minutes. If you did not request this, ignore this message.",
+            Type: "PASSWORD_RESET",
+            Channel: NotificationChannel.Email);
+        foreach (var provider in _notificationProviders.Where(p => p.Channel is NotificationChannel.Email or NotificationChannel.Sms))
+        {
+            await provider.SendAsync(message with { Channel = provider.Channel }, cancellationToken);
+        }
 
         await _auditService.LogAsync(
             action: AuditActions.PasswordResetRequested,

@@ -3,7 +3,7 @@ import React, { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes, forwardRef }
 export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
   ({ className = '', children, ...props }, ref) => {
     return (
-      <div className="w-full overflow-x-auto rounded-xl border border-surface-200 bg-white">
+      <div className="relative w-full overflow-x-auto rounded-xl border border-surface-200 bg-white">
         <table ref={ref} className={`w-full text-left border-collapse text-sm ${className}`} {...props}>
           {children}
         </table>

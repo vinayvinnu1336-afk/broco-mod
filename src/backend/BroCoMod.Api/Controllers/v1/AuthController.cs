@@ -111,13 +111,15 @@ public class AuthController : ControllerBase
 
     [HttpPost("forgot-password")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var token = await _identityService.RequestPasswordResetAsync(request.Email, ipAddress, cancellationToken);
 
-        return Ok(ApiResponse<string>.Ok(token, "If an account exists with this email, a reset code has been sent."));
+        // The reset code is delivered by email/SMS only. Returning it here would let anyone reset any account.
+        await _identityService.RequestPasswordResetAsync(request.Email, ipAddress, cancellationToken);
+
+        return Ok(ApiResponse<object>.Ok(null!, "If an account exists with this email, a reset code has been sent."));
     }
 
     [HttpPost("reset-password")]

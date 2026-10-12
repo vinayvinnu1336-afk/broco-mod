@@ -1,4 +1,4 @@
-using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
@@ -29,6 +29,19 @@ public class CustomerDecisionService : ICustomerDecisionService
         _auditService = auditService;
         _notificationService = notificationService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Quotations sent straight from Draft before the send flow guaranteed a snapshot have none.
+    /// A Sent quotation can no longer change, so snapshotting it now records exactly what the customer saw.
+    /// </summary>
+    private async Task<CustomerQuotationVersion> RepairMissingSnapshotAsync(CustomerQuotation quotation, CancellationToken ct)
+    {
+        var snapshot = CustomerQuotationService.AddVersionSnapshot(_context, quotation, quotation.AdvisorId);
+        await _context.SaveChangesAsync(ct);
+        _logger.LogWarning("Created missing version snapshot for customer quotation {QuotationNumber} v{Version}.",
+            quotation.QuotationNumber, quotation.VersionNumber);
+        return snapshot;
     }
 
     private async Task<Guid> ResolveCustomerIdAsync(Guid customerIdOrUserId, CancellationToken ct)
@@ -63,6 +76,7 @@ public class CustomerDecisionService : ICustomerDecisionService
             .Include(cq => cq.GarageAssignment)
                 .ThenInclude(ga => ga!.Garage)
             .Include(cq => cq.Versions)
+            .Include(cq => cq.LineItems)
             .Include(cq => cq.Decision)
             .FirstOrDefaultAsync(cq => cq.Id == quotationId, ct);
 
@@ -160,11 +174,8 @@ public class CustomerDecisionService : ICustomerDecisionService
         }
 
         // 5. Active Version Binding
-        var activeVersion = quotation.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
-        if (activeVersion == null)
-        {
-            return ApiResponse<BookingConfirmationDto>.Fail("Quotation version snapshot is missing. Please contact advisor.");
-        }
+        var activeVersion = quotation.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault()
+            ?? await RepairMissingSnapshotAsync(quotation, ct);
 
         // 6. Atomic Execution with Database Transaction wrapped in execution strategy
         CustomerQuotationDecision decision = null!;
@@ -366,6 +377,7 @@ public class CustomerDecisionService : ICustomerDecisionService
             .Include(cq => cq.ServiceRequest)
                 .ThenInclude(sr => sr!.CustomerProfile)
             .Include(cq => cq.Versions)
+            .Include(cq => cq.LineItems)
             .Include(cq => cq.Decision)
             .FirstOrDefaultAsync(cq => cq.Id == quotationId, ct);
 
@@ -433,11 +445,8 @@ public class CustomerDecisionService : ICustomerDecisionService
         }
 
         // 4. Active Version Binding
-        var activeVersion = quotation.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
-        if (activeVersion == null)
-        {
-            return ApiResponse<CustomerQuotationDecisionDto>.Fail("Quotation version snapshot is missing. Please contact advisor.");
-        }
+        var activeVersion = quotation.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault()
+            ?? await RepairMissingSnapshotAsync(quotation, ct);
 
         // 5. Atomic Execution wrapped in execution strategy
         CustomerQuotationDecision decision = null!;

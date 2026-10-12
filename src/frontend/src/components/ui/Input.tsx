@@ -1,4 +1,4 @@
-import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react';
+import React, { forwardRef, InputHTMLAttributes, ReactNode, useId } from 'react';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -24,14 +24,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const inputId = id || generatedId;
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-xs font-semibold text-navy-800 uppercase tracking-wider mb-1.5"
+            className="block text-sm font-medium text-navy-800 mb-1.5"
           >
             {label}
             {required && <span className="text-semantic-error ml-1">*</span>}
@@ -48,7 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             disabled={disabled}
             required={required}
-            className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-navy-900 placeholder:text-surface-400 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
+            className={`w-full rounded-xl border bg-white min-h-[44px] px-3.5 py-2.5 text-base sm:text-sm text-navy-900 placeholder:text-surface-400 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
               leftIcon ? 'pl-10' : ''
             } ${rightIcon ? 'pr-10' : ''} ${
               error

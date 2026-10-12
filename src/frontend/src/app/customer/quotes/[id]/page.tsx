@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import {
@@ -9,48 +9,75 @@ import {
   BookingConfirmationDto,
   CustomerQuotationDecisionDto,
 } from '@/types/customerQuotation';
-import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  FileText,
-  ShieldCheck,
-  AlertCircle,
-  HelpCircle,
-  XCircle,
-  Wrench,
-  X,
-  ChevronRight,
-  CreditCard,
-  Receipt,
-  RotateCcw,
-} from 'lucide-react';
+import { CalendarClock, CheckCircle2, CreditCard, Receipt, XCircle, Clock } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Modal } from '@/components/ui/Modal';
+import { Textarea } from '@/components/ui/Textarea';
+import { Alert } from '@/components/ui/Alert';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
+import { formatDate, formatDateTime, formatINR, humanize } from '@/lib/format';
+import { DetailRow } from '@/app/customer/_lib/customer-ui';
+
+/** The API also returns the vehicle on the quote. */
+type QuoteDetail = CustomerFacingQuotationDto & {
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleLicensePlate?: string;
+};
+
+/** Fields read from the pay / verify responses. */
+interface PaymentResult {
+  id?: string;
+  paymentId?: string;
+  paymentNumber?: string;
+  gatewayPaymentId?: string;
+  gatewayOrderId?: string;
+  gatewayProvider?: string;
+  checkoutUrl?: string | null;
+  status?: string;
+  customerQuotationId?: string | null;
+}
+
+// The development gateway has no checkout page; it is confirmed straight away. Only used when the API says so.
+const DEV_GATEWAY = 'DevelopmentFake';
+
+const REJECTION_CATEGORIES = [
+  { key: 'PRICE_TOO_HIGH', label: 'The price is too high' },
+  { key: 'TIMING_NOT_SUITABLE', label: 'It would take too long' },
+  { key: 'SERVICE_NOT_REQUIRED', label: 'I no longer need this service' },
+  { key: 'CHANGED_MIND', label: 'I will service it elsewhere or later' },
+  { key: 'OTHER', label: 'Something else' },
+];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function CustomerQuotationDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const quoteId = params.id as string;
 
-  const [quote, setQuote] = useState<CustomerFacingQuotationDto | null>(null);
+  const [quote, setQuote] = useState<QuoteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Milestone 7 Acceptance Modal State
+  // Acceptance
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [acceptRemarks, setAcceptRemarks] = useState('');
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmationDto | null>(null);
 
-  // Milestone 10 Payment State
+  // Payment
   const [initiatingPayment, setInitiatingPayment] = useState(false);
-  const [paymentComplete, setPaymentComplete] = useState<any>(null);
+  const [paymentComplete, setPaymentComplete] = useState<PaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // Milestone 7 Rejection Modal State
+  // Rejection
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionCategory, setRejectionCategory] = useState('PRICE_TOO_HIGH');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -58,13 +85,24 @@ export default function CustomerQuotationDetailPage() {
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [decisionRecorded, setDecisionRecorded] = useState<CustomerQuotationDecisionDto | null>(null);
 
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     async function loadQuote() {
       setLoading(true);
       setErrorMsg(null);
-      const res = await apiFetch<CustomerFacingQuotationDto>(`/customer/quotes/${quoteId}`);
+      const [res, paymentsRes] = await Promise.all([
+        apiFetch<QuoteDetail>(`/customer/quotes/${quoteId}`),
+        apiFetch<PaymentResult[] | { items?: PaymentResult[] }>('/customer/payments'),
+      ]);
       if (res.success && res.data) {
         setQuote(res.data);
+        // Already paid? Show the receipt instead of offering "Pay now" again.
+        const list = Array.isArray(paymentsRes.data) ? paymentsRes.data : paymentsRes.data?.items ?? [];
+        const paid = list.find(
+          (p) => p.customerQuotationId === quoteId && ['paid', 'partiallyrefunded', 'refunded'].includes((p.status ?? '').toLowerCase())
+        );
+        setPaymentComplete(paid ? { ...paid, paymentId: paid.id } : null);
       } else {
         setErrorMsg(res.message || 'Quotation not found or not yet approved for viewing.');
       }
@@ -73,9 +111,8 @@ export default function CustomerQuotationDetailPage() {
     if (quoteId) {
       loadQuote();
     }
-  }, [quoteId]);
+  }, [quoteId, reloadKey]);
 
-  // Handle Acceptance
   const handleAcceptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quote) return;
@@ -105,39 +142,46 @@ export default function CustomerQuotationDetailPage() {
         acceptedAtUtc: res.data.confirmedAtUtc,
       });
       setShowAcceptModal(false);
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setAcceptError(res.message || 'Failed to accept quotation. Please try again.');
     }
   };
 
-  // Milestone 10 Payment Initiation
   const handlePayNow = async () => {
     if (!quote) return;
     setInitiatingPayment(true);
     setPaymentError(null);
 
     const idempotencyKey = `PAY-${quote.id}-${Date.now()}`;
-    const res = await apiFetch<any>(`/customer/quotes/${quote.id}/pay`, {
+    const res = await apiFetch<PaymentResult>(`/customer/quotes/${quote.id}/pay`, {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
     if (res.success && res.data) {
-      // In development / test environment, verify immediately with fake gateway signature
-      const verifyRes = await apiFetch<any>('/customer/payments/verify', {
-        method: 'POST',
-        body: JSON.stringify({
-          paymentId: res.data.paymentId,
-          gatewayPaymentId: `pay_direct_${Date.now()}`,
-          gatewaySignature: 'sig_fake_valid',
-          gatewayOrderId: res.data.gatewayOrderId,
-        }),
-      });
+      if (res.data.gatewayProvider === DEV_GATEWAY) {
+        const verifyRes = await apiFetch<PaymentResult>('/customer/payments/verify', {
+          method: 'POST',
+          body: JSON.stringify({
+            paymentId: res.data.paymentId,
+            gatewayPaymentId: `pay_direct_${Date.now()}`,
+            gatewaySignature: 'sig_fake_valid',
+            gatewayOrderId: res.data.gatewayOrderId,
+          }),
+        });
 
-      if (verifyRes.success && verifyRes.data) {
-        setPaymentComplete(verifyRes.data);
+        if (verifyRes.success && verifyRes.data) {
+          setPaymentComplete(verifyRes.data);
+        } else {
+          setPaymentError(verifyRes.message || 'We could not confirm the payment. Please try again.');
+        }
+      } else if (res.data.checkoutUrl) {
+        // Real payment provider: continue on its secure checkout page.
+        window.location.href = res.data.checkoutUrl;
+        return;
       } else {
-        setPaymentComplete(res.data);
+        setPaymentError('Online payment is not available right now. Please try again later.');
       }
     } else {
       setPaymentError(res.message || 'Payment initiation failed. Please try again.');
@@ -145,13 +189,12 @@ export default function CustomerQuotationDetailPage() {
     setInitiatingPayment(false);
   };
 
-  // Handle Rejection
   const handleRejectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quote) return;
 
     if (!rejectionReason.trim()) {
-      setRejectError('Please provide a mandatory explanation for declining.');
+      setRejectError('Please tell us briefly why you are declining.');
       return;
     }
 
@@ -181,597 +224,425 @@ export default function CustomerQuotationDetailPage() {
         rejectedAtUtc: res.data.decidedAtUtc,
       });
       setShowRejectModal(false);
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setRejectError(res.message || 'Failed to decline quotation. Please try again.');
     }
   };
 
-  if (loading) {
+  const lineItems = useMemo(
+    () => [...(quote?.lineItems ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [quote]
+  );
+
+  if (loading && !quote) {
     return (
-      <div className="py-24 text-center text-sm text-navy-500">
-        Loading commercial proposal...
+      <div className="mx-auto max-w-3xl space-y-5" aria-busy="true" aria-label="Loading quote">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="h-36" />
+        <Skeleton className="h-64" />
       </div>
     );
   }
 
   if (!quote) {
     return (
-      <div className="max-w-xl mx-auto py-16 text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-navy-900">Quotation Unavailable</h2>
-        <p className="text-xs text-navy-600">
-          {errorMsg || 'This quotation is either not found or has not yet been sent by your technical advisor.'}
-        </p>
-        <Link
-          href="/customer/quotes"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-navy-900 text-white rounded-xl text-xs font-bold"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Quotations
-        </Link>
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Quote" backHref="/customer/quotes" backLabel="Quotes" />
+        <ErrorState
+          title="This quote is not available"
+          error={errorMsg || 'This quote was not found or has not been sent to you yet.'}
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
       </div>
     );
   }
+
+  const currency = quote.currency || 'INR';
+  const money = (amount: number | null | undefined) => formatINR(amount, currency);
 
   const isSent = quote.status === 'Sent';
   const isAccepted = quote.status === 'Accepted';
   const isRejected = quote.status === 'Rejected';
   const isExpired = quote.status === 'Expired';
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      {/* Back button & Header */}
-      <div className="space-y-1">
-        <Link
-          href="/customer/quotes"
-          className="inline-flex items-center gap-1.5 text-xs text-navy-500 hover:text-navy-900 transition"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to All Quotations
-        </Link>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
-              Quotation Proposal {quote.quotationNumber}
-            </h1>
-            <span
-              className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${
-                isAccepted
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : isRejected
-                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                  : isExpired
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : 'bg-blue-50 text-blue-700 border-blue-200'
-              }`}
-            >
-              {quote.status}
-            </span>
-          </div>
-          <div className="text-xs text-navy-500">
-            Linked to Request <span className="font-mono font-bold text-navy-900">#{quote.requestNumber}</span>
-          </div>
-        </div>
-      </div>
+  const vehicle = [quote.vehicleYear, quote.vehicleMake, quote.vehicleModel].filter(Boolean).join(' ');
+  const garageName = bookingConfirmation?.garageName || quote.assignedGarageName;
 
-      {/* CONFIRMED BOOKING BANNER (If Accepted) */}
+  const validUntil = quote.validUntilUtc ? new Date(quote.validUntilUtc) : null;
+  const msLeft = validUntil ? validUntil.getTime() - Date.now() : null;
+  const daysLeft = msLeft !== null ? Math.ceil(msLeft / DAY_MS) : null;
+  const pastValidity = msLeft !== null && msLeft < 0;
+
+  let validityText: string | null = null;
+  if (validUntil) {
+    if (isSent && pastValidity) validityText = `Validity ended on ${formatDate(validUntil)}`;
+    else if (isSent && daysLeft !== null && daysLeft <= 1) validityText = `Valid until ${formatDateTime(validUntil)}`;
+    else if (isSent && daysLeft !== null) validityText = `Valid until ${formatDate(validUntil)} · ${daysLeft} days left`;
+    else validityText = `Valid until ${formatDate(validUntil)}`;
+  }
+
+  const showPayBar = isAccepted && !paymentComplete;
+  const showDecisionBar = isSent;
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/customer/quotes"
+        backLabel="Quotes"
+        eyebrow={
+          <>
+            <StatusBadge status={quote.status} />
+            <span className="font-mono text-xs text-navy-500">{quote.quotationNumber}</span>
+          </>
+        }
+        title={vehicle || 'Your quote'}
+        description={[garageName, `Request ${quote.requestNumber}`].filter(Boolean).join(' · ')}
+      />
+
+      {/* Decision outcome banners */}
       {isAccepted && (
-        <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <div className="space-y-1 flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h2 className="text-lg font-black text-emerald-950 uppercase tracking-wide">
-                  Booking Confirmed
-                </h2>
-                <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-3 py-1 rounded-full border border-emerald-200">
-                  Intake Preparation Active
-                </span>
-              </div>
-              <p className="text-xs text-emerald-800 leading-relaxed font-medium">
-                {bookingConfirmation?.message ||
-                  'Your service booking is officially confirmed. Our certified partner workshop has been notified and scheduled for vehicle intake.'}
+        <Card className="border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-emerald-900">Booking confirmed</h2>
+              <p className="mt-0.5 text-sm text-emerald-800">
+                {bookingConfirmation?.message || 'You accepted this quote. The garage has been told about your booking.'}
               </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-emerald-200/80 text-xs">
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-[10px] font-bold uppercase text-emerald-700 block">Service Reference</span>
-              <span className="font-mono font-bold text-navy-900 text-sm">{quote.requestNumber}</span>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-[10px] font-bold uppercase text-emerald-700 block">Partner Workshop</span>
-              <span className="font-bold text-navy-900 text-sm">
-                {bookingConfirmation?.garageName || quote.assignedGarageName || 'Central Metro Motors'}
-              </span>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-[10px] font-bold uppercase text-emerald-700 block">Confirmed Amount</span>
-              <span className="font-black text-emerald-700 text-sm">
-                ₹{quote.customerTotal.toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          {/* Milestone 10 Payment Section */}
-          <div className="mt-4 pt-4 border-t border-emerald-200/80">
-            {paymentComplete ? (
-              <div className="bg-white p-4 rounded-xl border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-emerald-900 block">Payment Verified & Settled in Escrow</span>
-                    <span className="text-[11px] text-emerald-700 font-mono">
-                      Ref: {paymentComplete.paymentNumber || paymentComplete.gatewayPaymentId || 'Verified'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/customer/payments/${paymentComplete.id || paymentComplete.paymentId}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition"
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    Receipt
-                  </Link>
-                  <Link
-                    href="/customer/invoices"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition"
-                  >
-                    <Receipt className="w-3.5 h-3.5" />
-                    Tax Invoice
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white p-4 rounded-xl border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                <div>
-                  <span className="text-xs font-bold text-navy-900 block">Ready to complete payment?</span>
-                  <span className="text-[11px] text-navy-600">
-                    Pay ₹{quote.customerTotal.toLocaleString()} into BroCoMod secure escrow. Workshop begins work upon escrow verification.
-                  </span>
-                  {paymentError && (
-                    <span className="text-xs text-rose-600 block mt-1">{paymentError}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePayNow}
-                  disabled={initiatingPayment}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition whitespace-nowrap"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  {initiatingPayment ? 'Processing...' : `Pay ₹${quote.customerTotal.toLocaleString()}`}
-                </button>
-              </div>
+          <dl className="mt-3 divide-y divide-emerald-200/80 rounded-xl bg-white/70 px-3">
+            {garageName && <DetailRow label="Garage">{garageName}</DetailRow>}
+            {bookingConfirmation?.garageAddress && (
+              <DetailRow label="Address">{bookingConfirmation.garageAddress}</DetailRow>
             )}
-          </div>
+            {bookingConfirmation?.garagePhone && (
+              <DetailRow label="Phone">
+                <a href={`tel:${bookingConfirmation.garagePhone}`} className="text-electric-600 underline">
+                  {bookingConfirmation.garagePhone}
+                </a>
+              </DetailRow>
+            )}
+            <DetailRow label="Confirmed amount" strong>
+              {money(bookingConfirmation?.confirmedTotal ?? quote.customerTotal)}
+            </DetailRow>
+            {quote.acceptedAtUtc && <DetailRow label="Accepted">{formatDateTime(quote.acceptedAtUtc)}</DetailRow>}
+          </dl>
+          <Link
+            href="/customer/requests"
+            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-emerald-800 underline"
+          >
+            Track it in My requests
+          </Link>
+        </Card>
+      )}
 
-          <div className="flex items-center justify-between pt-1">
-            <div className="text-[11px] text-emerald-700 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              <span>
-                Confirmed on{' '}
-                {quote.acceptedAtUtc ? new Date(quote.acceptedAtUtc).toLocaleString() : 'Today'}
-              </span>
+      {isAccepted && paymentComplete && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-navy-900">Payment received</h2>
+              {(paymentComplete.paymentNumber || paymentComplete.gatewayPaymentId) && (
+                <p className="mt-0.5 break-all font-mono text-xs text-navy-500">
+                  Ref {paymentComplete.paymentNumber || paymentComplete.gatewayPaymentId}
+                </p>
+              )}
             </div>
-            <Link
-              href="/customer/requests"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
-            >
-              <span>View In Service Requests</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link href={`/customer/payments/${paymentComplete.id || paymentComplete.paymentId}`}>
+              <Button variant="outline" className="w-full" leftIcon={<CreditCard className="h-4 w-4" />}>
+                Receipt
+              </Button>
+            </Link>
+            <Link href="/customer/invoices">
+              <Button variant="outline" className="w-full" leftIcon={<Receipt className="h-4 w-4" />}>
+                Invoices
+              </Button>
             </Link>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* DECLINED BANNER (If Rejected) */}
       {isRejected && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 shadow-sm flex items-start gap-4">
-          <XCircle className="w-6 h-6 text-rose-600 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1 text-xs text-rose-900">
-            <strong className="block text-sm font-bold text-rose-950">
-              Quotation Proposal Declined
-            </strong>
-            <p className="leading-relaxed text-rose-800">
-              You declined this quotation proposal. Your dedicated technical advisor has been notified and can assist you with alternative workshop quotes or scope adjustments.
-            </p>
-            {decisionRecorded?.reason && (
-              <div className="mt-2 p-2.5 bg-white/70 rounded-lg border border-rose-200 text-rose-900">
-                <span className="font-bold text-[11px] block">Recorded Reason:</span>
-                <span className="italic">{decisionRecorded.reason}</span>
-              </div>
-            )}
-            <div className="pt-2">
-              <Link
-                href="/customer/requests"
-                className="inline-flex items-center gap-1 font-bold text-rose-700 hover:underline"
-              >
-                <span>Return to Service Requests</span>
-                <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
+        <Alert type="error" title="You declined this quote">
+          Your advisor has been told and may get back to you with another option.
+          {decisionRecorded?.reason && (
+            <span className="mt-1 block">Your reason: {decisionRecorded.reason}</span>
+          )}
+        </Alert>
       )}
 
-      {/* EXPIRED BANNER (If Expired) */}
       {isExpired && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm flex items-start gap-4">
-          <Clock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1 text-xs text-amber-900">
-            <strong className="block text-sm font-bold text-amber-950">
-              Quotation Validity Expired
-            </strong>
-            <p className="leading-relaxed text-amber-800">
-              This quotation proposal expired on {new Date(quote.validUntilUtc).toLocaleDateString()} and is no longer valid for direct confirmation. Please reach out to your technical advisor to issue an updated proposal.
-            </p>
-          </div>
-        </div>
+        <Alert type="warning" title="This quote has expired">
+          It was valid until {formatDate(quote.validUntilUtc)}. Ask your advisor for an updated quote.
+        </Alert>
       )}
 
-      {/* Trust & Guarantee Banner */}
-      <div className="p-4 bg-navy-900 rounded-2xl text-white flex items-start gap-3 border border-navy-800 shadow-sm">
-        <ShieldCheck className="w-5 h-5 text-electric-400 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-surface-200">
-          <strong className="text-white block text-sm mb-0.5">BroCo Mod Certified Warranty Guarantee</strong>
-          This quotation has been reviewed and verified by a BroCo Mod Technical Advisor. All OEM parts, labour rates, and statutory taxes are fixed and guaranteed against surprise additional charges.
+      {/* Total */}
+      <Card className="p-4 sm:p-5">
+        <div className="text-sm text-navy-500">{isAccepted ? 'Total' : 'Total to pay'}</div>
+        <div className="mt-0.5 text-3xl font-bold tracking-tight tabular-nums text-navy-900">
+          {money(quote.customerTotal)}
         </div>
-      </div>
-
-      {/* Scope & Details Card */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-navy-900 uppercase tracking-wider">
-          Scope of Work
-        </h2>
-        <p className="text-xs text-navy-700 bg-surface-50 p-4 rounded-xl border border-surface-200 leading-relaxed font-medium">
-          {quote.scopeSummary}
+        <p className="mt-1 text-xs text-navy-500">
+          Includes {money(quote.customerTax)} tax
+          {quote.customerDiscount > 0 && ` and a ${money(quote.customerDiscount)} discount`}
         </p>
-
-        {quote.advisorRemarks && (
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-navy-800">Advisor Remarks & Coverage</div>
-            <p className="text-xs text-navy-600 bg-surface-50 p-3 rounded-xl border border-surface-200">
-              {quote.advisorRemarks}
-            </p>
+        {validityText && (
+          <div
+            className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+              isSent && pastValidity ? 'bg-amber-50 text-amber-800' : 'bg-surface-50 text-navy-700'
+            }`}
+          >
+            {isSent && pastValidity ? (
+              <Clock className="h-4 w-4 shrink-0" />
+            ) : (
+              <CalendarClock className="h-4 w-4 shrink-0 text-navy-400" />
+            )}
+            <span>{validityText}</span>
           </div>
         )}
+      </Card>
 
-        <div className="flex items-center gap-4 text-xs text-navy-500 pt-1">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-navy-400" />
-            <span>Valid until {new Date(quote.validUntilUtc).toLocaleDateString()}</span>
-          </span>
-          {quote.sentAtUtc && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-navy-400" />
-              <span>Received {new Date(quote.sentAtUtc).toLocaleDateString()}</span>
-            </span>
+      {/* Scope */}
+      {(quote.scopeSummary || quote.advisorRemarks) && (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">What will be done</h2>
+          {quote.scopeSummary && (
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-navy-700">{quote.scopeSummary}</p>
           )}
-        </div>
-      </div>
+          {quote.advisorRemarks && (
+            <div className="mt-3 rounded-xl bg-surface-50 p-3">
+              <div className="text-xs font-medium text-navy-500">Note from your advisor</div>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-navy-800">{quote.advisorRemarks}</p>
+            </div>
+          )}
+        </Card>
+      )}
 
-      {/* Commercial Line Items Table */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-navy-900 uppercase tracking-wider">
-          Approved Items & Service Breakdown
+      {/* Line items + price breakdown */}
+      <section aria-labelledby="items-heading">
+        <h2 id="items-heading" className="mb-2 px-1 text-base font-semibold text-navy-900">
+          Price breakdown
         </h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-surface-50 text-navy-600 border-b border-surface-200">
-              <tr>
-                <th className="py-2.5 px-3">Type</th>
-                <th className="py-2.5 px-3">Description</th>
-                <th className="py-2.5 px-3 text-right">Qty</th>
-                <th className="py-2.5 px-3 text-right">Unit Price</th>
-                <th className="py-2.5 px-3 text-right">Discount</th>
-                <th className="py-2.5 px-3 text-right">Line Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-100 text-navy-800 font-medium">
-              {quote.lineItems.map((li) => (
-                <tr key={li.id}>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 bg-surface-100 border border-surface-200 rounded text-[10px] font-bold text-navy-700">
-                      {li.lineType}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">{li.description}</td>
-                  <td className="py-3 px-3 text-right">{li.quantity}</td>
-                  <td className="py-3 px-3 text-right">₹{li.unitPrice.toLocaleString()}</td>
-                  <td className="py-3 px-3 text-right text-rose-600">
-                    {li.discountAmount > 0 ? `-₹${li.discountAmount.toLocaleString()}` : '—'}
-                  </td>
-                  <td className="py-3 px-3 text-right font-bold">₹{li.lineTotal.toLocaleString()}</td>
-                </tr>
+        <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card">
+          {lineItems.length > 0 ? (
+            <ul className="divide-y divide-surface-200/80">
+              {lineItems.map((li) => (
+                <li key={li.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="break-words text-sm font-medium text-navy-900">{li.description}</div>
+                    <div className="mt-0.5 text-xs text-navy-500">
+                      {humanize(li.lineType)} · {li.quantity} × {money(li.unitPrice)}
+                      {li.discountAmount > 0 && (
+                        <span className="text-emerald-700"> · {money(li.discountAmount)} off</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold tabular-nums text-navy-900">{money(li.lineTotal)}</div>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Financial Summary */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="space-y-1 max-w-sm">
-          <div className="text-xs font-bold text-navy-900 flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-navy-400" />
-            <span>Transparent Pricing Policy</span>
-          </div>
-          <p className="text-[11px] text-navy-500 leading-relaxed">
-            All prices include certified partner workshop labor, genuine OEM parts, and statutory GST. No hidden fees or unauthorized additions upon delivery.
-          </p>
-        </div>
-
-        <div className="w-full sm:w-72 space-y-2 text-right">
-          <div className="flex justify-between text-xs text-navy-600">
-            <span>Items Subtotal:</span>
-            <span className="font-semibold text-navy-900">₹{quote.customerSubtotal.toLocaleString()}</span>
-          </div>
-          {quote.customerDiscount > 0 && (
-            <div className="flex justify-between text-xs text-rose-600 font-semibold">
-              <span>Promotional Discount:</span>
-              <span>-₹{quote.customerDiscount.toLocaleString()}</span>
-            </div>
+            </ul>
+          ) : (
+            <p className="px-4 py-3 text-sm text-navy-500">No itemised breakdown was included with this quote.</p>
           )}
-          <div className="flex justify-between text-xs text-navy-600">
-            <span>Taxes & GST:</span>
-            <span className="font-semibold text-navy-900">₹{quote.customerTax.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-base font-bold text-navy-900 border-t border-surface-200 pt-2">
-            <span>Total Payable:</span>
-            <span className="text-electric-600 text-xl font-black">₹{quote.customerTotal.toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Milestone 7 CUSTOMER DECISION ACTIONS (When status is Sent) */}
-      {isSent && (
-        <div className="p-6 bg-white border-2 border-electric-200 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-sm font-bold text-navy-900 flex items-center gap-2">
-              <Wrench className="w-4 h-4 text-electric-600" />
-              <span>Ready for Booking Confirmation</span>
+          <dl className="divide-y divide-surface-200/80 border-t border-surface-200 bg-surface-50 px-4">
+            <DetailRow label="Subtotal">{money(quote.customerSubtotal)}</DetailRow>
+            {quote.customerDiscount > 0 && (
+              <DetailRow label="Discount">
+                <span className="text-emerald-700">−{money(quote.customerDiscount)}</span>
+              </DetailRow>
+            )}
+            <DetailRow label="Tax">{money(quote.customerTax)}</DetailRow>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-base font-semibold text-navy-900">Total</dt>
+              <dd className="text-lg font-bold tabular-nums text-navy-900">{money(quote.customerTotal)}</dd>
             </div>
-            <p className="text-xs text-navy-600 max-w-md">
-              Accept this proposal to lock in fixed rates and schedule workshop intake, or decline if the scope or budget does not meet your needs.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <button
-              type="button"
+          </dl>
+        </div>
+      </section>
+
+      {paymentError && (
+        <Alert type="error" onClose={() => setPaymentError(null)}>
+          {paymentError}
+        </Alert>
+      )}
+
+      {/* Primary actions */}
+      {showDecisionBar && (
+        <>
+          <ActionBar
+            summary={
+              <div>
+                <div className="text-xs text-navy-500">Total</div>
+                <div className="truncate text-base font-bold tabular-nums text-navy-900">{money(quote.customerTotal)}</div>
+              </div>
+            }
+          >
+            <Button
+              variant="outline"
               onClick={() => {
                 setRejectError(null);
                 setShowRejectModal(true);
               }}
-              className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-rose-700 hover:text-rose-800 rounded-xl text-xs font-bold transition border border-surface-300"
             >
-              Decline Proposal
-            </button>
-            <button
-              type="button"
+              Decline
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => {
                 setAcceptError(null);
                 setShowAcceptModal(true);
               }}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm flex items-center gap-2"
             >
-              <CheckCircle className="w-4 h-4" />
-              <span>Accept & Book Service</span>
-            </button>
-          </div>
-        </div>
+              Accept
+            </Button>
+          </ActionBar>
+          <ActionBarSpacer />
+        </>
       )}
 
-      {/* ACCEPTANCE MODAL */}
-      {showAcceptModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-surface-200">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-200">
-              <div className="flex items-center gap-2 text-emerald-700">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-base text-navy-900">Confirm Service Booking</h3>
+      {showPayBar && (
+        <>
+          <ActionBar
+            summary={
+              <div>
+                <div className="text-xs text-navy-500">Amount due</div>
+                <div className="truncate text-base font-bold tabular-nums text-navy-900">{money(quote.customerTotal)}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAcceptModal(false)}
-                className="text-navy-400 hover:text-navy-700 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {acceptError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{acceptError}</span>
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-navy-500">Quotation Reference:</span>
-                  <span className="font-mono font-bold text-navy-900">{quote.quotationNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-navy-500">Service Request:</span>
-                  <span className="font-mono font-bold text-navy-900">#{quote.requestNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-navy-500">Partner Workshop:</span>
-                  <span className="font-bold text-navy-900">{quote.assignedGarageName || 'Central Metro Motors'}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-surface-200 text-sm font-bold">
-                  <span className="text-navy-900">Fixed Confirmed Total:</span>
-                  <span className="text-emerald-600 text-base font-black">₹{quote.customerTotal.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-[11px] flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <span>
-                  Price guarantee activated. You will receive an official booking confirmation and the workshop will initiate parts staging.
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold text-navy-800 block">
-                  Optional Remarks / Preferred Handover Notes
-                </label>
-                <textarea
-                  rows={3}
-                  value={acceptRemarks}
-                  onChange={(e) => setAcceptRemarks(e.target.value)}
-                  placeholder="e.g., Preferred morning drop-off, key handover at reception, or specific vehicle note..."
-                  className="w-full text-xs p-3 rounded-xl border border-surface-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-200">
-              <button
-                type="button"
-                onClick={() => setShowAcceptModal(false)}
-                disabled={accepting}
-                className="px-4 py-2 text-xs font-bold text-navy-600 hover:text-navy-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAcceptSubmit}
-                disabled={accepting}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2"
-              >
-                {accepting ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Confirming Booking...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Confirm Acceptance</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+            }
+          >
+            <Button
+              variant="primary"
+              onClick={handlePayNow}
+              isLoading={initiatingPayment}
+              leftIcon={<CreditCard className="h-4 w-4" />}
+            >
+              {initiatingPayment ? 'Processing…' : 'Pay now'}
+            </Button>
+          </ActionBar>
+          <ActionBarSpacer />
+        </>
       )}
 
-      {/* REJECTION MODAL */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-surface-200">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-200">
-              <div className="flex items-center gap-2 text-rose-700">
-                <XCircle className="w-5 h-5 text-rose-600" />
-                <h3 className="font-bold text-base text-navy-900">Decline Quotation Proposal</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(false)}
-                className="text-navy-400 hover:text-navy-700 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {rejectError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{rejectError}</span>
-              </div>
-            )}
-
-            <div className="space-y-4 text-xs">
-              <p className="text-navy-600 leading-relaxed">
-                Please help us understand why this proposal was not suitable. Your feedback is sent directly to your technical advisor to explore alternative solutions.
-              </p>
-
-              <div className="space-y-2">
-                <label className="font-bold text-navy-800 block">Primary Reason Category</label>
-                <div className="space-y-2">
-                  {[
-                    { key: 'PRICE_TOO_HIGH', label: 'Quoted price exceeds my budget / too high' },
-                    { key: 'TIMING_NOT_SUITABLE', label: 'Estimated turnaround time is too long' },
-                    { key: 'SERVICE_NOT_REQUIRED', label: 'Service or repair no longer required' },
-                    { key: 'CHANGED_MIND', label: 'Decided to service elsewhere or postpone' },
-                    { key: 'OTHER', label: 'Other reason' },
-                  ].map((cat) => (
-                    <label
-                      key={cat.key}
-                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition ${
-                        rejectionCategory === cat.key
-                          ? 'bg-rose-50 border-rose-300 text-rose-950 font-bold'
-                          : 'bg-surface-50 border-surface-200 text-navy-700 hover:bg-surface-100'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="rejectionCategory"
-                        value={cat.key}
-                        checked={rejectionCategory === cat.key}
-                        onChange={(e) => setRejectionCategory(e.target.value)}
-                        className="text-rose-600 focus:ring-rose-500"
-                      />
-                      <span>{cat.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold text-navy-800 block">
-                  Explanation / Remarks <span className="text-rose-600">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide details (mandatory so advisor can adjust proposal)..."
-                  className="w-full text-xs p-3 rounded-xl border border-surface-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-200">
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(false)}
-                disabled={rejecting}
-                className="px-4 py-2 text-xs font-bold text-navy-600 hover:text-navy-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleRejectSubmit}
-                disabled={rejecting}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2"
-              >
-                {rejecting ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Declining Proposal...</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4" />
-                    <span>Decline Quotation</span>
-                  </>
-                )}
-              </button>
-            </div>
+      {/* Accept */}
+      <Modal
+        isOpen={showAcceptModal}
+        onClose={() => !accepting && setShowAcceptModal(false)}
+        title="Accept this quote?"
+        description="The garage will be booked at this price."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowAcceptModal(false)}
+              disabled={accepting}
+              className="w-full sm:w-auto"
+            >
+              Not yet
+            </Button>
+            <Button type="submit" form="accept-quote-form" variant="primary" isLoading={accepting} className="w-full sm:w-auto">
+              Accept and book
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <form id="accept-quote-form" onSubmit={handleAcceptSubmit} className="space-y-4">
+          {acceptError && <Alert type="error">{acceptError}</Alert>}
+          <dl className="divide-y divide-surface-200 rounded-xl border border-surface-200 px-3">
+            {garageName && <DetailRow label="Garage">{garageName}</DetailRow>}
+            <DetailRow label="Quote" mono>
+              {quote.quotationNumber}
+            </DetailRow>
+            <DetailRow label="Total" strong>
+              {money(quote.customerTotal)}
+            </DetailRow>
+          </dl>
+          <Textarea
+            id="acceptRemarks"
+            label="Anything the garage should know? (optional)"
+            rows={3}
+            value={acceptRemarks}
+            onChange={(e) => setAcceptRemarks(e.target.value)}
+            placeholder="e.g. Morning drop-off works best for me."
+          />
+        </form>
+      </Modal>
+
+      {/* Decline */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => !rejecting && setShowRejectModal(false)}
+        title="Decline this quote?"
+        description="Your advisor will see your reason and can suggest another option."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowRejectModal(false)}
+              disabled={rejecting}
+              className="w-full sm:w-auto"
+            >
+              Keep quote
+            </Button>
+            <Button
+              type="submit"
+              form="reject-quote-form"
+              variant="danger"
+              isLoading={rejecting}
+              leftIcon={<XCircle className="h-4 w-4" />}
+              className="w-full sm:w-auto"
+            >
+              Decline quote
+            </Button>
+          </div>
+        }
+      >
+        <form id="reject-quote-form" onSubmit={handleRejectSubmit} noValidate className="space-y-4">
+          {rejectError && <Alert type="error">{rejectError}</Alert>}
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-navy-800">Main reason</legend>
+            <div className="space-y-2">
+              {REJECTION_CATEGORIES.map((cat) => {
+                const selected = rejectionCategory === cat.key;
+                return (
+                  <label
+                    key={cat.key}
+                    className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm transition ${
+                      selected
+                        ? 'border-electric-600 bg-electric-50 font-medium text-navy-900 ring-1 ring-electric-600'
+                        : 'border-surface-200 bg-white text-navy-700 hover:border-surface-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rejectionCategory"
+                      value={cat.key}
+                      checked={selected}
+                      onChange={(e) => setRejectionCategory(e.target.value)}
+                      className="h-4 w-4 accent-electric-600"
+                    />
+                    <span>{cat.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <Textarea
+            id="rejectionReason"
+            label="Tell us a bit more"
+            rows={3}
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="This helps your advisor adjust the quote."
+            required
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

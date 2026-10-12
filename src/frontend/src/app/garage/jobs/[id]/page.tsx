@@ -1,51 +1,199 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import React, { ReactNode, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import {
   GarageServiceJobDetailDto,
-  ServiceJobStatus,
   InspectionSeverity,
   ScheduleJobRequest,
   ReceiveVehicleRequest,
-  StartInspectionRequest,
   CompleteInspectionRequest,
-  StartWorkRequest,
   UpdateJobProgressRequest,
   CompleteWorkRequest,
-  VehicleReadyRequest,
-  HandOverVehicleRequest,
-  CloseJobRequest,
-  CancelJobRequest,
   CreateAdditionalWorkRequest,
 } from '@/types/serviceJob';
 import {
-  Wrench,
-  Clock,
-  ArrowLeft,
-  CheckCircle2,
   Calendar,
-  AlertCircle,
   CarFront,
-  User,
-  Phone,
-  FileText,
-  ShieldAlert,
-  ClipboardList,
-  PlusCircle,
-  Info,
   Check,
-  X,
-  Send,
+  CheckCircle2,
+  ClipboardList,
   Eye,
+  FileText,
+  Flag,
+  KeyRound,
   Lock,
+  MessageSquarePlus,
+  Phone,
+  PlusCircle,
+  Wrench,
+  X,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Badge, BadgeVariant } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Modal } from '@/components/ui/Modal';
+import { Alert } from '@/components/ui/Alert';
+import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { formatDateTime, formatINR, humanize } from '@/lib/format';
+
+type ModalKey =
+  | 'schedule'
+  | 'receive'
+  | 'startInspection'
+  | 'completeInspection'
+  | 'startWork'
+  | 'progress'
+  | 'completeWork'
+  | 'vehicleReady'
+  | 'handover'
+  | 'close'
+  | 'cancel'
+  | 'additionalWork';
+
+interface StepAction {
+  modal: ModalKey;
+  label: string;
+  icon: ReactNode;
+}
+
+/** The job lifecycle as the workshop sees it. WorkStarted/WorkInProgress are one step. */
+const STAGES: { label: string; statuses: string[]; at?: (j: GarageServiceJobDetailDto) => string | null | undefined }[] = [
+  { label: 'Booked', statuses: ['BookingConfirmed'] },
+  { label: 'Scheduled', statuses: ['Scheduled'], at: (j) => j.scheduledStartAtUtc },
+  { label: 'Car received', statuses: ['VehicleReceived'], at: (j) => j.actualVehicleReceivedAtUtc },
+  { label: 'Inspection', statuses: ['Inspection'], at: (j) => j.inspections?.[0]?.inspectionStartedAtUtc },
+  { label: 'Work in progress', statuses: ['WorkStarted', 'WorkInProgress'], at: (j) => j.actualWorkStartedAtUtc },
+  { label: 'Work done', statuses: ['WorkCompleted'], at: (j) => j.actualWorkCompletedAtUtc },
+  { label: 'Ready for pickup', statuses: ['VehicleReady'], at: (j) => j.vehicleReadyAtUtc },
+  { label: 'Handed over', statuses: ['HandedOver'], at: (j) => j.handedOverAtUtc },
+  { label: 'Closed', statuses: ['Closed'], at: (j) => j.closedAtUtc },
+];
+
+const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?: StepAction }> = {
+  BookingConfirmed: {
+    hint: 'Agree a drop-off time with the customer, then set the schedule.',
+    primary: { modal: 'schedule', label: 'Schedule', icon: <Calendar className="h-4 w-4" /> },
+    secondary: { modal: 'cancel', label: 'Cancel booking', icon: <X className="h-4 w-4" /> },
+  },
+  Scheduled: {
+    hint: 'When the car arrives, record it with the odometer reading.',
+    primary: { modal: 'receive', label: 'Car received', icon: <CarFront className="h-4 w-4" /> },
+    secondary: { modal: 'cancel', label: 'Cancel booking', icon: <X className="h-4 w-4" /> },
+  },
+  VehicleReceived: {
+    hint: 'Inspect the car, or start work straight away if no inspection is needed.',
+    primary: { modal: 'startInspection', label: 'Start inspection', icon: <ClipboardList className="h-4 w-4" /> },
+    secondary: { modal: 'startWork', label: 'Skip to work', icon: <Wrench className="h-4 w-4" /> },
+  },
+  Inspection: {
+    hint: 'Record what you found. The summary you write is shared with the customer.',
+    primary: { modal: 'completeInspection', label: 'Finish inspection', icon: <CheckCircle2 className="h-4 w-4" /> },
+    secondary: { modal: 'startWork', label: 'Start work', icon: <Wrench className="h-4 w-4" /> },
+  },
+  WorkStarted: {
+    hint: 'Post updates as you go. Ask for approval before doing extra work.',
+    primary: { modal: 'completeWork', label: 'Work done', icon: <Check className="h-4 w-4" /> },
+    secondary: { modal: 'progress', label: 'Add update', icon: <MessageSquarePlus className="h-4 w-4" /> },
+  },
+  WorkInProgress: {
+    hint: 'Post updates as you go. Ask for approval before doing extra work.',
+    primary: { modal: 'completeWork', label: 'Work done', icon: <Check className="h-4 w-4" /> },
+    secondary: { modal: 'progress', label: 'Add update', icon: <MessageSquarePlus className="h-4 w-4" /> },
+  },
+  WorkCompleted: {
+    hint: 'Let the customer know the car is ready to collect.',
+    primary: { modal: 'vehicleReady', label: 'Ready for pickup', icon: <CheckCircle2 className="h-4 w-4" /> },
+  },
+  VehicleReady: {
+    hint: 'Record the handover when the customer collects the car and keys.',
+    primary: { modal: 'handover', label: 'Hand over car', icon: <KeyRound className="h-4 w-4" /> },
+  },
+  HandedOver: {
+    hint: 'Close the job to finish it.',
+    primary: { modal: 'close', label: 'Close job', icon: <Flag className="h-4 w-4" /> },
+  },
+  Closed: { hint: 'This job is finished. Nothing more to do.' },
+  Cancelled: { hint: 'This booking was cancelled.' },
+};
+
+const SEVERITY_OPTIONS = [
+  { value: 'Info', label: 'Info only' },
+  { value: 'Low', label: 'Low' },
+  { value: 'Medium', label: 'Medium' },
+  { value: 'High', label: 'High' },
+  { value: 'Critical', label: 'Critical' },
+];
+
+function severityVariant(severity: string): BadgeVariant {
+  switch (String(severity).toLowerCase()) {
+    case 'critical':
+    case 'high':
+      return 'red';
+    case 'medium':
+      return 'amber';
+    case 'low':
+      return 'green';
+    default:
+      return 'blue';
+  }
+}
+
+// API routes (GarageController) for actions whose route differs from the action key.
+const JOB_ACTION_ROUTES: Record<string, string> = {
+  'receive-vehicle': 'receive',
+  'start-inspection': 'inspection/start',
+  'complete-inspection': 'inspection/complete',
+  'start-work': 'work/start',
+  progress: 'work/progress',
+  'complete-work': 'work/complete',
+};
+
+const SUCCESS_MESSAGES: Record<string, string> = {
+  schedule: 'Job scheduled',
+  'receive-vehicle': 'Car marked as received',
+  'start-inspection': 'Inspection started',
+  'complete-inspection': 'Inspection saved',
+  'start-work': 'Work started',
+  progress: 'Update posted',
+  'complete-work': 'Work marked as done',
+  'vehicle-ready': 'Customer told the car is ready',
+  handover: 'Handover recorded',
+  close: 'Job closed',
+  cancel: 'Booking cancelled',
+  'additional-work': 'Extra work sent to the advisor',
+};
+
+/** `<input type="datetime-local">` gives local wall-clock time; the API expects UTC. */
+function localInputToUtcIso(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+function Section({ title, action, children }: { title: ReactNode; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <h2 className="text-base font-semibold text-navy-900">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default function GarageJobDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const toast = useToast();
   const id = params?.id as string;
 
   const [job, setJob] = useState<GarageServiceJobDetailDto | null>(null);
@@ -53,8 +201,7 @@ export default function GarageJobDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Modals state
-  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<ModalKey | null>(null);
 
   // Form states
   const [scheduleForm, setScheduleForm] = useState<ScheduleJobRequest>({
@@ -107,1148 +254,840 @@ export default function GarageJobDetailPage() {
     if (res.success && res.data) {
       setJob(res.data);
     } else {
-      setErrorMsg(res.message || 'Failed to load service job details.');
+      setErrorMsg(res.message || 'Could not load this job.');
     }
     setLoading(false);
   }
 
   useEffect(() => {
     if (id) loadJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case 'BookingConfirmed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Scheduled':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'VehicleReceived':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Inspection':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'WorkStarted':
-      case 'WorkInProgress':
-        return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-      case 'WorkCompleted':
-      case 'VehicleReady':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'HandedOver':
-      case 'Closed':
-        return 'bg-slate-100 text-slate-700 border-slate-300';
-      case 'Cancelled':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-surface-100 text-navy-700 border-surface-200';
-    }
+  function openModal(key: ModalKey) {
+    setErrorMsg(null);
+    setActiveModal(key);
   }
 
-  function getSeverityBadge(severity: string) {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return 'bg-rose-100 text-rose-800 border-rose-300';
-      case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'medium':
-        return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'low':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      default:
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-    }
+  function closeModal() {
+    if (actionLoading) return;
+    setErrorMsg(null);
+    setActiveModal(null);
   }
 
   async function handleAction(endpoint: string, payload: any) {
     setActionLoading(true);
     setErrorMsg(null);
-    const res = await apiFetch(`/garage/jobs/${id}/${endpoint}`, {
+    const res = await apiFetch(`/garage/jobs/${id}/${JOB_ACTION_ROUTES[endpoint] ?? endpoint}`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
     if (res.success) {
       setActiveModal(null);
+      toast.success(SUCCESS_MESSAGES[endpoint] ?? 'Saved');
       await loadJob();
     } else {
-      setErrorMsg(res.message || `Action '${endpoint}' failed.`);
+      setErrorMsg(res.message || 'That did not work. Please try again.');
     }
     setActionLoading(false);
   }
 
-  if (loading) {
+  if (loading && !job) {
     return (
-      <div className="py-20 text-center text-navy-500">
-        <Clock className="w-8 h-8 mx-auto mb-2 animate-spin text-amber-500" />
-        Loading service job details...
-      </div>
-    );
-  }
-
-  if (errorMsg && !job) {
-    return (
-      <div className="space-y-4">
-        <Link
-          href="/garage/jobs"
-          className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Jobs
-        </Link>
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
+      <div>
+        <PageHeader title="Service job" backHref="/garage/jobs" backLabel="Jobs" />
+        <div className="space-y-3">
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
         </div>
       </div>
     );
   }
 
-  if (!job) return null;
+  if (!job) {
+    return (
+      <div>
+        <PageHeader title="Service job" backHref="/garage/jobs" backLabel="Jobs" />
+        <ErrorState title="Couldn’t load this job" error={errorMsg} onRetry={loadJob} />
+      </div>
+    );
+  }
+
+  const status = String(job.status);
+  const isCancelled = status === 'Cancelled';
+  const stageIndex = STAGES.findIndex((s) => s.statuses.includes(status));
+  const currentStage = stageIndex >= 0 ? STAGES[stageIndex] : null;
+  const next = NEXT_STEP[status];
+  const canRequestExtraWork = status === 'WorkStarted' || status === 'WorkInProgress';
+  const vehicleName = `${job.vehicleYear ?? ''} ${job.vehicleMake ?? ''} ${job.vehicleModel ?? ''}`.trim();
+
+  /** Error shown inside the open sheet, so the mechanic sees why an action failed. */
+  const modalError = errorMsg ? (
+    <Alert type="error" className="mb-4">
+      {errorMsg}
+    </Alert>
+  ) : null;
+
+  const modalFooter = (confirm: ReactNode) => (
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Button variant="outline" className="w-full sm:w-auto" disabled={actionLoading} onClick={closeModal}>
+        Back
+      </Button>
+      {confirm}
+    </div>
+  );
+
+  const scheduleInvalid =
+    !scheduleForm.scheduledStartAtUtc ||
+    !scheduleForm.estimatedCompletionAtUtc ||
+    new Date(scheduleForm.estimatedCompletionAtUtc) <= new Date(scheduleForm.scheduledStartAtUtc);
 
   return (
-    <div className="space-y-6">
-      {/* Top Breadcrumb & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/garage/jobs"
-            className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900 font-medium"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Workshop Jobs
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold font-mono text-navy-900">{job.jobNumber}</h1>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusBadge(
-                job.status
-              )}`}
-            >
-              {job.status}
-            </span>
-          </div>
-          <p className="text-xs text-navy-500">
-            Linked to Request <span className="font-mono font-medium text-navy-700">{job.requestNumber}</span> • Customer Quotation <span className="font-mono font-medium text-navy-700">{job.quotationNumber}</span>
-          </p>
-        </div>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        backHref="/garage/jobs"
+        backLabel="Jobs"
+        eyebrow={
+          <>
+            <StatusBadge status={job.status} />
+            <span className="text-xs font-medium text-navy-500">{job.jobNumber}</span>
+          </>
+        }
+        title={vehicleName || job.jobNumber}
+        description={`Request ${job.requestNumber}${job.quotationNumber ? ` · Quote ${job.quotationNumber}` : ''}`}
+      />
 
-        {/* Dynamic Action Buttons based on status */}
-        <div className="flex flex-wrap items-center gap-2">
-          {job.status === 'BookingConfirmed' && (
+      <div className="space-y-5 sm:space-y-6">
+        {/* Current stage */}
+        <section
+          className={`rounded-2xl border bg-white p-4 shadow-card sm:p-5 ${isCancelled ? 'border-red-200' : 'border-surface-200'}`}
+          aria-label="Job progress"
+        >
+          {isCancelled ? (
             <>
-              <button
-                onClick={() => setActiveModal('schedule')}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <Calendar className="w-4 h-4" /> Schedule Intake
-              </button>
-              <button
-                onClick={() => setActiveModal('cancel')}
-                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-              >
-                <X className="w-4 h-4" /> Cancel Booking
-              </button>
+              <div className="text-xs font-medium text-red-700">Cancelled{job.cancelledAtUtc ? ` · ${formatDateTime(job.cancelledAtUtc)}` : ''}</div>
+              <div className="mt-1 text-lg font-bold text-navy-900">This booking was cancelled</div>
+              {job.cancellationReason && <p className="mt-1 text-sm text-navy-600">{job.cancellationReason}</p>}
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-medium text-navy-500">
+                {stageIndex >= 0 ? `Step ${stageIndex + 1} of ${STAGES.length}` : 'Current stage'}
+              </div>
+              <div className="mt-1 text-lg font-bold text-navy-900">{currentStage?.label ?? humanize(status)}</div>
+              <div className="mt-3 flex gap-1" aria-hidden="true">
+                {STAGES.map((s, i) => (
+                  <span
+                    key={s.label}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      i < stageIndex ? 'bg-electric-600' : i === stageIndex ? 'bg-electric-400' : 'bg-surface-200'
+                    }`}
+                  />
+                ))}
+              </div>
+              {next && <p className="mt-3 text-sm text-navy-600">{next.hint}</p>}
+
+              <details className="group mt-3 border-t border-surface-200 pt-3">
+                <summary className="flex min-h-[36px] cursor-pointer list-none items-center text-sm font-medium text-electric-700 [&::-webkit-details-marker]:hidden">
+                  <span className="group-open:hidden">Show all steps</span>
+                  <span className="hidden group-open:inline">Hide steps</span>
+                </summary>
+                <ol className="mt-2 space-y-2">
+                  {STAGES.map((s, i) => {
+                    const done = i < stageIndex;
+                    const current = i === stageIndex;
+                    const at = s.at?.(job);
+                    return (
+                      <li key={s.label} className="flex items-center gap-3 text-sm">
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                            done
+                              ? 'bg-electric-600 text-white'
+                              : current
+                              ? 'border-2 border-electric-600 text-electric-700'
+                              : 'border border-surface-300 text-navy-400'
+                          }`}
+                        >
+                          {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                        </span>
+                        <span className={`flex-1 ${current ? 'font-semibold text-navy-900' : done ? 'text-navy-700' : 'text-navy-400'}`}>
+                          {s.label}
+                        </span>
+                        {at && (done || current) && <span className="text-xs text-navy-400">{formatDateTime(at)}</span>}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </details>
             </>
           )}
+        </section>
 
-          {job.status === 'Scheduled' && (
-            <>
-              <button
-                onClick={() => setActiveModal('receive')}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <CarFront className="w-4 h-4" /> Receive Vehicle
-              </button>
-              <button
-                onClick={() => setActiveModal('cancel')}
-                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-              >
-                <X className="w-4 h-4" /> Cancel Booking
-              </button>
-            </>
-          )}
-
-          {job.status === 'VehicleReceived' && (
-            <>
-              <button
-                onClick={() => setActiveModal('startInspection')}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <ClipboardList className="w-4 h-4" /> Start Physical Inspection
-              </button>
-              <button
-                onClick={() => setActiveModal('startWork')}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <Wrench className="w-4 h-4" /> Start Work Directly
-              </button>
-            </>
-          )}
-
-          {job.status === 'Inspection' && (
-            <>
-              <button
-                onClick={() => setActiveModal('completeInspection')}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Complete Inspection
-              </button>
-              <button
-                onClick={() => setActiveModal('startWork')}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <Wrench className="w-4 h-4" /> Start Work
-              </button>
-            </>
-          )}
-
-          {(job.status === 'WorkStarted' || job.status === 'WorkInProgress') && (
-            <>
-              <button
-                onClick={() => setActiveModal('progress')}
-                className="px-3 py-2 bg-white border border-surface-300 hover:bg-surface-50 text-navy-800 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-              >
-                <FileText className="w-4 h-4" /> Log Progress Update
-              </button>
-              <button
-                onClick={() => setActiveModal('additionalWork')}
-                className="px-3 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" /> Request Additional Work
-              </button>
-              <button
-                onClick={() => setActiveModal('completeWork')}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-              >
-                <Check className="w-4 h-4" /> Complete Work
-              </button>
-            </>
-          )}
-
-          {job.status === 'WorkCompleted' && (
-            <button
-              onClick={() => setActiveModal('vehicleReady')}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" /> Mark Vehicle Ready for Pickup
-            </button>
-          )}
-
-          {job.status === 'VehicleReady' && (
-            <button
-              onClick={() => setActiveModal('handover')}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5"
-            >
-              <CarFront className="w-4 h-4" /> Hand Over Vehicle
-            </button>
-          )}
-
-          {job.status === 'HandedOver' && (
-            <button
-              onClick={() => setActiveModal('close')}
-              className="px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold transition-colors shadow-sm inline-flex items-center gap-1.5"
-            >
-              <Check className="w-4 h-4" /> Close Service Job
-            </button>
-          )}
-        </div>
-      </div>
-
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Overview Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Vehicle Details */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <CarFront className="w-4 h-4 text-amber-500" />
-            <span>Vehicle Specifications</span>
-          </div>
-          <div>
-            <div className="text-base font-bold text-navy-900">
-              {job.vehicleYear} {job.vehicleMake} {job.vehicleModel}
+        {/* Vehicle and customer */}
+        <section className="rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-navy-500">Number plate</dt>
+              <dd className="font-semibold text-navy-900">{job.vehicleLicensePlate || '—'}</dd>
             </div>
-            <div className="inline-block mt-1 font-mono font-bold bg-surface-100 text-navy-800 px-2 py-0.5 rounded text-xs border border-surface-200">
-              {job.vehicleLicensePlate}
+            <div>
+              <dt className="text-xs text-navy-500">Odometer at drop-off</dt>
+              <dd className="font-medium text-navy-900">
+                {job.currentMileageKm != null ? `${job.currentMileageKm.toLocaleString('en-IN')} km` : 'Not recorded'}
+              </dd>
             </div>
+            <div>
+              <dt className="text-xs text-navy-500">Drop-off</dt>
+              <dd className="font-medium text-navy-900">
+                {job.scheduledStartAtUtc ? formatDateTime(job.scheduledStartAtUtc) : 'Not scheduled'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-navy-500">Ready by</dt>
+              <dd className="font-medium text-navy-900">
+                {job.estimatedCompletionAtUtc ? formatDateTime(job.estimatedCompletionAtUtc) : '—'}
+              </dd>
+            </div>
+          </dl>
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-surface-200 pt-3">
+            <div className="min-w-0">
+              <div className="text-xs text-navy-500">Customer</div>
+              <div className="truncate text-sm font-semibold text-navy-900">{job.customerName || '—'}</div>
+            </div>
+            {job.customerPhone && (
+              <a
+                href={`tel:${job.customerPhone.replace(/\s+/g, '')}`}
+                className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl border border-surface-300 bg-white px-4 text-sm font-semibold text-navy-800 transition hover:bg-surface-50"
+              >
+                <Phone className="h-4 w-4" />
+                Call
+              </a>
+            )}
           </div>
-          <div className="pt-2 border-t border-surface-100 text-xs flex justify-between">
-            <span className="text-navy-500">Intake Odometer:</span>
-            <span className="font-semibold text-navy-800">
-              {job.currentMileageKm != null ? `${job.currentMileageKm.toLocaleString()} KM` : 'Not recorded'}
-            </span>
-          </div>
-        </div>
+        </section>
 
-        {/* Customer Information */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <User className="w-4 h-4 text-blue-500" />
-            <span>Customer Contact</span>
-          </div>
-          <div>
-            <div className="text-base font-bold text-navy-900">{job.customerName}</div>
-            <div className="text-xs text-navy-600 flex items-center gap-1.5 mt-1">
-              <Phone className="w-3.5 h-3.5 text-navy-400" />
-              <span>{job.customerPhone}</span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-surface-100 text-xs">
-            <span className="text-navy-500">Workshop:</span>{' '}
-            <span className="font-semibold text-navy-800">{job.garageName}</span>
-          </div>
-        </div>
-
-        {/* Operational Schedule */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <Clock className="w-4 h-4 text-indigo-500" />
-            <span>Execution Milestones</span>
-          </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
-              <span className="text-navy-500">Scheduled Start:</span>
-              <span className="font-medium text-navy-800">
-                {job.scheduledStartAtUtc ? new Date(job.scheduledStartAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Vehicle Received:</span>
-              <span className="font-medium text-navy-800">
-                {job.actualVehicleReceivedAtUtc ? new Date(job.actualVehicleReceivedAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Work Completed:</span>
-              <span className="font-medium text-navy-800">
-                {job.actualWorkCompletedAtUtc ? new Date(job.actualWorkCompletedAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Handed Over:</span>
-              <span className="font-medium text-navy-800">
-                {job.handedOverAtUtc ? new Date(job.handedOverAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Customer Complaint & Notes */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-navy-500" />
-          Customer Reported Issue & Instructions
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div className="bg-surface-50 p-4 rounded-lg border border-surface-200">
-            <div className="font-semibold text-navy-800 mb-1">Customer Problem Description:</div>
-            <p className="text-navy-600 whitespace-pre-wrap">{job.problemDescription || 'None recorded'}</p>
-          </div>
-          <div className="bg-surface-50 p-4 rounded-lg border border-surface-200">
-            <div className="font-semibold text-navy-800 mb-1">Customer Complaint Snapshot:</div>
-            <p className="text-navy-600 whitespace-pre-wrap">{job.customerComplaintSnapshot || 'None'}</p>
-          </div>
-        </div>
-        {job.customerFacingNotes && (
-          <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 text-xs">
-            <span className="font-semibold text-emerald-900">Current Customer-Facing Note:</span>{' '}
-            <span className="text-emerald-800">{job.customerFacingNotes}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Physical Inspection Findings */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-purple-600" />
-            Physical Intake Inspection
-          </h3>
-          {job.inspections && job.inspections.length > 0 && (
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${getSeverityBadge(
-                job.inspections[0].overallSeverity
-              )}`}
-            >
-              Severity: {job.inspections[0].overallSeverity}
-            </span>
-          )}
-        </div>
-
-        {job.inspections && job.inspections.length > 0 ? (
-          <div className="space-y-3">
-            {job.inspections.map((insp) => (
-              <div key={insp.id} className="border border-surface-200 rounded-lg p-4 space-y-3 bg-surface-50/30 text-xs">
-                <div className="flex items-center justify-between text-navy-500 pb-2 border-b border-surface-200">
-                  <span>Inspector: <strong className="text-navy-800">{insp.inspectorName}</strong></span>
-                  <span>
-                    {insp.inspectionCompletedAtUtc
-                      ? `Completed: ${new Date(insp.inspectionCompletedAtUtc).toLocaleString()}`
-                      : `Started: ${new Date(insp.inspectionStartedAtUtc).toLocaleString()}`}
-                  </span>
+        {/* Customer's problem */}
+        <Section title="Customer’s problem">
+          <div className="space-y-3 rounded-2xl border border-surface-200 bg-white p-4 text-sm shadow-card sm:p-5">
+            <p className="whitespace-pre-wrap text-navy-800">{job.problemDescription || 'Not described.'}</p>
+            {job.customerComplaintSnapshot && job.customerComplaintSnapshot !== job.problemDescription && (
+              <div className="border-t border-surface-200 pt-3">
+                <div className="text-xs text-navy-500">Complaint when booked</div>
+                <p className="mt-0.5 whitespace-pre-wrap text-navy-800">{job.customerComplaintSnapshot}</p>
+              </div>
+            )}
+            {job.customerFacingNotes && (
+              <div className="rounded-xl bg-emerald-50 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+                  <Eye className="h-3.5 w-3.5" /> Latest note to the customer
                 </div>
+                <p className="mt-0.5 text-emerald-900">{job.customerFacingNotes}</p>
+              </div>
+            )}
+            {job.garageInternalNotes && (
+              <div className="rounded-xl bg-surface-50 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-navy-600">
+                  <Lock className="h-3.5 w-3.5" /> Workshop notes (internal)
+                </div>
+                <p className="mt-0.5 whitespace-pre-wrap text-navy-800">{job.garageInternalNotes}</p>
+              </div>
+            )}
+          </div>
+        </Section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded border border-surface-200">
-                    <div className="font-bold text-navy-800 mb-1 flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-navy-400" />
-                      Confidential Workshop Findings
+        {/* Inspection */}
+        <Section title="Inspection">
+          {job.inspections && job.inspections.length > 0 ? (
+            <div className="space-y-3">
+              {job.inspections.map((insp) => (
+                <div key={insp.id} className="space-y-3 rounded-2xl border border-surface-200 bg-white p-4 text-sm shadow-card sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-xs text-navy-500">
+                      <div className="font-medium text-navy-800">{insp.inspectorName}</div>
+                      {insp.inspectionCompletedAtUtc
+                        ? `Finished ${formatDateTime(insp.inspectionCompletedAtUtc)}`
+                        : `Started ${formatDateTime(insp.inspectionStartedAtUtc)} · in progress`}
                     </div>
-                    <p className="text-navy-600 whitespace-pre-wrap">{insp.findings || 'No workshop notes'}</p>
-                    {insp.recommendations && (
-                      <div className="mt-2 pt-2 border-t border-surface-100">
-                        <strong className="text-navy-700">Recommendations:</strong> {insp.recommendations}
-                      </div>
-                    )}
+                    <Badge variant={severityVariant(String(insp.overallSeverity))} pill className="whitespace-nowrap">
+                      {humanize(String(insp.overallSeverity))} severity
+                    </Badge>
                   </div>
-                  <div className="bg-white p-3 rounded border border-surface-200">
-                    <div className="font-bold text-emerald-800 mb-1 flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                      Customer-Visible Inspection Summary
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-navy-600">
+                      <Lock className="h-3.5 w-3.5" /> Findings (workshop and advisor only)
                     </div>
-                    <p className="text-navy-600 whitespace-pre-wrap">
-                      {insp.customerVisibleSummary || 'No customer summary specified.'}
+                    <p className="mt-0.5 whitespace-pre-wrap text-navy-800">{insp.findings || 'None recorded.'}</p>
+                  </div>
+                  {insp.recommendations && (
+                    <div>
+                      <div className="text-xs font-medium text-navy-600">Recommendations</div>
+                      <p className="mt-0.5 whitespace-pre-wrap text-navy-800">{insp.recommendations}</p>
+                    </div>
+                  )}
+                  <div className="rounded-xl bg-emerald-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+                      <Eye className="h-3.5 w-3.5" /> Summary for the customer
+                    </div>
+                    <p className="mt-0.5 whitespace-pre-wrap text-emerald-900">
+                      {insp.customerVisibleSummary || 'Not written yet.'}
                     </p>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-navy-500 italic">No physical inspection recorded for this job yet.</p>
-        )}
-      </div>
-
-      {/* Additional Work Requests */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-              <PlusCircle className="w-4 h-4 text-amber-600" />
-              Additional Work Requests
-            </h3>
-            <p className="text-[11px] text-navy-500 mt-0.5">
-              Work proposals discovered during inspection/service. Must be reviewed by Technical Advisor. Quotations and customer charges are never automatically modified.
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
+              No inspection recorded yet.
             </p>
-          </div>
-          {(job.status === 'WorkStarted' || job.status === 'WorkInProgress') && (
-            <button
-              onClick={() => setActiveModal('additionalWork')}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
-            >
-              <PlusCircle className="w-3.5 h-3.5" /> Request Additional Work
-            </button>
           )}
-        </div>
+        </Section>
 
-        {job.additionalWorkRequests && job.additionalWorkRequests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-50 border-b border-surface-200 text-navy-700 font-semibold">
-                  <th className="py-2.5 px-3">Description</th>
-                  <th className="py-2.5 px-3">Est. Amount</th>
-                  <th className="py-2.5 px-3">Reason</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Advisor Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100">
-                {job.additionalWorkRequests.map((work) => (
-                  <tr key={work.id}>
-                    <td className="py-2.5 px-3 font-medium text-navy-900">{work.description}</td>
-                    <td className="py-2.5 px-3 font-semibold text-navy-800">
-                      ₹{work.estimatedAdditionalAmount.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-navy-600">{work.reason}</td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                          work.status === 'Approved'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : work.status === 'Rejected'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        {work.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-navy-600">
-                      {work.advisorRemarks || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-xs text-navy-500 italic">No additional work requested during this service.</p>
-        )}
-      </div>
+        {/* Additional work */}
+        <Section
+          title="Extra work"
+          action={
+            canRequestExtraWork ? (
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<PlusCircle className="h-4 w-4" />}
+                onClick={() => openModal('additionalWork')}
+              >
+                Request
+              </Button>
+            ) : undefined
+          }
+        >
+          {job.additionalWorkRequests && job.additionalWorkRequests.length > 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card divide-y divide-surface-200/80">
+              {job.additionalWorkRequests.map((work) => (
+                <div key={work.id} className="space-y-1 px-4 py-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-[15px] font-semibold text-navy-900 break-words">{work.description}</div>
+                    <div className="shrink-0 font-semibold tabular-nums text-navy-900">
+                      {formatINR(work.estimatedAdditionalAmount)}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={work.status} />
+                    <span className="text-xs text-navy-400">Asked {formatDateTime(work.createdAtUtc)}</span>
+                  </div>
+                  {work.reason && <p className="text-navy-600">{work.reason}</p>}
+                  {work.advisorRemarks && (
+                    <p className="text-xs text-navy-500">
+                      <span className="font-medium text-navy-700">Advisor:</span> {work.advisorRemarks}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
+              {canRequestExtraWork
+                ? 'Found something else that needs fixing? Request it here. The advisor approves it before you do the work; the quote is not changed automatically.'
+                : 'No extra work requested.'}
+            </p>
+          )}
+        </Section>
 
-      {/* Activity Timeline */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-navy-500" />
-          Service Execution Activity Log
-        </h3>
-        {job.activities && job.activities.length > 0 ? (
-          <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-200">
-            {job.activities.map((act) => (
-              <div key={act.id} className="relative">
-                <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-white" />
-                <div className="text-xs">
-                  <div className="flex items-center gap-2 font-semibold text-navy-900">
-                    <span>{act.activityType}</span>
-                    <span className="text-[10px] text-navy-400 font-normal">
-                      {new Date(act.createdAtUtc).toLocaleString()}
-                    </span>
+        {/* Activity */}
+        <Section title="Activity">
+          {job.activities && job.activities.length > 0 ? (
+            <ol className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card divide-y divide-surface-200/80">
+              {job.activities.map((act) => (
+                <li key={act.id} className="px-4 py-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-semibold text-navy-900">{humanize(act.activityType)}</span>
+                    <span className="shrink-0 text-xs text-navy-400">{formatDateTime(act.createdAtUtc)}</span>
+                  </div>
+                  <p className="mt-0.5 text-navy-700 break-words">{act.message}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-400">
+                    <span>{act.actorName}</span>
                     {act.isCustomerVisible ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        <Eye className="w-2.5 h-2.5" /> Customer Visible
+                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                        <Eye className="h-3 w-3" /> Customer can see
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-navy-600 bg-surface-100 px-1.5 py-0.2 rounded border border-surface-200">
-                        <Lock className="w-2.5 h-2.5" /> Internal Workshop
+                      <span className="inline-flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Internal
                       </span>
                     )}
                   </div>
-                  <p className="text-navy-700 mt-0.5">{act.message}</p>
-                  <p className="text-[11px] text-navy-400 mt-0.5">By: {act.actorName}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-navy-500 italic">No activity recorded yet.</p>
-        )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">No activity yet.</p>
+          )}
+        </Section>
       </div>
 
-      {/* MODALS */}
-
-      {/* 1. Schedule Modal */}
-      {activeModal === 'schedule' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Schedule Service Intake</h3>
-            <p className="text-xs text-navy-600">
-              Set the planned intake and estimated completion dates for vehicle {job.vehicleMake} ({job.vehicleLicensePlate}).
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Scheduled Start Time (UTC):</label>
-                <input
-                  type="datetime-local"
-                  value={scheduleForm.scheduledStartAtUtc}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledStartAtUtc: e.target.value })}
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Estimated Ready Time (UTC):</label>
-                <input
-                  type="datetime-local"
-                  value={scheduleForm.estimatedCompletionAtUtc}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, estimatedCompletionAtUtc: e.target.value })}
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Notes (Optional):</label>
-                <textarea
-                  rows={2}
-                  value={scheduleForm.notes}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
-                  placeholder="Intake scheduling remarks..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
+      {/* Next action */}
+      {next?.primary && (
+        <>
+          <ActionBar>
+            {next.secondary && (
+              <Button
+                variant="outline"
+                onClick={() => openModal(next.secondary!.modal)}
                 disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
+                className={next.secondary.modal === 'cancel' ? '!text-red-700' : ''}
               >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading || !scheduleForm.scheduledStartAtUtc || !scheduleForm.estimatedCompletionAtUtc}
-                onClick={() => handleAction('schedule', scheduleForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50"
-              >
-                {actionLoading ? 'Scheduling...' : 'Confirm Schedule'}
-              </button>
-            </div>
-          </div>
-        </div>
+                {next.secondary.label}
+              </Button>
+            )}
+            <Button
+              onClick={() => openModal(next.primary!.modal)}
+              disabled={actionLoading}
+              // Icon only when the button has the bar to itself; two labelled buttons fit 375px without them.
+              leftIcon={next.secondary ? undefined : next.primary.icon}
+            >
+              {next.primary.label}
+            </Button>
+          </ActionBar>
+          <ActionBarSpacer />
+        </>
       )}
 
-      {/* 2. Receive Vehicle Modal */}
-      {activeModal === 'receive' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Record Physical Vehicle Intake</h3>
-            <p className="text-xs text-navy-600">
-              Confirm that the vehicle has physically arrived at the workshop. Once received, customer cancellation is strictly locked.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Current Odometer Reading (KM):</label>
-                <input
-                  type="number"
-                  value={receiveForm.currentMileageKm || ''}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, currentMileageKm: Number(e.target.value) })}
-                  placeholder="e.g. 45200"
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Intake Remarks:</label>
-                <textarea
-                  rows={2}
-                  value={receiveForm.notes}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, notes: e.target.value })}
-                  placeholder="Body condition, fuel level, possessions..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('receive-vehicle', receiveForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Saving...' : 'Confirm Vehicle Received'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ===== Sheets ===== */}
 
-      {/* 3. Start Inspection Modal */}
-      {activeModal === 'startInspection' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Start Physical Inspection</h3>
-            <p className="text-xs text-navy-600">
-              Initiate technical physical inspection for vehicle {job.vehicleLicensePlate}.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Initial Severity Assessment:</label>
-                <select
-                  value={startInspectionSeverity}
-                  onChange={(e) => setStartInspectionSeverity(e.target.value as InspectionSeverity)}
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                >
-                  <option value="Info">Info</option>
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('start-inspection', { severity: startInspectionSeverity })}
-                className="px-4 py-1.5 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Starting...' : 'Begin Inspection'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'schedule'}
+        onClose={closeModal}
+        title="Schedule the job"
+        description={`When will ${job.vehicleLicensePlate || 'the car'} come in, and when will it be ready?`}
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            disabled={scheduleInvalid}
+            onClick={() =>
+              handleAction('schedule', {
+                ...scheduleForm,
+                scheduledStartAtUtc: localInputToUtcIso(scheduleForm.scheduledStartAtUtc),
+                estimatedCompletionAtUtc: localInputToUtcIso(scheduleForm.estimatedCompletionAtUtc),
+              })
+            }
+          >
+            Save schedule
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Input
+            id="schedule-start"
+            type="datetime-local"
+            label="Drop-off"
+            required
+            value={scheduleForm.scheduledStartAtUtc}
+            onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledStartAtUtc: e.target.value })}
+          />
+          <Input
+            id="schedule-ready"
+            type="datetime-local"
+            label="Ready by"
+            required
+            value={scheduleForm.estimatedCompletionAtUtc}
+            onChange={(e) => setScheduleForm({ ...scheduleForm, estimatedCompletionAtUtc: e.target.value })}
+            error={
+              scheduleForm.scheduledStartAtUtc &&
+              scheduleForm.estimatedCompletionAtUtc &&
+              new Date(scheduleForm.estimatedCompletionAtUtc) <= new Date(scheduleForm.scheduledStartAtUtc)
+                ? 'Must be after drop-off.'
+                : undefined
+            }
+          />
+          <Textarea
+            id="schedule-notes"
+            label="Notes (optional)"
+            rows={2}
+            value={scheduleForm.notes}
+            onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
+            placeholder="e.g. Customer drops the car before 10 am"
+          />
         </div>
-      )}
+      </Modal>
 
-      {/* 4. Complete Inspection Modal */}
-      {activeModal === 'completeInspection' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Complete Physical Inspection</h3>
-            <p className="text-xs text-navy-600">
-              Document your inspection findings. Internal findings remain confidential to workshop and advisor; the summary will be shared with the customer.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Overall Inspection Severity:</label>
-                <select
-                  value={completeInspectionForm.severity}
-                  onChange={(e) =>
-                    setCompleteInspectionForm({
-                      ...completeInspectionForm,
-                      severity: e.target.value as InspectionSeverity,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                >
-                  <option value="Info">Info</option>
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">
-                  Workshop Findings (Confidential):
-                </label>
-                <textarea
-                  rows={3}
-                  value={completeInspectionForm.findings}
-                  onChange={(e) =>
-                    setCompleteInspectionForm({ ...completeInspectionForm, findings: e.target.value })
-                  }
-                  placeholder="Detailed diagnostic observations, technician notes..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">
-                  Workshop Recommendations (Internal):
-                </label>
-                <textarea
-                  rows={2}
-                  value={completeInspectionForm.recommendations}
-                  onChange={(e) =>
-                    setCompleteInspectionForm({ ...completeInspectionForm, recommendations: e.target.value })
-                  }
-                  placeholder="Recommended repairs, parts needed..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">
-                  Customer-Visible Summary:
-                </label>
-                <textarea
-                  rows={2}
-                  value={completeInspectionForm.customerVisibleSummary}
-                  onChange={(e) =>
-                    setCompleteInspectionForm({
-                      ...completeInspectionForm,
-                      customerVisibleSummary: e.target.value,
-                    })
-                  }
-                  placeholder="Clear, non-technical overview visible to customer..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('complete-inspection', completeInspectionForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Saving...' : 'Save & Complete Inspection'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'receive'}
+        onClose={closeModal}
+        title="Car received"
+        description="Confirm the car is at the workshop. After this the customer can no longer cancel."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('receive-vehicle', receiveForm)}
+          >
+            Confirm received
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Input
+            id="receive-odometer"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            label="Odometer (km)"
+            value={receiveForm.currentMileageKm ?? ''}
+            onChange={(e) =>
+              setReceiveForm({
+                ...receiveForm,
+                currentMileageKm: e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+            placeholder="e.g. 45200"
+          />
+          <Textarea
+            id="receive-notes"
+            label="Condition notes"
+            rows={3}
+            value={receiveForm.notes}
+            onChange={(e) => setReceiveForm({ ...receiveForm, notes: e.target.value })}
+            placeholder="Dents, fuel level, items left in the car…"
+          />
         </div>
-      )}
+      </Modal>
 
-      {/* 5. Start Work Modal */}
-      {activeModal === 'startWork' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Start Service Execution</h3>
-            <p className="text-xs text-navy-600">
-              Commence active mechanical repair/servicing on the vehicle.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Starting Notes (Optional):</label>
-                <textarea
-                  rows={2}
-                  value={startWorkNotes}
-                  onChange={(e) => setStartWorkNotes(e.target.value)}
-                  placeholder="Technician assignment, bay number..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('start-work', { notes: startWorkNotes })}
-                className="px-4 py-1.5 text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Starting...' : 'Confirm Work Started'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={activeModal === 'startInspection'}
+        onClose={closeModal}
+        title="Start inspection"
+        description={`Begin checking ${job.vehicleLicensePlate || 'the car'}. You can change the severity when you finish.`}
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('start-inspection', { severity: startInspectionSeverity })}
+          >
+            Start inspection
+          </Button>
+        )}
+      >
+        {modalError}
+        <Select
+          id="start-inspection-severity"
+          label="First impression of severity"
+          options={SEVERITY_OPTIONS}
+          value={startInspectionSeverity}
+          onChange={(e) => setStartInspectionSeverity(e.target.value as InspectionSeverity)}
+        />
+      </Modal>
 
-      {/* 6. Progress Update Modal */}
-      {activeModal === 'progress' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Log Execution Progress</h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Progress Notes:</label>
-                <textarea
-                  rows={3}
-                  value={progressForm.progressNotes}
-                  onChange={(e) => setProgressForm({ ...progressForm, progressNotes: e.target.value })}
-                  placeholder="Describe progress (e.g. Engine oil drained, new filter installed)..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="custVisible"
-                  checked={progressForm.isCustomerVisible}
-                  onChange={(e) => setProgressForm({ ...progressForm, isCustomerVisible: e.target.checked })}
-                  className="rounded text-amber-500 focus:ring-amber-500"
-                />
-                <label htmlFor="custVisible" className="text-navy-700 font-medium">
-                  Make note visible on Customer Timeline
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading || !progressForm.progressNotes.trim()}
-                onClick={() => handleAction('progress', progressForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg disabled:opacity-50"
-              >
-                {actionLoading ? 'Saving...' : 'Post Progress'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'completeInspection'}
+        onClose={closeModal}
+        title="Inspection findings"
+        description="Findings and recommendations stay between you and the advisor. The summary is shown to the customer."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('complete-inspection', completeInspectionForm)}
+          >
+            Save and finish
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Select
+            id="complete-inspection-severity"
+            label="Overall severity"
+            options={SEVERITY_OPTIONS}
+            value={completeInspectionForm.severity}
+            onChange={(e) =>
+              setCompleteInspectionForm({ ...completeInspectionForm, severity: e.target.value as InspectionSeverity })
+            }
+          />
+          <Textarea
+            id="complete-inspection-findings"
+            label="Findings (internal)"
+            rows={3}
+            value={completeInspectionForm.findings}
+            onChange={(e) => setCompleteInspectionForm({ ...completeInspectionForm, findings: e.target.value })}
+            placeholder="What you checked and what you found"
+          />
+          <Textarea
+            id="complete-inspection-recommendations"
+            label="Recommendations (internal)"
+            rows={2}
+            value={completeInspectionForm.recommendations}
+            onChange={(e) => setCompleteInspectionForm({ ...completeInspectionForm, recommendations: e.target.value })}
+            placeholder="Repairs or parts needed"
+          />
+          <Textarea
+            id="complete-inspection-summary"
+            label="Summary for the customer"
+            rows={2}
+            value={completeInspectionForm.customerVisibleSummary}
+            onChange={(e) =>
+              setCompleteInspectionForm({ ...completeInspectionForm, customerVisibleSummary: e.target.value })
+            }
+            placeholder="Plain words, no jargon"
+          />
         </div>
-      )}
+      </Modal>
 
-      {/* 7. Complete Work Modal */}
-      {activeModal === 'completeWork' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Complete Mechanical Work</h3>
-            <p className="text-xs text-navy-600">
-              Confirm that all agreed service items and approved repairs have been finished.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Completion Remarks (Internal):</label>
-                <textarea
-                  rows={2}
-                  value={completeWorkForm.notes}
-                  onChange={(e) => setCompleteWorkForm({ ...completeWorkForm, notes: e.target.value })}
-                  placeholder="Testing results, torque specs verified..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Customer-Facing Notes:</label>
-                <textarea
-                  rows={2}
-                  value={completeWorkForm.customerFacingNotes}
-                  onChange={(e) =>
-                    setCompleteWorkForm({ ...completeWorkForm, customerFacingNotes: e.target.value })
-                  }
-                  placeholder="Work finished successfully, washing vehicle..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('complete-work', completeWorkForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Saving...' : 'Mark Work Completed'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={activeModal === 'startWork'}
+        onClose={closeModal}
+        title="Start work"
+        description="Mark that repairs or servicing have begun on the car."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('start-work', { notes: startWorkNotes })}
+          >
+            Start work
+          </Button>
+        )}
+      >
+        {modalError}
+        <Textarea
+          id="start-work-notes"
+          label="Notes (optional)"
+          rows={2}
+          value={startWorkNotes}
+          onChange={(e) => setStartWorkNotes(e.target.value)}
+          placeholder="Mechanic, bay number…"
+        />
+      </Modal>
 
-      {/* 8. Vehicle Ready Modal */}
-      {activeModal === 'vehicleReady' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Mark Vehicle Ready for Pickup</h3>
-            <p className="text-xs text-navy-600">
-              The customer and Technical Advisor will be notified that the vehicle is ready for collection.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Customer Note:</label>
-                <textarea
-                  rows={2}
-                  value={vehicleReadyNotes}
-                  onChange={(e) => setVehicleReadyNotes(e.target.value)}
-                  placeholder="Your car is ready for pickup during working hours..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('vehicle-ready', { customerFacingNotes: vehicleReadyNotes })}
-                className="px-4 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Updating...' : 'Notify Ready'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'progress'}
+        onClose={closeModal}
+        title="Add an update"
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            disabled={!progressForm.progressNotes.trim()}
+            onClick={() => handleAction('progress', progressForm)}
+          >
+            Post update
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Textarea
+            id="progress-notes"
+            label="What’s been done"
+            required
+            rows={3}
+            value={progressForm.progressNotes}
+            onChange={(e) => setProgressForm({ ...progressForm, progressNotes: e.target.value })}
+            placeholder="e.g. Oil drained, new filter fitted"
+          />
+          <Checkbox
+            id="progress-customer-visible"
+            label="Show this update to the customer"
+            checked={progressForm.isCustomerVisible}
+            onChange={(e) => setProgressForm({ ...progressForm, isCustomerVisible: e.target.checked })}
+          />
         </div>
-      )}
+      </Modal>
 
-      {/* 9. Handover Vehicle Modal */}
-      {activeModal === 'handover' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Record Vehicle Handover</h3>
-            <p className="text-xs text-navy-600">
-              Confirm that the vehicle and keys have been physically handed back to the customer.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Handover Remarks:</label>
-                <textarea
-                  rows={2}
-                  value={handoverNotes}
-                  onChange={(e) => setHandoverNotes(e.target.value)}
-                  placeholder="Keys handed over, customer satisfied..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('handover', { handoverNotes })}
-                className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Updating...' : 'Confirm Handover'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'completeWork'}
+        onClose={closeModal}
+        title="Work done"
+        description="Confirm all agreed and approved work is finished."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('complete-work', completeWorkForm)}
+          >
+            Mark work done
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Textarea
+            id="complete-work-notes"
+            label="Workshop notes (internal)"
+            rows={2}
+            value={completeWorkForm.notes}
+            onChange={(e) => setCompleteWorkForm({ ...completeWorkForm, notes: e.target.value })}
+            placeholder="Test drive done, torque checked…"
+          />
+          <Textarea
+            id="complete-work-customer-notes"
+            label="Note for the customer"
+            rows={2}
+            value={completeWorkForm.customerFacingNotes}
+            onChange={(e) => setCompleteWorkForm({ ...completeWorkForm, customerFacingNotes: e.target.value })}
+            placeholder="e.g. All work finished, car being washed"
+          />
         </div>
-      )}
+      </Modal>
 
-      {/* 10. Close Job Modal */}
-      {activeModal === 'close' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Close Service Job</h3>
-            <p className="text-xs text-navy-600">
-              Archive and close this completed service job. This is the terminal execution state.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Closing Remarks:</label>
-                <textarea
-                  rows={2}
-                  value={closingRemarks}
-                  onChange={(e) => setClosingRemarks(e.target.value)}
-                  placeholder="Final billing reconciled, job closed..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction('close', { closingRemarks })}
-                className="px-4 py-1.5 text-xs font-bold bg-navy-900 hover:bg-navy-800 text-white rounded-xl shadow-sm"
-              >
-                {actionLoading ? 'Closing...' : 'Close Job'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={activeModal === 'vehicleReady'}
+        onClose={closeModal}
+        title="Ready for pickup"
+        description="The customer and advisor are told the car can be collected."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('vehicle-ready', { customerFacingNotes: vehicleReadyNotes })}
+          >
+            Notify customer
+          </Button>
+        )}
+      >
+        {modalError}
+        <Textarea
+          id="vehicle-ready-notes"
+          label="Note for the customer"
+          rows={2}
+          value={vehicleReadyNotes}
+          onChange={(e) => setVehicleReadyNotes(e.target.value)}
+          placeholder="e.g. Ready to collect until 7 pm"
+        />
+      </Modal>
 
-      {/* 11. Cancel Modal */}
-      {activeModal === 'cancel' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-rose-700">Cancel Service Booking</h3>
-            <p className="text-xs text-navy-600">
-              Cancellation is only permitted prior to vehicle physical intake. Please provide a reason.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Cancellation Reason:</label>
-                <textarea
-                  rows={3}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Reason for cancellation..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Go Back
-              </button>
-              <button
-                disabled={actionLoading || !cancelReason.trim()}
-                onClick={() => handleAction('cancel', { reason: cancelReason })}
-                className="px-4 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg disabled:opacity-50"
-              >
-                {actionLoading ? 'Cancelling...' : 'Confirm Cancellation'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={activeModal === 'handover'}
+        onClose={closeModal}
+        title="Hand over the car"
+        description="Confirm the car and keys are back with the customer."
+        footer={modalFooter(
+          <Button className="w-full sm:w-auto" isLoading={actionLoading} onClick={() => handleAction('handover', { handoverNotes })}>
+            Confirm handover
+          </Button>
+        )}
+      >
+        {modalError}
+        <Textarea
+          id="handover-notes"
+          label="Notes (optional)"
+          rows={2}
+          value={handoverNotes}
+          onChange={(e) => setHandoverNotes(e.target.value)}
+          placeholder="e.g. Keys handed to the owner"
+        />
+      </Modal>
 
-      {/* 12. Additional Work Request Modal */}
-      {activeModal === 'additionalWork' && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Request Additional Work Proposal</h3>
-            <p className="text-xs text-navy-600">
-              Submit a newly discovered repair or maintenance requirement. This request will be sent to the Technical Advisor for review.
-            </p>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Work Description:</label>
-                <input
-                  type="text"
-                  value={additionalWorkForm.description}
-                  onChange={(e) =>
-                    setAdditionalWorkForm({ ...additionalWorkForm, description: e.target.value })
-                  }
-                  placeholder="e.g. Front Brake Pad Replacement"
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Estimated Additional Amount (₹):</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={additionalWorkForm.estimatedAdditionalAmount || ''}
-                  onChange={(e) =>
-                    setAdditionalWorkForm({
-                      ...additionalWorkForm,
-                      estimatedAdditionalAmount: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="e.g. 1800.00"
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Reason / Justification:</label>
-                <textarea
-                  rows={2}
-                  value={additionalWorkForm.reason}
-                  onChange={(e) =>
-                    setAdditionalWorkForm({ ...additionalWorkForm, reason: e.target.value })
-                  }
-                  placeholder="Observed 2mm remaining thickness, uneven rotor wear..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveModal(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={
-                  actionLoading ||
-                  !additionalWorkForm.description.trim() ||
-                  additionalWorkForm.estimatedAdditionalAmount <= 0
-                }
-                onClick={() => handleAction('additional-work', additionalWorkForm)}
-                className="px-4 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg disabled:opacity-50"
-              >
-                {actionLoading ? 'Submitting...' : 'Submit to Advisor'}
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={activeModal === 'close'}
+        onClose={closeModal}
+        title="Close the job"
+        description="This is the last step. The job can’t be changed after closing."
+        footer={modalFooter(
+          <Button
+            variant="secondary"
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            onClick={() => handleAction('close', { closingRemarks })}
+          >
+            Close job
+          </Button>
+        )}
+      >
+        {modalError}
+        <Textarea
+          id="close-remarks"
+          label="Closing notes (optional)"
+          rows={2}
+          value={closingRemarks}
+          onChange={(e) => setClosingRemarks(e.target.value)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'cancel'}
+        onClose={closeModal}
+        title="Cancel this booking?"
+        description="You can only cancel before the car arrives. The customer and advisor will be told."
+        footer={modalFooter(
+          <Button
+            variant="danger"
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            disabled={!cancelReason.trim()}
+            onClick={() => handleAction('cancel', { reason: cancelReason })}
+          >
+            Cancel booking
+          </Button>
+        )}
+      >
+        {modalError}
+        <Textarea
+          id="cancel-reason"
+          label="Reason"
+          required
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Why can’t you do this job?"
+        />
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'additionalWork'}
+        onClose={closeModal}
+        title="Request extra work"
+        description="Sent to the advisor for approval. Don’t start it until it’s approved."
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            disabled={!additionalWorkForm.description.trim() || additionalWorkForm.estimatedAdditionalAmount <= 0}
+            onClick={() => handleAction('additional-work', additionalWorkForm)}
+          >
+            Send to advisor
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Input
+            id="extra-work-description"
+            label="What needs doing"
+            required
+            value={additionalWorkForm.description}
+            onChange={(e) => setAdditionalWorkForm({ ...additionalWorkForm, description: e.target.value })}
+            placeholder="e.g. Replace front brake pads"
+          />
+          <Input
+            id="extra-work-amount"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            label="Estimated cost (₹)"
+            required
+            value={additionalWorkForm.estimatedAdditionalAmount || ''}
+            onChange={(e) =>
+              setAdditionalWorkForm({ ...additionalWorkForm, estimatedAdditionalAmount: parseFloat(e.target.value) || 0 })
+            }
+            placeholder="e.g. 1800"
+            helperText={
+              additionalWorkForm.estimatedAdditionalAmount > 0
+                ? formatINR(additionalWorkForm.estimatedAdditionalAmount)
+                : undefined
+            }
+          />
+          <Textarea
+            id="extra-work-reason"
+            label="Why it’s needed"
+            rows={2}
+            value={additionalWorkForm.reason}
+            onChange={(e) => setAdditionalWorkForm({ ...additionalWorkForm, reason: e.target.value })}
+            placeholder="e.g. Pads down to 2 mm, rotor worn unevenly"
+          />
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

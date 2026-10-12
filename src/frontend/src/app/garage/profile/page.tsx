@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { Building2, MapPin, Phone, Mail, Users, CheckCircle } from 'lucide-react';
+import { Building2, Mail, MapPin, Phone, Users } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { humanize } from '@/lib/format';
 
 interface GarageProfileData {
   garageId: string;
@@ -25,112 +32,118 @@ interface GarageProfileData {
 export default function GarageProfilePage() {
   const [profile, setProfile] = useState<GarageProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadProfile() {
+    setLoading(true);
+    setError(null);
+    const res = await apiFetch<GarageProfileData>('/garage/profile');
+    if (res.success && res.data) {
+      setProfile(res.data);
+    } else {
+      setError(res.message || 'Could not load the workshop profile.');
+    }
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function loadProfile() {
-      const res = await apiFetch<GarageProfileData>('/garage/profile');
-      if (res.success && res.data) {
-        setProfile(res.data);
-      }
-      setLoading(false);
-    }
     loadProfile();
   }, []);
 
+  const hasLocation =
+    profile != null &&
+    Number.isFinite(profile.latitude) &&
+    Number.isFinite(profile.longitude) &&
+    !(profile.latitude === 0 && profile.longitude === 0);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900">Workshop Organization Profile</h1>
-          <p className="text-xs text-navy-600 mt-1">
-            Registered facility location, contact details, and authorized staff members.
-          </p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        title="Workshop profile"
+        description="Your workshop’s contact details and the people who can use this portal."
+      />
 
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 max-w-4xl space-y-6">
-        <div className="flex items-center gap-4 pb-6 border-b border-surface-200">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-2xl border border-amber-200">
-            <Building2 className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-navy-900">{profile?.name || 'Central Metro Motors'}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Certified Partner Garage
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
+      ) : error || !profile ? (
+        <ErrorState title="Couldn’t load the profile" error={error} onRetry={loadProfile} />
+      ) : (
+        <div className="space-y-5 sm:space-y-6">
+          <section className="flex items-center gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+              <Building2 className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-bold text-navy-900">{profile.name}</h2>
+              <div className="mt-1">
+                {profile.isActive ? (
+                  <Badge variant="green" dot>
+                    Active partner
+                  </Badge>
+                ) : (
+                  <Badge variant="neutral" dot>
+                    Inactive
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <ListGroup title="Contact">
+            <ListItem
+              leading={<IconTile icon={Phone} tone="neutral" />}
+              title={profile.phoneNumber || 'Not set'}
+              subtitle="Phone"
+              href={profile.phoneNumber ? `tel:${profile.phoneNumber.replace(/\s+/g, '')}` : undefined}
+              hideChevron
+            />
+            <ListItem
+              leading={<IconTile icon={Mail} tone="neutral" />}
+              title={profile.email || 'Not set'}
+              subtitle="Email"
+              href={profile.email ? `mailto:${profile.email}` : undefined}
+              hideChevron
+            />
+            <ListItem
+              leading={<IconTile icon={MapPin} tone="neutral" />}
+              title={<span className="whitespace-normal">{profile.address || 'Not set'}</span>}
+              subtitle={hasLocation ? 'Address · open in Maps' : 'Address'}
+              href={
+                hasLocation
+                  ? `https://www.google.com/maps/search/?api=1&query=${profile.latitude},${profile.longitude}`
+                  : undefined
+              }
+            />
+          </ListGroup>
+
+          <ListGroup
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Users className="h-4 w-4 text-navy-400" />
+                Team ({profile.teamMembers?.length ?? 0})
               </span>
-              <span className="text-xs text-navy-600 font-mono">ID: {profile?.garageId?.slice(0, 8)}...</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase mb-1 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5" />
-              <span>Workshop Email</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.email || 'info@centralmetro.com'}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase mb-1 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5" />
-              <span>Contact Hotline</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.phoneNumber || '+1 555 987 6543'}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase mb-1 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Physical Facility Address</span>
-            </div>
-            <div className="text-sm font-semibold text-navy-900">{profile?.address || '100 Performance Way, Metro City'}</div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-surface-50 border border-surface-200">
-            <div className="text-xs font-semibold text-navy-600 uppercase mb-1 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>PostGIS Spatial Coordinates</span>
-            </div>
-            <div className="text-sm font-mono font-semibold text-navy-900">
-              Lng: {profile?.longitude.toFixed(4) || '77.5946'}, Lat: {profile?.latitude.toFixed(4) || '12.9716'}
-            </div>
-          </div>
-        </div>
-
-        {/* Authorized Team Members */}
-        <div className="pt-4 border-t border-surface-200">
-          <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2 mb-3">
-            <Users className="w-4 h-4 text-electric-600" />
-            <span>Authorized Workshop Team</span>
-          </h3>
-
-          <div className="divide-y divide-surface-100 border border-surface-200 rounded-xl overflow-hidden">
-            {profile?.teamMembers && profile.teamMembers.length > 0 ? (
+            }
+          >
+            {profile.teamMembers && profile.teamMembers.length > 0 ? (
               profile.teamMembers.map((m) => (
-                <div key={m.userId} className="p-3.5 bg-surface-50 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold text-navy-900">{m.fullName}</div>
-                    <div className="text-xs text-navy-600">{m.email}</div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-navy-800 bg-white px-2.5 py-1 rounded border border-surface-200 block">
-                      {m.roleName}
-                    </span>
-                    <span className="text-[10px] text-navy-600 block mt-0.5">{m.title}</span>
-                  </div>
-                </div>
+                <ListItem
+                  key={m.userId}
+                  leading={<Avatar name={m.fullName || m.email} size="sm" />}
+                  title={m.fullName || m.email}
+                  subtitle={m.email}
+                  meta={[m.title, humanize(m.roleName)].filter(Boolean).join(' · ')}
+                />
               ))
             ) : (
-              <div className="p-4 text-xs text-navy-600 bg-surface-50">
-                1 active team member: Marcus Sterling (Owner & Master Tech)
-              </div>
+              <div className="px-4 py-3 text-sm text-navy-500">No team members linked to this workshop yet.</div>
             )}
-          </div>
+          </ListGroup>
         </div>
-      </div>
+      )}
     </div>
   );
 }

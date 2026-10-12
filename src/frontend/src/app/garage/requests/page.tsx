@@ -8,286 +8,260 @@ import {
   GarageIncomingRequestDetailDto,
   PagedResult,
 } from '@/types/serviceRequest';
-import {
-  Radio,
-  MapPin,
-  Clock,
-  ArrowRight,
-  Eye,
-  CheckCircle2,
-  Calendar,
-  AlertCircle,
-  FileText,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { Calendar, Car, ChevronLeft, ChevronRight, Clock, FilePlus2, Inbox, MapPin, Navigation } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { formatDate, formatRelative, humanize } from '@/lib/format';
+
+/** Requests the garage can still quote on. Others (declined/expired) stay visible but de-emphasised. */
+const CLOSED_STATUSES = ['DECLINED', 'EXPIRED'];
+
+function formatKm(km: number | null | undefined) {
+  const value = Number(km ?? 0);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} km away`;
+}
 
 export default function GarageRequestsPage() {
   const router = useRouter();
+  const toast = useToast();
   const [requests, setRequests] = useState<GarageIncomingRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Detail Modal State
+  // Detail sheet
   const [selectedRequest, setSelectedRequest] = useState<GarageIncomingRequestDetailDto | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
-  async function loadRequests(p = 1) {
-    setLoading(true);
-    const res = await apiFetch<PagedResult<GarageIncomingRequestDto>>(
-      `/garage/requests?page=${p}&pageSize=10`
-    );
+  async function loadRequests(p = 1, { quiet = false } = {}) {
+    if (!quiet) {
+      setLoading(true);
+      setLoadError(null);
+    }
+    const res = await apiFetch<PagedResult<GarageIncomingRequestDto>>(`/garage/requests?page=${p}&pageSize=10`);
     if (res.success && res.data) {
       setRequests(res.data.items);
       setPage(res.data.page);
       setTotalPages(res.data.totalPages);
+    } else if (!quiet) {
+      setLoadError(res.message || 'Could not load requests.');
     }
-    setLoading(false);
+    if (!quiet) setLoading(false);
   }
 
   useEffect(() => {
     loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function viewDetail(garageRequestId: string) {
-    setDetailLoading(true);
-    setErrorMsg(null);
+    setDetailLoadingId(garageRequestId);
     const res = await apiFetch<GarageIncomingRequestDetailDto>(`/garage/requests/${garageRequestId}`);
     if (res.success && res.data) {
       setSelectedRequest(res.data);
       // Reload list in background to reflect VIEWED status
-      loadRequests(page);
+      loadRequests(page, { quiet: true });
     } else {
-      setErrorMsg(res.message || 'Failed to load request details.');
+      toast.error('Could not open request', res.message || 'Please try again.');
     }
-    setDetailLoading(false);
+    setDetailLoadingId(null);
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'NOTIFIED':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'VIEWED':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'ACCEPTED':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'DECLINED':
-        return 'bg-surface-100 text-navy-500 border-surface-200';
-      default:
-        return 'bg-surface-100 text-navy-700 border-surface-200';
-    }
-  };
+  function createQuote(garageRequestId: string) {
+    router.push(`/garage/quotes/new?requestId=${garageRequestId}`);
+  }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Dispatched Incoming Requests</h1>
-          <p className="text-xs text-navy-600 mt-1">
-            Service and tuning dispatches located within your certified 10 KM geographic radius.
-          </p>
-        </div>
-      </div>
-
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+    <div>
+      <PageHeader
+        title="New requests"
+        description="Customer jobs near your workshop. Check the details, then send a quote."
+      />
 
       {loading ? (
-        <div className="py-16 text-center text-sm text-navy-500">Loading incoming workshop requests...</div>
-      ) : requests.length > 0 ? (
-        <div className="space-y-4">
-          {requests.map((r) => (
-            <div
-              key={r.garageRequestId}
-              className="bg-white rounded-2xl border border-surface-200 shadow-sm p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-surface-300 transition"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="font-mono text-xs font-bold text-electric-600 bg-electric-50 px-2 py-0.5 rounded-lg">
-                    {r.requestNumber}
-                  </span>
-                  <span className="text-xs font-bold text-navy-900">{r.vehicleSummary}</span>
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
-                    {r.distanceKm} KM Away
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-full border uppercase ${getStatusBadge(
-                      r.status
-                    )}`}
-                  >
-                    {r.status}
-                  </span>
-                </div>
-
-                <p className="text-xs text-navy-700 font-medium line-clamp-2">{r.problemDescription}</p>
-
-                <div className="flex items-center gap-4 text-xs text-navy-500 pt-1 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-navy-400" />
-                    <span>{r.locationArea}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-navy-400" />
-                    <span>Dispatched {new Date(r.sentAtUtc).toLocaleDateString()}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
-                <button
-                  onClick={() => router.push(`/garage/quotes/new?requestId=${r.garageRequestId}`)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> Create Quote
-                </button>
-                <button
-                  onClick={() => viewDetail(r.garageRequestId)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold tracking-wide transition shadow-sm"
-                >
-                  <Eye className="w-3.5 h-3.5" /> View Details
-                </button>
-              </div>
-            </div>
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
           ))}
+        </div>
+      ) : loadError ? (
+        <ErrorState title="Couldn’t load requests" error={loadError} onRetry={() => loadRequests(page)} />
+      ) : requests.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="No requests right now"
+          description="When a customer near your workshop books a service, it shows up here."
+        />
+      ) : (
+        <div className="space-y-3">
+          {requests.map((r) => {
+            const closed = CLOSED_STATUSES.includes(String(r.status).toUpperCase());
+            return (
+              <article
+                key={r.garageRequestId}
+                className={`rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5 ${closed ? 'opacity-70' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-snug text-navy-900">
+                      <Car className="h-4 w-4 shrink-0 text-navy-400" />
+                      <span className="truncate">{r.vehicleSummary || 'Vehicle'}</span>
+                    </h2>
+                    <div className="mt-0.5 text-xs text-navy-500">{r.requestNumber}</div>
+                  </div>
+                  <StatusBadge status={r.status} />
+                </div>
 
-          {/* Pagination */}
+                <p className="mt-3 line-clamp-3 text-sm text-navy-700">{r.problemDescription}</p>
+
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-navy-500">
+                  <span className="inline-flex items-center gap-1 font-medium text-electric-700">
+                    <Navigation className="h-3.5 w-3.5" />
+                    {formatKm(r.distanceKm)}
+                  </span>
+                  {r.locationArea && (
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{r.locationArea}</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatRelative(r.sentAtUtc)}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => viewDetail(r.garageRequestId)}
+                    isLoading={detailLoadingId === r.garageRequestId}
+                    disabled={detailLoadingId !== null}
+                  >
+                    Details
+                  </Button>
+                  <Button
+                    variant={closed ? 'outline' : 'primary'}
+                    onClick={() => createQuote(r.garageRequestId)}
+                    leftIcon={<FilePlus2 className="h-4 w-4" />}
+                  >
+                    Create quote
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 pt-4">
-              <button
+            <nav className="flex items-center justify-between gap-2 pt-1" aria-label="Pages">
+              <Button
+                variant="outline"
                 disabled={page <= 1}
                 onClick={() => loadRequests(page - 1)}
-                className="px-3 py-1 text-xs border border-surface-200 rounded-lg disabled:opacity-40"
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
               >
                 Previous
-              </button>
-              <span className="text-xs text-navy-600 py-1">
+              </Button>
+              <span className="text-sm text-navy-500">
                 Page {page} of {totalPages}
               </span>
-              <button
+              <Button
+                variant="outline"
                 disabled={page >= totalPages}
                 onClick={() => loadRequests(page + 1)}
-                className="px-3 py-1 text-xs border border-surface-200 rounded-lg disabled:opacity-40"
+                rightIcon={<ChevronRight className="h-4 w-4" />}
               >
                 Next
-              </button>
-            </div>
+              </Button>
+            </nav>
           )}
-        </div>
-      ) : (
-        <div className="py-16 bg-white rounded-2xl border border-dashed border-surface-300 text-center p-8">
-          <Radio className="w-12 h-12 text-navy-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-navy-900">No Nearby Requests Dispatched</h3>
-          <p className="text-xs text-navy-500 mt-1 max-w-sm mx-auto">
-            Dispatches from vehicle owners within your 10 KM geographic perimeter will appear here in real time.
-          </p>
         </div>
       )}
 
-      {/* DETAIL MODAL */}
-      {selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-navy-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-surface-100 pb-4">
-              <div>
-                <span className="font-mono text-xs font-bold text-electric-600 bg-electric-50 px-2 py-0.5 rounded-lg">
-                  {selectedRequest.requestNumber}
-                </span>
-                <h3 className="text-base font-bold text-navy-900 mt-1">
-                  {selectedRequest.vehicleYear} {selectedRequest.vehicleMake} {selectedRequest.vehicleModel}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="text-navy-400 hover:text-navy-700 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-navy-400 font-bold uppercase text-[10px]">License Plate</span>
-                <div className="font-mono font-semibold text-navy-900">{selectedRequest.vehicleLicensePlate}</div>
-              </div>
-              <div>
-                <span className="text-navy-400 font-bold uppercase text-[10px]">Distance</span>
-                <div className="font-semibold text-emerald-600">{selectedRequest.distanceKm} KM Away</div>
-              </div>
-              <div>
-                <span className="text-navy-400 font-bold uppercase text-[10px]">Category</span>
-                <div className="font-medium text-navy-800">{selectedRequest.serviceCategory}</div>
-              </div>
-              <div>
-                <span className="text-navy-400 font-bold uppercase text-[10px]">Status</span>
-                <div>
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${getStatusBadge(
-                      selectedRequest.status
-                    )}`}
-                  >
-                    {selectedRequest.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-surface-50 rounded-xl space-y-1 text-xs">
-              <span className="text-[10px] font-bold text-navy-400 uppercase">Service Location Area</span>
-              <div className="font-medium text-navy-900">{selectedRequest.locationArea}</div>
-            </div>
-
-            <div className="space-y-1 text-xs">
-              <span className="text-[10px] font-bold text-navy-400 uppercase">Problem Description</span>
-              <div className="p-3 bg-surface-50 rounded-xl font-medium text-navy-900 whitespace-pre-wrap">
-                {selectedRequest.problemDescription}
-              </div>
-            </div>
-
-            {selectedRequest.preferredServiceDate && (
-              <div className="text-xs text-navy-700 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-navy-400" />
-                <span>
-                  Customer Preferred Date:{' '}
-                  <span className="font-semibold">
-                    {new Date(selectedRequest.preferredServiceDate).toLocaleDateString()}
-                  </span>
-                </span>
-              </div>
-            )}
-
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between gap-3">
-              <div>
-                <span className="font-bold">Confidential Quotation: </span>
-                Submit detailed line items and workshop pricing directly to BroCo Mod Advisors.
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end gap-2 border-t border-surface-100">
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="px-4 py-2 bg-surface-100 text-navy-800 text-xs font-bold rounded-xl hover:bg-surface-200"
-              >
+      {/* Detail sheet */}
+      <Modal
+        isOpen={!!selectedRequest}
+        onClose={() => setSelectedRequest(null)}
+        title={
+          selectedRequest
+            ? `${selectedRequest.vehicleYear} ${selectedRequest.vehicleMake} ${selectedRequest.vehicleModel}`
+            : ''
+        }
+        description={selectedRequest?.requestNumber}
+        footer={
+          selectedRequest && (
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedRequest(null)}>
                 Close
-              </button>
-              <button
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                leftIcon={<FilePlus2 className="h-4 w-4" />}
                 onClick={() => {
                   const reqId = selectedRequest.garageRequestId;
                   setSelectedRequest(null);
-                  router.push(`/garage/quotes/new?requestId=${reqId}`);
+                  createQuote(reqId);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-sm transition"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" /> Create Quotation
-              </button>
+                Create quote
+              </Button>
             </div>
+          )
+        }
+      >
+        {selectedRequest && (
+          <div className="space-y-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={selectedRequest.status} />
+              <span className="text-xs font-medium text-electric-700">{formatKm(selectedRequest.distanceKm)}</span>
+            </div>
+
+            <div>
+              <div className="text-xs text-navy-500">Problem</div>
+              <p className="mt-0.5 whitespace-pre-wrap text-navy-900">{selectedRequest.problemDescription}</p>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <dt className="text-xs text-navy-500">Number plate</dt>
+                <dd className="font-medium text-navy-900">{selectedRequest.vehicleLicensePlate || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-navy-500">Service type</dt>
+                <dd className="font-medium text-navy-900">{humanize(selectedRequest.serviceCategory) || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-navy-500">Area</dt>
+                <dd className="font-medium text-navy-900">{selectedRequest.locationArea || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-navy-500">Preferred date</dt>
+                <dd className="flex items-center gap-1 font-medium text-navy-900">
+                  {selectedRequest.preferredServiceDate ? (
+                    <>
+                      <Calendar className="h-3.5 w-3.5 text-navy-400" />
+                      {formatDate(selectedRequest.preferredServiceDate)}
+                    </>
+                  ) : (
+                    'Not given'
+                  )}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">
+              Your quote goes to a BroCo Mod advisor, not straight to the customer. Item prices stay private.
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

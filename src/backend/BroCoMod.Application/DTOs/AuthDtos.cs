@@ -8,7 +8,10 @@ public record RegisterRequest(
     string Role = "CUSTOMER",
     string? GarageName = null,
     string? Address = null,
-    Guid? GarageId = null
+    // Ignored for self-service sign-up: a garage owner always creates a new garage. Staff are added by an owner/admin.
+    Guid? GarageId = null,
+    double? Latitude = null,
+    double? Longitude = null
 );
 
 public record LoginRequest(

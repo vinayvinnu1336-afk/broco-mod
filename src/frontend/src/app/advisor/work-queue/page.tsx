@@ -1,250 +1,339 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { AdvisorWorkQueue, AdvisorWorkQueueItem } from '@/types/adminOperations';
-import {
-  ListTodo,
-  Calculator,
-  FileText,
-  Clock,
-  Wrench,
-  AlertTriangle,
-  ArrowRight,
-  RefreshCw,
-  CheckCircle2,
-} from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { formatINRWhole, formatRelative } from '@/lib/format';
+import { AlertTriangle, Calculator, CheckCircle2, FileText, Inbox, RefreshCw, Send, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+// Shapes returned by GET /advisor/work-queue (AdvisorWorkQueueDto on the API).
+interface QueueRequest {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleLicensePlate?: string;
+  vehicleSummary?: string;
+  locationSummary?: string;
+  status: string;
+  dispatchedGaragesCount?: number;
+  quotesReceivedCount?: number;
+  assignedGarageName?: string | null;
+  createdAtUtc: string;
+}
+
+interface QueueJob {
+  id: string;
+  jobNumber: string;
+  serviceRequestId: string;
+  requestNumber: string;
+  garageName: string;
+  customerName: string;
+  vehicleSummary: string;
+  status: string;
+  scheduledStartAtUtc?: string | null;
+  createdAtUtc: string;
+}
+
+interface QueueExtraWork {
+  id: string;
+  serviceJobId: string;
+  description: string;
+  estimatedAdditionalAmount: number;
+  reason: string;
+  status: string;
+  createdAtUtc: string;
+}
+
+interface AdvisorWorkQueueResponse {
+  newRequests?: QueueRequest[];
+  quotesToReview?: QueueRequest[];
+  customerQuotationsPending?: QueueRequest[];
+  activeJobs?: QueueJob[];
+  additionalWorkPending?: QueueExtraWork[];
+}
+
+type Stage = 'all' | 'new-requests' | 'pending-quotes' | 'ready-to-send' | 'awaiting-customer' | 'additional-work' | 'active-jobs';
+
+const STAGES: Stage[] = ['all', 'new-requests', 'pending-quotes', 'ready-to-send', 'awaiting-customer', 'additional-work', 'active-jobs'];
+
+/** A customer quotation is with the customer once the request moved to "quotation sent". */
+function isSentToCustomer(status: string) {
+  return status.replace(/[_\s]/g, '').toLowerCase() === 'customerquotationsent';
+}
+
+function vehicleLabel(r: QueueRequest) {
+  const summary = r.vehicleSummary?.trim();
+  if (summary) return summary;
+  return [r.vehicleMake, r.vehicleModel].filter(Boolean).join(' ') || r.requestNumber;
+}
+
+function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+function RequestRow({ r, href, icon, tone, extra }: {
+  r: QueueRequest;
+  href: string;
+  icon: React.ElementType;
+  tone: 'blue' | 'amber' | 'green' | 'red' | 'neutral';
+  extra?: string;
+}) {
+  return (
+    <ListItem
+      href={href}
+      leading={<IconTile icon={icon} tone={tone} />}
+      title={vehicleLabel(r)}
+      subtitle={[r.customerName, r.locationSummary].filter(Boolean).join(' · ')}
+      meta={
+        <>
+          <span className="font-mono">{r.requestNumber}</span> · {formatRelative(r.createdAtUtc)}
+          {extra ? ` · ${extra}` : ''}
+        </>
+      }
+      trailing={<StatusBadge status={r.status} />}
+    />
+  );
+}
 
 function AdvisorWorkQueueContent() {
   const searchParams = useSearchParams();
   const initialStage = searchParams.get('stage') || 'all';
 
-  const [queue, setQueue] = useState<AdvisorWorkQueue | null>(null);
+  const [queue, setQueue] = useState<AdvisorWorkQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(initialStage);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Stage>(
+    (STAGES as string[]).includes(initialStage) ? (initialStage as Stage) : 'all'
+  );
 
-  const loadWorkQueue = async () => {
+  const loadWorkQueue = useCallback(async () => {
     setRefreshing(true);
-    const res = await apiFetch<AdvisorWorkQueue>('/advisor/work-queue');
+    const res = await apiFetch<AdvisorWorkQueueResponse>('/advisor/work-queue');
     if (res.success && res.data) {
       setQueue(res.data);
+      setError(null);
+    } else {
+      setError(res.message || 'Could not load the work queue.');
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadWorkQueue();
-  }, []);
+  }, [loadWorkQueue]);
 
-  const items = queue?.items ?? [];
+  const groups = useMemo(() => {
+    const quotations = queue?.customerQuotationsPending ?? [];
+    return {
+      newRequests: queue?.newRequests ?? [],
+      quotesToReview: queue?.quotesToReview ?? [],
+      readyToSend: quotations.filter((q) => !isSentToCustomer(q.status)),
+      awaitingCustomer: quotations.filter((q) => isSentToCustomer(q.status)),
+      additionalWork: queue?.additionalWorkPending ?? [],
+      activeJobs: queue?.activeJobs ?? [],
+    };
+  }, [queue]);
 
-  const filteredItems = items.filter((item) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'pending-quotes' && item.queueStage === 'PendingQuotesReview') return true;
-    if (activeTab === 'ready-to-send' && item.queueStage === 'ReadyToSendQuotes') return true;
-    if (activeTab === 'awaiting-customer' && item.queueStage === 'PendingCustomerDecision') return true;
-    if (activeTab === 'additional-work' && (item.queueStage === 'AdditionalWorkReview' || item.hasAdditionalWorkPending)) return true;
-    if (activeTab === 'active-jobs' && item.queueStage === 'ActiveJobsMonitoring') return true;
-    return false;
-  });
-
-  const getStageBadge = (stage: string) => {
-    switch (stage) {
-      case 'PendingQuotesReview':
-        return (
-          <Badge variant="amber" icon={Calculator}>
-            Quote Review Needed
-          </Badge>
-        );
-      case 'ReadyToSendQuotes':
-        return (
-          <Badge variant="blue" icon={FileText}>
-            Proposal Ready to Send
-          </Badge>
-        );
-      case 'PendingCustomerDecision':
-        return (
-          <Badge variant="neutral" icon={Clock}>
-            Awaiting Customer Decision
-          </Badge>
-        );
-      case 'AdditionalWorkReview':
-        return (
-          <Badge variant="red" icon={AlertTriangle}>
-            Additional Work Pending
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="navy" icon={Wrench}>
-            Live Workshop Execution
-          </Badge>
-        );
-    }
+  const counts: Record<Stage, number> = {
+    'new-requests': groups.newRequests.length,
+    'pending-quotes': groups.quotesToReview.length,
+    'ready-to-send': groups.readyToSend.length,
+    'awaiting-customer': groups.awaitingCustomer.length,
+    'additional-work': groups.additionalWork.length,
+    'active-jobs': groups.activeJobs.length,
+    all: 0,
   };
+  counts.all =
+    counts['new-requests'] +
+    counts['pending-quotes'] +
+    counts['ready-to-send'] +
+    counts['awaiting-customer'] +
+    counts['additional-work'] +
+    counts['active-jobs'];
+
+  const chipOptions = [
+    { value: 'all', label: 'All', count: counts.all },
+    { value: 'additional-work', label: 'Extra work', count: counts['additional-work'] },
+    { value: 'pending-quotes', label: 'Quotes to review', count: counts['pending-quotes'] },
+    { value: 'ready-to-send', label: 'Quotation to send', count: counts['ready-to-send'] },
+    { value: 'new-requests', label: 'New requests', count: counts['new-requests'] },
+    { value: 'awaiting-customer', label: 'With customer', count: counts['awaiting-customer'] },
+    { value: 'active-jobs', label: 'Active jobs', count: counts['active-jobs'] },
+  ];
+
+  const show = (stage: Stage) => activeTab === 'all' || activeTab === stage;
+
+  const sections: React.ReactNode[] = [];
+
+  if (show('additional-work') && groups.additionalWork.length > 0) {
+    sections.push(
+      <ListGroup key="additional-work" title="Extra work waiting for approval">
+        {groups.additionalWork.map((w) => (
+          <ListItem
+            key={w.id}
+            href={`/advisor/jobs/${w.serviceJobId}`}
+            leading={<IconTile icon={AlertTriangle} tone="red" />}
+            title={w.description}
+            subtitle={w.reason}
+            meta={`Raised ${formatRelative(w.createdAtUtc)}`}
+            trailing={
+              <span className="text-sm font-semibold tabular-nums text-navy-900">
+                {formatINRWhole(w.estimatedAdditionalAmount)}
+              </span>
+            }
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('pending-quotes') && groups.quotesToReview.length > 0) {
+    sections.push(
+      <ListGroup key="pending-quotes" title="Garage quotes to compare">
+        {groups.quotesToReview.map((r) => (
+          <RequestRow
+            key={r.id}
+            r={r}
+            href={`/advisor/requests/${r.id}`}
+            icon={Calculator}
+            tone="amber"
+            extra={typeof r.quotesReceivedCount === 'number' ? plural(r.quotesReceivedCount, 'quote') : undefined}
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('ready-to-send') && groups.readyToSend.length > 0) {
+    sections.push(
+      <ListGroup key="ready-to-send" title="Customer quotations to finish and send">
+        {groups.readyToSend.map((r) => (
+          <RequestRow
+            key={`${r.id}-${r.createdAtUtc}`}
+            r={r}
+            href={`/advisor/requests/${r.id}/customer-quotation`}
+            icon={Send}
+            tone="blue"
+            extra={r.assignedGarageName ?? undefined}
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('new-requests') && groups.newRequests.length > 0) {
+    sections.push(
+      <ListGroup key="new-requests" title="New requests, no quotes yet">
+        {groups.newRequests.map((r) => (
+          <RequestRow
+            key={r.id}
+            r={r}
+            href={`/advisor/requests/${r.id}`}
+            icon={Inbox}
+            tone="neutral"
+            extra={
+              typeof r.dispatchedGaragesCount === 'number'
+                ? `${plural(r.dispatchedGaragesCount, 'garage')} notified`
+                : undefined
+            }
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('awaiting-customer') && groups.awaitingCustomer.length > 0) {
+    sections.push(
+      <ListGroup key="awaiting-customer" title="Waiting for the customer to decide">
+        {groups.awaitingCustomer.map((r) => (
+          <RequestRow
+            key={`${r.id}-${r.createdAtUtc}`}
+            r={r}
+            href={`/advisor/requests/${r.id}`}
+            icon={FileText}
+            tone="neutral"
+            extra={r.assignedGarageName ?? undefined}
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('active-jobs') && groups.activeJobs.length > 0) {
+    sections.push(
+      <ListGroup key="active-jobs" title="Jobs at garages">
+        {groups.activeJobs.map((j) => (
+          <ListItem
+            key={j.id}
+            href={`/advisor/jobs/${j.id}`}
+            leading={<IconTile icon={Wrench} tone="green" />}
+            title={j.vehicleSummary || j.jobNumber}
+            subtitle={[j.garageName, j.customerName].filter(Boolean).join(' · ')}
+            meta={
+              <>
+                <span className="font-mono">{j.jobNumber}</span> · started {formatRelative(j.createdAtUtc)}
+              </>
+            }
+            trailing={<StatusBadge status={j.status} />}
+          />
+        ))}
+      </ListGroup>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-navy-900">Advisor Operational Work Queue</h1>
-            <Badge variant="blue" icon={ListTodo}>
-              Actionable Task Hub
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-navy-600">
-            Organized queues of quotation reviews, proposal dispatches, customer responses, and workshop execution oversight.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Work queue"
+        description="Everything waiting on you, most urgent first."
+        actions={
           <Button
             variant="outline"
-            size="sm"
             onClick={loadWorkQueue}
-            isLoading={refreshing}
+            isLoading={refreshing && !loading}
             leftIcon={<RefreshCw className="h-4 w-4" />}
           >
-            Refresh Queue
+            Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-surface-200 pb-3">
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'all'
-              ? 'bg-navy-900 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          All Items ({items.length})
-        </button>
+      <FilterChips
+        ariaLabel="Queue stage"
+        options={chipOptions}
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as Stage)}
+      />
 
-        <button
-          onClick={() => setActiveTab('pending-quotes')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'pending-quotes'
-              ? 'bg-amber-600 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          <Calculator className="h-3.5 w-3.5" />
-          Pending Quotes ({queue?.pendingQuotesReviewCount ?? 0})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('ready-to-send')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'ready-to-send'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          <FileText className="h-3.5 w-3.5" />
-          Ready to Send ({queue?.readyToSendQuotesCount ?? 0})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('awaiting-customer')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'awaiting-customer'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          <Clock className="h-3.5 w-3.5" />
-          Awaiting Decision ({queue?.pendingCustomerDecisionCount ?? 0})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('additional-work')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'additional-work'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Additional Work ({queue?.additionalWorkReviewCount ?? 0})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('active-jobs')}
-          className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-            activeTab === 'active-jobs'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-white text-navy-600 border border-surface-200 hover:bg-surface-100 hover:text-navy-900'
-          }`}
-        >
-          <Wrench className="h-3.5 w-3.5" />
-          Execution ({queue?.activeJobsMonitoringCount ?? 0})
-        </button>
-      </div>
-
-      {/* Work Queue Items List */}
       {loading ? (
-        <LoadingState message="Loading work queue items..." />
-      ) : filteredItems.length === 0 ? (
-        <EmptyState
-          icon={CheckCircle2}
-          title="Queue Empty"
-          description="No active operational tasks pending in this stage. Great job!"
-        />
-      ) : (
         <div className="space-y-3">
-          {filteredItems.map((item) => (
-            <Card
-              key={item.id}
-              className="p-5 flex flex-col gap-4 transition hover:border-surface-300 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-mono text-sm font-bold text-navy-900 bg-surface-100 px-2 py-0.5 rounded-lg border border-surface-200">
-                    {item.requestNumber}
-                  </span>
-                  {getStageBadge(item.queueStage)}
-                  <span className="text-xs text-navy-500">
-                    Status: <StatusBadge status={item.status} />
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-navy-900">
-                  {item.customerName} &bull; <span className="text-navy-600 font-normal">{item.vehicleSummary}</span>
-                </p>
-                <div className="flex items-center gap-4 text-xs text-navy-500 flex-wrap">
-                  <span>Quotes received: <strong className="text-navy-800">{item.quotesReceivedCount}</strong></span>
-                  {item.waitingSinceUtc && (
-                    <span>Waiting since: {new Date(item.waitingSinceUtc).toLocaleDateString()}</span>
-                  )}
-                  {item.hasAdditionalWorkPending && (
-                    <span className="font-bold text-rose-600">Extra parts/labor pending review</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center">
-                <Link href={item.actionUrl}>
-                  <Button size="sm" variant="primary" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
-                    Action Task
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[72px] rounded-2xl" />
           ))}
         </div>
+      ) : error && !queue ? (
+        <ErrorState title="Could not load the work queue" error={error} onRetry={loadWorkQueue} />
+      ) : sections.length === 0 ? (
+        <EmptyState
+          icon={CheckCircle2}
+          title="Nothing waiting here"
+          description={activeTab === 'all' ? 'You are all caught up.' : 'Nothing in this stage right now.'}
+        />
+      ) : (
+        <div className="space-y-5 sm:space-y-6">{sections}</div>
       )}
     </div>
   );
@@ -252,7 +341,7 @@ function AdvisorWorkQueueContent() {
 
 export default function AdvisorWorkQueuePage() {
   return (
-    <Suspense fallback={<LoadingState message="Loading advisor work queue..." />}>
+    <Suspense fallback={<LoadingState message="Loading work queue..." />}>
       <AdvisorWorkQueueContent />
     </Suspense>
   );

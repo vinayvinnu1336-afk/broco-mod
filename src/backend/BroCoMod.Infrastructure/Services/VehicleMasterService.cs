@@ -7,11 +7,49 @@ namespace BroCoMod.Infrastructure.Services;
 
 public class VehicleMasterService : IVehicleMasterService
 {
-    private readonly IApplicationDbContext _context;
+    /// <summary>
+    /// The vehicle catalog is read-mostly reference data. Only the default (unfiltered, active-only)
+    /// listings are cached; filtered queries always go to the database.
+    /// </summary>
+    public static readonly TimeSpan CatalogCacheExpiry = TimeSpan.FromMinutes(30);
 
-    public VehicleMasterService(IApplicationDbContext context)
+    public const string ManufacturersCacheKey = "vehicle-master:manufacturers";
+
+    public static string ModelsCacheKey(Guid manufacturerId) => $"vehicle-master:models:{manufacturerId}";
+
+    public static string VariantsCacheKey(Guid modelId) => $"vehicle-master:variants:{modelId}";
+
+    private readonly IApplicationDbContext _context;
+    private readonly ICacheService _cache;
+
+    public VehicleMasterService(IApplicationDbContext context, ICacheService cache)
     {
         _context = context;
+        _cache = cache;
+    }
+
+    /// <summary>
+    /// Clears every cached catalog entry that can be affected by a change to the given manufacturer,
+    /// model or variant. Call after any create/update/deactivate of catalog entities
+    /// (manufacturer changes alter ModelsCount; model changes alter VariantsCount and names on variants).
+    /// </summary>
+    public static async Task InvalidateCatalogCacheAsync(
+        ICacheService cache,
+        Guid? manufacturerId = null,
+        Guid? modelId = null,
+        CancellationToken cancellationToken = default)
+    {
+        await cache.RemoveAsync(ManufacturersCacheKey, cancellationToken);
+
+        if (manufacturerId.HasValue)
+        {
+            await cache.RemoveAsync(ModelsCacheKey(manufacturerId.Value), cancellationToken);
+        }
+
+        if (modelId.HasValue)
+        {
+            await cache.RemoveAsync(VariantsCacheKey(modelId.Value), cancellationToken);
+        }
     }
 
     public async Task<IReadOnlyList<VehicleManufacturerDto>> GetManufacturersAsync(
@@ -19,6 +57,16 @@ public class VehicleMasterService : IVehicleMasterService
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
+        var cacheable = activeOnly && string.IsNullOrWhiteSpace(search);
+        if (cacheable)
+        {
+            var cached = await _cache.GetAsync<List<VehicleManufacturerDto>>(ManufacturersCacheKey, cancellationToken);
+            if (cached != null)
+            {
+                return cached;
+            }
+        }
+
         var query = _context.VehicleManufacturers.AsNoTracking();
 
         if (activeOnly)
@@ -32,7 +80,7 @@ public class VehicleMasterService : IVehicleMasterService
             query = query.Where(m => m.NormalizedName.Contains(term) || m.Country.ToUpper().Contains(term));
         }
 
-        return await query
+        var manufacturers = await query
             .OrderBy(m => m.DisplayOrder)
             .ThenBy(m => m.Name)
             .Select(m => new VehicleManufacturerDto(
@@ -45,6 +93,13 @@ public class VehicleMasterService : IVehicleMasterService
                 m.Models.Count(mod => !activeOnly || mod.IsActive)
             ))
             .ToListAsync(cancellationToken);
+
+        if (cacheable)
+        {
+            await _cache.SetAsync(ManufacturersCacheKey, manufacturers, CatalogCacheExpiry, cancellationToken);
+        }
+
+        return manufacturers;
     }
 
     public async Task<VehicleManufacturerDto?> GetManufacturerByIdAsync(
@@ -72,6 +127,17 @@ public class VehicleMasterService : IVehicleMasterService
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
+        var cacheable = activeOnly && string.IsNullOrWhiteSpace(bodyType);
+        var cacheKey = ModelsCacheKey(manufacturerId);
+        if (cacheable)
+        {
+            var cached = await _cache.GetAsync<List<VehicleModelDto>>(cacheKey, cancellationToken);
+            if (cached != null)
+            {
+                return cached;
+            }
+        }
+
         var query = _context.VehicleModels
             .AsNoTracking()
             .Where(m => m.ManufacturerId == manufacturerId);
@@ -87,7 +153,7 @@ public class VehicleMasterService : IVehicleMasterService
             query = query.Where(m => m.BodyType.ToUpper() == bt);
         }
 
-        return await query
+        var models = await query
             .OrderBy(m => m.Name)
             .Select(m => new VehicleModelDto(
                 m.Id,
@@ -101,6 +167,13 @@ public class VehicleMasterService : IVehicleMasterService
                 m.Variants.Count(v => !activeOnly || v.IsActive)
             ))
             .ToListAsync(cancellationToken);
+
+        if (cacheable)
+        {
+            await _cache.SetAsync(cacheKey, models, CatalogCacheExpiry, cancellationToken);
+        }
+
+        return models;
     }
 
     public async Task<VehicleModelDto?> GetModelByIdAsync(
@@ -129,6 +202,17 @@ public class VehicleMasterService : IVehicleMasterService
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
+        var cacheable = activeOnly;
+        var cacheKey = VariantsCacheKey(modelId);
+        if (cacheable)
+        {
+            var cached = await _cache.GetAsync<List<VehicleVariantDto>>(cacheKey, cancellationToken);
+            if (cached != null)
+            {
+                return cached;
+            }
+        }
+
         var query = _context.VehicleVariants
             .AsNoTracking()
             .Where(v => v.ModelId == modelId);
@@ -138,7 +222,7 @@ public class VehicleMasterService : IVehicleMasterService
             query = query.Where(v => v.IsActive);
         }
 
-        return await query
+        var variants = await query
             .OrderBy(v => v.Name)
             .Select(v => new VehicleVariantDto(
                 v.Id,
@@ -154,6 +238,13 @@ public class VehicleMasterService : IVehicleMasterService
                 v.IsActive
             ))
             .ToListAsync(cancellationToken);
+
+        if (cacheable)
+        {
+            await _cache.SetAsync(cacheKey, variants, CatalogCacheExpiry, cancellationToken);
+        }
+
+        return variants;
     }
 
     public async Task<VehicleVariantDto?> GetVariantByIdAsync(

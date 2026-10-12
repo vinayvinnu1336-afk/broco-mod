@@ -1,151 +1,129 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { CustomerFacingQuotationDto } from '@/types/customerQuotation';
-import {
-  BadgeDollarSign,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  Car,
-  ChevronRight,
-  FileText,
-  Calendar,
-  AlertCircle,
-  ArrowRight
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { FileCheck2, Plus } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { formatDate, formatINRWhole } from '@/lib/format';
+import { statusKey } from '@/app/customer/_lib/customer-ui';
+
+/** The API also returns these vehicle fields on each quote. */
+type QuoteRow = CustomerFacingQuotationDto & {
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleLicensePlate?: string;
+};
+
+function quoteVehicle(q: QuoteRow) {
+  return [q.vehicleYear, q.vehicleMake, q.vehicleModel].filter(Boolean).join(' ');
+}
+
+function QuoteListItem({ q }: { q: QuoteRow }) {
+  const awaiting = statusKey(q.status) === 'SENT';
+  const meta = [q.quotationNumber, q.validUntilUtc ? `Valid until ${formatDate(q.validUntilUtc)}` : null]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <ListItem
+      href={`/customer/quotes/${q.id}`}
+      leading={<IconTile icon={FileCheck2} tone={awaiting ? 'amber' : 'neutral'} />}
+      title={quoteVehicle(q) || `Quote ${q.quotationNumber}`}
+      subtitle={q.scopeSummary || `Request ${q.requestNumber}`}
+      meta={meta}
+      trailing={
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(q.customerTotal)}</span>
+          <StatusBadge status={q.status} />
+        </div>
+      }
+    />
+  );
+}
 
 export default function CustomerQuotesPage() {
-  const [quotes, setQuotes] = useState<CustomerFacingQuotationDto[]>([]);
+  const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadQuotes() {
-      setLoading(true);
-      try {
-        const res = await apiFetch<CustomerFacingQuotationDto[]>('/customer/quotes');
-        if (res.success && res.data) {
-          setQuotes(res.data);
-        }
-      } catch (err) {
-        console.error('Error loading quotations:', err);
-      } finally {
-        setLoading(false);
+  const loadQuotes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch<QuoteRow[]>('/customer/quotes');
+      if (res.success && res.data) {
+        setQuotes(res.data);
+      } else {
+        setError(res.message || 'Unable to load your quotes.');
       }
+    } catch (err) {
+      console.error('Error loading quotations:', err);
+      setError('Unable to load your quotes.');
+    } finally {
+      setLoading(false);
     }
-    loadQuotes();
   }, []);
 
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-navy-900 tracking-tight flex items-center gap-2.5">
-            <BadgeDollarSign className="w-6 h-6 text-amber-500" />
-            <span>Approved Quotations</span>
-          </h1>
-          <p className="text-xs text-navy-500 mt-1">
-            Curated proposals approved by your dedicated automotive advisor with guaranteed fixed pricing.
-          </p>
-        </div>
-      </div>
+  useEffect(() => {
+    loadQuotes();
+  }, [loadQuotes]);
 
-      {/* Pricing Isolation Banner */}
-      <div className="p-4 bg-white rounded-2xl border border-surface-200 shadow-card flex items-start gap-3.5">
-        <ShieldCheck className="w-5 h-5 text-electric-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-navy-600 leading-relaxed">
-          <strong className="text-navy-900 block font-bold mb-0.5">BroCo Mod Pricing Integrity Guarantee</strong>
-          Every price listed here is an all-inclusive, fixed customer proposal vetted by certified BroCo Mod Technical Advisors.
-          Workshop internal parts cost breakdown and commercial negotiations are securely segregated on the server.
-        </div>
-      </div>
+  const awaiting = useMemo(() => quotes.filter((q) => statusKey(q.status) === 'SENT'), [quotes]);
+  const others = useMemo(() => quotes.filter((q) => statusKey(q.status) !== 'SENT'), [quotes]);
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Quotes"
+        description="Prices from your advisor. Open a quote to see what is included and accept or decline it."
+      />
 
       {loading ? (
-        <LoadingState message="Loading approved quotations..." />
+        <div className="space-y-2" aria-busy="true" aria-label="Loading quotes">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-[76px]" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState title="Could not load your quotes" error={error} onRetry={loadQuotes} />
       ) : quotes.length === 0 ? (
         <EmptyState
-          icon={<BadgeDollarSign className="w-7 h-7 text-navy-400" />}
-          title="No Quotations Awaiting Review"
-          description="When garages submit bids for your service requests and our advisors finalize your proposal, it will appear here."
+          icon={FileCheck2}
+          title="No quotes yet"
+          description="After you book a service, garages quote and your advisor sends you one price here."
           action={
             <Link href="/customer/requests/new">
-              <Button size="sm" variant="primary">
-                Book a Service
+              <Button variant="primary" leftIcon={<Plus className="h-4 w-4" />}>
+                Book a service
               </Button>
             </Link>
           }
         />
       ) : (
-        <div className="space-y-4">
-          {quotes.map((q) => (
-            <Card key={q.id} hoverEffect className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-surface-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-electric-50 text-electric-600 flex items-center justify-center font-bold">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-navy-900 bg-surface-100 px-2 py-0.5 rounded-lg border border-surface-200">
-                        {q.quotationNumber}
-                      </span>
-                      <StatusBadge status={q.status} />
-                    </div>
-                    <div className="text-xs text-navy-500 mt-1">
-                      Request #{q.requestNumber} • Sent {q.sentAtUtc ? new Date(q.sentAtUtc).toLocaleDateString() : 'Recently'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-left md:text-right">
-                  <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">
-                    Fixed Customer Price
-                  </div>
-                  <div className="text-2xl font-black text-navy-900">
-                    ₹{q.customerTotal.toLocaleString()}
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block mt-0.5">
-                    All-Inclusive (Parts + Labour + GST)
-                  </span>
-                </div>
-              </div>
-
-              <div className="py-4 space-y-2">
-                <div className="text-xs font-bold text-navy-800 uppercase tracking-wider">
-                  Scope of Work
-                </div>
-                <p className="text-xs text-navy-600 leading-relaxed bg-surface-50 p-3 rounded-xl border border-surface-200">
-                  {q.scopeSummary || 'Standard service scope audited and approved by technical advisor.'}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-surface-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-navy-500">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-500" />
-                  <span>
-                    Valid until:{' '}
-                    <strong className="text-navy-800">
-                      {q.validUntilUtc ? new Date(q.validUntilUtc).toLocaleDateString() : 'N/A'}
-                    </strong>
-                  </span>
-                </div>
-
-                <Link href={`/customer/quotes/${q.id}`}>
-                  <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                    Review & Decide
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          {awaiting.length > 0 && (
+            <ListGroup title={`Waiting for your decision (${awaiting.length})`}>
+              {awaiting.map((q) => (
+                <QuoteListItem key={q.id} q={q} />
+              ))}
+            </ListGroup>
+          )}
+          {others.length > 0 && (
+            <ListGroup title={awaiting.length > 0 ? 'Earlier quotes' : undefined}>
+              {others.map((q) => (
+                <QuoteListItem key={q.id} q={q} />
+              ))}
+            </ListGroup>
+          )}
+        </>
       )}
     </div>
   );

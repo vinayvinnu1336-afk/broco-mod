@@ -45,8 +45,12 @@ public class CustomerPortalService : ICustomerPortalService
                 r.GarageQuotes.Count))
             .ToListAsync(cancellationToken);
 
+        // Active = not finished; counted in SQL over all of the customer's requests (not the 5-row preview).
         var activeRequestsCount = await _context.ServiceRequests
-            .CountAsync(r => r.CustomerId == resolvedCustomerId, cancellationToken);
+            .CountAsync(r => r.CustomerId == resolvedCustomerId &&
+                             r.Status != ServiceRequestStatus.Completed &&
+                             r.Status != ServiceRequestStatus.Cancelled &&
+                             r.Status != ServiceRequestStatus.CustomerRejected, cancellationToken);
 
         // Query customer-facing quotations (strictly sanitized, no internal garage pricing)
         var quotes = await _context.CustomerQuotations
@@ -67,7 +71,10 @@ public class CustomerPortalService : ICustomerPortalService
                 cq.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
-        var availableQuotesCount = quotes.Count;
+        // Quotes waiting for the customer's decision, counted over all quotations (the list above is a preview).
+        var availableQuotesCount = await _context.CustomerQuotations
+            .CountAsync(cq => cq.ServiceRequest != null && cq.ServiceRequest.CustomerId == resolvedCustomerId &&
+                              cq.Status == CustomerQuotationStatus.Sent, cancellationToken);
 
         return new CustomerDashboardDto(
             resolvedCustomerId,

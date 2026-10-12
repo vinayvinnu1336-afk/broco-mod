@@ -8,6 +8,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        xs: "400px",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+      },
       colors: {
         navy: {
           950: "#050D1A",
@@ -19,11 +25,13 @@ const config: Config = {
           400: "#64748B",
         },
         electric: {
+          800: "#1E40AF",
           700: "#1D4ED8",
           600: "#2563EB", // Primary Electric Blue
           500: "#3B82F6",
           400: "#60A5FA",
           300: "#93C5FD",
+          200: "#BFDBFE",
           100: "#DBEAFE",
           50: "#EFF6FF",
         },
@@ -58,7 +66,27 @@ const config: Config = {
         'elevated': '0 4px 6px -1px rgba(10, 25, 47, 0.08), 0 2px 4px -2px rgba(10, 25, 47, 0.06)',
         'dropdown': '0 10px 15px -3px rgba(10, 25, 47, 0.1), 0 4px 6px -4px rgba(10, 25, 47, 0.08)',
         'modal': '0 20px 25px -5px rgba(10, 25, 47, 0.15), 0 8px 10px -6px rgba(10, 25, 47, 0.1)',
-      }
+        'bar': '0 -1px 0 0 rgba(10, 25, 47, 0.06), 0 -8px 24px -12px rgba(10, 25, 47, 0.12)',
+      },
+      keyframes: {
+        'sheet-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'pop-in': {
+          from: { opacity: '0', transform: 'scale(0.97) translateY(4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
+      },
+      animation: {
+        'sheet-up': 'sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1)',
+        'fade-in': 'fade-in 150ms ease-out',
+        'pop-in': 'pop-in 180ms cubic-bezier(0.32, 0.72, 0, 1)',
+      },
     },
   },
   plugins: [],

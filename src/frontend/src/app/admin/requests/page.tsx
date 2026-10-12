@@ -1,40 +1,58 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminRequestSummary, PagedResult } from '@/types/adminOperations';
-import {
-  FileText,
-  Search,
-  Filter,
-  Eye,
-  Calendar,
-  Building2,
-  Clock,
-  ArrowRight,
-  RefreshCw
-} from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { ChevronLeft, ChevronRight, FileText, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { formatDate, formatRelative } from '@/lib/format';
+
+// Values must be ServiceRequestStatus names (the API parses them with Enum.TryParse and silently
+// ignores anything else); labels are what operators read.
+const STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'Submitted', label: 'Submitted' },
+  { value: 'GaragesNotified', label: 'Garages notified' },
+  { value: 'QuotesReceived', label: 'Quotes received' },
+  { value: 'AdvisorReview', label: 'Advisor review' },
+  { value: 'CustomerQuotationSent', label: 'Quote sent' },
+  { value: 'CustomerAccepted', label: 'Accepted' },
+  { value: 'BookingConfirmed', label: 'Booking confirmed' },
+  { value: 'InProgress', label: 'In progress' },
+  { value: 'Completed', label: 'Completed' },
+  { value: 'CustomerRejected', label: 'Declined' },
+  { value: 'Cancelled', label: 'Cancelled' },
+];
+
+const rowLink =
+  'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
 
 export default function AdminRequestsPage() {
   const [requests, setRequests] = useState<AdminRequestSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  // The search the current results were loaded with (paging keeps it even if the box is edited).
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const loadRequests = async (p = page, size = pageSize, search = searchTerm, status = statusFilter) => {
+  const loadRequests = useCallback(async (p: number, size: number, search: string, status: string) => {
     setLoading(true);
     let url = `/admin/requests?page=${p}&pageSize=${size}`;
     if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
@@ -43,195 +61,235 @@ export default function AdminRequestsPage() {
     const res = await apiFetch<PagedResult<AdminRequestSummary>>(url);
     if (res.success && res.data) {
       setRequests(res.data.items);
-      setPage(res.data.pageNumber);
+      setPage(res.data.page ?? res.data.pageNumber ?? 1);
       setTotalPages(res.data.totalPages);
       setTotalCount(res.data.totalCount);
+      setError(null);
+    } else {
+      setError(res.message || 'Could not load service requests.');
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, []);
 
   useEffect(() => {
-    loadRequests(1, pageSize, searchTerm, statusFilter);
-  }, [pageSize, statusFilter]);
+    loadRequests(1, pageSize, appliedSearch, statusFilter);
+  }, [loadRequests, pageSize, statusFilter, appliedSearch]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loadRequests(1, pageSize, searchTerm, statusFilter);
+    if (searchTerm === appliedSearch) {
+      loadRequests(1, pageSize, searchTerm, statusFilter);
+    } else {
+      setAppliedSearch(searchTerm);
+    }
   };
 
+  const goToPage = (p: number) => {
+    loadRequests(p, pageSize, appliedSearch, statusFilter);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const refresh = () => {
+    setRefreshing(true);
+    loadRequests(page, pageSize, appliedSearch, statusFilter);
+  };
+
+  const safeTotalPages = Math.max(1, totalPages);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-navy-900">Platform Service Requests</h1>
-          <p className="mt-1 text-sm text-navy-600">
-            Supervise end-to-end lifecycle, customer complaints, dispatched workshops, and quotation progress.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { setRefreshing(true); loadRequests(); }}
-            isLoading={refreshing}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Service requests"
+        description="Every customer request, who is handling it and how far it has got."
+        actions={
+          <Button variant="outline" onClick={refresh} isLoading={refreshing} leftIcon={<RefreshCw className="h-4 w-4" />}>
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Search and Filters Toolbar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-navy-400" />
-          <input
-            type="text"
-            placeholder="Search by request #, customer, vehicle plate..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-surface-200 bg-surface-50 pl-9 pr-4 py-2 text-xs text-navy-900 placeholder-navy-400 focus:border-navy-900 focus:outline-none"
-          />
+      {/* Search and filters */}
+      <div className="space-y-3">
+        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
+          <div className="min-w-0 flex-1 sm:max-w-md">
+            <Input
+              type="search"
+              aria-label="Search requests"
+              enterKeyHint="search"
+              placeholder="Request number, customer or number plate"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              leftIcon={<Search className="h-4 w-4" />}
+            />
+          </div>
+          <Button type="submit" variant="outline" className="hidden shrink-0 sm:inline-flex">
+            Search
+          </Button>
         </form>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-navy-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
-            >
-              <option value="">All Statuses</option>
-              <option value="Submitted">Submitted</option>
-              <option value="Dispatched">Dispatched</option>
-              <option value="QuotesReceived">Quotes Received</option>
-              <option value="AdvisorReview">Advisor Review</option>
-              <option value="QuotationAccepted">Quotation Accepted</option>
-              <option value="Confirmed">Booking Confirmed</option>
-              <option value="Completed">Completed</option>
-              <option value="QuotationRejected">Declined</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-          </div>
+        <FilterChips options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-navy-500">Page size:</span>
+        <div className="flex items-center justify-between gap-3 text-xs text-navy-500">
+          <span>
+            {loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'request' : 'requests'}`}
+            {appliedSearch.trim() && !loading && <> matching “{appliedSearch.trim()}”</>}
+          </span>
+          <label className="flex items-center gap-2">
+            Per page
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-xl border border-surface-200 bg-surface-50 px-2.5 py-2 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
+              className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-          </div>
+          </label>
         </div>
       </div>
 
-      {/* Requests Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-surface-200 bg-surface-50 text-navy-500 uppercase tracking-wider text-[11px]">
-              <tr>
-                <th className="px-5 py-3.5 font-bold">Request</th>
-                <th className="px-5 py-3.5 font-bold">Customer</th>
-                <th className="px-5 py-3.5 font-bold">Vehicle</th>
-                <th className="px-5 py-3.5 font-bold">Status</th>
-                <th className="px-5 py-3.5 font-bold">Advisor</th>
-                <th className="px-5 py-3.5 font-bold">Quotes</th>
-                <th className="px-5 py-3.5 font-bold">Assigned Garage</th>
-                <th className="px-5 py-3.5 font-bold">Created</th>
-                <th className="px-5 py-3.5 font-bold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-navy-500">
-                    <LoadingState message="Loading platform requests..." />
-                  </td>
-                </tr>
-              ) : requests.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-navy-500">
-                    <EmptyState
-                      icon={FileText}
-                      title="No requests found"
-                      description="No service requests match the specified search or filter criteria."
-                    />
-                  </td>
-                </tr>
-              ) : (
-                requests.map((req) => (
-                  <tr key={req.id} className="transition hover:bg-surface-50/50">
-                    <td className="px-5 py-4 font-mono font-bold text-navy-900">
+      {loading ? (
+        <LoadingState message="Loading service requests..." />
+      ) : error ? (
+        <ErrorState title="Could not load service requests" error={error} onRetry={refresh} />
+      ) : requests.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No requests found"
+          description={
+            appliedSearch.trim() || statusFilter
+              ? 'No service requests match this search or filter.'
+              : 'Customer requests will appear here once they are submitted.'
+          }
+        />
+      ) : (
+        <>
+          {/* Phones */}
+          <div className="md:hidden">
+            <ListGroup>
+              {requests.map((req) => (
+                <ListItem
+                  key={req.id}
+                  href={`/admin/requests/${req.id}`}
+                  title={req.customerName}
+                  subtitle={`${req.vehicleMake} ${req.vehicleModel} · ${req.vehicleLicensePlate}`}
+                  meta={
+                    <>
+                      <span className="font-mono">{req.requestNumber}</span> · {req.quotesReceivedCount} of{' '}
+                      {req.dispatchedGaragesCount} garages quoted · {formatRelative(req.createdAtUtc)}
+                      {req.assignedGarageName && <span className="block truncate">Garage: {req.assignedGarageName}</span>}
+                    </>
+                  }
+                  trailing={<StatusBadge status={req.status} />}
+                />
+              ))}
+            </ListGroup>
+          </div>
+
+          {/* Tablets and laptops */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Advisor</TableHead>
+                  <TableHead>Quotes</TableHead>
+                  <TableHead className="hidden lg:table-cell">Garage</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">
+                    <span className="sr-only">Open</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs font-semibold text-navy-900">
                       <Link href={`/admin/requests/${req.id}`} className="hover:text-electric-600">
                         {req.requestNumber}
                       </Link>
-                    </td>
-                    <td className="px-5 py-4 text-navy-900">
-                      <div className="font-semibold">{req.customerName}</div>
-                      <div className="text-[11px] text-navy-500">{req.customerEmail}</div>
-                    </td>
-                    <td className="px-5 py-4 text-navy-700">
-                      <div className="font-medium">{req.vehicleMake} {req.vehicleModel}</div>
-                      <div className="text-[11px] text-navy-500 font-mono">{req.vehicleLicensePlate}</div>
-                    </td>
-                    <td className="px-5 py-4">
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-navy-900">{req.customerName}</div>
+                      <div className="text-xs text-navy-500">{req.customerEmail}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-navy-800">
+                        {req.vehicleMake} {req.vehicleModel}
+                      </div>
+                      <div className="font-mono text-xs text-navy-500">{req.vehicleLicensePlate}</div>
+                    </TableCell>
+                    <TableCell>
                       <StatusBadge status={req.status} />
-                    </td>
-                    <td className="px-5 py-4 text-navy-600">
-                      {req.assignedAdvisorName ? (
-                        <span className="font-medium text-navy-800">{req.assignedAdvisorName}</span>
-                      ) : (
-                        <span className="text-navy-400 italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-navy-700">
-                      <span className="font-bold text-navy-900">{req.quotesReceivedCount}</span> / {req.dispatchedGaragesCount} dispatched
-                    </td>
-                    <td className="px-5 py-4 text-navy-700">
-                      {req.assignedGarageName ? (
-                        <span className="text-emerald-700 font-bold">{req.assignedGarageName}</span>
-                      ) : (
-                        <span className="text-navy-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-navy-500 whitespace-nowrap">
-                      {new Date(req.createdAtUtc).toLocaleDateString()}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Link href={`/admin/requests/${req.id}`}>
-                        <Button size="sm" variant="secondary" leftIcon={<Eye className="h-3.5 w-3.5" />}>
-                          Timeline
-                        </Button>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {req.assignedAdvisorName || <span className="text-navy-400">Unassigned</span>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <span className="font-semibold text-navy-900">{req.quotesReceivedCount}</span>
+                      <span className="text-navy-500"> of {req.dispatchedGaragesCount}</span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {req.assignedGarageName || <span className="text-navy-400">—</span>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-navy-500">{formatDate(req.createdAtUtc)}</TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/admin/requests/${req.id}`} className={rowLink}>
+                        Open
                       </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
 
-        {/* Pagination Bar */}
-        {totalCount > 0 && (
-          <div className="p-4 border-t border-surface-200">
+      {/* Pagination */}
+      {totalCount > 0 && !error && (
+        <>
+          {safeTotalPages > 1 && (
+            <div className="flex items-center gap-3 md:hidden">
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={page <= 1 || loading}
+                onClick={() => goToPage(page - 1)}
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
+              >
+                Previous
+              </Button>
+              <span className="shrink-0 text-sm tabular-nums text-navy-500">
+                {page} / {safeTotalPages}
+              </span>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={page >= safeTotalPages || loading}
+                onClick={() => goToPage(page + 1)}
+                rightIcon={<ChevronRight className="h-4 w-4" />}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+          <div className="hidden md:block">
             <Pagination
               currentPage={page}
-              totalPages={Math.max(1, totalPages)}
+              totalPages={safeTotalPages}
               totalItems={totalCount}
               pageSize={pageSize}
-              onPageChange={(p) => loadRequests(p, pageSize, searchTerm, statusFilter)}
+              onPageChange={goToPage}
             />
           </div>
-        )}
-      </Card>
+        </>
+      )}
     </div>
   );
 }

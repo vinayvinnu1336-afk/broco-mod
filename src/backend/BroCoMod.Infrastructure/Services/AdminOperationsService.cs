@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -1094,7 +1094,7 @@ public class AdminOperationsService : IAdminOperationsService
                 $"Vehicle unreceived past scheduled intake for {j.JobNumber}",
                 $"Scheduled start was {j.ScheduledStartAtUtc:g} UTC at {j.Garage.Name}. Vehicle not yet arrived.",
                 j.CreatedAtUtc,
-                $"/admin/jobs/{j.Id}"
+                $"/admin/requests/{j.ServiceRequestId}"
             ))
             .ToListAsync(cancellationToken);
         items.AddRange(unreceivedVehicles);
@@ -1111,9 +1111,9 @@ public class AdminOperationsService : IAdminOperationsService
                 w.Id,
                 w.ServiceJob.JobNumber,
                 $"Additional work review required for {w.ServiceJob.JobNumber}",
-                $"{w.Description} (+{w.EstimatedAdditionalAmount:C}) requested by workshop. Advisor review needed.",
+                $"{w.Description} (+₹{w.EstimatedAdditionalAmount:N2}) requested by workshop. Advisor review needed.",
                 w.CreatedAtUtc,
-                $"/admin/jobs/{w.ServiceJobId}"
+                $"/admin/requests/{w.ServiceJob.ServiceRequestId}"
             ))
             .ToListAsync(cancellationToken);
         items.AddRange(pendingAdditionalWork);

@@ -10,6 +10,12 @@ namespace BroCoMod.Infrastructure.Services;
 
 public class GarageQuoteService : IGarageQuoteService
 {
+    /// <summary>Upper bound for unpaged garage/advisor quote lists; most recent quotes are returned first.</summary>
+    private const int MaxListResults = 200;
+
+    /// <summary>Upper bound for the unpaged admin quote list.</summary>
+    private const int MaxAdminListResults = 500;
+
     private readonly IApplicationDbContext _context;
     private readonly IQuoteNumberGenerator _quoteNumberGenerator;
     private readonly INotificationService _notificationService;
@@ -363,6 +369,7 @@ public class GarageQuoteService : IGarageQuoteService
 
         return await query
             .OrderByDescending(q => q.CreatedAtUtc)
+            .Take(MaxListResults)
             .Select(q => new GarageQuoteSummaryDto(
                 q.Id,
                 q.GarageRequestId,
@@ -450,6 +457,7 @@ public class GarageQuoteService : IGarageQuoteService
 
         return await query
             .OrderByDescending(q => q.SubmittedAtUtc ?? q.CreatedAtUtc)
+            .Take(MaxListResults)
             .Select(q => new AdvisorGarageQuoteSummaryDto(
                 q.Id,
                 q.QuoteNumber,
@@ -533,6 +541,7 @@ public class GarageQuoteService : IGarageQuoteService
 
         return await query
             .OrderByDescending(q => q.CreatedAtUtc)
+            .Take(MaxAdminListResults)
             .Select(q => new AdminGarageQuoteSummaryDto(
                 q.Id,
                 q.QuoteNumber,

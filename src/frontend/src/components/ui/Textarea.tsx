@@ -1,4 +1,4 @@
-import React, { forwardRef, TextareaHTMLAttributes } from 'react';
+import React, { forwardRef, TextareaHTMLAttributes, useId } from 'react';
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -21,14 +21,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     },
     ref
   ) => {
-    const textareaId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const textareaId = id || generatedId;
 
     return (
       <div className="w-full">
         {label && (
           <label
             htmlFor={textareaId}
-            className="block text-xs font-semibold text-navy-800 uppercase tracking-wider mb-1.5"
+            className="block text-sm font-medium text-navy-800 mb-1.5"
           >
             {label}
             {required && <span className="text-semantic-error ml-1">*</span>}
@@ -40,7 +41,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           rows={rows}
           disabled={disabled}
           required={required}
-          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-navy-900 placeholder:text-surface-400 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
+          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-base sm:text-sm text-navy-900 placeholder:text-surface-400 transition focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-surface-100 disabled:text-surface-400 disabled:cursor-not-allowed ${
             error
               ? 'border-semantic-error focus:border-semantic-error focus:ring-semantic-error/20'
               : 'border-surface-200 hover:border-surface-300 focus:border-electric-600 focus:ring-electric-600/20'

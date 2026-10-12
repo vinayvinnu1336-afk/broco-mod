@@ -1,38 +1,30 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { 
-  Building2, 
-  Radio, 
-  FileSpreadsheet, 
-  Wrench, 
-  ShieldCheck, 
-  CheckCircle2, 
-  MapPin, 
-  ArrowRight,
-  Clock,
-  Car,
-  BadgeDollarSign,
-  ChevronRight,
-  AlertCircle
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { GarageQuoteSummaryDto } from '@/types/garageQuote';
+import { GarageSettlementDto } from '@/types/finance';
+import { Car, FileSpreadsheet, Inbox, Wallet, Wrench } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import { LoadingState } from '@/components/ui/LoadingState';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { formatINRShort, formatINRWhole, formatRelative } from '@/lib/format';
+import { LinkButton } from '../_components/LinkButton';
 
+/** Shape of GET /garage/dashboard (GarageDashboardDto). */
 interface GarageDashboardData {
   garageId: string;
   garageName: string;
+  /** Requests in Pending / Notified / Viewed state (not yet quoted or declined). */
   newRequestsCount: number;
+  /** Every quote this garage has created, any status (drafts included). */
   submittedQuotesCount: number;
+  /** Jobs that are not Closed or Cancelled. */
   activeJobsCount: number;
+  /** Five most recent requests sent to this garage. */
   availableRequests: Array<{
     serviceRequestId: string;
     vehicleMake: string;
@@ -43,297 +35,173 @@ interface GarageDashboardData {
     createdAtUtc: string;
     status: string;
   }>;
-  submittedQuotes: Array<{
-    id: string;
-    serviceRequestId: string;
-    garageInternalPrice: number;
-    internalCostBreakdown: string;
-    garageNotes: string;
-    estimatedDurationHours: number;
-    status: string;
-    createdAtUtc: string;
-  }>;
+  /** Five most recent quotes. */
+  submittedQuotes: GarageQuoteSummaryDto[];
+}
+
+const OPEN_REQUEST_STATUSES = ['PENDING', 'NOTIFIED', 'VIEWED'];
+const OPEN_QUOTE_STATUSES = ['Draft', 'Submitted', 'UnderReview'];
+const DUE_SETTLEMENT_STATUSES = ['Pending', 'Processing'];
+
+function formatKm(km: number | null | undefined) {
+  const value = Number(km ?? 0);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} km`;
 }
 
 export default function GarageDashboardPage() {
-  const { user } = useAuth();
   const [data, setData] = useState<GarageDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [payoutsDue, setPayoutsDue] = useState<{ amount: number; count: number } | null>(null);
+
+  async function loadDashboard() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch<GarageDashboardData>('/garage/dashboard');
+      if (res.success && res.data) {
+        setData(res.data);
+      } else {
+        setError(res.message || 'Could not load your overview.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Could not load your overview.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadPayoutsDue() {
+    // Same read-only endpoint the Payouts screen uses; the dashboard DTO has no payout figure.
+    const res = await apiFetch<GarageSettlementDto[]>('/garage/finance/settlements');
+    if (res.success && Array.isArray(res.data)) {
+      const due = res.data.filter((s) => DUE_SETTLEMENT_STATUSES.includes(String(s.status)));
+      setPayoutsDue({
+        amount: due.reduce((sum, s) => sum + (Number(s.netPayableToGarage) || 0), 0),
+        count: due.length,
+      });
+    }
+  }
 
   useEffect(() => {
-    async function loadDashboard() {
-      setLoading(true);
-      try {
-        const res = await apiFetch<GarageDashboardData>('/garage/dashboard');
-        if (res.success && res.data) {
-          setData(res.data);
-        }
-      } catch (err) {
-        console.error('Error loading garage dashboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadDashboard();
+    loadPayoutsDue();
   }, []);
 
+  const openRequests = (data?.availableRequests ?? []).filter((r) =>
+    OPEN_REQUEST_STATUSES.includes(String(r.status).toUpperCase())
+  );
+  const openQuotes = (data?.submittedQuotes ?? []).filter((q) => OPEN_QUOTE_STATUSES.includes(q.status));
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
-      {/* 1. Workshop Operational Header */}
-      <div className="bg-white rounded-2xl p-6 border border-surface-200 shadow-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200 mb-2">
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Accredited Partner Workshop Terminal</span>
+    <div>
+      <PageHeader title={data?.garageName || 'Overview'} description="Today’s work at a glance." />
+
+      {loading ? (
+        <div className="space-y-5 sm:space-y-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-[104px] w-full rounded-2xl" />
+            ))}
           </div>
-          <h1 className="text-2xl font-black text-navy-900 tracking-tight">
-            {data?.garageName || 'Apex Performance Motors'}
-          </h1>
-          <p className="text-xs text-navy-500 mt-0.5">
-            Operational service execution queue, 10 KM proximity requests, and internal quotations.
-          </p>
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
         </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-navy-900">{user?.fullName || 'Workshop Manager'}</div>
-            <div className="text-[11px] text-amber-700 font-mono font-semibold">
-              {user?.garageRole || 'GARAGE_OPERATOR'}
-            </div>
+      ) : error || !data ? (
+        <ErrorState title="Couldn’t load your overview" error={error} onRetry={loadDashboard} />
+      ) : (
+        <div className="space-y-5 sm:space-y-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard
+              label="New requests"
+              value={data.newRequestsCount}
+              hint="Waiting for a quote"
+              icon={Inbox}
+              tone="blue"
+              href="/garage/requests"
+            />
+            <StatCard
+              label="Open jobs"
+              value={data.activeJobsCount}
+              hint="Not closed or cancelled"
+              icon={Wrench}
+              tone="amber"
+              href="/garage/jobs"
+            />
+            <StatCard
+              label="Quotes"
+              value={data.submittedQuotesCount}
+              hint="All quotes, incl. drafts"
+              icon={FileSpreadsheet}
+              tone="neutral"
+              href="/garage/quotes"
+            />
+            <StatCard
+              label="Payouts due"
+              value={payoutsDue ? formatINRShort(payoutsDue.amount) : '—'}
+              hint={payoutsDue ? `${payoutsDue.count} not paid yet` : 'See payouts'}
+              icon={Wallet}
+              tone="green"
+              href="/garage/finance"
+            />
           </div>
-          <Link href="/garage/jobs">
-            <Button variant="primary" size="sm" leftIcon={<Wrench className="w-4 h-4" />}>
-              Active Jobs
-            </Button>
-          </Link>
+
+          <ListGroup
+            title="Requests to quote"
+            action={
+              <LinkButton href="/garage/requests" variant="ghost" className="-mr-2 !min-h-[36px] !px-2 text-electric-700">
+                See all
+              </LinkButton>
+            }
+          >
+            {openRequests.length > 0 ? (
+              openRequests.map((r) => (
+                <ListItem
+                  key={`${r.serviceRequestId}-${r.createdAtUtc}`}
+                  href="/garage/requests"
+                  leading={<IconTile icon={Car} tone="blue" />}
+                  title={`${r.vehicleYear ?? ''} ${r.vehicleMake ?? ''} ${r.vehicleModel ?? ''}`.trim() || 'Vehicle'}
+                  subtitle={r.description}
+                  meta={`${formatKm(r.distanceKm)} away · ${formatRelative(r.createdAtUtc)}`}
+                  trailing={<StatusBadge status={r.status} />}
+                />
+              ))
+            ) : (
+              <div className="px-4 py-4 text-sm text-navy-500">No new requests right now. They appear here when a customer nearby books a service.</div>
+            )}
+          </ListGroup>
+
+          <ListGroup
+            title="Quotes in progress"
+            action={
+              <LinkButton href="/garage/quotes" variant="ghost" className="-mr-2 !min-h-[36px] !px-2 text-electric-700">
+                See all
+              </LinkButton>
+            }
+          >
+            {openQuotes.length > 0 ? (
+              openQuotes.map((q) => (
+                <ListItem
+                  key={q.id}
+                  href={`/garage/quotes/${q.id}`}
+                  leading={<IconTile icon={FileSpreadsheet} tone={q.status === 'Draft' ? 'neutral' : 'amber'} />}
+                  title={q.vehicleSummary || q.quoteNumber}
+                  subtitle={q.status === 'Draft' ? 'Draft · finish and submit' : 'Waiting for the advisor'}
+                  meta={`${q.quoteNumber}${q.requestNumber ? ` · ${q.requestNumber}` : ''}`}
+                  trailing={
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(q.totalAmount)}</span>
+                      <StatusBadge status={q.status} />
+                    </div>
+                  }
+                />
+              ))
+            ) : (
+              <div className="px-4 py-4 text-sm text-navy-500">No drafts or quotes waiting for a decision.</div>
+            )}
+          </ListGroup>
         </div>
-      </div>
-
-      {/* 2. Priority KPI Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3.5">
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">New Requests</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">
-            {loading ? '—' : data?.newRequestsCount ?? 0}
-          </div>
-          <div className="text-[11px] text-electric-600 font-semibold mt-0.5">Within 10 KM</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Pending Quotes</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">
-            {loading ? '—' : data?.submittedQuotesCount ?? 0}
-          </div>
-          <div className="text-[11px] text-amber-600 font-semibold mt-0.5">Under Review</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Active Jobs</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">
-            {loading ? '—' : data?.activeJobsCount ?? 0}
-          </div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">In Bay</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Vehicles Ready</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">
-            {loading ? '—' : Math.max(0, (data?.activeJobsCount ?? 0) - 1)}
-          </div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">Awaiting Pickup</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Pending Actions</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">
-            {loading ? '—' : data?.availableRequests?.length ? 1 : 0}
-          </div>
-          <div className="text-[11px] text-red-600 font-semibold mt-0.5">Requires Intake</div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="text-[11px] font-bold text-navy-400 uppercase tracking-wider">Settled Finance</div>
-          <div className="text-2xl font-black text-navy-900 mt-1">₹42.5k</div>
-          <Link href="/garage/finance" className="text-[11px] text-electric-600 font-semibold hover:underline block mt-0.5">
-            View Ledger →
-          </Link>
-        </Card>
-      </div>
-
-      {/* 3. Operational Work Queues */}
-      <div className="space-y-6">
-        {/* Dispatched Proximity Requests Table */}
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-electric-600" />
-                <span>Dispatched Service Requests (10 KM Geofence)</span>
-              </CardTitle>
-              <p className="text-xs text-navy-500 mt-0.5">
-                New customer bookings in your service radius eligible for immediate workshop quoting.
-              </p>
-            </div>
-            <Link href="/garage/requests">
-              <Button variant="outline" size="sm" rightIcon={<ChevronRight className="w-3.5 h-3.5" />}>
-                View All Requests
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-6">
-                <LoadingState message="Loading dispatched requests..." />
-              </div>
-            ) : data?.availableRequests && data.availableRequests.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Distance</TableHead>
-                    <TableHead>Service Scope & Problem</TableHead>
-                    <TableHead>Broadcast Date</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.availableRequests.map((req) => (
-                    <TableRow key={req.serviceRequestId}>
-                      <TableCell>
-                        <div className="font-bold text-navy-900">
-                          {req.vehicleYear} {req.vehicleMake} {req.vehicleModel}
-                        </div>
-                        <div className="text-[11px] text-navy-400 font-mono mt-0.5">
-                          ID: {req.serviceRequestId.substring(0, 8)}...
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-1 font-bold text-xs text-electric-700 bg-electric-50 px-2.5 py-1 rounded-lg border border-electric-200">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {req.distanceKm.toFixed(1)} km
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-md">
-                          <p className="text-xs text-navy-700 line-clamp-1">{req.description}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-navy-500 font-medium">
-                          {new Date(req.createdAtUtc).toLocaleDateString()}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link href={`/garage/requests/${req.serviceRequestId}`}>
-                          <Button size="sm" variant="primary">
-                            Submit Quote
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-6">
-                <EmptyState
-                  icon={<Radio className="w-7 h-7 text-navy-400" />}
-                  title="No New Broadcast Requests in Radius"
-                  description="When customers within 10 km submit service requests, they will appear here in real time."
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Submitted Quotes Operational Table */}
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-amber-600" />
-                <span>Submitted Workshop Quotations</span>
-              </CardTitle>
-              <p className="text-xs text-navy-500 mt-0.5">
-                Quotes pending Technical Advisor review and customer quotation compilation.
-              </p>
-            </div>
-            <Link href="/garage/quotes">
-              <Button variant="outline" size="sm" rightIcon={<ChevronRight className="w-3.5 h-3.5" />}>
-                View All Quotes
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-6">
-                <LoadingState message="Loading submitted quotes..." />
-              </div>
-            ) : data?.submittedQuotes && data.submittedQuotes.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Quote Reference</TableHead>
-                    <TableHead>Internal Estimate</TableHead>
-                    <TableHead>Turnaround</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.submittedQuotes.map((q) => (
-                    <TableRow key={q.id}>
-                      <TableCell>
-                        <div className="font-mono font-bold text-navy-900 text-xs">
-                          {q.id.substring(0, 8)}...
-                        </div>
-                        <div className="text-[11px] text-navy-400">
-                          {new Date(q.createdAtUtc).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-black text-navy-900">
-                          ₹{q.garageInternalPrice.toLocaleString()}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-semibold text-navy-700 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-navy-400" />
-                          {q.estimatedDurationHours} hours
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={q.status} />
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-navy-500 line-clamp-1 max-w-xs">
-                          {q.garageNotes || q.internalCostBreakdown || 'Standard overhaul'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link href={`/garage/quotes/${q.id}`}>
-                          <Button size="sm" variant="ghost" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                            View
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-6">
-                <EmptyState
-                  icon={<FileSpreadsheet className="w-7 h-7 text-navy-400" />}
-                  title="No Active Quotations"
-                  description="Submit competitive quotes on available dispatched requests to win service contracts."
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

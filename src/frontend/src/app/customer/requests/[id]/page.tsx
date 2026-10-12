@@ -1,375 +1,375 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { ServiceRequestDetailDto } from '@/types/serviceRequest';
 import { CustomerServiceJobDetailDto, ServiceJobStatus } from '@/types/serviceJob';
+import { Building2, ClipboardList, MessageSquare } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge, BadgeVariant } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Modal } from '@/components/ui/Modal';
+import { Textarea } from '@/components/ui/Textarea';
+import { Alert } from '@/components/ui/Alert';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { formatDate, formatDateTime, humanize } from '@/lib/format';
 import {
-  Wrench,
-  Clock,
-  ArrowLeft,
-  CheckCircle2,
-  Calendar,
-  AlertCircle,
-  CarFront,
-  User,
-  Phone,
-  FileText,
-  ShieldAlert,
-  Building2,
-  Check,
-  Eye,
-  MapPin,
-  ClipboardList,
-} from 'lucide-react';
+  DetailRow,
+  RequestProgress,
+  StepList,
+  requestNextStep,
+  statusKey,
+} from '@/app/customer/_lib/customer-ui';
+
+const JOB_ORDER: ServiceJobStatus[] = [
+  'BookingConfirmed',
+  'Scheduled',
+  'VehicleReceived',
+  'Inspection',
+  'WorkStarted',
+  'WorkInProgress',
+  'WorkCompleted',
+  'VehicleReady',
+  'HandedOver',
+  'Closed',
+];
+
+// Customer-facing milestones and the job status index at which each one is reached.
+const JOB_STEPS: { label: string; reachedAt: number }[] = [
+  { label: 'Booking confirmed', reachedAt: 0 },
+  { label: 'Drop-off scheduled', reachedAt: 1 },
+  { label: 'Car received at garage', reachedAt: 2 },
+  { label: 'Work in progress', reachedAt: 4 },
+  { label: 'Ready for pickup', reachedAt: 7 },
+  { label: 'Handed over', reachedAt: 8 },
+];
+
+function severityVariant(severity: string): BadgeVariant {
+  switch (severity?.toLowerCase()) {
+    case 'critical':
+    case 'high':
+      return 'red';
+    case 'medium':
+      return 'amber';
+    case 'low':
+      return 'green';
+    default:
+      return 'neutral';
+  }
+}
 
 export default function CustomerRequestDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const toast = useToast();
 
   const [request, setRequest] = useState<ServiceRequestDetailDto | null>(null);
   const [job, setJob] = useState<CustomerServiceJobDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!id) return;
-      setLoading(true);
-      setErrorMsg(null);
+  // Cancellation
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-      // 1. Fetch request details
-      const reqRes = await apiFetch<ServiceRequestDetailDto>(`/customer/requests/${id}`);
-      if (reqRes.success && reqRes.data) {
-        setRequest(reqRes.data);
+  const loadData = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setErrorMsg(null);
 
-        // 2. Fetch service job execution details if available
-        const jobRes = await apiFetch<CustomerServiceJobDetailDto>(`/customer/requests/${id}/job`);
-        if (jobRes.success && jobRes.data) {
-          setJob(jobRes.data);
-        }
-      } else {
-        setErrorMsg(reqRes.message || 'Service request not found.');
+    const reqRes = await apiFetch<ServiceRequestDetailDto>(`/customer/requests/${id}`);
+    if (reqRes.success && reqRes.data) {
+      setRequest(reqRes.data);
+
+      const jobRes = await apiFetch<CustomerServiceJobDetailDto>(`/customer/requests/${id}/job`);
+      if (jobRes.success && jobRes.data) {
+        setJob(jobRes.data);
       }
-
-      setLoading(false);
+    } else {
+      setErrorMsg(reqRes.message || 'Service request not found.');
     }
 
-    loadData();
+    setLoading(false);
   }, [id]);
 
-  function getStepStatus(currentStatus: string, stepName: string) {
-    const order: ServiceJobStatus[] = [
-      'BookingConfirmed',
-      'Scheduled',
-      'VehicleReceived',
-      'Inspection',
-      'WorkStarted',
-      'WorkInProgress',
-      'WorkCompleted',
-      'VehicleReady',
-      'HandedOver',
-      'Closed',
-    ];
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-    const currentIdx = order.indexOf(currentStatus as ServiceJobStatus);
+  async function handleCancelRequest() {
+    if (!request || !cancelReason.trim()) return;
+    setCancelLoading(true);
+    setCancelError(null);
 
-    let stepIdx = 0;
-    switch (stepName) {
-      case 'Confirmed':
-        stepIdx = 0;
-        break;
-      case 'Scheduled':
-        stepIdx = 1;
-        break;
-      case 'Received':
-        stepIdx = 2;
-        break;
-      case 'In Progress':
-        stepIdx = 4;
-        break;
-      case 'Ready':
-        stepIdx = 7;
-        break;
-      case 'Handed Over':
-        stepIdx = 8;
-        break;
-    }
+    const res = await apiFetch<boolean>(`/customer/requests/${request.id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: cancelReason }),
+    });
 
-    if (currentIdx > stepIdx) return 'completed';
-    if (currentIdx === stepIdx) return 'active';
-    return 'pending';
-  }
+    setCancelLoading(false);
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case 'BookingConfirmed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Scheduled':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'VehicleReceived':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Inspection':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'WorkStarted':
-      case 'WorkInProgress':
-        return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-      case 'WorkCompleted':
-      case 'VehicleReady':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'HandedOver':
-      case 'Closed':
-        return 'bg-slate-100 text-slate-700 border-slate-300';
-      case 'Cancelled':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-surface-100 text-navy-700 border-surface-200';
+    if (res.success) {
+      setCancelOpen(false);
+      setCancelReason('');
+      toast.success('Request cancelled');
+      loadData();
+    } else {
+      setCancelError(res.message || 'Failed to cancel service request.');
     }
   }
 
-  function getSeverityBadge(severity: string) {
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return 'bg-rose-100 text-rose-800 border-rose-300';
-      case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'medium':
-        return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'low':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      default:
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-    }
-  }
-
-  if (loading) {
+  if (loading && !request) {
     return (
-      <div className="py-20 text-center text-navy-500">
-        <Clock className="w-8 h-8 mx-auto mb-2 animate-spin text-electric-600" />
-        Loading service request & execution tracker...
+      <div className="mx-auto max-w-3xl space-y-5" aria-busy="true" aria-label="Loading request">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-56" />
       </div>
     );
   }
 
   if (errorMsg || !request) {
     return (
-      <div className="space-y-4 max-w-4xl mx-auto">
-        <Link
-          href="/customer/requests"
-          className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Requests
-        </Link>
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg || 'Request not found'}</span>
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Service request" backHref="/customer/requests" backLabel="My requests" />
+        <ErrorState title="Could not load this request" error={errorMsg} onRetry={loadData} />
       </div>
     );
   }
 
-  const steps = [
-    { name: 'Confirmed', label: 'Booking Confirmed' },
-    { name: 'Scheduled', label: 'Intake Scheduled' },
-    { name: 'Received', label: 'Vehicle Received' },
-    { name: 'In Progress', label: 'Work In Progress' },
-    { name: 'Ready', label: 'Ready for Pickup' },
-    { name: 'Handed Over', label: 'Handed Over' },
-  ];
+  const reqKey = statusKey(request.status);
+  const canCancel = reqKey !== 'CANCELLED' && reqKey !== 'COMPLETED';
+  const nextStep = requestNextStep(request.status);
+
+  const jobIdx = job ? JOB_ORDER.indexOf(job.status as ServiceJobStatus) : -1;
+  const jobFinished = jobIdx >= JOB_ORDER.indexOf('HandedOver');
+  const jobSteps = JOB_STEPS.map((step, i) => {
+    const reached = jobIdx >= step.reachedAt;
+    const nextReached = i < JOB_STEPS.length - 1 && jobIdx >= JOB_STEPS[i + 1].reachedAt;
+    const state: 'done' | 'current' | 'upcoming' = !reached
+      ? 'upcoming'
+      : nextReached || jobFinished
+      ? 'done'
+      : 'current';
+    return { label: step.label, state };
+  });
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Top Header */}
-      <div className="space-y-2">
-        <Link
-          href="/customer/requests"
-          className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900 font-medium"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Service Requests
-        </Link>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-bold text-electric-600 bg-electric-50 px-2.5 py-1 rounded-lg">
-              {request.requestNumber}
-            </span>
-            <h1 className="text-xl font-bold text-navy-900">{request.vehicleSummary}</h1>
-            <span className="font-mono text-xs font-semibold bg-surface-100 text-navy-700 px-2 py-0.5 rounded border border-surface-200">
-              {request.vehicleLicensePlate}
-            </span>
-          </div>
-          {job && (
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border self-start sm:self-auto ${getStatusBadge(
-                job.status
-              )}`}
-            >
-              {job.status}
-            </span>
-          )}
-        </div>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/customer/requests"
+        backLabel="My requests"
+        eyebrow={
+          <>
+            <StatusBadge status={request.status} />
+            <span className="font-mono text-xs text-navy-500">{request.requestNumber}</span>
+          </>
+        }
+        title={request.vehicleSummary || 'Service request'}
+        description={request.vehicleLicensePlate}
+      />
 
-      {/* SERVICE EXECUTION TRACKER (If Job exists) */}
+      {/* Where things stand */}
       {job ? (
-        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-surface-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-amber-500" />
-                <h2 className="text-base font-bold text-navy-900">Live Service Execution Tracker</h2>
-              </div>
-              <p className="text-xs text-navy-500 mt-0.5">
-                Job <span className="font-mono font-bold text-navy-800">{job.jobNumber}</span> handled by{' '}
-                <strong className="text-navy-900">{job.garageName}</strong>
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-navy-900">Service progress</h2>
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-navy-500">
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">{job.garageName}</span>
               </p>
             </div>
-            {job.estimatedCompletionAtUtc && (
-              <div className="text-xs text-navy-600 bg-surface-50 px-3 py-1.5 rounded-lg border border-surface-200">
-                <span className="text-navy-400">Est. Ready:</span>{' '}
-                <strong className="text-navy-800">
-                  {new Date(job.estimatedCompletionAtUtc).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </strong>
-              </div>
-            )}
+            <StatusBadge status={job.status} className="shrink-0" />
           </div>
 
-          {/* Stepper Progress Bar */}
-          <div className="relative pt-2">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              {steps.map((s, idx) => {
-                const status = getStepStatus(job.status, s.name);
-                return (
-                  <div key={s.name} className="flex flex-col items-center text-center">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-colors mb-2 ${
-                        status === 'completed'
-                          ? 'bg-emerald-600 text-white shadow-sm'
-                          : status === 'active'
-                          ? 'bg-amber-500 text-white ring-4 ring-amber-100 shadow-sm animate-pulse'
-                          : 'bg-surface-100 text-navy-400 border border-surface-200'
-                      }`}
-                    >
-                      {status === 'completed' ? <Check className="w-4 h-4" /> : idx + 1}
-                    </div>
-                    <span
-                      className={`text-xs font-semibold ${
-                        status === 'completed'
-                          ? 'text-emerald-700'
-                          : status === 'active'
-                          ? 'text-amber-800'
-                          : 'text-navy-400'
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {(job.scheduledStartAtUtc || job.estimatedCompletionAtUtc) && (
+            <dl className="mt-3 divide-y divide-surface-200 rounded-xl bg-surface-50 px-3">
+              {job.scheduledStartAtUtc && (
+                <DetailRow label="Scheduled">{formatDateTime(job.scheduledStartAtUtc)}</DetailRow>
+              )}
+              {job.estimatedCompletionAtUtc && (
+                <DetailRow label="Expected ready" strong>
+                  {formatDateTime(job.estimatedCompletionAtUtc)}
+                </DetailRow>
+              )}
+            </dl>
+          )}
+
+          <div className="mt-4">
+            <StepList steps={jobSteps} />
           </div>
 
-          {/* Customer-Facing Notes */}
           {job.customerFacingNotes && (
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-900 space-y-1">
-              <strong className="block font-bold flex items-center gap-1.5 text-emerald-950">
-                <FileText className="w-4 h-4 text-emerald-600" /> Latest Workshop Note:
-              </strong>
-              <p className="leading-relaxed">{job.customerFacingNotes}</p>
+            <div className="mt-4 rounded-xl border border-surface-200 bg-surface-50 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Note from the garage
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-navy-800">{job.customerFacingNotes}</p>
             </div>
           )}
 
-          {/* Inspection Summary (if completed) */}
-          {job.inspection && (
-            <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <strong className="font-bold text-navy-900 flex items-center gap-1.5">
-                  <ClipboardList className="w-4 h-4 text-purple-600" /> Intake Inspection Summary
-                </strong>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${getSeverityBadge(
-                    job.inspection.overallSeverity
-                  )}`}
-                >
-                  Condition: {job.inspection.overallSeverity}
-                </span>
-              </div>
-              <p className="text-navy-700 whitespace-pre-wrap leading-relaxed">
-                {job.inspection.customerVisibleSummary || 'Intake inspection verified and passed.'}
-              </p>
-            </div>
+          <p className="mt-3 text-xs text-navy-400">Job {job.jobNumber}</p>
+        </Card>
+      ) : (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">Where things stand</h2>
+          <RequestProgress status={request.status} className="mt-3" />
+          {nextStep && <p className="mt-3 text-sm text-navy-700">{nextStep}</p>}
+          {request.matchedGaragesCount > 0 && reqKey !== 'CANCELLED' && (
+            <p className="mt-1 text-sm text-navy-500">
+              {request.matchedGaragesCount} garage{request.matchedGaragesCount === 1 ? '' : 's'} contacted so far.
+            </p>
           )}
+        </Card>
+      )}
 
-          {/* Activity Timeline */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-navy-500 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" /> Service Milestones & Updates
-            </h3>
-            {job.timeline && job.timeline.length > 0 ? (
-              <div className="relative pl-5 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-200">
-                {job.timeline.map((act, index) => (
-                  <div key={index} className="relative text-xs">
-                    <div className="absolute -left-5 top-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-navy-900">{act.activityType}</span>
-                      <span className="text-[11px] text-navy-400">
-                        {new Date(act.createdAtUtc).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <p className="text-navy-600 mt-0.5">{act.message}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-navy-400 italic">No milestone updates logged yet.</p>
+      {/* Inspection */}
+      {job?.inspection && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
+              <ClipboardList className="h-4 w-4 text-navy-400" />
+              Inspection
+            </h2>
+            {job.inspection.overallSeverity && (
+              <Badge variant={severityVariant(String(job.inspection.overallSeverity))}>
+                {humanize(String(job.inspection.overallSeverity))}
+              </Badge>
             )}
           </div>
+          {job.inspection.customerVisibleSummary ? (
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-navy-700">
+              {job.inspection.customerVisibleSummary}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-navy-500">
+              {job.inspection.inspectionCompletedAtUtc ? 'Inspection completed.' : 'Inspection in progress.'}
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Updates */}
+      {job && (
+        <section>
+          <h2 className="mb-2 px-1 text-base font-semibold text-navy-900">Updates</h2>
+          {job.timeline && job.timeline.length > 0 ? (
+            <ol className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card divide-y divide-surface-200/80">
+              {job.timeline.map((act, index) => (
+                <li key={index} className="px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-semibold text-navy-900">{humanize(act.activityType)}</span>
+                    <time className="shrink-0 text-xs text-navy-400" dateTime={act.createdAtUtc}>
+                      {formatDateTime(act.createdAtUtc)}
+                    </time>
+                  </div>
+                  {act.message && <p className="mt-0.5 text-sm text-navy-600">{act.message}</p>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
+              No updates from the garage yet.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Request details */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Request details</h2>
+        <div className="mt-3">
+          <div className="text-xs font-medium text-navy-400">Problem</div>
+          <p className="mt-0.5 whitespace-pre-wrap text-sm text-navy-800">{request.problemDescription}</p>
         </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6 text-center text-xs text-navy-500">
-          <Clock className="w-8 h-8 text-navy-300 mx-auto mb-2" />
-          <p className="font-medium text-navy-700">Service execution job pending.</p>
-          <p className="mt-1">
-            Once you accept an advisor quotation proposal, your service job will be automatically scheduled with the assigned workshop.
-          </p>
+        <dl className="mt-3 divide-y divide-surface-200 border-t border-surface-200">
+          {request.serviceCategory && <DetailRow label="Service">{request.serviceCategory}</DetailRow>}
+          {request.preferredServiceDate && (
+            <DetailRow label="Preferred date">{formatDate(request.preferredServiceDate)}</DetailRow>
+          )}
+          {request.serviceLocation?.formattedAddress && (
+            <DetailRow label="Location">{request.serviceLocation.formattedAddress}</DetailRow>
+          )}
+          {request.assignedAdvisorName && <DetailRow label="Your advisor">{request.assignedAdvisorName}</DetailRow>}
+          <DetailRow label="Requested">{formatDateTime(request.submittedAtUtc)}</DetailRow>
+        </dl>
+
+        {request.cancelledAtUtc && (
+          <Alert type="error" className="mt-3" title={`Cancelled on ${formatDate(request.cancelledAtUtc)}`}>
+            {request.cancellationReason ? `Reason: ${request.cancellationReason}` : 'This request was cancelled.'}
+          </Alert>
+        )}
+      </Card>
+
+      {canCancel && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto"
+            onClick={() => {
+              setCancelReason('');
+              setCancelError(null);
+              setCancelOpen(true);
+            }}
+          >
+            Cancel this request
+          </Button>
         </div>
       )}
 
-      {/* Original Request Details */}
-      <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6 space-y-4 text-xs">
-        <h3 className="text-sm font-bold text-navy-900 uppercase tracking-wider">Service Request Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <span className="text-navy-400 font-bold uppercase text-[10px]">Reported Issue</span>
-            <p className="p-3 bg-surface-50 rounded-xl text-navy-800 font-medium">
-              {request.problemDescription}
-            </p>
+      <Modal
+        isOpen={cancelOpen}
+        onClose={() => !cancelLoading && setCancelOpen(false)}
+        title="Cancel this request?"
+        description="Garages preparing a quote will be told you no longer need the service."
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setCancelOpen(false)}
+              disabled={cancelLoading}
+              className="w-full sm:w-auto"
+            >
+              Keep request
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleCancelRequest}
+              isLoading={cancelLoading}
+              disabled={!cancelReason.trim()}
+              className="w-full sm:w-auto"
+            >
+              Cancel request
+            </Button>
           </div>
-          <div className="space-y-1">
-            <span className="text-navy-400 font-bold uppercase text-[10px]">Service Location</span>
-            <div className="p-3 bg-surface-50 rounded-xl space-y-1">
-              <div className="font-medium text-navy-900 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-navy-400" />
-                <span>{request.serviceLocation.formattedAddress}</span>
-              </div>
-              <div className="text-[11px] font-mono text-navy-500">
-                Coords: {request.serviceLocation.latitude}, {request.serviceLocation.longitude}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        }
+      >
+        {cancelError && (
+          <Alert type="error" className="mb-4">
+            {cancelError}
+          </Alert>
+        )}
+        <Textarea
+          id="cancelReason"
+          label="Why are you cancelling?"
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="e.g. Plans changed, or the problem is fixed."
+          required
+        />
+      </Modal>
     </div>
   );
 }

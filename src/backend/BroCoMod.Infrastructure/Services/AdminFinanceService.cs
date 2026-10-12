@@ -63,7 +63,18 @@ public class AdminFinanceService : IAdminFinanceService
             .Select(s => (decimal?)s.NetPayableToGarage)
             .SumAsync(cancellationToken) ?? 0.0m;
 
-        var netPlatformProfit = totalPlatformRevenue;
+        // GST collected on the platform fee is owed to the government, not earned.
+        var totalPlatformFeeGst = await activeSettlements
+            .Select(s => (decimal?)s.TaxOnPlatformFee)
+            .SumAsync(cancellationToken) ?? 0.0m;
+
+        // Advisor margin: what customers paid above the garage's own quote.
+        var totalPlatformMargin = await activeSettlements
+            .Where(s => s.Payment != null)
+            .Select(s => (decimal?)(s.Payment!.Amount - s.GrossAmount))
+            .SumAsync(cancellationToken) ?? 0.0m;
+
+        var netPlatformProfit = totalPlatformRevenue - totalPlatformFeeGst + totalPlatformMargin;
 
         var totalPaymentsCount = await paymentsQuery.CountAsync(cancellationToken);
         var totalInvoicesCount = await _context.Invoices.CountAsync(cancellationToken);
@@ -79,7 +90,9 @@ public class AdminFinanceService : IAdminFinanceService
             TotalPaymentsCount: totalPaymentsCount,
             TotalInvoicesCount: totalInvoicesCount,
             PendingSettlementsCount: pendingSettlementsCount,
-            CompletedSettlementsCount: completedSettlementsCount
+            CompletedSettlementsCount: completedSettlementsCount,
+            TotalPlatformFeeGst: totalPlatformFeeGst,
+            TotalPlatformMargin: totalPlatformMargin
         );
     }
 

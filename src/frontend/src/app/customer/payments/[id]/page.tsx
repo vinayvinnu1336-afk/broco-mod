@@ -1,38 +1,29 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { PaymentDto, InvoiceDto } from '@/types/finance';
-import { 
-  CreditCard, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle, 
-  ArrowLeft, 
-  Receipt,
-  ShieldCheck,
-  Building,
-  Calendar,
-  Hash,
-  ExternalLink
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { ChevronRight, Receipt } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { Alert } from '@/components/ui/Alert';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { IconTile } from '@/components/ui/ListItem';
+import { formatDateTime, formatINR } from '@/lib/format';
+import { DetailRow, paymentMethodLabel, paymentPurposeLabel } from '@/app/customer/_lib/customer-ui';
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const paymentId = params.id as string;
 
   const [payment, setPayment] = useState<PaymentDto | null>(null);
   const [invoice, setInvoice] = useState<InvoiceDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -61,127 +52,116 @@ export default function CustomerPaymentDetailPage() {
     if (paymentId) {
       loadData();
     }
-  }, [paymentId]);
+  }, [paymentId, reloadKey]);
 
-  if (loading) {
-    return <LoadingState message="Loading payment transaction details..." />;
+  if (loading && !payment) {
+    return (
+      <div className="mx-auto max-w-xl space-y-5" aria-busy="true" aria-label="Loading payment">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-72" />
+      </div>
+    );
   }
 
   if (errorMsg || !payment) {
     return (
-      <div className="max-w-2xl mx-auto py-12">
+      <div className="mx-auto max-w-xl">
+        <PageHeader title="Payment" backHref="/customer/payments" backLabel="Payments" />
         <ErrorState
-          title="Payment Not Found"
+          title="Could not load this payment"
           error={errorMsg}
-          action={
-            <Link href="/customer/payments">
-              <Button variant="outline" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
-                Back to Payments
-              </Button>
-            </Link>
-          }
+          onRetry={() => setReloadKey((k) => k + 1)}
         />
       </div>
     );
   }
 
+  const money = (amount: number | null | undefined) => formatINR(amount, payment.currency || 'INR');
+  const isPaid = payment.status === 'Paid';
+  const method = paymentMethodLabel(payment.paymentMethod);
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6 font-sans">
-      {/* Back button */}
-      <div>
-        <Link
-          href="/customer/payments"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-500 hover:text-electric-600 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Payments</span>
-        </Link>
+    <div className="mx-auto max-w-xl space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Payment receipt"
+        backHref="/customer/payments"
+        backLabel="Payments"
+        eyebrow={<span className="font-mono text-xs text-navy-500">{payment.paymentNumber}</span>}
+      />
+
+      {/* Receipt */}
+      <div className="overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card">
+        <div className="border-b border-dashed border-surface-300 px-4 py-6 text-center sm:px-5">
+          <div className="text-sm text-navy-500">{paymentPurposeLabel(payment.purpose)}</div>
+          <div className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-navy-900">{money(payment.amount)}</div>
+          <div className="mt-2 flex justify-center">
+            <StatusBadge status={payment.status} />
+          </div>
+        </div>
+
+        <dl className="divide-y divide-surface-200/80 px-4 sm:px-5">
+          <DetailRow label="Reference" mono>
+            {payment.paymentNumber}
+          </DetailRow>
+          {payment.paidAtUtc && <DetailRow label="Paid on">{formatDateTime(payment.paidAtUtc)}</DetailRow>}
+          <DetailRow label="Created">{formatDateTime(payment.createdAtUtc)}</DetailRow>
+          {method && <DetailRow label="Method">{method}</DetailRow>}
+          {payment.gatewayProvider && <DetailRow label="Processed by">{payment.gatewayProvider}</DetailRow>}
+          {payment.gatewayPaymentId && (
+            <DetailRow label="Transaction ID" mono>
+              <span className="break-all">{payment.gatewayPaymentId}</span>
+            </DetailRow>
+          )}
+          {payment.gatewayOrderId && (
+            <DetailRow label="Order ID" mono>
+              <span className="break-all">{payment.gatewayOrderId}</span>
+            </DetailRow>
+          )}
+          {payment.refundedAmount > 0 && (
+            <DetailRow label="Refunded" strong>
+              {money(payment.refundedAmount)}
+            </DetailRow>
+          )}
+        </dl>
       </div>
 
-      {/* Main Payment Card */}
-      <Card className="p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between border-b border-surface-200 pb-6 gap-4">
-          <div>
-            <div className="text-xs font-mono font-bold text-electric-700 bg-electric-50 px-2.5 py-1 rounded-lg border border-electric-200 inline-block mb-2">
-              {payment.paymentNumber}
-            </div>
-            <h1 className="text-2xl font-black text-navy-900 tracking-tight">Payment Receipt</h1>
-            <p className="text-xs text-navy-500 mt-0.5">
-              Escrow transaction processed via {payment.gatewayProvider || 'Secure Platform Gateway'}
-            </p>
-          </div>
-          <div className="text-left sm:text-right">
-            <div className="text-xs font-bold text-navy-400 uppercase">Paid Amount</div>
-            <div className="text-3xl font-black text-navy-900 mt-0.5">
-              ₹{payment.amount.toLocaleString()}
-            </div>
-            <div className="mt-2">
-              <StatusBadge status={payment.status} />
-            </div>
-          </div>
-        </div>
+      {payment.refundReason && payment.refundedAmount > 0 && (
+        <Alert type="info" title="Refund">
+          {payment.refundReason}
+        </Alert>
+      )}
 
-        {/* Transaction Meta Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6 text-xs">
-          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
-            <span className="text-navy-400 block font-semibold">Gateway Order ID:</span>
-            <span className="font-mono font-bold text-navy-900 text-sm mt-0.5 block truncate">
-              {payment.gatewayOrderId || 'N/A'}
-            </span>
-          </div>
+      {payment.failureReason && (
+        <Alert type="error" title="Payment failed">
+          {payment.failureReason}
+        </Alert>
+      )}
 
-          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
-            <span className="text-navy-400 block font-semibold">Gateway Transaction ID:</span>
-            <span className="font-mono font-bold text-navy-900 text-sm mt-0.5 block truncate">
-              {payment.gatewayPaymentId || 'N/A (Direct Verification)'}
-            </span>
+      {/* Linked invoice */}
+      {invoice ? (
+        <Link
+          href={`/customer/invoices/${invoice.id}`}
+          className="flex min-h-[64px] items-center gap-3 rounded-2xl border border-surface-200 bg-white px-4 py-3 shadow-card transition hover:bg-surface-50 active:bg-surface-100"
+        >
+          <IconTile icon={Receipt} tone="green" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-semibold text-navy-900">View tax invoice</div>
+            <div className="truncate font-mono text-xs text-navy-500">{invoice.invoiceNumber}</div>
           </div>
-
-          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
-            <span className="text-navy-400 block font-semibold">Payment Method:</span>
-            <span className="font-bold text-navy-900 text-sm mt-0.5 block">
-              {payment.paymentMethod || 'Online Transfer'}
-            </span>
-          </div>
-
-          <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
-            <span className="text-navy-400 block font-semibold">Processed At:</span>
-            <span className="font-bold text-navy-900 text-sm mt-0.5 block">
-              {new Date(payment.createdAtUtc).toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Linked Tax Invoice */}
-        {invoice ? (
-          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-emerald-900">Official GST Invoice Issued</div>
-                <div className="text-xs text-emerald-700 font-mono">{invoice.invoiceNumber}</div>
-              </div>
-            </div>
-            <Link href={`/customer/invoices/${invoice.id}`}>
-              <Button size="sm" variant="primary">
-                View Tax Invoice
-              </Button>
+          <ChevronRight className="h-4 w-4 shrink-0 text-surface-400" aria-hidden="true" />
+        </Link>
+      ) : isPaid ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-surface-300 bg-white px-4 py-3">
+          <IconTile icon={Receipt} tone="neutral" />
+          <div className="min-w-0 flex-1 text-sm text-navy-600">
+            Your tax invoice is not ready yet.{' '}
+            <Link href="/customer/invoices" className="font-medium text-electric-600 hover:underline">
+              See all invoices
             </Link>
           </div>
-        ) : (
-          <div className="p-4 bg-surface-50 rounded-xl border border-surface-200 text-xs text-navy-600 flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-500" />
-              <span>Tax Invoice generating upon service signoff...</span>
-            </span>
-            <Link href="/customer/invoices" className="font-bold text-electric-600 hover:underline">
-              Check Invoices
-            </Link>
-          </div>
-        )}
-      </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

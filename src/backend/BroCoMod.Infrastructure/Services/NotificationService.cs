@@ -188,7 +188,7 @@ public class NotificationService : INotificationService
         // Query all staff/owners of the dispatched garages
         var garageUsers = await _context.GarageUsers
             .AsNoTracking()
-            .Where(gu => garageIds.Contains(gu.GarageId))
+            .Where(gu => garageIds.Contains(gu.GarageId) && gu.User.IsActive)
             .Select(gu => new { gu.GarageId, gu.UserId })
             .ToListAsync(cancellationToken);
 
@@ -231,11 +231,10 @@ public class NotificationService : INotificationService
         GarageQuote quote,
         CancellationToken cancellationToken = default)
     {
-        var advisorUsers = await _context.UserRoles
+        var advisorUsers = await _context.Users
             .AsNoTracking()
-            .Where(ur => ur.Role.Name == "ADVISOR" || ur.Role.Name == "SUPER_ADMIN")
-            .Select(ur => ur.UserId)
-            .Distinct()
+            .Where(u => u.IsActive && u.UserRoles.Any(ur => ur.Role.Name == AppRoles.Advisor || ur.Role.Name == AppRoles.SuperAdmin))
+            .Select(u => u.Id)
             .ToListAsync(cancellationToken);
 
         var title = $"New Quote Received: {quote.QuoteNumber}";

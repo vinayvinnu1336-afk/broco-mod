@@ -1,0 +1,19 @@
+{
+  "name": "BroCo Mod — Car Service",
+  "short_name": "BroCo Mod",
+  "description": "Book car service from verified garages near you.",
+  "start_url": "/customer/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0A192F",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

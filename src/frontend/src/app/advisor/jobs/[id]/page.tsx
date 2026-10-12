@@ -1,52 +1,56 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { formatDateTime, formatINR, formatRelative, humanize } from '@/lib/format';
 import {
   AdvisorServiceJobDetailDto,
-  ServiceJobStatus,
   AdditionalWorkRequestDto,
   ReviewAdditionalWorkRequest,
 } from '@/types/serviceJob';
-import {
-  Wrench,
-  Clock,
-  ArrowLeft,
-  CheckCircle2,
-  Calendar,
-  AlertCircle,
-  CarFront,
-  User,
-  Phone,
-  FileText,
-  ShieldAlert,
-  ClipboardList,
-  Building2,
-  Check,
-  X,
-  Eye,
-  Lock,
-  MessageSquare,
-} from 'lucide-react';
+import { AlertTriangle, Check, Eye, Lock, Phone, X } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
+import { Modal } from '@/components/ui/Modal';
+import { Textarea } from '@/components/ui/Textarea';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+
+function isPendingReview(status: string) {
+  return String(status).replace(/[_\s]/g, '').toLowerCase() === 'pendingadvisorreview';
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-navy-500">{label}</dt>
+      <dd className="mt-0.5 break-words text-sm font-medium text-navy-900">{children}</dd>
+    </div>
+  );
+}
 
 export default function AdvisorJobDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const toast = useToast();
 
   const [job, setJob] = useState<AdvisorServiceJobDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Review Additional Work Modal
+  // Review additional work sheet
   const [selectedWork, setSelectedWork] = useState<AdditionalWorkRequestDto | null>(null);
   const [reviewApproved, setReviewApproved] = useState<boolean>(true);
   const [reviewRemarks, setReviewRemarks] = useState<string>('');
 
-  async function loadJob() {
-    setLoading(true);
+  const loadJob = useCallback(async () => {
     setErrorMsg(null);
     const res = await apiFetch<AdvisorServiceJobDetailDto>(`/advisor/jobs/${id}`);
     if (res.success && res.data) {
@@ -55,429 +59,417 @@ export default function AdvisorJobDetailPage() {
       setErrorMsg(res.message || 'Failed to load service job details.');
     }
     setLoading(false);
-  }
-
-  useEffect(() => {
-    if (id) loadJob();
   }, [id]);
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case 'BookingConfirmed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Scheduled':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'VehicleReceived':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Inspection':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'WorkStarted':
-      case 'WorkInProgress':
-        return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-      case 'WorkCompleted':
-      case 'VehicleReady':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'HandedOver':
-      case 'Closed':
-        return 'bg-slate-100 text-slate-700 border-slate-300';
-      case 'Cancelled':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-surface-100 text-navy-700 border-surface-200';
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      loadJob();
     }
+  }, [id, loadJob]);
+
+  function openReview(work: AdditionalWorkRequestDto) {
+    setSelectedWork(work);
+    setReviewApproved(true);
+    setReviewRemarks('');
   }
 
   async function handleReviewAdditionalWork() {
     if (!selectedWork) return;
     setActionLoading(true);
-    setErrorMsg(null);
     const payload: ReviewAdditionalWorkRequest = {
       approved: reviewApproved,
       remarks: reviewRemarks,
     };
-    const res = await apiFetch(`/advisor/jobs/${id}/additional-work/${selectedWork.id}/review`, {
+    const res = await apiFetch(`/advisor/jobs/additional-work/${selectedWork.id}/review`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
     if (res.success) {
+      toast.success(reviewApproved ? 'Extra work approved' : 'Extra work declined');
       setSelectedWork(null);
       setReviewRemarks('');
       await loadJob();
     } else {
-      setErrorMsg(res.message || 'Failed to review additional work request.');
+      toast.error('Could not save your decision', res.message || 'Failed to review additional work request.');
     }
     setActionLoading(false);
   }
 
   if (loading) {
     return (
-      <div className="py-20 text-center text-navy-500">
-        <Clock className="w-8 h-8 mx-auto mb-2 animate-spin text-purple-600" />
-        Loading advisor service job review...
+      <div className="space-y-5">
+        <Skeleton className="h-16 w-2/3 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-56 rounded-2xl" />
       </div>
     );
   }
 
-  if (errorMsg && !job) {
+  if (!job) {
     return (
-      <div className="space-y-4">
-        <Link
-          href="/advisor/jobs"
-          className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Jobs
-        </Link>
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
+      <div className="space-y-5">
+        <PageHeader title="Service job" backHref="/advisor/jobs" backLabel="Service jobs" />
+        <ErrorState
+          title="Could not load this job"
+          error={errorMsg}
+          onRetry={() => {
+            setLoading(true);
+            loadJob();
+          }}
+        />
       </div>
     );
   }
 
-  if (!job) return null;
+  const extraWork = job.additionalWorkRequests ?? [];
+  const pending = extraWork.filter((w) => isPendingReview(w.status));
+  const reviewed = extraWork.filter((w) => !isPendingReview(w.status));
+  const inspections = job.inspections ?? [];
+  const activities = job.activities ?? [];
+
+  const milestones: { label: string; at?: string | null }[] = [
+    { label: 'Scheduled start', at: job.scheduledStartAtUtc },
+    { label: 'Expected completion', at: job.estimatedCompletionAtUtc },
+    { label: 'Car received', at: job.actualVehicleReceivedAtUtc },
+    { label: 'Work started', at: job.actualWorkStartedAtUtc },
+    { label: 'Work completed', at: job.actualWorkCompletedAtUtc },
+    { label: 'Ready for pickup', at: job.vehicleReadyAtUtc },
+    { label: 'Handed over', at: job.handedOverAtUtc },
+    { label: 'Closed', at: job.closedAtUtc },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Top Breadcrumb & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/advisor/jobs"
-            className="inline-flex items-center gap-1.5 text-xs text-navy-600 hover:text-navy-900 font-medium"
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/advisor/jobs"
+        backLabel="Service jobs"
+        eyebrow={
+          <>
+            <span className="font-mono text-xs font-semibold text-navy-500">{job.jobNumber}</span>
+            <StatusBadge status={job.status} />
+          </>
+        }
+        title={`${job.vehicleYear} ${job.vehicleMake} ${job.vehicleModel}`}
+        description={
+          <>
+            {job.garageName} · request{' '}
+            <Link href={`/advisor/requests/${job.serviceRequestId}`} className="font-mono text-electric-600 hover:underline">
+              {job.requestNumber}
+            </Link>
+          </>
+        }
+      />
+
+      {/* Extra work waiting for a decision */}
+      {pending.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+            Extra work waiting for you ({pending.length})
+          </h2>
+          {pending.map((work) => (
+            <Card key={work.id} className="border-amber-200 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-navy-900">{work.description}</p>
+                  <p className="mt-1 text-sm text-navy-600">{work.reason}</p>
+                  <p className="mt-1 text-xs text-navy-500">Raised {formatRelative(work.createdAtUtc)}</p>
+                </div>
+                <div className="shrink-0 text-right text-base font-bold tabular-nums text-navy-900">
+                  {formatINR(work.estimatedAdditionalAmount)}
+                </div>
+              </div>
+              <Button variant="outline" className="mt-3 w-full sm:w-auto" onClick={() => openReview(work)}>
+                Review
+              </Button>
+            </Card>
+          ))}
+        </section>
+      )}
+
+      {/* Vehicle, customer, garage */}
+      <Card className="p-4 sm:p-5">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+          <Fact label="Number plate">
+            <span className="font-mono">{job.vehicleLicensePlate}</span>
+          </Fact>
+          <Fact label="Odometer at intake">
+            {job.currentMileageKm != null ? `${job.currentMileageKm.toLocaleString('en-IN')} km` : 'Not recorded'}
+          </Fact>
+          <Fact label="Garage">{job.garageName}</Fact>
+          <Fact label="Customer">{job.customerName}</Fact>
+          <Fact label="Customer quotation">
+            <span className="font-mono">{job.quotationNumber}</span>
+          </Fact>
+        </dl>
+        {job.customerPhone && (
+          <a
+            href={`tel:${job.customerPhone}`}
+            className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-surface-300 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-surface-50 sm:w-auto"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Advisor Jobs
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold font-mono text-navy-900">{job.jobNumber}</h1>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusBadge(
-                job.status
-              )}`}
-            >
-              {job.status}
-            </span>
-          </div>
-          <p className="text-xs text-navy-500">
-            Request <span className="font-mono font-medium text-navy-700">{job.requestNumber}</span> • Customer Quotation <span className="font-mono font-medium text-navy-700">{job.quotationNumber}</span> • Garage <span className="font-semibold text-navy-800">{job.garageName}</span>
-          </p>
-        </div>
-      </div>
+            <Phone className="h-4 w-4" />
+            Call {job.customerName.split(' ')[0] || 'customer'}
+          </a>
+        )}
+      </Card>
 
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
+      {/* Problem */}
+      {(job.problemDescription || job.customerComplaintSnapshot) && (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">Customer&apos;s problem</h2>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">
+            {job.customerComplaintSnapshot || job.problemDescription}
+          </p>
+        </Card>
       )}
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Vehicle Details */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <CarFront className="w-4 h-4 text-purple-600" />
-            <span>Vehicle Information</span>
-          </div>
-          <div>
-            <div className="text-base font-bold text-navy-900">
-              {job.vehicleYear} {job.vehicleMake} {job.vehicleModel}
-            </div>
-            <div className="inline-block mt-1 font-mono font-bold bg-surface-100 text-navy-800 px-2 py-0.5 rounded text-xs border border-surface-200">
-              {job.vehicleLicensePlate}
-            </div>
-          </div>
-          <div className="pt-2 border-t border-surface-100 text-xs flex justify-between">
-            <span className="text-navy-500">Intake Odometer:</span>
-            <span className="font-semibold text-navy-800">
-              {job.currentMileageKm != null ? `${job.currentMileageKm.toLocaleString()} KM` : 'Not recorded'}
-            </span>
-          </div>
-        </div>
-
-        {/* Customer Information */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <User className="w-4 h-4 text-blue-500" />
-            <span>Customer & Workshop</span>
-          </div>
-          <div>
-            <div className="text-base font-bold text-navy-900">{job.customerName}</div>
-            <div className="text-xs text-navy-600 flex items-center gap-1.5 mt-1">
-              <Phone className="w-3.5 h-3.5 text-navy-400" />
-              <span>{job.customerPhone}</span>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-surface-100 text-xs">
-            <span className="text-navy-500">Assigned Garage:</span>{' '}
-            <span className="font-semibold text-navy-800">{job.garageName}</span>
-          </div>
-        </div>
-
-        {/* Execution Milestones */}
-        <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy-500">
-            <Clock className="w-4 h-4 text-indigo-500" />
-            <span>Execution Milestones</span>
-          </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
-              <span className="text-navy-500">Scheduled:</span>
-              <span className="font-medium text-navy-800">
-                {job.scheduledStartAtUtc ? new Date(job.scheduledStartAtUtc).toLocaleString() : '—'}
+      {/* Progress */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Progress</h2>
+        <ol className="mt-3 divide-y divide-surface-200">
+          {milestones.map((m) => (
+            <li key={m.label} className="flex items-center justify-between gap-3 py-2">
+              <span className={`text-sm ${m.at ? 'text-navy-900' : 'text-navy-400'}`}>{m.label}</span>
+              <span className={`text-right text-sm tabular-nums ${m.at ? 'font-medium text-navy-900' : 'text-navy-400'}`}>
+                {m.at ? formatDateTime(m.at) : '—'}
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Received:</span>
-              <span className="font-medium text-navy-800">
-                {job.actualVehicleReceivedAtUtc ? new Date(job.actualVehicleReceivedAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Work Done:</span>
-              <span className="font-medium text-navy-800">
-                {job.actualWorkCompletedAtUtc ? new Date(job.actualWorkCompletedAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-navy-500">Handed Over:</span>
-              <span className="font-medium text-navy-800">
-                {job.handedOverAtUtc ? new Date(job.handedOverAtUtc).toLocaleString() : '—'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Additional Work Requests Review Section */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <div>
-          <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-purple-600" />
-            Additional Work Proposals (Advisor Evaluation)
-          </h3>
-          <p className="text-xs text-navy-500 mt-0.5">
-            Advisors review technical necessity and reasonableness of garage proposals. Approval does not automatically bill or modify the accepted customer quotation.
+            </li>
+          ))}
+        </ol>
+        {job.cancelledAtUtc && (
+          <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            Cancelled {formatDateTime(job.cancelledAtUtc)}
+            {job.cancellationReason ? `: ${job.cancellationReason}` : ''}
           </p>
-        </div>
-
-        {job.additionalWorkRequests && job.additionalWorkRequests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface-50 border-b border-surface-200 text-navy-700 font-semibold">
-                  <th className="py-2.5 px-3">Description</th>
-                  <th className="py-2.5 px-3">Est. Amount</th>
-                  <th className="py-2.5 px-3">Reason</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Advisor Remarks</th>
-                  <th className="py-2.5 px-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100">
-                {job.additionalWorkRequests.map((work) => (
-                  <tr key={work.id}>
-                    <td className="py-2.5 px-3 font-medium text-navy-900">{work.description}</td>
-                    <td className="py-2.5 px-3 font-semibold text-navy-800">
-                      ₹{work.estimatedAdditionalAmount.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-navy-600">{work.reason}</td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                          work.status === 'Approved'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : work.status === 'Rejected'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        {work.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-navy-600">
-                      {work.advisorRemarks || '—'}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      {work.status === 'PendingAdvisorReview' && (
-                        <button
-                          onClick={() => {
-                            setSelectedWork(work);
-                            setReviewApproved(true);
-                            setReviewRemarks('');
-                          }}
-                          className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-medium transition-colors"
-                        >
-                          Review Proposal
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-xs text-navy-500 italic">No additional work proposals submitted for this job.</p>
         )}
-      </div>
+      </Card>
 
-      {/* Inspection Reports */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-purple-600" />
-          Technical Physical Inspection Reports
-        </h3>
-        {job.inspections && job.inspections.length > 0 ? (
-          <div className="space-y-3">
-            {job.inspections.map((insp) => (
-              <div key={insp.id} className="border border-surface-200 rounded-lg p-4 space-y-3 bg-surface-50/30 text-xs">
-                <div className="flex items-center justify-between text-navy-500 pb-2 border-b border-surface-200">
-                  <span>Inspector: <strong className="text-navy-800">{insp.inspectorName}</strong></span>
-                  <span>Overall Severity: <strong className="text-navy-800">{insp.overallSeverity}</strong></span>
+      {/* Garage notes */}
+      {(job.garageInternalNotes || job.customerFacingNotes) && (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">Garage notes</h2>
+          {job.garageInternalNotes && (
+            <div className="mt-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+                <Lock className="h-3.5 w-3.5" /> Internal
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{job.garageInternalNotes}</p>
+            </div>
+          )}
+          {job.customerFacingNotes && (
+            <div className="mt-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                <Eye className="h-3.5 w-3.5" /> Shown to customer
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{job.customerFacingNotes}</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Inspections */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Inspection reports</h2>
+        {inspections.length > 0 ? (
+          <div className="mt-3 space-y-3">
+            {inspections.map((insp) => (
+              <div key={insp.id} className="rounded-xl border border-surface-200 p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-navy-900">{insp.inspectorName}</span>
+                  <span className="text-xs text-navy-500">
+                    Severity: <span className="font-semibold text-navy-800">{humanize(String(insp.overallSeverity))}</span>
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded border border-surface-200">
-                    <div className="font-bold text-navy-800 mb-1 flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-navy-400" />
-                      Workshop Findings (Confidential)
-                    </div>
-                    <p className="text-navy-600 whitespace-pre-wrap">{insp.findings || 'No notes'}</p>
+                <p className="text-xs text-navy-500">
+                  {formatDateTime(insp.inspectionCompletedAtUtc || insp.inspectionStartedAtUtc)}
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-lg bg-surface-50 p-3">
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+                      <Lock className="h-3.5 w-3.5" /> Garage findings (not shown to customer)
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{insp.findings || 'No notes'}</p>
                     {insp.recommendations && (
-                      <div className="mt-2 pt-2 border-t border-surface-100">
-                        <strong className="text-navy-700">Recommendations:</strong> {insp.recommendations}
-                      </div>
+                      <p className="mt-2 text-sm text-navy-700">
+                        <span className="font-medium text-navy-900">Recommendations: </span>
+                        {insp.recommendations}
+                      </p>
                     )}
                   </div>
-                  <div className="bg-white p-3 rounded border border-surface-200">
-                    <div className="font-bold text-emerald-800 mb-1 flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                      Customer-Facing Summary
-                    </div>
-                    <p className="text-navy-600 whitespace-pre-wrap">{insp.customerVisibleSummary || 'None'}</p>
+                  <div className="rounded-lg bg-emerald-50/60 p-3">
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                      <Eye className="h-3.5 w-3.5" /> Summary for customer
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{insp.customerVisibleSummary || 'None'}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-navy-500 italic">No physical inspections recorded yet.</p>
+          <p className="mt-1 text-sm text-navy-500">No inspections recorded yet.</p>
         )}
-      </div>
+      </Card>
 
-      {/* Activity Timeline */}
-      <div className="bg-white rounded-xl shadow-card border border-surface-200/60 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-navy-900 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-navy-500" />
-          Full Execution Activity Log
-        </h3>
-        {job.activities && job.activities.length > 0 ? (
-          <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-200">
-            {job.activities.map((act) => (
-              <div key={act.id} className="relative">
-                <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-purple-600 ring-4 ring-white" />
-                <div className="text-xs">
-                  <div className="flex items-center gap-2 font-semibold text-navy-900">
-                    <span>{act.activityType}</span>
-                    <span className="text-[10px] text-navy-400 font-normal">
-                      {new Date(act.createdAtUtc).toLocaleString()}
-                    </span>
-                    {act.isCustomerVisible ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        <Eye className="w-2.5 h-2.5" /> Customer Visible
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-navy-600 bg-surface-100 px-1.5 py-0.2 rounded border border-surface-200">
-                        <Lock className="w-2.5 h-2.5" /> Internal Workshop
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-navy-700 mt-0.5">{act.message}</p>
-                  <p className="text-[11px] text-navy-400 mt-0.5">Actor: {act.actorName}</p>
+      {/* Extra work history */}
+      {reviewed.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">Extra work history</h2>
+          <ul className="mt-3 divide-y divide-surface-200">
+            {reviewed.map((work) => (
+              <li key={work.id} className="py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 text-sm font-medium text-navy-900">{work.description}</span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-navy-900">
+                    {formatINR(work.estimatedAdditionalAmount)}
+                  </span>
                 </div>
-              </div>
+                <p className="mt-0.5 text-sm text-navy-600">{work.reason}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <StatusBadge status={work.status} />
+                  {work.reviewedAtUtc && <span className="text-xs text-navy-500">{formatDateTime(work.reviewedAtUtc)}</span>}
+                </div>
+                {work.advisorRemarks && <p className="mt-1 text-xs text-navy-500">Remarks: {work.advisorRemarks}</p>}
+              </li>
             ))}
-          </div>
-        ) : (
-          <p className="text-xs text-navy-500 italic">No activity recorded yet.</p>
-        )}
-      </div>
-
-      {/* Review Modal */}
-      {selectedWork && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-base font-bold text-navy-900">Review Additional Work Proposal</h3>
-            <div className="text-xs space-y-2 bg-surface-50 p-3 rounded border border-surface-200">
-              <div>
-                <strong>Description:</strong> {selectedWork.description}
-              </div>
-              <div>
-                <strong>Estimated Additional Amount:</strong> ₹{selectedWork.estimatedAdditionalAmount.toFixed(2)}
-              </div>
-              <div>
-                <strong>Workshop Reason:</strong> {selectedWork.reason}
-              </div>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Decision:</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="decision"
-                      checked={reviewApproved === true}
-                      onChange={() => setReviewApproved(true)}
-                      className="text-purple-600"
-                    />
-                    <span className="text-emerald-700 font-semibold">Approve Proposal</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="decision"
-                      checked={reviewApproved === false}
-                      onChange={() => setReviewApproved(false)}
-                      className="text-purple-600"
-                    />
-                    <span className="text-rose-700 font-semibold">Reject Proposal</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-navy-700 mb-1">Advisor Remarks:</label>
-                <textarea
-                  rows={3}
-                  value={reviewRemarks}
-                  onChange={(e) => setReviewRemarks(e.target.value)}
-                  placeholder="Enter remarks explaining approval or grounds for rejection..."
-                  className="w-full px-3 py-2 border border-surface-300 rounded-lg"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                disabled={actionLoading}
-                onClick={() => setSelectedWork(null)}
-                className="px-3 py-1.5 text-xs text-navy-600 hover:text-navy-900 border rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={handleReviewAdditionalWork}
-                className="px-4 py-1.5 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-              >
-                {actionLoading ? 'Saving...' : 'Submit Decision'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </ul>
+        </Card>
       )}
+
+      {/* Activity */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Activity</h2>
+        {activities.length > 0 ? (
+          <ol className="relative mt-3 space-y-4 pl-5 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-surface-200">
+            {activities.map((act) => (
+              <li key={act.id} className="relative">
+                <span className="absolute -left-5 top-1.5 h-2.5 w-2.5 rounded-full bg-electric-600 ring-4 ring-white" aria-hidden="true" />
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-sm font-medium text-navy-900">{humanize(act.activityType)}</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-navy-500">
+                    {act.isCustomerVisible ? (
+                      <>
+                        <Eye className="h-3 w-3" /> Customer can see
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3 w-3" /> Internal
+                      </>
+                    )}
+                  </span>
+                </div>
+                {act.message && <p className="mt-0.5 text-sm text-navy-700">{act.message}</p>}
+                <p className="mt-0.5 text-xs text-navy-400">
+                  {act.actorName} · {formatDateTime(act.createdAtUtc)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-1 text-sm text-navy-500">No activity yet.</p>
+        )}
+      </Card>
+
+      {pending.length > 0 && (
+        <>
+          <ActionBar
+            summary={
+              <div className="min-w-0">
+                <div className="truncate text-xs text-navy-500">
+                  {pending.length} extra work request{pending.length === 1 ? '' : 's'} waiting
+                </div>
+                <div className="text-base font-bold tabular-nums text-navy-900">
+                  {formatINR(pending.reduce((sum, w) => sum + (w.estimatedAdditionalAmount || 0), 0))}
+                </div>
+              </div>
+            }
+          >
+            <Button onClick={() => openReview(pending[0])}>Review extra work</Button>
+          </ActionBar>
+          <ActionBarSpacer />
+        </>
+      )}
+
+      {/* Review sheet */}
+      <Modal
+        isOpen={!!selectedWork}
+        onClose={() => !actionLoading && setSelectedWork(null)}
+        title="Review extra work"
+        description="Approving does not change the customer's accepted quotation or bill them automatically."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={actionLoading}
+              onClick={() => setSelectedWork(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={reviewApproved ? 'primary' : 'danger'}
+              className="w-full sm:w-auto"
+              isLoading={actionLoading}
+              onClick={handleReviewAdditionalWork}
+            >
+              {reviewApproved ? 'Approve' : 'Decline'}
+            </Button>
+          </div>
+        }
+      >
+        {selectedWork && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-surface-200 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <span className="min-w-0 text-sm font-semibold text-navy-900">{selectedWork.description}</span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-navy-900">
+                  {formatINR(selectedWork.estimatedAdditionalAmount)}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-navy-600">{selectedWork.reason}</p>
+            </div>
+
+            <div role="radiogroup" aria-label="Decision" className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={reviewApproved}
+                onClick={() => setReviewApproved(true)}
+                className={`flex min-h-[52px] items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
+                  reviewApproved
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100'
+                    : 'border-surface-200 bg-white text-navy-600 hover:border-surface-300'
+                }`}
+              >
+                <Check className="h-4 w-4" /> Approve
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!reviewApproved}
+                onClick={() => setReviewApproved(false)}
+                className={`flex min-h-[52px] items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition ${
+                  !reviewApproved
+                    ? 'border-red-500 bg-red-50 text-red-700 ring-2 ring-red-100'
+                    : 'border-surface-200 bg-white text-navy-600 hover:border-surface-300'
+                }`}
+              >
+                <X className="h-4 w-4" /> Decline
+              </button>
+            </div>
+
+            <Textarea
+              id="review-remarks"
+              label="Remarks"
+              rows={3}
+              value={reviewRemarks}
+              onChange={(e) => setReviewRemarks(e.target.value)}
+              placeholder={reviewApproved ? 'Optional note for the garage' : 'Tell the garage why'}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

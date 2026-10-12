@@ -1,0 +1,10 @@
+# HTTP only. Used until a Let's Encrypt certificate exists for ${DOMAIN}.
+include /etc/nginx/upstreams.conf;
+
+server {
+    listen 80 default_server;
+    server_name ${DOMAIN} _;
+    limit_conn conn_limit 50;
+
+    include /etc/nginx/shared.conf;
+}

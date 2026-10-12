@@ -1,9 +1,10 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { ShieldAlert, ArrowRight, LogOut, RefreshCw } from 'lucide-react';
+import { ShieldAlert, ArrowRight, LogOut, RefreshCw, Wrench } from 'lucide-react';
+import { isDemoMode } from '@/lib/demo';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -11,24 +12,36 @@ interface ProtectedRouteProps {
   portalName: string;
 }
 
+export function homePathForRoles(roles: string[]): string {
+  const upper = roles.map((r) => r.toUpperCase());
+  if (upper.includes('SUPER_ADMIN')) return '/admin/dashboard';
+  if (upper.includes('ADVISOR')) return '/advisor/dashboard';
+  if (upper.some((r) => r.startsWith('GARAGE'))) return '/garage/dashboard';
+  return '/customer/dashboard';
+}
+
 export function ProtectedRoute({ children, allowedRoles, portalName }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading, logout, quickLogin } = useAuth();
   const router = useRouter();
+  const signedOut = !isLoading && (!isAuthenticated || !user);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (signedOut) {
+      router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+    }
+  }, [signedOut, router]);
+
+  if (isLoading || signedOut || !user) {
     return (
-      <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center text-white">
-        <div className="w-12 h-12 border-4 border-electric-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-surface-300 font-medium">Verifying platform credentials...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-surface-50">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric-600 text-white shadow-lg shadow-electric-600/30">
+          <Wrench className="h-6 w-6" />
+        </div>
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-200">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-electric-600" />
+        </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated || !user) {
-    if (typeof window !== 'undefined') {
-      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-    }
-    return null;
   }
 
   const hasAccess = allowedRoles.some((role) =>
@@ -36,75 +49,49 @@ export function ProtectedRoute({ children, allowedRoles, portalName }: Protected
   );
 
   if (!hasAccess) {
-    // 403 Forbidden view with data isolation rationale
-    const currentRolesDisplay = user.roles.join(', ');
-    const myPortalUrl = user.roles.includes('SUPER_ADMIN')
-      ? '/admin/dashboard'
-      : user.roles.includes('ADVISOR')
-      ? '/advisor/dashboard'
-      : user.roles.some((r) => r.startsWith('GARAGE'))
-      ? '/garage/dashboard'
-      : '/customer/dashboard';
+    const myPortalUrl = homePathForRoles(user.roles);
+    const targetRole = portalName.toLowerCase().includes('admin')
+      ? 'admin'
+      : portalName.toLowerCase().includes('advisor')
+      ? 'advisor'
+      : portalName.toLowerCase().includes('garage')
+      ? 'garage'
+      : 'customer';
 
     return (
-      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-6">
-        <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl border border-surface-200 p-8 text-center">
-          <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <ShieldAlert className="w-9 h-9" />
+      <div className="flex min-h-screen items-center justify-center bg-surface-50 p-4">
+        <div className="w-full max-w-md rounded-3xl border border-surface-200 bg-white p-6 text-center shadow-elevated sm:p-8">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+            <ShieldAlert className="h-7 w-7" />
           </div>
-
-          <span className="inline-block px-3 py-1 bg-red-100 text-red-700 text-xs font-bold uppercase tracking-wider rounded-full mb-3">
-            403 — Data Isolation Policy Enforcement
-          </span>
-
-          <h1 className="text-2xl font-bold text-navy-900 mb-2">Access Restricted</h1>
-
-          <p className="text-navy-600 text-sm mb-6 leading-relaxed">
-            Your current account role (<strong className="text-navy-900">{currentRolesDisplay}</strong>) is strictly forbidden from accessing the <strong className="text-navy-900">{portalName} Portal</strong>.
-            BroCo Mod enforces zero-trust role segregation between Customers, Garages, Advisors, and Platform Admins.
+          <h1 className="text-xl font-bold text-navy-900">This area isn&apos;t for your account</h1>
+          <p className="mt-2 text-sm leading-relaxed text-navy-500">
+            You&apos;re signed in as <span className="font-medium text-navy-800">{user.email}</span>, which doesn&apos;t
+            have access to the {portalName} portal.
           </p>
 
-          <div className="bg-surface-50 rounded-xl p-4 border border-surface-200 mb-6 text-left text-xs text-navy-700 space-y-2">
-            <div className="font-semibold text-navy-900">Why was this blocked?</div>
-            <p>• Customers cannot view internal workshop pricing or management consoles.</p>
-            <p>• Workshop partners cannot inspect competitor bids, advisor margins, or external portals.</p>
-            <p>• Advisors cannot access super administrative governance settings.</p>
-          </div>
-
-          <div className="space-y-3">
+          <div className="mt-6 space-y-2">
             <button
               onClick={() => router.push(myPortalUrl)}
-              className="w-full py-3 px-4 bg-electric-500 hover:bg-electric-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 font-semibold text-white transition hover:bg-electric-700"
             >
-              <span>Go to Your Authorized Portal</span>
-              <ArrowRight className="w-4 h-4" />
+              Go to my portal <ArrowRight className="h-4 w-4" />
             </button>
-
-            <div className="pt-2 border-t border-surface-200 grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${isDemoMode ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <button
                 onClick={() => logout()}
-                className="py-2.5 px-3 border border-surface-300 hover:bg-surface-100 text-navy-700 text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition"
+                className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-surface-300 px-3 text-sm font-medium text-navy-700 transition hover:bg-surface-100"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Log Out</span>
+                <LogOut className="h-4 w-4" /> Sign out
               </button>
-
-              <button
-                onClick={() => {
-                  const targetRole = portalName.toLowerCase().includes('admin')
-                    ? 'admin'
-                    : portalName.toLowerCase().includes('advisor')
-                    ? 'advisor'
-                    : portalName.toLowerCase().includes('garage')
-                    ? 'garage'
-                    : 'customer';
-                  quickLogin(targetRole as any);
-                }}
-                className="py-2.5 px-3 bg-navy-900 hover:bg-navy-800 text-white text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Switch to {portalName} Demo</span>
-              </button>
+              {isDemoMode && (
+                <button
+                  onClick={() => quickLogin(targetRole)}
+                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-navy-900 px-3 text-sm font-medium text-white transition hover:bg-navy-800"
+                >
+                  <RefreshCw className="h-4 w-4" /> Use {targetRole} demo
+                </button>
+              )}
             </div>
           </div>
         </div>

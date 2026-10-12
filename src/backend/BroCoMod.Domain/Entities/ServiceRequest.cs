@@ -127,6 +127,21 @@ public class ServiceRequest : BaseEntity
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Records which advisor owns this request without changing its workflow status
+    /// (requests are dispatched to garages immediately, so ownership is independent of status).
+    /// </summary>
+    public void SetResponsibleAdvisor(Guid advisorId)
+    {
+        if (advisorId == Guid.Empty)
+        {
+            throw new ArgumentException("Advisor id is required.", nameof(advisorId));
+        }
+
+        AssignedAdvisorId = advisorId;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     public void StartReview()
     {
         if (Status != ServiceRequestStatus.AssignedToAdvisor)

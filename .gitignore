@@ -72,3 +72,13 @@ desktop.ini
 $RECYCLE.BIN/
 *.swp
 *~
+
+# Database backups (contain customer data)
+backups/
+
+
+# Playwright output
+src/frontend/e2e-report/
+src/frontend/e2e-results/
+
+src/frontend/tsconfig.tsbuildinfo

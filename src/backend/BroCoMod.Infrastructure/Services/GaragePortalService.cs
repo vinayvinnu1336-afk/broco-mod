@@ -1,12 +1,16 @@
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities.Identity;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BroCoMod.Infrastructure.Services;
 
 public class GaragePortalService : IGaragePortalService
 {
+    /// <summary>Upper bound for unpaged garage portal lists; most recent rows are returned first.</summary>
+    private const int MaxListResults = 200;
+
     private readonly IApplicationDbContext _context;
 
     public GaragePortalService(IApplicationDbContext context)
@@ -66,8 +70,17 @@ public class GaragePortalService : IGaragePortalService
                 gr.Status.ToString()))
             .ToListAsync(cancellationToken);
 
-        var newRequestsCount = requests.Count;
-        var activeJobsCount = quotes.Count(q => q.Status == "ACCEPTED");
+        // KPI counts are aggregated in SQL over the garage's full data set, not over the 5-row previews above.
+        var newRequestsCount = await _context.GarageRequests
+            .CountAsync(gr => gr.GarageId == garageId &&
+                              (gr.Status == GarageRequestStatus.Pending ||
+                               gr.Status == GarageRequestStatus.Notified ||
+                               gr.Status == GarageRequestStatus.Viewed), cancellationToken);
+
+        var activeJobsCount = await _context.ServiceJobs
+            .CountAsync(j => j.GarageId == garageId &&
+                             j.Status != ServiceJobStatus.Closed &&
+                             j.Status != ServiceJobStatus.Cancelled, cancellationToken);
 
         return new GarageDashboardDto(
             garageId,
@@ -143,6 +156,7 @@ public class GaragePortalService : IGaragePortalService
             .AsNoTracking()
             .Where(q => q.GarageId == garageId)
             .OrderByDescending(q => q.CreatedAtUtc)
+            .Take(MaxListResults)
             .Select(q => new GarageQuoteSummaryDto(
                 q.Id,
                 q.GarageRequestId,
@@ -170,6 +184,7 @@ public class GaragePortalService : IGaragePortalService
             .Include(ga => ga.SelectedQuote)
             .Where(ga => ga.GarageId == garageId && ga.Status == BroCoMod.Domain.Enums.GarageAssignmentStatus.Confirmed)
             .OrderByDescending(ga => ga.UpdatedAtUtc ?? ga.AssignedAtUtc)
+            .Take(MaxListResults)
             .Select(ga => new GarageConfirmedBookingDto(
                 ga.Id,
                 ga.ServiceRequestId,

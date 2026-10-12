@@ -1,75 +1,119 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminGarageDetail } from '@/types/adminOperations';
 import {
-  Building2,
-  Mail,
-  Phone,
-  MapPin,
-  Clock,
-  ArrowLeft,
+  Briefcase,
   CheckCircle2,
-  AlertTriangle,
-  Ban,
-  Shield,
-  Sliders,
-  Wrench,
-  Trophy,
+  FileText,
   History,
-  X,
-  Check
+  Inbox,
+  Mail,
+  MapPin,
+  Phone,
+  Trophy,
+  Wrench,
 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { Textarea } from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/Toast';
+import { formatDate, formatDateTime, humanize } from '@/lib/format';
+
+// The API serialises the garage status enum as a number (1-4); names are also accepted.
+const GARAGE_STATUS_NAMES: Record<string, string> = {
+  '1': 'PendingVerification',
+  '2': 'Verified',
+  '3': 'Suspended',
+  '4': 'Inactive',
+};
+const garageStatus = (status: unknown): string => {
+  const key = String(status ?? '');
+  return GARAGE_STATUS_NAMES[key] ?? key;
+};
+
+type GarageAction = 'verify' | 'activate' | 'suspend' | 'deactivate';
+
+const ACTION_COPY: Record<GarageAction, { title: string; message: string; confirm: string; done: string }> = {
+  verify: {
+    title: 'Verify this garage?',
+    message: 'Verified garages can receive service requests and send quotes.',
+    confirm: 'Verify garage',
+    done: 'Garage verified',
+  },
+  activate: {
+    title: 'Reactivate this garage?',
+    message: 'The garage will be able to receive service requests again.',
+    confirm: 'Reactivate',
+    done: 'Garage reactivated',
+  },
+  suspend: {
+    title: 'Suspend this garage?',
+    message: 'The garage stops receiving new service requests and quote invitations until you reactivate it.',
+    confirm: 'Suspend garage',
+    done: 'Garage suspended',
+  },
+  deactivate: {
+    title: 'Deactivate this garage?',
+    message: 'The garage is marked inactive and removed from matching. Use this when a garage leaves the network.',
+    confirm: 'Deactivate garage',
+    done: 'Garage deactivated',
+  },
+};
+
+const MIN_RADIUS = 1;
+const MAX_RADIUS = 50;
 
 export default function AdminGarageDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
+  const toast = useToast();
   const [garage, setGarage] = useState<AdminGarageDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Radius editing state
+  // Service radius
   const [radiusKm, setRadiusKm] = useState<number>(10.0);
   const [savingRadius, setSavingRadius] = useState(false);
-  const [radiusSuccess, setRadiusSuccess] = useState(false);
   const [radiusError, setRadiusError] = useState<string | null>(null);
 
-  // Modal State for Suspend / Deactivate
-  const [actionModal, setActionModal] = useState<'suspend' | 'deactivate' | null>(null);
+  // Confirmation for verify / reactivate / suspend / deactivate
+  const [action, setAction] = useState<GarageAction | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadGarageDetail = async () => {
+  const loadGarageDetail = useCallback(async () => {
     setLoading(true);
     const res = await apiFetch<AdminGarageDetail>(`/admin/garages/${id}`);
     if (res.success && res.data) {
       setGarage(res.data);
       setRadiusKm(res.data.serviceRadiusKm);
+      setError(null);
     } else {
-      setError(res.message || 'Failed to load workshop details.');
+      setError(res.message || 'Failed to load garage details.');
     }
     setLoading(false);
-  };
+  }, [id]);
 
   useEffect(() => {
     loadGarageDetail();
-  }, [id]);
+  }, [loadGarageDetail]);
 
   const handleUpdateRadius = async () => {
-    if (radiusKm < 1.0 || radiusKm > 50.0) {
-      setRadiusError('Radius must be between 1.0 and 50.0 KM.');
+    if (radiusKm < MIN_RADIUS || radiusKm > MAX_RADIUS) {
+      setRadiusError(`Choose a distance between ${MIN_RADIUS} and ${MAX_RADIUS} km.`);
       return;
     }
     setSavingRadius(true);
     setRadiusError(null);
-    setRadiusSuccess(false);
 
     const res = await apiFetch(`/admin/garages/${id}/radius`, {
       method: 'PUT',
@@ -78,361 +122,288 @@ export default function AdminGarageDetailPage({ params }: { params: { id: string
 
     setSavingRadius(false);
     if (res.success) {
-      setRadiusSuccess(true);
-      setTimeout(() => setRadiusSuccess(false), 3000);
+      toast.success('Service area updated', `${radiusKm.toFixed(1)} km`);
       loadGarageDetail();
     } else {
-      setRadiusError(res.message || 'Failed to update service radius.');
+      setRadiusError(res.message || 'Could not update the service area.');
     }
   };
 
-  const handleVerify = async () => {
-    if (!confirm('Are you sure you want to verify this partner workshop?')) return;
-    const res = await apiFetch(`/admin/garages/${id}/verify`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
-    if (res.success) {
-      loadGarageDetail();
-    } else {
-      alert(res.message || 'Failed to verify garage');
-    }
+  const openAction = (type: GarageAction) => {
+    setAction(type);
+    setActionReason('');
+    setActionError(null);
   };
 
-  const handleActivate = async () => {
-    if (!confirm('Are you sure you want to reactivate this workshop?')) return;
-    const res = await apiFetch(`/admin/garages/${id}/activate`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
-    if (res.success) {
-      loadGarageDetail();
-    } else {
-      alert(res.message || 'Failed to activate garage');
-    }
+  const closeAction = () => {
+    if (!actionLoading) setAction(null);
   };
 
-  const submitActionModal = async () => {
-    if (!actionModal) return;
-    if (!actionReason.trim()) {
-      setActionError('Reason is required.');
+  const submitAction = async () => {
+    if (!action) return;
+    const needsReason = action === 'suspend' || action === 'deactivate';
+    if (needsReason && !actionReason.trim()) {
+      setActionError('Add a reason for this change.');
       return;
     }
 
     setActionLoading(true);
     setActionError(null);
 
-    const endpoint = actionModal === 'suspend'
-      ? `/admin/garages/${id}/suspend`
-      : `/admin/garages/${id}/deactivate`;
-
-    const res = await apiFetch(endpoint, {
+    const res = await apiFetch(`/admin/garages/${id}/${action}`, {
       method: 'POST',
-      body: JSON.stringify({ reason: actionReason.trim() }),
+      body: JSON.stringify(needsReason ? { reason: actionReason.trim() } : {}),
     });
 
     setActionLoading(false);
 
     if (res.success) {
-      setActionModal(null);
+      toast.success(ACTION_COPY[action].done, garage?.name);
+      setAction(null);
       setActionReason('');
       loadGarageDetail();
     } else {
-      setActionError(res.message || 'Action failed');
+      setActionError(res.message || 'That did not work. Please try again.');
     }
   };
 
-  if (loading) {
-    return <LoadingState message="Loading partner workshop profile..." />;
-  }
-
-  if (error || !garage) {
+  if (loading && !garage) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
-        <AlertTriangle className="mx-auto h-8 w-8 text-rose-600 mb-2" />
-        <h2 className="text-base font-bold text-rose-900">Unable to load workshop</h2>
-        <p className="mt-1 text-sm text-rose-700">{error || 'Workshop not found.'}</p>
-        <Link href="/admin/garages" className="mt-4 inline-block">
-          <Button variant="secondary" size="sm" leftIcon={<ArrowLeft className="h-3.5 w-3.5" />}>
-            Back to Workshop Network
-          </Button>
-        </Link>
+      <div className="space-y-5" aria-busy="true">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-8 w-2/3" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-[92px] rounded-2xl" />
+          ))}
+        </div>
+        <Skeleton className="h-40 rounded-2xl" />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Top Breadcrumb & Navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/admin/garages"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-navy-600 hover:text-navy-900 transition"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Workshop Network
-        </Link>
-        <span className="rounded-lg border border-surface-200 bg-surface-50 px-3 py-1 text-xs font-mono font-bold text-navy-700">
-          ID: {garage.id}
-        </span>
+  if (error || !garage) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Garage" backHref="/admin/garages" backLabel="Garages" />
+        <ErrorState title="Could not load this garage" error={error || 'Garage not found.'} onRetry={loadGarageDetail} />
       </div>
+    );
+  }
 
-      {/* Header Profile Card */}
-      <Card className="p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-surface-100 pb-5">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-navy-900">{garage.name}</h1>
-              <StatusBadge status={garage.status} />
-            </div>
-            <p className="mt-1 text-xs text-navy-600">
-              Registered on {new Date(garage.createdAtUtc).toLocaleDateString()} &bull;{' '}
-              {garage.statusReason && <span>Status Note: {garage.statusReason}</span>}
-            </p>
-          </div>
+  const status = garageStatus(garage.status);
+  const needsReason = action === 'suspend' || action === 'deactivate';
+  const radiusChanged = Math.abs(radiusKm - garage.serviceRadiusKm) > 0.001;
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            {garage.status === 'PendingVerification' && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleVerify}
-                leftIcon={<Check className="h-3.5 w-3.5" />}
-              >
-                Verify Workshop
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/admin/garages"
+        backLabel="Garages"
+        eyebrow={<StatusBadge status={status} />}
+        title={garage.name}
+        description={`Joined ${formatDate(garage.createdAtUtc)}`}
+        actions={
+          <>
+            {status === 'PendingVerification' && (
+              <Button onClick={() => openAction('verify')} leftIcon={<CheckCircle2 className="h-4 w-4" />}>
+                Verify garage
               </Button>
             )}
-
-            {garage.status === 'Verified' && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setActionModal('suspend')}
-                leftIcon={<AlertTriangle className="h-3.5 w-3.5" />}
-              >
-                Suspend
-              </Button>
-            )}
-
-            {garage.status === 'Suspended' && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleActivate}
-                leftIcon={<CheckCircle2 className="h-3.5 w-3.5" />}
-              >
+            {status === 'Suspended' && (
+              <Button onClick={() => openAction('activate')} leftIcon={<CheckCircle2 className="h-4 w-4" />}>
                 Reactivate
               </Button>
             )}
-
-            {garage.status !== 'Inactive' && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setActionModal('deactivate')}
-                leftIcon={<Ban className="h-3.5 w-3.5" />}
-              >
+            {status === 'Verified' && (
+              <Button variant="outline" onClick={() => openAction('suspend')}>
+                Suspend
+              </Button>
+            )}
+            {status !== 'Inactive' && (
+              <Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => openAction('deactivate')}>
                 Deactivate
               </Button>
             )}
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Contact and Location Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-5">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">Contact Info:</span>
-            <p className="text-xs text-navy-800 flex items-center gap-2 font-medium">
-              <Mail className="h-3.5 w-3.5 text-navy-400" /> {garage.email}
-            </p>
-            <p className="text-xs text-navy-800 flex items-center gap-2 font-medium">
-              <Phone className="h-3.5 w-3.5 text-navy-400" /> {garage.phoneNumber}
-            </p>
-          </div>
+      {garage.statusReason && (
+        <Card className="p-4 sm:p-5">
+          <p className="text-sm text-navy-700">
+            <span className="font-semibold text-navy-900">Status note: </span>
+            {garage.statusReason}
+          </p>
+          {garage.statusChangedAtUtc && (
+            <p className="mt-1 text-xs text-navy-500">Changed {formatDateTime(garage.statusChangedAtUtc)}</p>
+          )}
+        </Card>
+      )}
 
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">Workshop Address:</span>
-            <p className="text-xs text-navy-800 flex items-start gap-2 font-medium">
-              <MapPin className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {garage.address}
-            </p>
-            <p className="text-[11px] font-mono text-navy-500">
-              Lon: {garage.longitude.toFixed(4)}, Lat: {garage.latitude.toFixed(4)}
-            </p>
-          </div>
-
-          {/* Configurable Service Radius Widget */}
-          <div className="rounded-xl border border-surface-200 bg-surface-50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-navy-900 flex items-center gap-1.5">
-                <Sliders className="h-3.5 w-3.5 text-electric-600" /> Service Radius
-              </span>
-              <span className="font-mono text-xs font-bold text-navy-900 bg-white border border-surface-200 px-2 py-0.5 rounded-lg">
-                {radiusKm.toFixed(1)} KM
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="1.0"
-                max="50.0"
-                step="0.5"
-                value={radiusKm}
-                onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-surface-200 rounded-lg appearance-none cursor-pointer accent-electric-600"
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleUpdateRadius}
-                disabled={savingRadius || radiusKm === garage.serviceRadiusKm}
-                isLoading={savingRadius}
-              >
-                Save
-              </Button>
-            </div>
-            {radiusSuccess && <p className="text-[11px] text-emerald-700 font-bold">Radius updated successfully.</p>}
-            {radiusError && <p className="text-[11px] text-rose-600">{radiusError}</p>}
-            <p className="text-[10px] text-navy-500">
-              PostGIS 10 KM proximity engine matches requests within this radius (1.0 - 50.0 KM).
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Operational Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">Dispatches</span>
-          <p className="mt-1 text-2xl font-black text-navy-900">{garage.totalDispatchesReceived}</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-navy-500 uppercase tracking-wider">Quotes Sent</span>
-          <p className="mt-1 text-2xl font-black text-navy-900">{garage.totalQuotesSubmitted}</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Quotes Won</span>
-          <p className="mt-1 text-2xl font-black text-emerald-700">{garage.totalQuotesWon}</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-electric-700 uppercase tracking-wider">Win Rate</span>
-          <p className="mt-1 text-2xl font-black text-electric-700">{garage.winRatePercentage}%</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">Active Jobs</span>
-          <p className="mt-1 text-2xl font-black text-orange-600">{garage.activeJobsCount}</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Completed Jobs</span>
-          <p className="mt-1 text-2xl font-black text-emerald-700">{garage.completedJobsCount}</p>
-        </Card>
+      {/* Activity numbers */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard label="Requests received" value={garage.totalDispatchesReceived} icon={Inbox} tone="blue" />
+        <StatCard label="Quotes sent" value={garage.totalQuotesSubmitted} icon={FileText} tone="blue" />
+        <StatCard label="Quotes won" value={garage.totalQuotesWon} icon={Trophy} tone="green" />
+        <StatCard label="Win rate" value={`${Math.round(Number(garage.winRatePercentage) || 0)}%`} icon={Trophy} tone="neutral" />
+        <StatCard label="Active jobs" value={garage.activeJobsCount} icon={Wrench} tone="amber" />
+        <StatCard label="Completed jobs" value={garage.completedJobsCount} icon={Briefcase} tone="green" />
       </div>
 
-      {/* Recent Jobs & Audit History */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Recent Jobs */}
-        <Card className="p-6">
-          <h3 className="text-base font-bold text-navy-900 flex items-center gap-2 border-b border-surface-100 pb-3">
-            <Wrench className="h-4 w-4 text-orange-600" /> Recent Workshop Jobs
-          </h3>
-          <div className="mt-4 divide-y divide-surface-100">
-            {garage.recentJobs.length === 0 ? (
-              <p className="py-6 text-center text-xs text-navy-500">No jobs recorded for this garage.</p>
-            ) : (
-              garage.recentJobs.map((j) => (
-                <div key={j.id} className="py-3 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-mono font-bold text-navy-900">{j.jobNumber}</span>
-                    <p className="text-[11px] text-navy-600">{j.vehicleSummary}</p>
-                  </div>
-                  <div className="text-right">
-                    <StatusBadge status={j.status} />
-                    <p className="text-[10px] text-navy-500 mt-1">{new Date(j.createdAtUtc).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+        {/* Contact */}
+        <ListGroup title="Contact">
+          <ListItem
+            href={`mailto:${garage.email}`}
+            hideChevron
+            leading={<IconTile icon={Mail} tone="neutral" />}
+            title={garage.email || '—'}
+            subtitle="Email"
+          />
+          <ListItem
+            href={garage.phoneNumber ? `tel:${garage.phoneNumber}` : undefined}
+            hideChevron
+            leading={<IconTile icon={Phone} tone="neutral" />}
+            title={garage.phoneNumber || 'Not provided'}
+            subtitle="Phone"
+          />
+          <ListItem
+            leading={<IconTile icon={MapPin} tone="neutral" />}
+            title={<span className="whitespace-normal">{garage.address || 'No address'}</span>}
+            subtitle="Address"
+            meta={`Map position ${Number(garage.latitude).toFixed(4)}, ${Number(garage.longitude).toFixed(4)}`}
+          />
+        </ListGroup>
 
-        {/* Audit History */}
-        <Card className="p-6">
-          <h3 className="text-base font-bold text-navy-900 flex items-center gap-2 border-b border-surface-100 pb-3">
-            <History className="h-4 w-4 text-navy-500" /> Audit History
-          </h3>
-          <div className="mt-4 divide-y divide-surface-100">
-            {garage.auditHistory.length === 0 ? (
-              <p className="py-6 text-center text-xs text-navy-500">No audit events recorded.</p>
-            ) : (
-              garage.auditHistory.map((evt) => (
-                <div key={evt.id} className="py-2.5 flex items-start justify-between gap-4 text-xs">
-                  <div>
-                    <span className="font-bold text-navy-900">{evt.action}</span>
-                    <p className="text-[11px] text-navy-600 mt-0.5">{evt.userEmail || 'System'} &bull; {evt.details}</p>
-                  </div>
-                  <span className="text-[10px] text-navy-400 whitespace-nowrap font-mono">{new Date(evt.timestampUtc).toLocaleDateString()}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Action Reason Modal */}
-      {actionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-surface-200 bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-surface-100 pb-3">
-              <h3 className="text-base font-bold text-navy-900 capitalize">
-                {actionModal} Workshop: {garage.name}
-              </h3>
-              <button
-                onClick={() => setActionModal(null)}
-                className="text-navy-400 hover:text-navy-900"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="mt-3 text-xs text-navy-600">
-              {actionModal === 'suspend'
-                ? 'Suspending this workshop will immediately halt new proximity dispatches and quotation opportunities until reactivated.'
-                : 'Deactivating this workshop marks it as inactive in the partner directory.'}
+        {/* Service area */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service area</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4 sm:p-5">
+            <p className="text-sm text-navy-500">
+              The garage is offered service requests from customers within this distance.
             </p>
-
-            <div className="mt-4 space-y-2">
-              <label className="text-xs font-bold text-navy-800">
-                Reason for {actionModal}: <span className="text-rose-600">*</span>
+            <div className="flex items-baseline justify-between">
+              <label htmlFor="service-radius" className="text-sm font-medium text-navy-800">
+                Distance
               </label>
-              <textarea
-                value={actionReason}
-                onChange={(e) => setActionReason(e.target.value)}
-                placeholder="Enter audit rationale, compliance note, or reason..."
-                rows={3}
-                className="w-full rounded-xl border border-surface-200 bg-surface-50 p-2.5 text-xs text-navy-900 focus:border-navy-900 focus:outline-none"
-              />
-              {actionError && <p className="text-xs text-rose-600">{actionError}</p>}
+              <span className="text-lg font-bold tabular-nums text-navy-900">{radiusKm.toFixed(1)} km</span>
             </div>
-
-            <div className="mt-6 flex items-center justify-end gap-3">
+            <input
+              id="service-radius"
+              type="range"
+              min={MIN_RADIUS}
+              max={MAX_RADIUS}
+              step="0.5"
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
+              className="h-11 w-full cursor-pointer accent-electric-600"
+            />
+            <div className="flex justify-between text-xs text-navy-400">
+              <span>{MIN_RADIUS} km</span>
+              <span>{MAX_RADIUS} km</span>
+            </div>
+            {radiusError && (
+              <p role="alert" className="text-sm font-medium text-red-600">
+                {radiusError}
+              </p>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              {radiusChanged && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setRadiusKm(garage.serviceRadiusKm)}
+                  disabled={savingRadius}
+                  className="w-full sm:w-auto"
+                >
+                  Reset
+                </Button>
+              )}
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => setActionModal(null)}
+                onClick={handleUpdateRadius}
+                disabled={savingRadius || !radiusChanged}
+                isLoading={savingRadius}
+                className="w-full sm:w-auto"
               >
-                Cancel
-              </Button>
-              <Button
-                variant={actionModal === 'suspend' ? 'secondary' : 'danger'}
-                size="sm"
-                onClick={submitActionModal}
-                isLoading={actionLoading}
-              >
-                Confirm {actionModal}
+                Save distance
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </CardContent>
+        </Card>
+
+        {/* Recent jobs */}
+        <ListGroup title="Recent jobs">
+          {garage.recentJobs.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-navy-500">No jobs for this garage yet.</p>
+          ) : (
+            garage.recentJobs.map((j) => (
+              <ListItem
+                key={j.id}
+                leading={<IconTile icon={Wrench} tone="neutral" />}
+                title={j.jobNumber}
+                subtitle={j.vehicleSummary}
+                meta={`Request ${j.requestNumber} · ${formatDate(j.createdAtUtc)}`}
+                trailing={<StatusBadge status={j.status} />}
+              />
+            ))
+          )}
+        </ListGroup>
+
+        {/* Audit history */}
+        <ListGroup title="Change history">
+          {garage.auditHistory.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-navy-500">No changes recorded.</p>
+          ) : (
+            garage.auditHistory.map((evt) => (
+              <ListItem
+                key={evt.id}
+                leading={<IconTile icon={History} tone="neutral" />}
+                title={humanize(evt.action)}
+                subtitle={evt.details}
+                meta={`${evt.userEmail || 'System'} · ${formatDateTime(evt.timestampUtc)}`}
+              />
+            ))
+          )}
+        </ListGroup>
+      </div>
+
+      <p className="break-all px-1 text-xs text-navy-400">Garage ID {garage.id}</p>
+
+      <ConfirmationDialog
+        isOpen={!!action}
+        onClose={closeAction}
+        onConfirm={submitAction}
+        isLoading={actionLoading}
+        variant={action === 'deactivate' ? 'danger' : action === 'suspend' ? 'warning' : 'primary'}
+        title={action ? ACTION_COPY[action].title.replace('this garage', garage.name) : ''}
+        confirmText={action ? ACTION_COPY[action].confirm : 'Confirm'}
+        message={
+          action && (
+            <div className="space-y-3">
+              <p>{ACTION_COPY[action].message}</p>
+              {needsReason && (
+                <Textarea
+                  id="garage-action-reason"
+                  label="Reason"
+                  rows={3}
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder="Why are you doing this?"
+                  required
+                />
+              )}
+              {actionError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {actionError}
+                </p>
+              )}
+            </div>
+          )
+        }
+      />
     </div>
   );
 }

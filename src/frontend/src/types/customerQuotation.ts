@@ -53,8 +53,10 @@ export interface GarageAssignmentDto {
   garageId: string;
   garageName: string;
   selectedQuoteId: string;
-  quoteNumber: string;
-  quotedAmount: number;
+  /** Matches the API's GarageAssignmentDto.SelectedQuoteNumber. */
+  selectedQuoteNumber: string;
+  /** Matches the API's GarageAssignmentDto.SelectedQuoteAmount (the garage's quote total). */
+  selectedQuoteAmount: number;
   assignedByAdvisorId: string;
   assignedByAdvisorName: string;
   assignedAtUtc: string;

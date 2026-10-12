@@ -1,23 +1,43 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { formatDate, formatDateTime, formatINR, humanize } from '@/lib/format';
 import { AdvisorGarageQuoteDetailDto } from '@/types/garageQuote';
-import {
-  ArrowLeft,
-  Building2,
-  Phone,
-  MapPin,
-  Clock,
-  ShieldCheck,
-  History,
-  FileSpreadsheet,
-  AlertCircle,
-  CarFront,
-  Lock,
-} from 'lucide-react';
+import { MapPin, Phone } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+const linkButtonPrimary =
+  'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-electric-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2';
+
+function durationLabel(days?: number | null, hours?: number | null) {
+  const parts: string[] = [];
+  if (days) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+  if (hours) parts.push(`${hours} h`);
+  return parts.length ? parts.join(' ') : 'Not given';
+}
+
+function isPast(value: string) {
+  const t = new Date(value).getTime();
+  return !Number.isNaN(t) && t < Date.now();
+}
+
+function Fact({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-navy-500">{label}</dt>
+      <dd className={`mt-0.5 text-sm font-medium text-navy-900 ${className}`}>{children}</dd>
+    </div>
+  );
+}
 
 export default function AdvisorQuoteDetailPage() {
   const params = useParams();
@@ -27,291 +47,225 @@ export default function AdvisorQuoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadQuote() {
-      setLoading(true);
-      const res = await apiFetch<AdvisorGarageQuoteDetailDto>(`/advisor/garage-quotes/${quoteId}`);
-      if (res.success && res.data) {
-        setQuote(res.data);
-      } else {
-        setErrorMsg(res.message || 'Failed to load quotation details.');
-      }
-      setLoading(false);
+  const loadQuote = useCallback(async () => {
+    setLoading(true);
+    const res = await apiFetch<AdvisorGarageQuoteDetailDto>(`/advisor/garage-quotes/${quoteId}`);
+    if (res.success && res.data) {
+      setQuote(res.data);
+      setErrorMsg(null);
+    } else {
+      setErrorMsg(res.message || 'Failed to load quotation details.');
     }
-    loadQuote();
+    setLoading(false);
   }, [quoteId]);
 
-  function getStatusBadge(status: string) {
-    switch (status.toUpperCase()) {
-      case 'DRAFT':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'SUBMITTED':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'UNDERREVIEW':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'SELECTEDBYADVISOR':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'REJECTEDBYADVISOR':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'WITHDRAWN':
-        return 'bg-zinc-100 text-zinc-700 border-zinc-300';
-      case 'EXPIRED':
-        return 'bg-red-50 text-red-700 border-red-200';
-      default:
-        return 'bg-surface-100 text-navy-700 border-surface-200';
-    }
-  }
+  useEffect(() => {
+    loadQuote();
+  }, [loadQuote]);
 
-  if (loading) {
-    return <div className="py-16 text-center text-sm text-navy-600">Loading quotation details...</div>;
-  }
-
-  if (!quote) {
+  if (loading && !quote) {
     return (
-      <div className="py-16 text-center space-y-3">
-        <h2 className="text-lg font-bold text-navy-900">Quotation Not Found</h2>
-        <Link href="/advisor/quotes" className="text-xs text-purple-600 font-bold hover:underline">
-          Return to Received Quotations
-        </Link>
+      <div className="space-y-5">
+        <Skeleton className="h-16 w-2/3 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     );
   }
 
+  if (!quote) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Garage quote" backHref="/advisor/quotes" backLabel="Garage quotes" />
+        <ErrorState title="Could not load this quote" error={errorMsg} onRetry={loadQuote} />
+      </div>
+    );
+  }
+
+  const currency = quote.currency || 'INR';
+  const money = (n: number) => formatINR(n, currency);
+  const expired = isPast(quote.validUntil);
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/advisor/quotes"
-            className="p-2 rounded-xl border border-surface-200 hover:bg-surface-100 transition"
-          >
-            <ArrowLeft className="w-4 h-4 text-navy-600" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-navy-900 font-mono">{quote.quoteNumber}</h1>
-              <span
-                className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${getStatusBadge(
-                  quote.status
-                )}`}
-              >
-                {quote.status}
-              </span>
-            </div>
-            <p className="text-xs text-navy-600 mt-1">
-              Service Request:{' '}
-              <strong className="text-navy-900 font-mono">{quote.serviceRequestNumber}</strong> • {quote.vehicleSummary}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        backHref="/advisor/quotes"
+        backLabel="Garage quotes"
+        eyebrow={
+          <>
+            <span className="font-mono text-xs font-semibold text-navy-500">{quote.quoteNumber}</span>
+            <StatusBadge status={quote.status} />
+          </>
+        }
+        title={quote.garageName}
+        description={
+          <>
+            <span className="font-mono">{quote.serviceRequestNumber}</span> · {quote.vehicleSummary}
+          </>
+        }
+      />
 
-        {/* Milestone Boundary Notice Action */}
-        <div className="flex items-center gap-2">
-          <button
-            disabled
-            className="flex items-center gap-1.5 px-4 py-2 bg-surface-100 text-navy-400 border border-surface-200 rounded-xl text-xs font-bold cursor-not-allowed"
-            title="Garage assignment is locked until Milestone 6"
-          >
-            <Lock className="w-3.5 h-3.5" /> Garage Selection (Milestone 6)
-          </button>
-        </div>
-      </div>
+      {/* Summary */}
+      <Card className="p-4 sm:p-5">
+        <div className="text-xs text-navy-500">Garage total</div>
+        <div className="text-3xl font-bold tabular-nums tracking-tight text-navy-900">{money(quote.totalAmount)}</div>
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-surface-200 pt-4 sm:grid-cols-4">
+          <Fact label="Time needed">{durationLabel(quote.estimatedCompletionDays, quote.estimatedCompletionHours)}</Fact>
+          <Fact label="Valid until" className={expired ? 'text-red-600' : ''}>
+            {expired ? `Expired ${formatDate(quote.validUntil)}` : formatDate(quote.validUntil)}
+          </Fact>
+          <Fact label="Submitted">{quote.submittedAtUtc ? formatDateTime(quote.submittedAtUtc) : '—'}</Fact>
+          <Fact label="Distance to customer">
+            {typeof quote.garageDistanceKm === 'number' ? `${quote.garageDistanceKm.toFixed(1)} km` : '—'}
+          </Fact>
+        </dl>
+      </Card>
 
-      {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+      {/* Problem and garage notes */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Customer&apos;s problem</h2>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{quote.problemSummary || 'No description given.'}</p>
+        {quote.garageRemarks && (
+          <>
+            <h2 className="mt-4 text-base font-semibold text-navy-900">Garage&apos;s notes</h2>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">{quote.garageRemarks}</p>
+          </>
+        )}
+      </Card>
 
-      {/* Scope Disclaimer Banner */}
-      <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-xs text-purple-900 flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+      {/* Line items */}
+      <section className="space-y-3">
         <div>
-          <strong className="block mb-0.5 font-bold">Confidential Commercial Inspection Only:</strong>
-          You are reviewing privileged workshop pricing. In Milestone 5, Advisors can audit line-item costs and validity periods. Garage selection, customer markup formulation, and customer quotation creation will be available in subsequent milestones.
-        </div>
-      </div>
-
-      {/* Workshop Profile & Logistics */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-navy-900 border-b border-surface-100 pb-3">
-          Partner Workshop Profile
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Workshop Name</span>
-            <span className="font-bold text-navy-900 text-sm">{quote.garageName}</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Workshop Phone</span>
-            <span className="font-semibold text-navy-800">{quote.garagePhone}</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Distance to Customer</span>
-            <span className="font-bold text-emerald-700">{quote.garageDistanceKm} KM</span>
-          </div>
-          <div className="sm:col-span-3">
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Workshop Address</span>
-            <span className="font-medium text-navy-700">{quote.garageAddress}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quotation Terms & Notes */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-bold text-navy-900 border-b border-surface-100 pb-3">
-          Terms & Diagnostic Assessment
-        </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Validity Date</span>
-            <span className="font-semibold text-navy-900">
-              {new Date(quote.validUntil).toLocaleDateString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Estimated Duration</span>
-            <span className="font-semibold text-navy-900">
-              {quote.estimatedCompletionDays ? `${quote.estimatedCompletionDays} Days` : ''}{' '}
-              {quote.estimatedCompletionHours ? `(${quote.estimatedCompletionHours} Hours)` : ''}
-              {!quote.estimatedCompletionDays && !quote.estimatedCompletionHours && 'Standard'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Submitted On</span>
-            <span className="font-semibold text-navy-900">
-              {quote.submittedAtUtc ? new Date(quote.submittedAtUtc).toLocaleString() : 'N/A'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-navy-400 uppercase block">Customer Problem</span>
-            <span className="font-semibold text-navy-900 truncate block" title={quote.problemSummary}>
-              {quote.problemSummary || 'Standard Service'}
-            </span>
-          </div>
-
-          {quote.garageRemarks && (
-            <div className="col-span-2 sm:col-span-4 bg-surface-50 p-3 rounded-xl border border-surface-200">
-              <span className="text-[10px] font-bold text-navy-400 uppercase block mb-1">
-                Workshop Technical Notes
-              </span>
-              <p className="text-navy-700 whitespace-pre-wrap">{quote.garageRemarks}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Itemized Breakdown Table */}
-      <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-        <div className="border-b border-surface-100 pb-3">
-          <h2 className="text-sm font-bold text-navy-900">Itemized Cost Structure</h2>
-          <p className="text-[11px] text-navy-500">
-            Confidential workshop part and labor breakdown.
-          </p>
+          <h2 className="text-base font-semibold text-navy-900">Line items ({quote.lineItems.length})</h2>
+          <p className="text-xs text-navy-500">Garage prices. Only advisors and admins see these.</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-surface-200 text-[10px] font-bold uppercase text-navy-500 tracking-wider">
-                <th className="py-2 px-2 w-28">Type</th>
-                <th className="py-2 px-2">Description</th>
-                <th className="py-2 px-2 w-20">Qty</th>
-                <th className="py-2 px-2 w-28">Unit Price</th>
-                <th className="py-2 px-2 w-20">GST (%)</th>
-                <th className="py-2 px-2 w-24">Disc</th>
-                <th className="py-2 px-2 w-28 text-right">Line Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-100">
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
+                <TableHead className="text-right">GST</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {quote.lineItems.map((item) => (
-                <tr key={item.id} className="hover:bg-surface-50/50 transition">
-                  <td className="py-2.5 px-2">
-                    <span className="font-semibold text-navy-800 bg-surface-100 px-2 py-0.5 rounded text-[10px]">
-                      {item.lineType}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-2 font-medium text-navy-900">{item.description}</td>
-                  <td className="py-2.5 px-2 text-navy-700">{item.quantity}</td>
-                  <td className="py-2.5 px-2 font-mono text-navy-700">₹{item.unitPrice.toFixed(2)}</td>
-                  <td className="py-2.5 px-2 text-navy-700">{item.taxRate}%</td>
-                  <td className="py-2.5 px-2 font-mono text-emerald-700">
-                    {item.discountAmount > 0 ? `- ₹${item.discountAmount.toFixed(2)}` : '—'}
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono font-bold text-navy-900">
-                    ₹{item.lineTotal.toFixed(2)}
-                  </td>
-                </tr>
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <div className="text-navy-900">{item.description}</div>
+                    <div className="text-xs text-navy-500">{humanize(String(item.lineType))}</div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(item.unitPrice)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {item.discountAmount > 0 ? `− ${money(item.discountAmount)}` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{item.taxRate}%</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">{money(item.lineTotal)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
-        {/* Totals Summary */}
-        <div className="pt-4 border-t border-surface-200 flex flex-col items-end">
-          <div className="w-full max-w-xs space-y-2 text-xs">
-            <div className="flex justify-between text-navy-600">
-              <span>Gross Subtotal:</span>
-              <span className="font-mono">₹{quote.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-emerald-700">
-              <span>Discounts:</span>
-              <span className="font-mono">- ₹{quote.discountAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-navy-600">
-              <span>Tax (GST):</span>
-              <span className="font-mono">+ ₹{quote.taxAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-base font-bold text-navy-900 pt-2 border-t border-surface-200">
-              <span>Total Bid Amount:</span>
-              <span className="font-mono text-xl text-purple-700">
-                ₹{quote.totalAmount.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Historical Versions */}
-      {quote.versions && quote.versions.length > 0 && (
-        <div className="bg-white rounded-2xl border border-surface-200 shadow-sm p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b border-surface-100 pb-3">
-            <History className="w-4 h-4 text-purple-600" />
-            <h2 className="text-sm font-bold text-navy-900">Immutable Version Audit Trail</h2>
-          </div>
-
-          <div className="space-y-3">
-            {quote.versions.map((ver) => (
-              <div
-                key={ver.id}
-                className="p-4 bg-surface-50 rounded-xl border border-surface-200 space-y-2 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-purple-900 bg-purple-100 px-2 py-0.5 rounded-lg font-mono">
-                    Version Snapshot v{ver.versionNumber}
-                  </span>
-                  <span className="text-navy-500">
-                    Submitted {new Date(ver.submittedAtUtc).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between text-[11px] text-navy-500">
-                  <span>Subtotal: ₹{ver.subtotal.toFixed(2)}</span>
-                  <span>Discounts: ₹{ver.discountAmount.toFixed(2)}</span>
-                  <span>Tax: ₹{ver.taxAmount.toFixed(2)}</span>
-                  <span className="font-mono font-bold text-navy-800">
-                    Total: ₹{ver.totalAmount.toFixed(2)}
-                  </span>
-                </div>
+        <ul className="divide-y divide-surface-200 overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card md:hidden">
+          {quote.lineItems.map((item) => (
+            <li key={item.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <span className="min-w-0 text-sm font-medium text-navy-900">{item.description}</span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-navy-900">{money(item.lineTotal)}</span>
               </div>
+              <div className="mt-0.5 text-xs text-navy-500">
+                {humanize(String(item.lineType))} · {item.quantity} × {money(item.unitPrice)}
+                {item.discountAmount > 0 && <> · {money(item.discountAmount)} off</>} · {item.taxRate}% GST
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <Card className="p-4 sm:p-5">
+          <dl className="ml-auto max-w-sm space-y-2">
+            <div className="flex justify-between gap-3 text-sm">
+              <dt className="text-navy-500">Subtotal</dt>
+              <dd className="tabular-nums text-navy-900">{money(quote.subtotal)}</dd>
+            </div>
+            {quote.discountAmount > 0 && (
+              <div className="flex justify-between gap-3 text-sm">
+                <dt className="text-navy-500">Discount</dt>
+                <dd className="tabular-nums text-navy-900">− {money(quote.discountAmount)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-3 text-sm">
+              <dt className="text-navy-500">GST</dt>
+              <dd className="tabular-nums text-navy-900">{money(quote.taxAmount)}</dd>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-surface-200 pt-2">
+              <dt className="text-sm font-semibold text-navy-900">Garage total</dt>
+              <dd className="text-lg font-bold tabular-nums text-navy-900">{money(quote.totalAmount)}</dd>
+            </div>
+          </dl>
+        </Card>
+      </section>
+
+      {/* Garage contact */}
+      <Card className="p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-navy-900">Garage</h2>
+        <p className="mt-1 text-sm font-medium text-navy-900">{quote.garageName}</p>
+        {quote.garageAddress && (
+          <p className="mt-1 flex items-start gap-2 text-sm text-navy-700">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-400" />
+            <span>{quote.garageAddress}</span>
+          </p>
+        )}
+        {quote.garagePhone && (
+          <a
+            href={`tel:${quote.garagePhone}`}
+            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-surface-300 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-surface-50 sm:w-auto"
+          >
+            <Phone className="h-4 w-4" />
+            Call {quote.garagePhone}
+          </a>
+        )}
+      </Card>
+
+      {/* Earlier versions */}
+      {quote.versions && quote.versions.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-navy-900">Versions ({quote.versions.length})</h2>
+          <ul className="mt-3 divide-y divide-surface-200">
+            {quote.versions.map((ver) => (
+              <li key={ver.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-navy-900">Version {ver.versionNumber}</div>
+                  <div className="text-xs text-navy-500">
+                    {formatDateTime(ver.submittedAtUtc)} · {money(ver.subtotal)} + {money(ver.taxAmount)} GST
+                    {ver.discountAmount > 0 && <> · {money(ver.discountAmount)} off</>}
+                  </div>
+                </div>
+                <div className="shrink-0 text-sm font-semibold tabular-nums text-navy-900">{money(ver.totalAmount)}</div>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </Card>
       )}
+
+      <ActionBar
+        summary={
+          <div className="min-w-0">
+            <div className="truncate text-xs text-navy-500">Assign from request {quote.serviceRequestNumber}</div>
+            <div className="text-base font-bold tabular-nums text-navy-900">{money(quote.totalAmount)}</div>
+          </div>
+        }
+      >
+        <Link href="/advisor/work-queue?stage=pending-quotes" className={linkButtonPrimary}>
+          Compare quotes
+        </Link>
+      </ActionBar>
+      <ActionBarSpacer />
     </div>
   );
 }
