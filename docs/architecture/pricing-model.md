@@ -1,7 +1,7 @@
 # Commercial Pricing Model & Financial Calculations
 
 ## 1. Overview
-BroCo Mod implements a two-tier financial architecture:
+BroCo implements a two-tier financial architecture:
 1. **Tier 1 (Wholesale Execution Cost):** The raw cost submitted by the partner garage (`GarageQuote`), encompassing workshop labor hours and supplier parts cost.
 2. **Tier 2 (Commercial Retail Price):** The curated customer price (`CustomerQuotation`), factoring in quality inspections, warranty guarantees, promotional discounts, and statutory taxes.
 

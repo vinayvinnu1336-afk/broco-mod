@@ -1,5 +1,5 @@
 # ==============================================================================
-# BroCo Mod - production stack for a single VPS (e.g. Hostinger KVM 1/2)
+# BroCo - production stack for a single VPS (e.g. Hostinger KVM 1/2)
 #
 #   cp .env.example .env      # then fill in every value marked REQUIRED
 #   docker compose up -d

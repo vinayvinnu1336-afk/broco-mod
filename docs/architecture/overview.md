@@ -1,8 +1,8 @@
-# BroCo Mod Architecture Overview
+# BroCo Architecture Overview
 
 ## 1. System Vision & Modularity
 
-BroCo Mod is engineered as an enterprise-grade **Modular Monolith** designed for high availability, transactional integrity, and rapid iteration. The system operates as a **stateless API core**, allowing seamless horizontal scaling behind a reverse proxy/load balancer while eliminating the operational complexity and network latency of premature microservices.
+BroCo is engineered as an enterprise-grade **Modular Monolith** designed for high availability, transactional integrity, and rapid iteration. The system operates as a **stateless API core**, allowing seamless horizontal scaling behind a reverse proxy/load balancer while eliminating the operational complexity and network latency of premature microservices.
 
 ```
                       +-----------------------------+
@@ -61,7 +61,7 @@ The application serves four primary actors through strictly demarcated portal su
 - **Data Boundary:** Can only view their own submitted quotes and job assignments. Inaccessible to competitor garages' internal data.
 
 ### 2.3. Advisor Portal
-- **Target Audience:** BroCo Mod certified automotive service advisors.
+- **Target Audience:** BroCo certified automotive service advisors.
 - **Key Capabilities:**
   - Aggregate and evaluate quotes from all responding garages for a customer request.
   - Review garage internal pricing, itemized parts, and estimated completion times.

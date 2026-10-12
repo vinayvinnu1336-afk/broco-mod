@@ -1,4 +1,4 @@
-# BroCo Mod Database Schema Specification
+# BroCo Database Schema Specification
 
 ## 1. Database Engine & Extensions
 

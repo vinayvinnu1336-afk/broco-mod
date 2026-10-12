@@ -1,7 +1,7 @@
 # Authentication Architecture
 
 ## 1. Overview
-The BroCo Mod platform implements an enterprise-grade, stateless authentication architecture designed for high security, horizontal scalability, and defense-in-depth protection across all user portals: **Customer**, **Garage**, **Advisor**, and **Super Admin**.
+The BroCo platform implements an enterprise-grade, stateless authentication architecture designed for high security, horizontal scalability, and defense-in-depth protection across all user portals: **Customer**, **Garage**, **Advisor**, and **Super Admin**.
 
 ---
 
@@ -47,7 +47,7 @@ The BroCo Mod platform implements an enterprise-grade, stateless authentication 
 ### 2.5 Password Hashing Production Review & NIST Compliance
 - **Specification**: PBKDF2 with HMAC-SHA512, 100,000 iterations, 32-byte (256-bit) salt, 64-byte key output.
 - **Standards Evaluation**:
-  - **NIST SP 800-63B**: Mandates PBKDF2 with at least 10,000 iterations when paired with HMAC-SHA512. BroCo Mod's 100,000 iterations exceeds the baseline tenfold, providing high computational cost against parallelized GPU/ASIC hash-cracking clusters.
+  - **NIST SP 800-63B**: Mandates PBKDF2 with at least 10,000 iterations when paired with HMAC-SHA512. BroCo's 100,000 iterations exceeds the baseline tenfold, providing high computational cost against parallelized GPU/ASIC hash-cracking clusters.
   - **OWASP Password Storage Cheat Sheet**: Recommends PBKDF2-HMAC-SHA512 in the range of 100,000 to 210,000 iterations.
   - **Side-Channel Defense**: Strict constant-time byte-array comparison via `CryptographicOperations.FixedTimeEquals` eliminates timing attack vectors.
   - **Latency / DoS Resistance**: Benchmarked execution time is ~35–45ms per hash on standard server CPUs, balancing cryptographic hardness against thread-pool exhaustion under legitimate high-concurrency authentication traffic.

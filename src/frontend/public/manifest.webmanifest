@@ -1,6 +1,6 @@
 {
-  "name": "BroCo Mod — Car Service",
-  "short_name": "BroCo Mod",
+  "name": "BroCo — Car Service",
+  "short_name": "BroCo",
   "description": "Book car service from verified garages near you.",
   "start_url": "/customer/dashboard",
   "scope": "/",

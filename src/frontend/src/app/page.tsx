@@ -152,12 +152,12 @@ const faqs = [
 
 function BrandMark() {
   return (
-    <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="BroCo Mod home">
+    <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="BroCo home">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
         <Wrench className="h-[18px] w-[18px]" />
       </span>
       <span className="text-[15px] font-extrabold tracking-tight text-navy-900 sm:text-lg">
-        BroCo<span className="font-light text-electric-600"> Mod</span>
+        Bro<span className="text-electric-600">Co</span>
       </span>
     </Link>
   );
@@ -402,9 +402,9 @@ export default function HomePage() {
         <section id="why-us" className="border-b border-surface-200 bg-surface-50 py-12 sm:py-16 lg:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="Why BroCo Mod"
+              eyebrow="Why BroCo"
               title="No calling around. No surprise bills."
-              desc="We built BroCo Mod around the things that usually go wrong when you leave your car at a garage."
+              desc="We built BroCo around the things that usually go wrong when you leave your car at a garage."
             />
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -437,7 +437,7 @@ export default function HomePage() {
                 Run a workshop? Get jobs from car owners nearby.
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-surface-300 sm:text-base">
-                Join BroCo Mod as a workshop partner. We bring you service requests from your area — you quote, do the
+                Join BroCo as a workshop partner. We bring you service requests from your area — you quote, do the
                 work and update the job from your phone.
               </p>
               <Link
@@ -518,7 +518,7 @@ export default function HomePage() {
                   <Wrench className="h-4 w-4" />
                 </span>
                 <span className="text-base font-extrabold tracking-tight text-white">
-                  BroCo<span className="font-light text-electric-400"> Mod</span>
+                  Bro<span className="text-electric-400">Co</span>
                 </span>
               </div>
               <p className="mt-3 max-w-xs text-sm leading-relaxed">
@@ -548,7 +548,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 border-t border-navy-900 pt-6 text-xs">
-            © {new Date().getFullYear()} BroCo Mod. Made for car owners in India.
+            © {new Date().getFullYear()} BroCo. Made for car owners in India.
           </div>
         </div>
       </footer>

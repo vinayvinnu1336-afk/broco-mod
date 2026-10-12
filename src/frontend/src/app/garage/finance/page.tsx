@@ -132,7 +132,7 @@ export default function GarageFinancePage() {
     <div>
       <PageHeader
         title="Payouts"
-        description="What you earn on each finished job, after the BroCo Mod platform fee and GST on that fee."
+        description="What you earn on each finished job, after the BroCo platform fee and GST on that fee."
       />
 
       <div className="space-y-5 sm:space-y-6">

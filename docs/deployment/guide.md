@@ -1,8 +1,8 @@
-# BroCo Mod Deployment & Infrastructure Guide
+# BroCo Deployment & Infrastructure Guide
 
 ## 1. Overview
 
-BroCo Mod is packaged as container images ready for orchestrators (Docker Compose, Kubernetes, AWS ECS, GCP Cloud Run).
+BroCo is packaged as container images ready for orchestrators (Docker Compose, Kubernetes, AWS ECS, GCP Cloud Run).
 
 ---
 

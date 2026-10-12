@@ -1,4 +1,4 @@
-# BroCo Mod Platform
+# BroCo Platform
 
 Production-grade automotive service brokerage platform built as a high-performance **modular monolith**. Connects customers with vetted local garages via dedicated advisor curation and geospatial matching.
 
@@ -6,11 +6,11 @@ Production-grade automotive service brokerage platform built as a high-performan
 
 ## Architecture Overview
 
-BroCo Mod orchestrates four dedicated portals over a stateless backend core:
+BroCo orchestrates four dedicated portals over a stateless backend core:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                          BroCo Mod Portals                             │
+│                          BroCo Portals                             │
 ├─────────────────┬─────────────────┬──────────────────┬─────────────────┤
 │ Customer Portal │  Garage Portal  │  Advisor Portal  │SuperAdmin Portal│
 └────────┬────────┴────────┬────────┴────────┬─────────┴────────┬────────┘

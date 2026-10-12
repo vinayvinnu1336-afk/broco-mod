@@ -30,9 +30,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new()
     {
-        Title = "BroCo Mod API",
+        Title = "BroCo API",
         Version = "v1",
-        Description = "Modular Monolith Backend for BroCo Mod Automotive Service Platform"
+        Description = "Modular Monolith Backend for BroCo Automotive Service Platform"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -229,7 +229,7 @@ if (swaggerEnabled)
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BroCo Mod API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BroCo API v1");
         c.RoutePrefix = "swagger";
     });
 }

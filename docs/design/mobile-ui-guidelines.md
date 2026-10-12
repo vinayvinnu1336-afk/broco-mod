@@ -1,4 +1,4 @@
-# BroCo Mod — mobile-first UI guidelines
+# BroCo — mobile-first UI guidelines
 
 Most users are on phones (375–430 px wide). Design every screen for a 375 px viewport first, then let it widen at `sm` (640), `md` (768, sidebar appears) and `lg` (1024).
 

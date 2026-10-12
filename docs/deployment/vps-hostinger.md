@@ -1,4 +1,4 @@
-# Deploying BroCo Mod on a single VPS (Hostinger KVM)
+# Deploying BroCo on a single VPS (Hostinger KVM)
 
 This runs the whole platform (PostgreSQL + PostGIS, Redis, API, Next.js, Nginx) on one Ubuntu VPS with Docker Compose.
 

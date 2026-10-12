@@ -1,7 +1,7 @@
 # Authorization & Data Isolation Architecture
 
 ## 1. Overview
-Authorization in BroCo Mod is governed by a **two-layer model**:
+Authorization in BroCo is governed by a **two-layer model**:
 1. **Coarse-grained Role Checks**: Enforces portal-level boundaries (`CUSTOMER`, `GARAGE_OWNER`, `GARAGE_MANAGER`, `GARAGE_STAFF`, `ADVISOR`, `SUPER_ADMIN`).
 2. **Fine-grained Permission Checks**: Granular capabilities verified via custom authorization handler (`PermissionAuthorizationHandler`) and `[HasPermission(...)]`.
 3. **Data Isolation Guards**: Strict entity-level boundaries preventing cross-tenant or horizontal privilege escalation.

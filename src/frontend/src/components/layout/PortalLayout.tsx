@@ -144,7 +144,7 @@ export function PortalLayout({
             </span>
             <span className="min-w-0 leading-tight">
               <span className="block text-[15px] font-extrabold tracking-tight md:text-lg">
-                BroCo<span className="font-light text-electric-600 md:text-electric-400"> Mod</span>
+                Bro<span className="text-electric-600 md:text-electric-400">Co</span>
               </span>
               <span className="block truncate text-[11px] font-medium text-navy-400 md:hidden">{portalShortName}</span>
             </span>

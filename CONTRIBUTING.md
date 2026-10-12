@@ -1,6 +1,6 @@
-# Contributing to BroCo Mod
+# Contributing to BroCo
 
-Thank you for contributing to **BroCo Mod**. This document establishes the branch-aware Git workflow, code standards, data isolation rules, and review processes.
+Thank you for contributing to **BroCo**. This document establishes the branch-aware Git workflow, code standards, data isolation rules, and review processes.
 
 ---
 

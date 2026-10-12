@@ -1,4 +1,4 @@
-# BroCo Mod API Specifications
+# BroCo API Specifications
 
 ## 1. Design Principles
 

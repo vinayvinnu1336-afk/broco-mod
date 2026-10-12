@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-BroCo Mod is establishing a multi-sided marketplace connecting vehicle owners (Customers), repair workshops (Garages), and BroCo Mod service intermediaries (Advisors) under executive governance (Super Admin).
+BroCo is establishing a multi-sided marketplace connecting vehicle owners (Customers), repair workshops (Garages), and BroCo service intermediaries (Advisors) under executive governance (Super Admin).
 
 A foundational architecture decision was required:
 - Option A: Distributed Microservices (separate services for Customer, Garage, Quotes, Notifications, Portals).

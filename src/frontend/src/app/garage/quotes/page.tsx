@@ -53,7 +53,7 @@ export default function GarageQuotesPage() {
     <div>
       <PageHeader
         title="Our quotes"
-        description="Quotes you have drafted or sent to BroCo Mod advisors."
+        description="Quotes you have drafted or sent to BroCo advisors."
         actions={
           <LinkButton href="/garage/requests" variant="outline" leftIcon={<Inbox className="h-4 w-4" />}>
             Quote a request

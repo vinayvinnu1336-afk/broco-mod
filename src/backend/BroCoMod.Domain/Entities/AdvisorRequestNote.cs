@@ -4,7 +4,7 @@ namespace BroCoMod.Domain.Entities;
 
 /// <summary>
 /// Confidential internal technical/operational note recorded by an Advisor for a ServiceRequest.
-/// STRICT SECURITY: Notes are internal to BroCo Mod and must NEVER be exposed to Customers or Garages.
+/// STRICT SECURITY: Notes are internal to BroCo and must NEVER be exposed to Customers or Garages.
 /// </summary>
 public class AdvisorRequestNote : BaseEntity
 {

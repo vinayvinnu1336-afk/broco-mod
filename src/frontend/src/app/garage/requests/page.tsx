@@ -257,7 +257,7 @@ export default function GarageRequestsPage() {
             </dl>
 
             <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">
-              Your quote goes to a BroCo Mod advisor, not straight to the customer. Item prices stay private.
+              Your quote goes to a BroCo advisor, not straight to the customer. Item prices stay private.
             </p>
           </div>
         )}
