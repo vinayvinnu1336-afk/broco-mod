@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn, expectNoHorizontalOverflow, Role } from './helpers';
+import { signIn, expectNoHorizontalOverflow, expectNothingClipped, apiContext, Role } from './helpers';
 
 /**
  * Visits every static page of every portal and checks that it renders real content, does not crash,
@@ -22,6 +22,7 @@ const PAGES: Record<Role, string[]> = {
     '/garage/quotes',
     '/garage/jobs',
     '/garage/finance',
+    '/garage/commission',
     '/garage/profile',
   ],
   advisor: [
@@ -47,6 +48,9 @@ const PAGES: Record<Role, string[]> = {
     '/admin/advisors',
     '/admin/customers',
     '/admin/vehicle-master',
+    '/admin/packages',
+    '/admin/commissions',
+    '/admin/leads',
     '/admin/notifications',
     '/admin/system-health',
     '/admin/audit',
@@ -54,12 +58,26 @@ const PAGES: Record<Role, string[]> = {
   ],
 };
 
-const PUBLIC_PAGES = ['/', '/login', '/register', '/forgot-password'];
+const PUBLIC_PAGES = ['/', '/services', '/services/car-service', '/login', '/register', '/forgot-password'];
 
 const IGNORED_CONSOLE = [/Download the React DevTools/, /\[Fast Refresh\]/, /\[HMR\]/, /favicon/];
 
+/** A car with a long name, picked on the public site, must not push the booking card off a small screen. */
+async function rememberLongCarName(page: import('@playwright/test').Page) {
+  const api = await apiContext();
+  const makes = (await (await api.get('vehicle-manufacturers')).json()).data as { id: string; name: string }[];
+  const toyota = makes.find((m) => m.name === 'Toyota')!;
+  const models = (await (await api.get(`vehicle-manufacturers/${toyota.id}/models`)).json()).data as { id: string; name: string }[];
+  const longest = models.reduce((a, b) => (b.name.length > a.name.length ? b : a));
+  await api.dispose();
+  await page.addInitScript((intent) => localStorage.setItem('broco_booking_intent', JSON.stringify(intent)), {
+    city: 'Hyderabad', manufacturerId: toyota.id, manufacturerName: toyota.name, modelId: longest.id, modelName: longest.name, fuelType: 'Petrol',
+  });
+}
+
 for (const path of PUBLIC_PAGES) {
   test(`public ${path} renders cleanly`, async ({ page }) => {
+    await rememberLongCarName(page);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => {
@@ -71,6 +89,7 @@ for (const path of PUBLIC_PAGES) {
     await expect(page.locator('body')).not.toBeEmpty();
     await page.waitForLoadState('networkidle');
     await expectNoHorizontalOverflow(page, path);
+    await expectNothingClipped(page, path);
     expect(await page.locator('body').innerText()).not.toMatch(/\$\s?\d/);
     expect(errors, `${path} console errors`).toEqual([]);
   });
@@ -95,6 +114,7 @@ for (const [role, paths] of Object.entries(PAGES) as [Role, string[]][]) {
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await expect(page.getByText(/something went wrong|application error|unhandled runtime error/i)).toHaveCount(0);
         await expectNoHorizontalOverflow(page, path);
+    await expectNothingClipped(page, path);
         expect(await page.locator('main').innerText(), `${path} shows a dollar amount`).not.toMatch(/\$\s?\d/);
         expect(errors, `${path} console errors`).toEqual([]);
       });

@@ -281,7 +281,7 @@ export const CarSelectField: React.FC<CarSelectFieldProps> = ({
         {hasValue && value?.manufacturerName ? (
           <BrandLogo name={value.manufacturerName} logoUrl={value.logoUrl} size={32} />
         ) : null}
-        <span className={`flex-1 truncate text-[15px] font-semibold uppercase tracking-wide ${hasValue ? 'text-navy-900' : 'text-surface-400'}`}>
+        <span className={`min-w-0 flex-1 truncate text-[15px] font-semibold uppercase tracking-wide ${hasValue ? 'text-navy-900' : 'text-surface-400'}`}>
           {hasValue ? `${value?.manufacturerName ?? ''} ${value?.modelName ?? ''}${value?.fuelType ? `, ${value.fuelType}` : ''}` : placeholder}
         </span>
         <ChevronDown className="h-5 w-5 shrink-0 text-navy-700" />

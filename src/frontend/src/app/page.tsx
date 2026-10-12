@@ -215,8 +215,8 @@ export default function HomePage() {
             aria-hidden
             className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-electric-600/30 blur-3xl sm:h-[28rem] sm:w-[28rem]"
           />
-          <div className="relative mx-auto grid max-w-6xl gap-5 px-4 pb-8 pt-5 sm:gap-8 sm:px-6 sm:pb-12 sm:pt-10 lg:grid-cols-12 lg:items-center lg:gap-12 lg:px-8 lg:py-16">
-            <div className="lg:col-span-6">
+          <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 pb-8 pt-5 sm:gap-8 sm:px-6 sm:pb-12 sm:pt-10 lg:grid-cols-12 lg:items-center lg:gap-12 lg:px-8 lg:py-16">
+            <div className="min-w-0 lg:col-span-6">
               <p className="hidden items-center gap-1.5 rounded-full border border-electric-400/30 bg-electric-600/15 px-3 py-1 text-xs font-semibold text-electric-200 sm:inline-flex">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
               </p>
@@ -241,7 +241,7 @@ export default function HomePage() {
               </ul>
             </div>
 
-            <div ref={cardRef} className="lg:col-span-6 xl:col-span-5 xl:col-start-8">
+            <div ref={cardRef} className="min-w-0 lg:col-span-6 xl:col-span-5 xl:col-start-8">
               <form
                 onSubmit={submit}
                 noValidate
