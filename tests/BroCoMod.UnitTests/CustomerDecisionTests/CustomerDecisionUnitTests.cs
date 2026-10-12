@@ -255,8 +255,8 @@ public class CustomerDecisionUnitTests
             "Nexon",
             2023,
             "Battery inspection",
-            77.5946,
-            12.9716,
+            78.4482,
+            17.4126,
             10.0
         );
 
@@ -284,8 +284,8 @@ public class CustomerDecisionUnitTests
             "Nexon",
             2023,
             "Battery inspection",
-            77.5946,
-            12.9716,
+            78.4482,
+            17.4126,
             10.0
         );
 

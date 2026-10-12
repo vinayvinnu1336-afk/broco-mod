@@ -1,5 +1,6 @@
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Entities.Catalogue;
 using BroCoMod.Domain.Entities.Identity;
 using BroCoMod.Domain.Entities.VehicleMaster;
 using BroCoMod.Domain.Enums;
@@ -62,6 +63,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<GarageRequest> GarageRequests => Set<GarageRequest>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    // Catalogue, commission & leads
+    public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
+    public DbSet<ServicePackagePrice> ServicePackagePrices => Set<ServicePackagePrice>();
+    public DbSet<VehicleManufacturerLogo> VehicleManufacturerLogos => Set<VehicleManufacturerLogo>();
+    public DbSet<GarageCommission> GarageCommissions => Set<GarageCommission>();
+    public DbSet<Lead> Leads => Set<Lead>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -96,6 +104,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Generated atomically via PostgreSQL sequence PaymentNumberSeq.
         // The PAY-XXXXXX identifier is a unique human-readable payment reference. Sequence values are not guaranteed to be gapless.
         modelBuilder.HasSequence<long>("PaymentNumberSeq")
+            .StartsAt(100001)
+            .IncrementsBy(1);
+
+        // COM-XXXXXX identifies a commission due from a garage.
+        modelBuilder.HasSequence<long>("CommissionNumberSeq")
             .StartsAt(100001)
             .IncrementsBy(1);
 
@@ -179,6 +192,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(sr => sr.ServiceCategory).HasMaxLength(100);
             builder.Property(sr => sr.CancellationReason).HasMaxLength(1000);
             builder.Property(sr => sr.IdempotencyKey).HasMaxLength(128);
+            builder.Property(sr => sr.ServicePackageCode).HasMaxLength(20);
+            builder.Property(sr => sr.ServicePackageName).HasMaxLength(100);
+            builder.Property(sr => sr.PackagePrice).HasPrecision(18, 2);
+            builder.Property(sr => sr.VehicleFuel).HasMaxLength(30);
+            builder.Property(sr => sr.AdvancePaidAmount).HasPrecision(18, 2);
+            builder.HasIndex(sr => sr.ServicePackageId);
 
             // PostGIS spatial geography column with spatial indexing
             builder.Property(sr => sr.CustomerLocation)
@@ -654,6 +673,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(vm => vm.NormalizedName).IsRequired().HasMaxLength(100);
             builder.Property(vm => vm.Country).HasMaxLength(100);
             builder.Property(vm => vm.LogoUrl).HasMaxLength(500);
+            builder.HasIndex(vm => vm.IsPopular);
 
             builder.HasIndex(vm => vm.NormalizedName).IsUnique();
             builder.HasIndex(vm => vm.IsActive);
@@ -672,6 +692,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(m => m.Name).IsRequired().HasMaxLength(100);
             builder.Property(m => m.NormalizedName).IsRequired().HasMaxLength(100);
             builder.Property(m => m.BodyType).IsRequired().HasMaxLength(50);
+            builder.Property(m => m.Segment).IsRequired().HasMaxLength(20).HasDefaultValue("Hatchback");
+            builder.Property(m => m.Fuels).HasColumnType("text[]");
 
             builder.HasIndex(m => m.ManufacturerId);
             builder.HasIndex(m => new { m.ManufacturerId, m.NormalizedName }).IsUnique();
@@ -862,6 +884,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             builder.HasIndex(p => p.CustomerId);
             builder.HasIndex(p => p.GarageId);
+            builder.HasIndex(p => p.ServiceRequestId);
+            builder.HasIndex(p => p.GarageCommissionId);
             builder.HasIndex(p => p.Status);
             builder.HasIndex(p => p.Purpose);
             builder.HasIndex(p => p.CreatedAtUtc);
@@ -1050,6 +1074,88 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .WithMany()
                 .HasForeignKey(a => a.AdditionalWorkRequestId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Service packages (Basic / Standard / Premium) and their per-model prices
+        modelBuilder.Entity<ServicePackage>(builder =>
+        {
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Code).IsRequired().HasMaxLength(20);
+            builder.HasIndex(p => p.Code).IsUnique();
+            builder.Property(p => p.Name).IsRequired().HasMaxLength(100);
+            builder.Property(p => p.Tagline).HasMaxLength(300);
+            builder.Property(p => p.Includes).HasColumnType("text[]");
+
+            builder.HasMany(p => p.Prices)
+                .WithOne(pp => pp.ServicePackage)
+                .HasForeignKey(pp => pp.ServicePackageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ServicePackagePrice>(builder =>
+        {
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.Price).HasPrecision(18, 2);
+            builder.HasIndex(p => new { p.ServicePackageId, p.VehicleModelId, p.FuelType }).IsUnique();
+            builder.HasIndex(p => p.VehicleModelId);
+
+            builder.HasOne(p => p.VehicleModel)
+                .WithMany()
+                .HasForeignKey(p => p.VehicleModelId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VehicleManufacturerLogo>(builder =>
+        {
+            builder.HasKey(l => l.ManufacturerId);
+            builder.Property(l => l.ContentType).IsRequired().HasMaxLength(100);
+            builder.Property(l => l.Content).IsRequired();
+            builder.HasOne<VehicleManufacturer>()
+                .WithOne()
+                .HasForeignKey<VehicleManufacturerLogo>(l => l.ManufacturerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Commission garages owe BroCo after handing a car back
+        modelBuilder.Entity<GarageCommission>(builder =>
+        {
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.CommissionNumber).IsRequired().HasMaxLength(50);
+            builder.HasIndex(c => c.CommissionNumber).IsUnique();
+            builder.HasIndex(c => c.ServiceJobId).IsUnique();
+            builder.HasIndex(c => new { c.GarageId, c.Status });
+            builder.HasIndex(c => new { c.Status, c.DueAtUtc });
+            builder.Property(c => c.Currency).IsRequired().HasMaxLength(10);
+            builder.Property(c => c.ServiceValue).HasPrecision(18, 2);
+            builder.Property(c => c.AdvanceCollectedByPlatform).HasPrecision(18, 2);
+            builder.Property(c => c.BalanceCollectedByGarage).HasPrecision(18, 2);
+            builder.Property(c => c.CommissionPercentage).HasPrecision(5, 2);
+            builder.Property(c => c.CommissionAmount).HasPrecision(18, 2);
+            builder.Property(c => c.TaxPercentage).HasPrecision(5, 2);
+            builder.Property(c => c.TaxAmount).HasPrecision(18, 2);
+            builder.Property(c => c.TotalDue).HasPrecision(18, 2);
+            builder.Property(c => c.PaymentReference).HasMaxLength(200);
+            builder.Property(c => c.SettledVia).HasMaxLength(50);
+            builder.Property(c => c.WaiverReason).HasMaxLength(1000);
+            builder.Property(c => c.ConcurrencyToken).IsConcurrencyToken();
+
+            builder.HasOne(c => c.Garage).WithMany().HasForeignKey(c => c.GarageId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(c => c.ServiceJob).WithMany().HasForeignKey(c => c.ServiceJobId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(c => c.ServiceRequest).WithMany().HasForeignKey(c => c.ServiceRequestId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Lead>(builder =>
+        {
+            builder.HasKey(l => l.Id);
+            builder.Property(l => l.MobileNumber).IsRequired().HasMaxLength(20);
+            builder.Property(l => l.City).HasMaxLength(100);
+            builder.Property(l => l.VehicleSummary).HasMaxLength(200);
+            builder.Property(l => l.FuelType).HasMaxLength(30);
+            builder.Property(l => l.ServiceInterest).HasMaxLength(100);
+            builder.Property(l => l.Source).HasMaxLength(50);
+            builder.Property(l => l.Notes).HasMaxLength(2000);
+            builder.HasIndex(l => l.CreatedAtUtc);
+            builder.HasIndex(l => l.Status);
         });
     }
 }

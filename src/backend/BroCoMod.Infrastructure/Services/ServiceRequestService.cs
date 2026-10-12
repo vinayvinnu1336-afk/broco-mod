@@ -18,14 +18,24 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IAuditService _auditService;
     private readonly ILogger<ServiceRequestService> _logger;
 
+    private readonly IServiceAreaService? _serviceAreas;
+    private readonly IGeocodingService? _geocoding;
+    private readonly decimal _advancePercentage;
+
     public ServiceRequestService(
         IApplicationDbContext context,
         IGarageMatchingService garageMatchingService,
         INotificationService notificationService,
         IRequestNumberGenerator requestNumberGenerator,
         IAuditService auditService,
-        ILogger<ServiceRequestService> logger)
+        ILogger<ServiceRequestService> logger,
+        IServiceAreaService? serviceAreas = null,
+        IGeocodingService? geocoding = null,
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
     {
+        _advancePercentage = configuration == null ? 10m : BookingAdvance.Percentage(configuration);
+        _serviceAreas = serviceAreas;
+        _geocoding = geocoding;
         _context = context;
         _garageMatchingService = garageMatchingService;
         _notificationService = notificationService;
@@ -41,6 +51,36 @@ public class ServiceRequestService : IServiceRequestService
             .FirstOrDefaultAsync(cp => cp.Id == customerIdOrUserId || cp.UserId == customerIdOrUserId, cancellationToken);
 
         return profile?.Id ?? customerIdOrUserId;
+    }
+
+    /// <summary>
+    /// Bookings must be inside a live city, carry one of its pincodes, and (when Google geocoding is
+    /// configured) the typed pincode must match the pin dropped on the map.
+    /// </summary>
+    private async Task ValidateServiceAreaAsync(CreateServiceBookingRequest request, CancellationToken cancellationToken)
+    {
+        if (_serviceAreas == null) return;
+
+        var liveCities = string.Join(", ", _serviceAreas.GetAreas().Where(a => a.IsLive).Select(a => a.City));
+        var area = _serviceAreas.FindLiveAreaFor(request.Latitude, request.Longitude)
+            ?? throw new ArgumentException($"We currently serve only {liveCities}. Please pin a location inside {liveCities}.");
+
+        var pincode = new string((request.Pincode ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (pincode.Length != 6)
+            throw new ArgumentException("Enter a valid 6-digit pincode.");
+        if (!_serviceAreas.IsPincodeServed(area, pincode))
+            throw new ArgumentException($"Pincode {pincode} is outside our {area.City} service area. Check the address or move the pin.");
+
+        if (_geocoding is { IsConfigured: true })
+        {
+            var actual = await _geocoding.ReverseGeocodeAsync(request.Latitude, request.Longitude, cancellationToken);
+            if (actual?.Pincode is { Length: 6 } pinnedPincode && pinnedPincode != pincode)
+            {
+                var place = string.IsNullOrWhiteSpace(actual.City) ? pinnedPincode : $"{actual.City} {pinnedPincode}";
+                throw new ArgumentException(
+                    $"The pin on the map is in {place}, but the address says pincode {pincode}. Move the pin to your address or correct the address.");
+            }
+        }
     }
 
     public async Task<ServiceRequestDetailDto> CreateServiceRequestAsync(
@@ -98,7 +138,31 @@ public class ServiceRequestService : IServiceRequestService
         if (string.IsNullOrWhiteSpace(request.City)) throw new ArgumentException("City is required.", nameof(request.City));
         if (string.IsNullOrWhiteSpace(request.State)) throw new ArgumentException("State is required.", nameof(request.State));
         if (string.IsNullOrWhiteSpace(request.Pincode)) throw new ArgumentException("Pincode is required.", nameof(request.Pincode));
-        if (string.IsNullOrWhiteSpace(request.ProblemDescription) || request.ProblemDescription.Trim().Length < 5)
+
+        await ValidateServiceAreaAsync(request, cancellationToken);
+
+        // Fixed-price package: the price is looked up on the server for this exact car and fuel.
+        Domain.Entities.Catalogue.ServicePackage? package = null;
+        decimal packagePrice = 0m;
+        if (!string.IsNullOrWhiteSpace(request.PackageCode))
+        {
+            var code = request.PackageCode.Trim().ToUpperInvariant();
+            package = await _context.ServicePackages.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Code == code && p.IsActive, cancellationToken)
+                ?? throw new ArgumentException($"Service package '{request.PackageCode}' is not available.");
+            packagePrice = await _context.ServicePackagePrices.AsNoTracking()
+                .Where(p => p.ServicePackageId == package.Id && p.VehicleModelId == vehicle.ModelId && p.FuelType == vehicle.FuelType)
+                .Select(p => (decimal?)p.Price)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new InvalidOperationException($"{package.Name} isn't priced for a {vehicle.Make} {vehicle.Model} ({vehicle.FuelType}) yet. Choose another service and our garages will quote.");
+        }
+
+        var problemDescription = request.ProblemDescription?.Trim() ?? string.Empty;
+        if (package != null && problemDescription.Length < 5)
+        {
+            problemDescription = $"{package.Name} for {vehicle.Make} {vehicle.Model} ({vehicle.FuelType})";
+        }
+        if (problemDescription.Length < 5)
         {
             throw new ArgumentException("Problem description must be at least 5 characters long.", nameof(request.ProblemDescription));
         }
@@ -127,11 +191,17 @@ public class ServiceRequestService : IServiceRequestService
             vehicleLicensePlate: vehicle.LicensePlate,
             serviceLocationId: serviceLocation.Id,
             customerLocation: serviceLocation.Location,
-            problemDescription: request.ProblemDescription,
-            serviceCategory: request.ServiceCategory ?? "General",
+            problemDescription: problemDescription,
+            serviceCategory: package != null ? "Periodic Service" : request.ServiceCategory ?? "General",
             preferredServiceDate: request.PreferredServiceDate,
             radiusKm: 10.0,
             idempotencyKey: idempotencyKey);
+
+        serviceRequest.SetVehicleFuel(vehicle.FuelType.ToString());
+        if (package != null)
+        {
+            serviceRequest.AttachPackage(package.Id, package.Code, package.Name, packagePrice, vehicle.FuelType.ToString());
+        }
 
         // 6. PostGIS 10 KM Matching Engine
         var eligibleGarages = await _garageMatchingService.FindEligibleGaragesAsync(
@@ -279,7 +349,10 @@ public class ServiceRequestService : IServiceRequestService
             FormatStatus(sr.Status),
             sr.CreatedAtUtc,
             sr.SubmittedAtUtc,
-            sr.GarageQuotes.Count)).ToList();
+            sr.GarageQuotes.Count,
+            sr.ServicePackageName,
+            sr.PackagePrice,
+            sr.AdvancePaidAtUtc != null)).ToList();
 
         return new PagedResult<CustomerServiceRequestSummaryDto>(dtos, page, pageSize, totalCount);
     }
@@ -623,7 +696,7 @@ public class ServiceRequestService : IServiceRequestService
             request.CancellationReason);
     }
 
-    private static ServiceRequestDetailDto MapToDetailDto(
+    private ServiceRequestDetailDto MapToDetailDto(
         ServiceRequest sr,
         CustomerProfile? customerProfile = null,
         ServiceLocation? serviceLocation = null)
@@ -663,7 +736,14 @@ public class ServiceRequestService : IServiceRequestService
             sr.GarageRequests.Count,
             sr.SubmittedAtUtc,
             sr.CancelledAtUtc,
-            sr.CancellationReason);
+            sr.CancellationReason,
+            sr.ServicePackageCode,
+            sr.ServicePackageName,
+            sr.PackagePrice,
+            sr.PackagePrice.HasValue ? BookingAdvance.Amount(sr.PackagePrice.Value, _advancePercentage) : null,
+            sr.AdvancePaidAmount,
+            sr.AdvancePaidAtUtc,
+            sr.VehicleFuel);
     }
 
     private static string FormatStatus(ServiceRequestStatus status) => status switch

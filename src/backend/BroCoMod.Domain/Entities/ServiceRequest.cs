@@ -35,6 +35,21 @@ public class ServiceRequest : BaseEntity
     public string? CancellationReason { get; private set; }
     public string? IdempotencyKey { get; private set; }
 
+    // Fixed-price package booking (Basic / Standard / Premium). Null for quote-based repairs.
+    public Guid? ServicePackageId { get; private set; }
+    public string? ServicePackageCode { get; private set; }
+    public string? ServicePackageName { get; private set; }
+    public decimal? PackagePrice { get; private set; }
+    public string? VehicleFuel { get; private set; }
+
+    // 10% booking advance collected online by BroCo
+    public decimal AdvancePaidAmount { get; private set; }
+    public DateTime? AdvancePaidAtUtc { get; private set; }
+    public Guid? AdvancePaymentId { get; private set; }
+
+    public bool IsPackageBooking => ServicePackageId.HasValue;
+    public bool IsAdvancePaid => AdvancePaidAtUtc.HasValue;
+
     // Navigation properties
     public CustomerProfile? CustomerProfile { get; private set; }
     public CustomerVehicle? CustomerVehicle { get; private set; }
@@ -112,6 +127,39 @@ public class ServiceRequest : BaseEntity
         RadiusKm = radiusKm > 0 ? radiusKm : 10.0;
         Status = ServiceRequestStatus.Submitted;
         SubmittedAtUtc = DateTime.UtcNow;
+    }
+
+    public void AttachPackage(Guid packageId, string packageCode, string packageName, decimal price, string? vehicleFuel)
+    {
+        if (packageId == Guid.Empty) throw new ArgumentException("Package is required.", nameof(packageId));
+        if (price <= 0) throw new ArgumentException("Package price must be greater than zero.", nameof(price));
+        ServicePackageId = packageId;
+        ServicePackageCode = packageCode;
+        ServicePackageName = packageName;
+        PackagePrice = price;
+        VehicleFuel = vehicleFuel;
+    }
+
+    public void SetVehicleFuel(string? vehicleFuel)
+    {
+        VehicleFuel = vehicleFuel;
+    }
+
+    public void RecordAdvancePaid(decimal amount, Guid paymentId, DateTime paidAtUtc)
+    {
+        if (IsAdvancePaid) return;
+        AdvancePaidAmount = amount;
+        AdvancePaymentId = paymentId;
+        AdvancePaidAtUtc = DateTime.SpecifyKind(paidAtUtc, DateTimeKind.Utc);
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void ClearAdvance()
+    {
+        AdvancePaidAmount = 0m;
+        AdvancePaymentId = null;
+        AdvancePaidAtUtc = null;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     // Status Transitions with Validation

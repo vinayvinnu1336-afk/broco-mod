@@ -1,0 +1,363 @@
+{
+  "source": "Calibrated Oct 2026 against GoMechanic Hyderabad. GoMechanic's public pages (gomechanic.in/hyderabad/car-repair/<brand-model>) embed only a per-brand list of entry-level periodic-service 'from' prices for each model+fuel (treated here as Basic); Standard/Comprehensive prices load only after picking a car in their client-side app, so they could not be read. BASIC prices sit at GoMechanic's entry level (Hatchback petrol 2,199; Luxury a little under their BMW 13,399-13,599). STANDARD (~1.5x Basic) and PREMIUM (~2.2-2.4x Basic, comparable to GoMechanic's Comprehensive) are estimates from typical 2025-26 Hyderabad multi-brand workshop pricing. Electric skips engine oil/filters and is cheapest; Luxury CNG is listed for completeness only. All prices are whole INR covering labour and the listed consumables; extra parts found during service are quoted separately.",
+  "sampled": [
+    {
+      "car": "Maruti Alto 800",
+      "fuel": "Petrol",
+      "basic": 2199,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/maruti-suzuki-swift"
+    },
+    {
+      "car": "Maruti Alto K10",
+      "fuel": "Petrol",
+      "basic": 2199,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/maruti-suzuki-wagonr"
+    },
+    {
+      "car": "Hyundai i10",
+      "fuel": "CNG",
+      "basic": 2199,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/hyundai-i20"
+    },
+    {
+      "car": "Hyundai Aura",
+      "fuel": "Petrol",
+      "basic": 2199,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/hyundai-i20"
+    },
+    {
+      "car": "Hyundai Xcent",
+      "fuel": "Petrol",
+      "basic": 2399,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/hyundai-creta"
+    },
+    {
+      "car": "Tata Nano",
+      "fuel": "Petrol",
+      "basic": 2099,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/tata-nexon"
+    },
+    {
+      "car": "Tata Altroz",
+      "fuel": "Petrol",
+      "basic": 2599,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/tata-nexon"
+    },
+    {
+      "car": "Tata Altroz",
+      "fuel": "Diesel",
+      "basic": 2599,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/tata-nexon"
+    },
+    {
+      "car": "Honda Brio",
+      "fuel": "Petrol",
+      "basic": 2399,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/honda-city"
+    },
+    {
+      "car": "Honda Amaze",
+      "fuel": "Petrol",
+      "basic": 3099,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/honda-city"
+    },
+    {
+      "car": "Mahindra KUV100",
+      "fuel": "Petrol",
+      "basic": 2599,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/mahindra-xuv-700"
+    },
+    {
+      "car": "Mahindra KUV100",
+      "fuel": "Diesel",
+      "basic": 2899,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/mahindra-xuv-700"
+    },
+    {
+      "car": "Mahindra XUV300",
+      "fuel": "Diesel",
+      "basic": 3099,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/mahindra-xuv-700"
+    },
+    {
+      "car": "Mahindra XUV300",
+      "fuel": "Petrol",
+      "basic": 3199,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/mahindra-xuv-700"
+    },
+    {
+      "car": "Toyota Glanza",
+      "fuel": "Petrol",
+      "basic": 2599,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/toyota-innova-crysta"
+    },
+    {
+      "car": "Toyota Etios",
+      "fuel": "Petrol",
+      "basic": 2699,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/toyota-innova-crysta"
+    },
+    {
+      "car": "BMW X1",
+      "fuel": "Diesel",
+      "basic": 13399,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/bmw-3-series"
+    },
+    {
+      "car": "BMW 3 Series",
+      "fuel": "Petrol",
+      "basic": 13599,
+      "standard": null,
+      "comprehensive": null,
+      "url": "https://gomechanic.in/hyderabad/car-repair/bmw-3-series"
+    }
+  ],
+  "packages": [
+    {
+      "code": "BASIC",
+      "name": "Basic Service",
+      "tagline": "Essential oil change and top-ups to keep your car running smoothly.",
+      "intervalKm": 5000,
+      "intervalMonths": 3,
+      "durationHours": 4,
+      "warrantyKm": 1000,
+      "warrantyDays": 30,
+      "includes": [
+        "Engine oil replacement (manufacturer-grade)",
+        "Oil filter replacement",
+        "Air filter cleaning",
+        "Coolant top-up",
+        "Brake fluid top-up",
+        "Battery check and terminal cleaning",
+        "Windscreen washer fluid top-up",
+        "Exterior foam wash"
+      ]
+    },
+    {
+      "code": "STANDARD",
+      "name": "Standard Service",
+      "tagline": "Our most-booked service: filters, brakes and a full check every 10,000 km.",
+      "intervalKm": 10000,
+      "intervalMonths": 6,
+      "durationHours": 6,
+      "warrantyKm": 1000,
+      "warrantyDays": 30,
+      "includes": [
+        "Engine oil replacement (manufacturer-grade)",
+        "Oil filter replacement",
+        "Air filter replacement",
+        "Coolant top-up",
+        "Brake fluid top-up",
+        "Battery check and terminal cleaning",
+        "Windscreen washer fluid top-up",
+        "Exterior foam wash",
+        "AC / cabin filter cleaning",
+        "Spark plug cleaning and gap check (petrol/CNG)",
+        "Front and rear brake cleaning and adjustment",
+        "Wheel rotation and tyre pressure set",
+        "Interior vacuum cleaning"
+      ]
+    },
+    {
+      "code": "PREMIUM",
+      "name": "Premium Service",
+      "tagline": "Complete yearly care with all filters, plugs, alignment and a full diagnostic scan.",
+      "intervalKm": 20000,
+      "intervalMonths": 12,
+      "durationHours": 8,
+      "warrantyKm": 2000,
+      "warrantyDays": 60,
+      "includes": [
+        "Engine oil replacement (manufacturer-grade)",
+        "Oil filter replacement",
+        "Air filter replacement",
+        "AC / cabin filter replacement",
+        "Spark plug replacement (petrol/CNG) or fuel filter replacement (diesel)",
+        "Coolant top-up (replacement if due by schedule)",
+        "Brake fluid top-up (replacement if due by schedule)",
+        "Battery check and terminal cleaning",
+        "Windscreen washer fluid top-up",
+        "Front and rear brake cleaning and adjustment",
+        "Throttle body cleaning",
+        "Wheel alignment and balancing",
+        "Wheel rotation and tyre pressure set",
+        "Computerised scan for fault codes",
+        "Suspension, steering and underbody inspection",
+        "Lights, horn and wiper check",
+        "Exterior foam wash",
+        "Interior vacuum cleaning and dashboard polish"
+      ]
+    }
+  ],
+  "prices": {
+    "Hatchback": {
+      "Petrol": {
+        "BASIC": 2199,
+        "STANDARD": 3499,
+        "PREMIUM": 5299
+      },
+      "Diesel": {
+        "BASIC": 2599,
+        "STANDARD": 3999,
+        "PREMIUM": 5999
+      },
+      "CNG": {
+        "BASIC": 2399,
+        "STANDARD": 3699,
+        "PREMIUM": 5599
+      },
+      "Electric": {
+        "BASIC": 1499,
+        "STANDARD": 2299,
+        "PREMIUM": 3499
+      },
+      "Hybrid": {
+        "BASIC": 2499,
+        "STANDARD": 3799,
+        "PREMIUM": 5699
+      }
+    },
+    "Sedan": {
+      "Petrol": {
+        "BASIC": 2799,
+        "STANDARD": 4199,
+        "PREMIUM": 6299
+      },
+      "Diesel": {
+        "BASIC": 3199,
+        "STANDARD": 4699,
+        "PREMIUM": 6999
+      },
+      "CNG": {
+        "BASIC": 2999,
+        "STANDARD": 4399,
+        "PREMIUM": 6599
+      },
+      "Electric": {
+        "BASIC": 1799,
+        "STANDARD": 2699,
+        "PREMIUM": 3999
+      },
+      "Hybrid": {
+        "BASIC": 3099,
+        "STANDARD": 4599,
+        "PREMIUM": 6799
+      }
+    },
+    "CompactSUV": {
+      "Petrol": {
+        "BASIC": 2899,
+        "STANDARD": 4299,
+        "PREMIUM": 6499
+      },
+      "Diesel": {
+        "BASIC": 3199,
+        "STANDARD": 4799,
+        "PREMIUM": 7199
+      },
+      "CNG": {
+        "BASIC": 3099,
+        "STANDARD": 4499,
+        "PREMIUM": 6799
+      },
+      "Electric": {
+        "BASIC": 1799,
+        "STANDARD": 2799,
+        "PREMIUM": 4199
+      },
+      "Hybrid": {
+        "BASIC": 3199,
+        "STANDARD": 4699,
+        "PREMIUM": 6999
+      }
+    },
+    "SUV": {
+      "Petrol": {
+        "BASIC": 3699,
+        "STANDARD": 5299,
+        "PREMIUM": 7799
+      },
+      "Diesel": {
+        "BASIC": 4199,
+        "STANDARD": 5999,
+        "PREMIUM": 8799
+      },
+      "CNG": {
+        "BASIC": 3899,
+        "STANDARD": 5499,
+        "PREMIUM": 7999
+      },
+      "Electric": {
+        "BASIC": 2299,
+        "STANDARD": 3499,
+        "PREMIUM": 4999
+      },
+      "Hybrid": {
+        "BASIC": 3999,
+        "STANDARD": 5699,
+        "PREMIUM": 8299
+      }
+    },
+    "Luxury": {
+      "Petrol": {
+        "BASIC": 12999,
+        "STANDARD": 17999,
+        "PREMIUM": 24999
+      },
+      "Diesel": {
+        "BASIC": 13499,
+        "STANDARD": 18999,
+        "PREMIUM": 26499
+      },
+      "CNG": {
+        "BASIC": 12999,
+        "STANDARD": 17999,
+        "PREMIUM": 24999
+      },
+      "Electric": {
+        "BASIC": 6999,
+        "STANDARD": 9999,
+        "PREMIUM": 14999
+      },
+      "Hybrid": {
+        "BASIC": 13499,
+        "STANDARD": 18999,
+        "PREMIUM": 25999
+      }
+    }
+  }
+}

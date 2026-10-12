@@ -15,7 +15,7 @@ public class Invoice : BaseEntity
     public Guid? AdditionalWorkQuotationId { get; private set; }
     public Guid? ServiceJobId { get; private set; }
     public Guid CustomerId { get; private set; }
-    public Guid GarageId { get; private set; }
+    public Guid? GarageId { get; private set; }
     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
     public decimal Subtotal { get; private set; }
     public decimal DiscountAmount { get; private set; }
@@ -44,7 +44,7 @@ public class Invoice : BaseEntity
         string invoiceNumber,
         Guid paymentId,
         Guid customerId,
-        Guid garageId,
+        Guid? garageId,
         decimal subtotal,
         decimal discountAmount,
         decimal taxAmount,
@@ -64,8 +64,6 @@ public class Invoice : BaseEntity
             throw new ArgumentException("PaymentId cannot be empty.", nameof(paymentId));
         if (customerId == Guid.Empty)
             throw new ArgumentException("CustomerId cannot be empty.", nameof(customerId));
-        if (garageId == Guid.Empty)
-            throw new ArgumentException("GarageId cannot be empty.", nameof(garageId));
         if (string.IsNullOrWhiteSpace(billingName))
             throw new ArgumentException("BillingName cannot be empty.", nameof(billingName));
         if (string.IsNullOrWhiteSpace(billingEmail))
@@ -74,7 +72,7 @@ public class Invoice : BaseEntity
         InvoiceNumber = invoiceNumber.Trim().ToUpperInvariant();
         PaymentId = paymentId;
         CustomerId = customerId;
-        GarageId = garageId;
+        GarageId = garageId == Guid.Empty ? null : garageId;
         Subtotal = Math.Max(0m, subtotal);
         DiscountAmount = Math.Max(0m, discountAmount);
         TaxAmount = Math.Max(0m, taxAmount);

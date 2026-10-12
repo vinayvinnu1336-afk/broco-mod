@@ -358,6 +358,21 @@ public class CustomerQuotationService : ICustomerQuotationService
             return ApiResponse<CustomerQuotationDto>.Fail("Customer quotation not found.");
         }
 
+        // BroCo earns its booking advance and the garage commission, not a markup: the customer
+        // must see exactly the garage's quoted total.
+        var garageQuoteTotal = quotation.GarageAssignment == null
+            ? (decimal?)null
+            : await _context.GarageQuotes.AsNoTracking()
+                .Where(q => q.Id == quotation.GarageAssignment.SelectedQuoteId)
+                .Select(q => (decimal?)q.TotalAmount)
+                .FirstOrDefaultAsync(ct);
+        quotation.RecalculateTotals();
+        if (garageQuoteTotal.HasValue && Math.Abs(quotation.CustomerTotal - garageQuoteTotal.Value) > 1m)
+        {
+            return ApiResponse<CustomerQuotationDto>.Fail(
+                $"The customer total (₹{quotation.CustomerTotal:N2}) must match the garage's quote (₹{garageQuoteTotal.Value:N2}). BroCo doesn't add a markup — load the garage's items and send again.");
+        }
+
         try
         {
             quotation.Send(advisorId);

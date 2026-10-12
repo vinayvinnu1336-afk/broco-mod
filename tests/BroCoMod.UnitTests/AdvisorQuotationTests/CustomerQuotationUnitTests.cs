@@ -284,8 +284,8 @@ public class CustomerQuotationUnitTests
             "City",
             2021,
             "Brake issue",
-            77.5946,
-            12.9716,
+            78.4482,
+            17.4126,
             10.0
         );
 

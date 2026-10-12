@@ -153,8 +153,8 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var email = $"newgarage_{Guid.NewGuid():N}@brocomod.com";
         var response = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
             email, "Password123!", "New Garage Owner", "+91 90000 33333",
-            Role: "GARAGE_OWNER", GarageName: "Brand New Motors", Address: "1 Test Road, Bengaluru",
-            GarageId: existingGarageId, Latitude: 12.95, Longitude: 77.60));
+            Role: "GARAGE_OWNER", GarageName: "Brand New Motors", Address: "1 Test Road, Hyderabad",
+            GarageId: existingGarageId, Latitude: 17.40, Longitude: 78.45));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -187,7 +187,7 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var client = prodFactory.CreateClient();
 
         (await client.GetAsync("/swagger/index.html")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await client.GetAsync("/api/system/garages/eligible?longitude=77.59&latitude=12.97")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await client.GetAsync("/api/system/garages/eligible?longitude=78.44&latitude=17.41")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await client.GetAsync("/api/system/quote-isolation-demo")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 

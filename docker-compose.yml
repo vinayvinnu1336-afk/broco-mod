@@ -98,6 +98,11 @@ services:
       BootstrapAdmin__Password: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       Payment__AllowFakeGateway: ${ALLOW_FAKE_PAYMENTS:-false}
       EnableDemoSeeding: ${ENABLE_DEMO_SEEDING:-false}
+      Booking__AdvancePercentage: ${BOOKING_ADVANCE_PERCENT:-10}
+      Commission__DueHours: ${COMMISSION_DUE_HOURS:-24}
+      Commission__ReminderIntervalHours: ${COMMISSION_REMINDER_HOURS:-12}
+      Commission__BlockNewJobsAfterOverdueDays: ${COMMISSION_BLOCK_AFTER_DAYS:-3}
+      GoogleMaps__ServerApiKey: ${GOOGLE_MAPS_SERVER_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz/live"]
       interval: 10s
@@ -116,6 +121,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         NEXT_PUBLIC_DEMO_MODE: ${ENABLE_DEMO_SEEDING:-false}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_BROWSER_KEY:-}
     image: ${FRONTEND_IMAGE:-broco-mod-frontend:latest}
     container_name: broco-mod-frontend
     restart: unless-stopped

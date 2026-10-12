@@ -90,7 +90,8 @@ public class VehicleMasterService : IVehicleMasterService
                 m.LogoUrl,
                 m.IsActive,
                 m.DisplayOrder,
-                m.Models.Count(mod => !activeOnly || mod.IsActive)
+                m.Models.Count(mod => !activeOnly || mod.IsActive),
+                m.IsPopular
             ))
             .ToListAsync(cancellationToken);
 
@@ -116,7 +117,8 @@ public class VehicleMasterService : IVehicleMasterService
                 m.LogoUrl,
                 m.IsActive,
                 m.DisplayOrder,
-                m.Models.Count(mod => mod.IsActive)
+                m.Models.Count(mod => mod.IsActive),
+                m.IsPopular
             ))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -164,7 +166,9 @@ public class VehicleMasterService : IVehicleMasterService
                 m.YearFrom,
                 m.YearTo,
                 m.IsActive,
-                m.Variants.Count(v => !activeOnly || v.IsActive)
+                m.Variants.Count(v => !activeOnly || v.IsActive),
+                m.Segment,
+                m.Fuels
             ))
             .ToListAsync(cancellationToken);
 
@@ -192,7 +196,9 @@ public class VehicleMasterService : IVehicleMasterService
                 m.YearFrom,
                 m.YearTo,
                 m.IsActive,
-                m.Variants.Count(v => v.IsActive)
+                m.Variants.Count(v => v.IsActive),
+                m.Segment,
+                m.Fuels
             ))
             .FirstOrDefaultAsync(cancellationToken);
     }

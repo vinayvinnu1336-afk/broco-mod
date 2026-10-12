@@ -98,6 +98,15 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IAdminFinanceService, AdminFinanceService>();
 
+        // Service packages, booking advance, garage commission & website enquiries
+        services.AddScoped<ICatalogueService, CatalogueService>();
+        services.AddSingleton<IServiceAreaService, ServiceAreaService>();
+        services.AddHttpClient<IGeocodingService, GoogleGeocodingService>(c => c.Timeout = TimeSpan.FromSeconds(5));
+        services.AddScoped<ICommissionService, CommissionService>();
+        services.AddScoped<IPackageBookingService, PackageBookingService>();
+        services.AddScoped<ILeadService, LeadService>();
+        services.AddHostedService<CommissionReminderBackgroundService>();
+
 
         // Authorization Handlers & Seeder
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();

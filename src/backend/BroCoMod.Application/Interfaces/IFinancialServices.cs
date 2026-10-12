@@ -15,6 +15,12 @@ public interface IPaymentService
         Guid customerId,
         CancellationToken cancellationToken = default);
 
+    Task<InitiatePaymentResponseDto> InitiateRequestAdvanceAsync(
+        Guid serviceRequestId,
+        Guid customerId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default);
+
     Task<PaymentDto> VerifyAndCompletePaymentAsync(
         VerifyPaymentRequestDto request,
         Guid customerId,

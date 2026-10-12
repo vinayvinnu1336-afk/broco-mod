@@ -15,14 +15,17 @@ public class ServiceJobService : IServiceJobService
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<ServiceJobService> _logger;
+    private readonly ICommissionService _commissionService;
 
     public ServiceJobService(
         ApplicationDbContext context,
         IServiceJobNumberGenerator jobNumberGenerator,
         IAuditService auditService,
         INotificationService notificationService,
-        ILogger<ServiceJobService> logger)
+        ILogger<ServiceJobService> logger,
+        ICommissionService commissionService)
     {
+        _commissionService = commissionService;
         _context = context;
         _jobNumberGenerator = jobNumberGenerator;
         _auditService = auditService;
@@ -258,6 +261,7 @@ public class ServiceJobService : IServiceJobService
         CancellationToken cancellationToken = default)
     {
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
+        EnsureAdvancePaid(job);
 
         job.ReceiveVehicle(request.CurrentMileageKm ?? 0, request.Notes, null, userId);
 
@@ -617,6 +621,9 @@ public class ServiceJobService : IServiceJobService
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        // The customer pays the balance at the garage; BroCo now bills the garage its commission.
+        await _commissionService.CreateForJobAsync(job.Id, cancellationToken);
+
         await _auditService.LogAsync(
             action: "SERVICE_VEHICLE_HANDED_OVER",
             userId: userId,
@@ -633,7 +640,7 @@ public class ServiceJobService : IServiceJobService
             await _notificationService.SendInAppNotificationAsync(
                 userId: customerUserId,
                 title: "Vehicle Handed Over",
-                message: $"Vehicle handover confirmed for {job.ServiceRequest.VehicleMake} {job.ServiceRequest.VehicleModel}. Thank you for choosing BroCoMod!",
+                message: $"Vehicle handover confirmed for {job.ServiceRequest.VehicleMake} {job.ServiceRequest.VehicleModel}. Thank you for choosing BroCo!",
                 type: "HandedOver",
                 referenceId: job.ServiceRequestId,
                 referenceType: "ServiceRequest",
@@ -923,6 +930,13 @@ public class ServiceJobService : IServiceJobService
     #endregion
 
     #region Private Helpers
+
+    /// <summary>Work starts only after the customer has paid the BroCo booking advance.</summary>
+    private static void EnsureAdvancePaid(ServiceJob job)
+    {
+        if (job.ServiceRequest != null && !job.ServiceRequest.IsAdvancePaid)
+            throw new InvalidOperationException("Waiting for the customer to pay the BroCo booking advance. You can receive the car once it is paid.");
+    }
 
     private async Task<ServiceJob> GetJobForGarageActionAsync(Guid jobId, Guid garageId, CancellationToken ct)
     {

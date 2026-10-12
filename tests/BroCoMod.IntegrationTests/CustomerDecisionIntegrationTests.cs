@@ -66,7 +66,7 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
 
         var modelsResponse = await customerClient.GetAsync($"/api/v1/vehicle-manufacturers/{make.Id}/models");
         var modelsBody = await modelsResponse.Content.ReadFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>(JsonOptions);
-        var model = modelsBody!.Data!.First();
+        var model = modelsBody!.Data!.First(m => m.YearTo == null); // a model still on sale, so any recent year is valid
 
         var regNum = $"KA-01-{Guid.NewGuid():N}"[..12].ToUpper();
         var addVehResponse = await customerClient.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
@@ -89,12 +89,12 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             VehicleId: vehicleId,
             AddressLine1: "100 MG Road",
             AddressLine2: "Near Metro",
-            City: "Bengaluru",
-            State: "Karnataka",
-            Pincode: "560001",
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
             Country: "India",
-            Latitude: 12.9716,
-            Longitude: 77.5946,
+            Latitude: 17.4126,
+            Longitude: 78.4482,
             ProblemDescription: "Front brake pads worn out and squeaking sound",
             ServiceCategory: "Brakes",
             PreferredServiceDate: DateTime.UtcNow.AddDays(2)));
@@ -149,12 +149,12 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             ScopeSummary: "Complete front brake pad replacement and disc maintenance",
             AdvisorRemarks: "OEM components with 6 months warranty.",
             ValidUntilUtc: DateTime.UtcNow.AddDays(5),
-            CustomerDiscount: 200m,
+            CustomerDiscount: 0m,
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3600m, 18m, 0m, 1),
-                new(QuoteLineType.Labour, "Brake Service & Disc Resurfacing", 1, 1400m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3200m, 18m, 0m, 1),
+                new(QuoteLineType.Labour, "Brake Service & Disc Resurfacing", 1, 1200m, 18m, 0m, 2)
             }
         );
 

@@ -54,6 +54,12 @@ public interface IApplicationDbContext
     DbSet<GarageRequest> GarageRequests { get; }
     DbSet<Notification> Notifications { get; }
 
+    DbSet<BroCoMod.Domain.Entities.Catalogue.ServicePackage> ServicePackages { get; }
+    DbSet<BroCoMod.Domain.Entities.Catalogue.ServicePackagePrice> ServicePackagePrices { get; }
+    DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleManufacturerLogo> VehicleManufacturerLogos { get; }
+    DbSet<GarageCommission> GarageCommissions { get; }
+    DbSet<Lead> Leads { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
