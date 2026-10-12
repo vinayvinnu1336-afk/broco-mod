@@ -347,7 +347,7 @@ export default function AdminCommissionsPage() {
                   }
                   trailing={
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(c.totalDue)}</span>
+                      <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINR(c.totalDue)}</span>
                       <Badge variant={st.variant}>{st.label}</Badge>
                     </div>
                   }
