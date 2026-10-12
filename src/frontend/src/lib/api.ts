@@ -1,6 +1,6 @@
 import { ApiResponse } from '@/types/auth';
 
-function getApiBase(): string {
+export function getApiBase(): string {
   // If explicitly configured in environment
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envUrl) {
