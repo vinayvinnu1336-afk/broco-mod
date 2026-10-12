@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { MapPin } from 'lucide-react';
+import { Mail, MapPin, Phone } from 'lucide-react';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, telHref } from '@/lib/site';
 import { BrandMark } from './PublicHeader';
 
 const columns: { title: string; links: { href: string; label: string }[] }[] = [
@@ -9,6 +10,7 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
     links: [
       { href: '/services/car-service', label: 'Car service packages' },
       { href: '/services', label: 'All services' },
+      { href: '/track', label: 'Track service' },
       { href: '/#how-it-works', label: 'How BroCo works' },
       { href: '/#faq', label: 'FAQ' },
     ],
@@ -36,7 +38,7 @@ export function PublicFooter() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <BrandMark dark />
+            <BrandMark dark tagline />
             <p className="mt-3 max-w-xs text-sm leading-relaxed">
               Car service from verified garages, with clear prices upfront. Pay 10% online to book and the rest at the
               garage.
@@ -44,6 +46,16 @@ export function PublicFooter() {
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-surface-300">
               <MapPin className="h-3.5 w-3.5" aria-hidden /> Now serving Hyderabad
             </p>
+            {SUPPORT_PHONE && (
+              <a href={telHref(SUPPORT_PHONE)} className="mt-2 flex min-h-[40px] items-center gap-1.5 text-sm text-white hover:text-sky-300">
+                <Phone className="h-4 w-4" aria-hidden /> {SUPPORT_PHONE}
+              </a>
+            )}
+            {SUPPORT_EMAIL && (
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="flex min-h-[40px] items-center gap-1.5 text-sm text-white hover:text-sky-300">
+                <Mail className="h-4 w-4" aria-hidden /> {SUPPORT_EMAIL}
+              </a>
+            )}
           </div>
 
           {columns.map((col) => (

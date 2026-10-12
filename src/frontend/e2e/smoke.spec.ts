@@ -58,7 +58,7 @@ const PAGES: Record<Role, string[]> = {
   ],
 };
 
-const PUBLIC_PAGES = ['/', '/services', '/services/car-service', '/login', '/register', '/forgot-password'];
+const PUBLIC_PAGES = ['/', '/services', '/services/car-service', '/track', '/login', '/register', '/forgot-password'];
 
 const IGNORED_CONSOLE = [/Download the React DevTools/, /\[Fast Refresh\]/, /\[HMR\]/, /favicon/];
 
