@@ -194,15 +194,35 @@ public class AdminOperationsIntegrationTests : IClassFixture<WebApplicationFacto
         listBody.Data!.Items.Should().NotBeNull();
         listBody.Data.Items.Count.Should().BeGreaterThan(0);
 
-        var advisor = listBody.Data.Items[0];
+        // Toggle a throwaway advisor, never the shared demo one: other test classes run in parallel and
+        // log in as advisor@brocomod.com, so deactivating it (even briefly) makes their logins fail with 401.
+        Guid advisorProfileId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<BroCoMod.Application.Interfaces.IPasswordHasher>();
+            var hash = hasher.HashPassword("Password123!", out var salt);
+            var user = new BroCoMod.Domain.Entities.Identity.User($"toggle.advisor.{Guid.NewGuid():N}@test.com", "Toggle Test Advisor", "+91 90000 44444", hash, salt);
+            db.Users.Add(user);
+            var advisorRole = await db.Roles.FirstAsync(r => r.Name == AppRoles.Advisor);
+            db.UserRoles.Add(new BroCoMod.Domain.Entities.Identity.UserRole { UserId = user.Id, RoleId = advisorRole.Id });
+            var profile = new BroCoMod.Domain.Entities.Identity.AdvisorProfile(user.Id, $"T-{Guid.NewGuid():N}"[..12], maxAssignedRequests: 0); // never auto-assigned real bookings
+            db.AdvisorProfiles.Add(profile);
+            await db.SaveChangesAsync();
+            advisorProfileId = profile.Id;
+        }
 
         // Deactivate advisor
-        var deactRes = await client.PostAsJsonAsync($"/api/v1/admin/advisors/{advisor.Id}/deactivate", new DeactivateAdvisorRequest("Temporary training leave"));
+        var deactRes = await client.PostAsJsonAsync($"/api/v1/admin/advisors/{advisorProfileId}/deactivate", new DeactivateAdvisorRequest("Temporary training leave"));
         deactRes.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Reactivate advisor
-        var actRes = await client.PostAsync($"/api/v1/admin/advisors/{advisor.Id}/activate", null);
+        var actRes = await client.PostAsync($"/api/v1/admin/advisors/{advisorProfileId}/activate", null);
         actRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Leave the throwaway account switched off.
+        (await client.PostAsJsonAsync($"/api/v1/admin/advisors/{advisorProfileId}/deactivate", new DeactivateAdvisorRequest("Test cleanup")))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

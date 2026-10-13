@@ -137,7 +137,11 @@ public record FinanceOverviewDto(
     int PendingSettlementsCount,
     int CompletedSettlementsCount,
     decimal TotalPlatformFeeGst = 0m,
-    decimal TotalPlatformMargin = 0m
+    decimal TotalPlatformMargin = 0m,
+    // 10% model: advances customers paid BroCo online, and commission garages paid / still owe.
+    decimal TotalBookingAdvances = 0m,
+    decimal TotalCommissionCollected = 0m,
+    decimal TotalCommissionOutstanding = 0m
 );
 
 public record PaymentFilterDto(
