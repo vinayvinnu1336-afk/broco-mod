@@ -483,6 +483,10 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         overviewBody!.Data!.TotalGrossRevenue.Should().BeGreaterThan(0m);
         overviewBody.Data.TotalPlatformRevenue.Should().BeGreaterThan(0m);
         overviewBody.Data.TotalPaymentsCount.Should().BeGreaterThan(0);
+        // Under the 10% model the advance itself is BroCo revenue (this also holds on an empty CI database,
+        // where no legacy settlements exist).
+        overviewBody.Data.TotalBookingAdvances.Should().BeGreaterThanOrEqualTo(initBody.Data.Amount);
+        overviewBody.Data.TotalPlatformRevenue.Should().BeGreaterThanOrEqualTo(overviewBody.Data.TotalBookingAdvances);
 
         // Act 2: Process Partial Refund
         var refundRes = await adminClient.PostAsJsonAsync(

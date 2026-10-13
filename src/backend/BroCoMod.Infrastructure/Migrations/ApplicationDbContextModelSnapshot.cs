@@ -244,8 +244,9 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
 
-                    b.Property<int>("DurationHours")
-                        .HasColumnType("integer");
+                    b.Property<decimal>("DurationHours")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
 
                     b.Property<List<string>>("Includes")
                         .IsRequired()

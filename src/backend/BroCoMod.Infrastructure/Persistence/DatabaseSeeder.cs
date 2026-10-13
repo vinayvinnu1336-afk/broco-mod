@@ -353,23 +353,15 @@ public class DatabaseSeeder
             .ToListAsync();
         if (unowned.Count == 0) return;
 
-        var advisorLoads = await _context.AdvisorProfiles
-            .Where(a => a.User.IsActive)
-            .Select(a => new
-            {
-                a.Id,
-                Open = _context.ServiceRequests.Count(sr => sr.AssignedAdvisorId == a.Id &&
-                    sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled)
-            })
-            .ToListAsync();
-        if (advisorLoads.Count == 0) return;
+        var loads = await AdvisorAssignment.GetEligibleLoadsAsync(_context);
+        if (loads.Count == 0) return;
 
-        var loads = advisorLoads.ToDictionary(a => a.Id, a => a.Open);
         foreach (var request in unowned)
         {
-            var advisorId = loads.OrderBy(kv => kv.Value).ThenBy(kv => kv.Key).First().Key;
+            var advisorId = AdvisorAssignment.Pick(loads)!.Value;
             request.SetResponsibleAdvisor(advisorId);
-            loads[advisorId]++;
+            var index = loads.FindIndex(l => l.AdvisorId == advisorId);
+            loads[index] = loads[index] with { OpenRequests = loads[index].OpenRequests + 1 };
         }
 
         await _context.SaveChangesAsync();

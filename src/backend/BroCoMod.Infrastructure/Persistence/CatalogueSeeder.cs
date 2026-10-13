@@ -34,7 +34,7 @@ public class CatalogueSeeder
     private sealed record BrandSeed(string Name, string Slug, string Country, bool Popular, string Logo, List<ModelSeed> Models);
     private sealed record ModelSeed(string Name, string BodyType, string Segment, List<string> Fuels, int YearFrom, int? YearTo);
     private sealed record PackagesFile(List<PackageSeed> Packages, Dictionary<string, Dictionary<string, Dictionary<string, decimal>>> Prices);
-    private sealed record PackageSeed(string Code, string Name, string Tagline, int IntervalKm, int IntervalMonths, int DurationHours,
+    private sealed record PackageSeed(string Code, string Name, string Tagline, int IntervalKm, int IntervalMonths, decimal DurationHours,
         int WarrantyKm, int WarrantyDays, List<string> Includes);
 
     public async Task SeedAsync(CancellationToken ct = default)

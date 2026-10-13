@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PackageIncludes } from '@/components/catalogue/PackageIncludes';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -34,6 +35,7 @@ import {
   catalogueApi,
   clearBookingIntent,
   loadBookingIntent,
+  formatHours,
 } from '@/lib/catalogue';
 import { ServiceRequestDetailDto } from '@/types/serviceRequest';
 import { formatDate, formatINRWhole } from '@/lib/format';
@@ -885,7 +887,7 @@ function BookingFlow() {
                             <span className="mt-0.5 block text-sm leading-snug text-navy-500">{pkg.tagline}</span>
                             <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-navy-500">
                               <span className="inline-flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5" /> {pkg.durationHours} hrs
+                                <Clock className="h-3.5 w-3.5" /> {formatHours(pkg.durationHours)}
                               </span>
                               <span aria-hidden="true">·</span>
                               <span>Every {pkg.intervalKm.toLocaleString('en-IN')} km</span>
@@ -918,32 +920,7 @@ function BookingFlow() {
                         </button>
                         {includes.length > 0 && (
                           <div className="border-t border-surface-100 px-4 pb-3 pt-2">
-                            <ul className="grid gap-1 text-sm text-navy-700">
-                              {(isOpen ? includes : includes.slice(0, 2)).map((item) => (
-                                <li key={item} className="flex items-start gap-2">
-                                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                            {includes.length > 2 && (
-                              <button
-                                type="button"
-                                onClick={() => setExpanded(isOpen ? null : pkg.code)}
-                                aria-expanded={isOpen}
-                                className="mt-1 inline-flex min-h-[36px] items-center gap-1 text-sm font-medium text-electric-700"
-                              >
-                                {isOpen ? (
-                                  <>
-                                    Show less <ChevronUp className="h-4 w-4" />
-                                  </>
-                                ) : (
-                                  <>
-                                    +{includes.length - 2} more checks <ChevronDown className="h-4 w-4" />
-                                  </>
-                                )}
-                              </button>
-                            )}
+                            <PackageIncludes includes={includes} compact collapsedGroups={1} />
                           </div>
                         )}
                       </div>

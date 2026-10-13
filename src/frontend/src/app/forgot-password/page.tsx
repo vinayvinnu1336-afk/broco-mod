@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
+import { BroCoLogo } from '@/components/brand/BroCoLogo';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Wrench, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2, MailCheck } from 'lucide-react';
@@ -136,12 +137,7 @@ function ForgotPasswordForm() {
       <header className="pt-safe">
         <div className="mx-auto flex h-14 max-w-md items-center px-4 sm:h-16">
           <Link href="/" className="flex items-center gap-2.5" aria-label="BroCo home">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
-              <Wrench className="h-[18px] w-[18px]" />
-            </span>
-            <span className="text-[15px] font-extrabold tracking-tight text-navy-900 sm:text-lg">
-              Bro<span className="text-electric-600">Co</span>
-            </span>
+            <BroCoLogo size={36} />
           </Link>
         </div>
       </header>

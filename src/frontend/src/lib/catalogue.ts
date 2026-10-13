@@ -145,3 +145,50 @@ export function carLabel(intent: Pick<BookingIntent, 'manufacturerName' | 'model
   const car = [intent.manufacturerName, intent.modelName].filter(Boolean).join(' ');
   return intent.fuelType ? `${car} · ${intent.fuelType}` : car;
 }
+
+export interface IncludeGroup {
+  group: string;
+  items: string[];
+}
+
+/**
+ * Package checklist entries are written "Group: item" (e.g. "Brake Care: Front Brake Cleaning").
+ * Groups keep their first-seen order; entries without a group go under "Included".
+ */
+export function groupIncludes(includes: string[]): IncludeGroup[] {
+  const groups: IncludeGroup[] = [];
+  for (const raw of includes) {
+    const match = raw.match(/^([^:]{2,32}):\s*(.+)$/);
+    const group = match ? match[1].trim() : 'Included';
+    const item = match ? match[2].trim() : raw.trim();
+    let target = groups.find((g) => g.group === group);
+    if (!target) {
+      target = { group, items: [] };
+      groups.push(target);
+    }
+    target.items.push(item);
+  }
+  return groups;
+}
+
+/** The item text without its "Group:" prefix. */
+export function includeText(raw: string): string {
+  const match = raw.match(/^([^:]{2,32}):\s*(.+)$/);
+  return match ? match[2].trim() : raw.trim();
+}
+
+/** 3.5 → "3.5 hrs", 5 → "5 hrs", 1 → "1 hr". */
+export function formatHours(hours: number): string {
+  const value = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  return `${value} ${hours === 1 ? 'hr' : 'hrs'}`;
+}
+
+/** Warranty as "1,000 km or 90 days". */
+export function formatWarranty(km: number, days: number): string {
+  return `${km.toLocaleString('en-IN')} km or ${days} days`;
+}
+
+/** Interval as "Every 5,000 km or 6 months". */
+export function formatInterval(km: number, months: number): string {
+  return `Every ${km.toLocaleString('en-IN')} km or ${months} months`;
+}

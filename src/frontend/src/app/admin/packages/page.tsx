@@ -1,6 +1,8 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PackageIncludes } from '@/components/catalogue/PackageIncludes';
+import { formatHours } from '@/lib/catalogue';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarClock,
@@ -158,8 +160,6 @@ function PackagesTab({ packages, onSaved }: { packages: ServicePackage[]; onSave
     <>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {packages.map((p) => {
-          const preview = (p.includes ?? []).slice(0, 5);
-          const more = (p.includes ?? []).length - preview.length;
           return (
             <Card key={p.id} className={`flex flex-col p-4 sm:p-5 ${p.isRecommended ? 'border-electric-300 ring-1 ring-electric-200' : ''}`}>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -176,7 +176,7 @@ function PackagesTab({ packages, onSaved }: { packages: ServicePackage[]; onSave
                   {p.intervalMonths ? ` or ${p.intervalMonths} months` : ''}
                 </Fact>
                 <Fact icon={Clock} label="Duration">
-                  About {p.durationHours} {p.durationHours === 1 ? 'hour' : 'hours'}
+                  About {formatHours(p.durationHours)}
                 </Fact>
                 <Fact icon={ShieldCheck} label="Warranty">
                   Warranty {km(p.warrantyKm)} or {p.warrantyDays} days
@@ -185,15 +185,7 @@ function PackagesTab({ packages, onSaved }: { packages: ServicePackage[]; onSave
 
               <div className="mt-4 flex-1 border-t border-surface-200 pt-3">
                 <p className="text-xs font-medium text-navy-500">Includes {(p.includes ?? []).length} items</p>
-                <ul className="mt-2 space-y-1.5">
-                  {preview.map((item, i) => (
-                    <li key={i} className="flex gap-2 text-sm text-navy-700">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                {more > 0 && <p className="mt-1.5 pl-6 text-xs text-navy-400">+ {more} more</p>}
+                <PackageIncludes includes={p.includes ?? []} compact collapsedGroups={2} className="mt-2" />
               </div>
 
               <Button variant="outline" className="mt-4 w-full" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(p)}>

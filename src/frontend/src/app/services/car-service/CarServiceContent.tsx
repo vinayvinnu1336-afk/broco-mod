@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PackageIncludes } from '@/components/catalogue/PackageIncludes';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -28,6 +29,8 @@ import {
   catalogueApi,
   loadBookingIntent,
   saveBookingIntent,
+  formatHours,
+  includeText,
 } from '@/lib/catalogue';
 import { formatINRWhole } from '@/lib/format';
 import {
@@ -41,7 +44,6 @@ import {
 } from '../../_public/services';
 
 const CITY = 'Hyderabad';
-const PHONE_INCLUDES = 5;
 const QUOTE_CATEGORY = 'Periodic Service';
 
 function shortName(pkg: ServicePackage): string {
@@ -85,7 +87,6 @@ export function CarServiceContent() {
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState(false);
   const [selected, setSelected] = useState<string>('STANDARD');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const cardsRef = useRef<HTMLDivElement>(null);
 
@@ -316,8 +317,6 @@ export function CarServiceContent() {
               const onRequest = !!car && !offersLoading && !priced;
               const isSelected = pkg.code === selected;
               const recommended = pkg.isRecommended || (!anyRecommended && pkg.code === 'STANDARD');
-              const open = !!expanded[pkg.code];
-              const extra = Math.max(0, pkg.includes.length - PHONE_INCLUDES);
 
               return (
                 <article
@@ -375,7 +374,7 @@ export function CarServiceContent() {
                       </li>
                       <li className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-1">
                         <Clock className="h-3.5 w-3.5 text-navy-400" aria-hidden />
-                        Takes {pkg.durationHours} hrs
+                        Takes {formatHours(pkg.durationHours)}
                       </li>
                       <li className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
                         <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
@@ -385,31 +384,7 @@ export function CarServiceContent() {
 
                     {/* Includes */}
                     <h3 className="mt-4 text-sm font-semibold text-navy-900">What&apos;s included</h3>
-                    <ul className="mt-2 space-y-1.5 text-sm text-navy-600">
-                      {pkg.includes.map((item, i) => (
-                        <li
-                          key={item}
-                          className={`items-start gap-2 ${i >= PHONE_INCLUDES && !open ? 'hidden md:flex' : 'flex'}`}
-                        >
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.5} aria-hidden />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                    {extra > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpanded((x) => ({ ...x, [pkg.code]: !open }));
-                        }}
-                        aria-expanded={open}
-                        className="mt-1 inline-flex min-h-[40px] items-center gap-1 self-start text-sm font-semibold text-electric-700 md:hidden"
-                      >
-                        {open ? 'Show less' : `+${extra} more`}
-                        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-                      </button>
-                    )}
+                    <PackageIncludes includes={pkg.includes} className="mt-2.5" />
 
                     {/* CTA */}
                     <div className="mt-auto pt-5">
@@ -534,7 +509,7 @@ function Comparison({
         ]
       : []),
     { label: 'Recommended every', values: packages.map((p) => `${formatKm(p.intervalKm)} / ${p.intervalMonths} mo`) },
-    { label: 'Time taken', values: packages.map((p) => `${p.durationHours} hrs`) },
+    { label: 'Time taken', values: packages.map((p) => formatHours(p.durationHours)) },
     { label: 'Warranty', values: packages.map((p) => `${formatKm(p.warrantyKm)} / ${p.warrantyDays} days`) },
   ];
 
@@ -576,7 +551,7 @@ function Comparison({
               {items.map((item) => (
                 <tr key={item}>
                   <th scope="row" className="px-3 py-2.5 font-normal sm:px-4">
-                    {item}
+                    {includeText(item)}
                   </th>
                   {packages.map((p) => (
                     <td key={p.code} className="px-1 py-2.5 text-center">

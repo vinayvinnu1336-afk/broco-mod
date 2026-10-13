@@ -267,26 +267,34 @@ export const CarSelectField: React.FC<CarSelectFieldProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const hasValue = !!value?.modelName;
+  const text = hasValue
+    ? `${value?.manufacturerName ?? ''} ${value?.modelName ?? ''}${value?.fuelType ? `, ${value.fuelType}` : ''}`.trim()
+    : placeholder;
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className}`}>
       {label && <span className="mb-1.5 block text-sm font-medium text-navy-800">{label}</span>}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className={`flex min-h-[52px] w-full items-center gap-3 rounded-xl border bg-white px-3 text-left transition focus:outline-none focus:ring-2 focus:ring-electric-100 ${
+        title={hasValue ? text : undefined}
+        className={`flex min-h-[52px] w-full min-w-0 items-center gap-3 rounded-xl border bg-white px-3 text-left transition focus:outline-none focus-visible:border-electric-600 focus-visible:ring-2 focus-visible:ring-electric-600/30 ${
           error ? 'border-semantic-error' : 'border-surface-300 hover:border-electric-400'
         }`}
       >
         {hasValue && value?.manufacturerName ? (
           <BrandLogo name={value.manufacturerName} logoUrl={value.logoUrl} size={32} />
         ) : null}
-        <span className={`min-w-0 flex-1 truncate text-[15px] font-semibold uppercase tracking-wide ${hasValue ? 'text-navy-900' : 'text-surface-400'}`}>
-          {hasValue ? `${value?.manufacturerName ?? ''} ${value?.modelName ?? ''}${value?.fuelType ? `, ${value.fuelType}` : ''}` : placeholder}
+        <span className={`min-w-0 flex-1 truncate text-[15px] ${hasValue ? 'font-semibold text-navy-900' : 'font-medium text-navy-400'}`}>
+          {text}
         </span>
-        <ChevronDown className="h-5 w-5 shrink-0 text-navy-700" />
+        <ChevronDown className="mr-0.5 h-4 w-4 shrink-0 text-navy-400" aria-hidden />
       </button>
-      {error && <p className="mt-1 text-sm text-semantic-error">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-1.5 text-xs font-medium text-semantic-error">
+          {error}
+        </p>
+      )}
       <CarPicker isOpen={open} onClose={() => setOpen(false)} onSelect={onChange} />
     </div>
   );

@@ -105,8 +105,13 @@ export function PackageSheet({ pkg, onClose, onSaved }: PackageSheetProps) {
     (Object.keys(LIMITS) as NumberField[]).forEach((field) => {
       const raw = numbers[field].trim();
       const value = raw === '' ? 0 : Number(raw);
-      if (!Number.isInteger(value) || value < 0 || value > LIMITS[field].max) {
-        next[field] = `Whole number from 0 to ${LIMITS[field].max.toLocaleString('en-IN')}.`;
+      // Duration may be in half hours (e.g. 3.5); the rest are whole numbers.
+      const allowsHalf = field === 'durationHours';
+      const shapeOk = allowsHalf ? Number.isInteger(value * 2) : Number.isInteger(value);
+      if (!Number.isFinite(value) || !shapeOk || value < 0 || value > LIMITS[field].max) {
+        next[field] = allowsHalf
+          ? `Hours from 0 to ${LIMITS[field].max}, in steps of 0.5.`
+          : `Whole number from 0 to ${LIMITS[field].max.toLocaleString('en-IN')}.`;
       }
       parsed[field] = value;
     });
@@ -175,7 +180,8 @@ export function PackageSheet({ pkg, onClose, onSaved }: PackageSheetProps) {
                 key={field}
                 label={LIMITS[field].label}
                 type="number"
-                inputMode="numeric"
+                inputMode={field === 'durationHours' ? 'decimal' : 'numeric'}
+                step={field === 'durationHours' ? 0.5 : 1}
                 min={0}
                 max={LIMITS[field].max}
                 value={numbers[field]}
@@ -198,6 +204,7 @@ export function PackageSheet({ pkg, onClose, onSaved }: PackageSheetProps) {
 
         <fieldset className="space-y-3">
           <legend className="text-base font-semibold text-navy-900">What&apos;s included ({items.length})</legend>
+          <p className="-mt-1 text-xs text-navy-500">Start an item with a section name and a colon to group it, e.g. <span className="font-medium text-navy-700">Brake Care: Rear drum cleaning</span>.</p>
           {items.length > 0 && (
             <ol className="space-y-2">
               {items.map((item, index) => (
@@ -232,7 +239,7 @@ export function PackageSheet({ pkg, onClose, onSaved }: PackageSheetProps) {
             <div className="min-w-0 flex-1">
               <Input
                 aria-label="New included item"
-                placeholder="Add an item, e.g. Wiper blade check"
+                placeholder="e.g. Brake Care: Handbrake adjustment"
                 value={newItem}
                 maxLength={200}
                 onChange={(e) => setNewItem(e.target.value)}

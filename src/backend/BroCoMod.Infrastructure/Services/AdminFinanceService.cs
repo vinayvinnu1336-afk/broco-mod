@@ -26,17 +26,20 @@ public class AdminFinanceService : IAdminFinanceService
     {
         var paymentsQuery = _context.Payments.AsNoTracking().AsQueryable();
         var settlementsQuery = _context.GarageSettlements.AsNoTracking().AsQueryable();
+        var commissionsQuery = _context.GarageCommissions.AsNoTracking().AsQueryable();
 
         if (fromUtc.HasValue)
         {
             paymentsQuery = paymentsQuery.Where(p => p.CreatedAtUtc >= fromUtc.Value);
             settlementsQuery = settlementsQuery.Where(s => s.CreatedAtUtc >= fromUtc.Value);
+            commissionsQuery = commissionsQuery.Where(c => c.CreatedAtUtc >= fromUtc.Value);
         }
 
         if (toUtc.HasValue)
         {
             paymentsQuery = paymentsQuery.Where(p => p.CreatedAtUtc <= toUtc.Value);
             settlementsQuery = settlementsQuery.Where(s => s.CreatedAtUtc <= toUtc.Value);
+            commissionsQuery = commissionsQuery.Where(c => c.CreatedAtUtc <= toUtc.Value);
         }
 
         // Real SQL Aggregations
@@ -45,7 +48,9 @@ public class AdminFinanceService : IAdminFinanceService
             p.Status == PaymentStatus.PartiallyRefunded ||
             p.Status == PaymentStatus.Refunded);
 
+        // Money customers paid. A garage paying its commission is BroCo income (counted below), not customer revenue.
         var totalGrossRevenue = await paidPayments
+            .Where(p => p.Purpose != PaymentPurpose.GarageCommission)
             .Select(p => (decimal?)p.Amount)
             .SumAsync(cancellationToken) ?? 0.0m;
 
@@ -74,6 +79,26 @@ public class AdminFinanceService : IAdminFinanceService
             .Select(s => (decimal?)(s.Payment!.Amount - s.GrossAmount))
             .SumAsync(cancellationToken) ?? 0.0m;
 
+        // 10% model: the booking advance belongs to BroCo (net of refunds); paid commission is BroCo income plus GST on it.
+        var totalBookingAdvances = await paidPayments
+            .Where(p => p.Purpose == PaymentPurpose.BookingAdvance)
+            .Select(p => (decimal?)(p.Amount - p.RefundedAmount))
+            .SumAsync(cancellationToken) ?? 0.0m;
+        var paidCommissions = commissionsQuery.Where(c => c.Status == GarageCommissionStatus.Paid);
+        var totalCommissionCollected = await paidCommissions
+            .Select(c => (decimal?)c.TotalDue)
+            .SumAsync(cancellationToken) ?? 0.0m;
+        var totalCommissionGst = await paidCommissions
+            .Select(c => (decimal?)c.TaxAmount)
+            .SumAsync(cancellationToken) ?? 0.0m;
+        var totalCommissionOutstanding = await commissionsQuery
+            .Where(c => c.Status == GarageCommissionStatus.Due)
+            .Select(c => (decimal?)c.TotalDue)
+            .SumAsync(cancellationToken) ?? 0.0m;
+
+        totalPlatformRevenue += totalBookingAdvances + totalCommissionCollected;
+        totalPlatformFeeGst += totalCommissionGst;
+
         var netPlatformProfit = totalPlatformRevenue - totalPlatformFeeGst + totalPlatformMargin;
 
         var totalPaymentsCount = await paymentsQuery.CountAsync(cancellationToken);
@@ -92,7 +117,10 @@ public class AdminFinanceService : IAdminFinanceService
             PendingSettlementsCount: pendingSettlementsCount,
             CompletedSettlementsCount: completedSettlementsCount,
             TotalPlatformFeeGst: totalPlatformFeeGst,
-            TotalPlatformMargin: totalPlatformMargin
+            TotalPlatformMargin: totalPlatformMargin,
+            TotalBookingAdvances: totalBookingAdvances,
+            TotalCommissionCollected: totalCommissionCollected,
+            TotalCommissionOutstanding: totalCommissionOutstanding
         );
     }
 

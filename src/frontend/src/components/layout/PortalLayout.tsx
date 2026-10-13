@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, ReactNode, useMemo } from 'react';
+import { BroCoMark } from '@/components/brand/BroCoLogo';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Wrench, LogOut, MoreHorizontal, Plus, Sparkles, ChevronRight } from 'lucide-react';
+import { LogOut, MoreHorizontal, Plus, Sparkles, ChevronRight } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
 import { isDemoMode } from '@/lib/demo';
@@ -139,9 +140,7 @@ export function PortalLayout({
       <header className="sticky top-0 z-40 border-b border-surface-200 bg-white/90 pt-safe backdrop-blur md:border-navy-800 md:bg-navy-900 md:text-white md:backdrop-blur-none">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 md:h-16 lg:px-8">
           <Link href={navItems[0]?.href ?? '/'} className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-600 text-white shadow-md shadow-electric-600/30">
-              <Wrench className="h-[18px] w-[18px]" />
-            </span>
+            <BroCoMark size={36} />
             <span className="min-w-0 leading-tight">
               <span className="block text-[15px] font-extrabold tracking-tight md:text-lg">
                 Bro<span className="text-electric-600 md:text-electric-400">Co</span>

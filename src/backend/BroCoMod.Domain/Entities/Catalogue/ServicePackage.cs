@@ -12,7 +12,7 @@ public class ServicePackage : BaseEntity
     public string Tagline { get; private set; } = string.Empty;
     public int IntervalKm { get; private set; }
     public int IntervalMonths { get; private set; }
-    public int DurationHours { get; private set; }
+    public decimal DurationHours { get; private set; }
     public int WarrantyKm { get; private set; }
     public int WarrantyDays { get; private set; }
     public List<string> Includes { get; private set; } = new();
@@ -34,7 +34,7 @@ public class ServicePackage : BaseEntity
     }
 
     public void Update(
-        string name, string tagline, int intervalKm, int intervalMonths, int durationHours,
+        string name, string tagline, int intervalKm, int intervalMonths, decimal durationHours,
         int warrantyKm, int warrantyDays, IEnumerable<string> includes, int displayOrder, bool isActive, bool isRecommended)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required.", nameof(name));
@@ -42,7 +42,7 @@ public class ServicePackage : BaseEntity
         Tagline = tagline?.Trim() ?? string.Empty;
         IntervalKm = Math.Max(0, intervalKm);
         IntervalMonths = Math.Max(0, intervalMonths);
-        DurationHours = Math.Max(0, durationHours);
+        DurationHours = Math.Round(Math.Max(0m, durationHours), 1);
         WarrantyKm = Math.Max(0, warrantyKm);
         WarrantyDays = Math.Max(0, warrantyDays);
         Includes = includes.Select(i => i.Trim()).Where(i => i.Length > 0).Distinct().ToList();
