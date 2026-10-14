@@ -47,30 +47,36 @@ public class PackageBookingService : IPackageBookingService
         _logger = logger;
     }
 
-    /// <summary>Garages near the customer: the ones notified at booking, or (if none) any within 25 km.</summary>
+    /// <summary>Radius tried when no garage that can take the job is inside the request's own radius.</summary>
+    private const double WiderSearchRadiusKm = 25;
+
+    /// <summary>
+    /// Verified, active, operational garages within the request's radius (each garage's own service
+    /// radius also applies), nearest first, leaving out garages paused for overdue commission. Package
+    /// bookings are never dispatched for quotes, so this is a live search, not the booking-time dispatch list.
+    /// </summary>
     public async Task<IReadOnlyList<PackageGarageCandidateDto>> GetCandidateGaragesAsync(Guid serviceRequestId, CancellationToken ct = default)
     {
         var request = await _context.ServiceRequests.AsNoTracking()
-            .Include(r => r.GarageRequests).ThenInclude(gr => gr.Garage)
             .FirstOrDefaultAsync(r => r.Id == serviceRequestId, ct)
             ?? throw new KeyNotFoundException("Service request not found.");
 
-        var candidates = request.GarageRequests
-            .Where(gr => gr.Garage != null && gr.Garage.IsActive && gr.Garage.IsVerified)
-            .Select(gr => (gr.Garage!.Id, gr.Garage.Name, gr.Garage.Address, gr.Garage.PhoneNumber, gr.DistanceKm))
-            .ToList();
-
-        if (candidates.Count == 0)
+        var result = await AvailableGaragesWithinAsync(request.CustomerLocation, request.RadiusKm, ct);
+        if (result.Count == 0 && request.RadiusKm < WiderSearchRadiusKm)
         {
-            var nearby = await _matching.FindEligibleGaragesAsync(request.CustomerLocation, 25, ct);
-            candidates = nearby.Select(g => (g.GarageId, g.GarageName, g.Address, g.PhoneNumber, g.DistanceKm)).ToList();
+            result = await AvailableGaragesWithinAsync(request.CustomerLocation, WiderSearchRadiusKm, ct);
         }
+        return result;
+    }
 
+    private async Task<List<PackageGarageCandidateDto>> AvailableGaragesWithinAsync(NetTopologySuite.Geometries.Point location, double radiusKm, CancellationToken ct)
+    {
+        var nearby = await _matching.FindEligibleGaragesAsync(location, radiusKm, ct);
         var result = new List<PackageGarageCandidateDto>();
-        foreach (var c in candidates.OrderBy(c => c.DistanceKm))
+        foreach (var g in nearby.OrderBy(g => g.DistanceKm))
         {
-            result.Add(new PackageGarageCandidateDto(c.Item1, c.Name, c.Address, c.PhoneNumber, Math.Round(c.DistanceKm, 1),
-                await _commissions.IsGarageBlockedForNewJobsAsync(c.Item1, ct)));
+            if (await _commissions.IsGarageBlockedForNewJobsAsync(g.GarageId, ct)) continue;
+            result.Add(new PackageGarageCandidateDto(g.GarageId, g.GarageName, g.Address, g.PhoneNumber, Math.Round(g.DistanceKm, 1), IsBlocked: false));
         }
         return result;
     }
@@ -119,12 +125,18 @@ public class PackageBookingService : IPackageBookingService
         {
             await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
+            // The fixed-price quote below needs a garage request row; packages booked before garages
+            // stopped getting quote requests may already have one, possibly declined or expired.
             var garageRequest = request.GarageRequests.FirstOrDefault(gr => gr.GarageId == garage.Id);
             if (garageRequest == null)
             {
                 var distance = ServiceAreaService.DistanceKm(request.CustomerLocation.Y, request.CustomerLocation.X, garage.Location.Y, garage.Location.X);
                 garageRequest = new GarageRequest(request.Id, garage.Id, Math.Round(distance, 2));
                 _context.GarageRequests.Add(garageRequest);
+            }
+            else if (garageRequest.Status is GarageRequestStatus.Declined or GarageRequestStatus.Expired)
+            {
+                garageRequest.MarkNotified();
             }
             garageRequest.Accept();
 

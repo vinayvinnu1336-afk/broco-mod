@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import { InvoiceDto } from '@/types/finance';
+import { InvoiceDto, bookingAdvanceLine, parseInvoiceLineItems } from '@/types/finance';
 import { CreditCard, Receipt, Search } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -46,7 +46,6 @@ export default function CustomerInvoicesPage() {
   const filteredInvoices = invoices.filter(
     (inv) =>
       inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.garageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.totalAmount.toString().includes(searchTerm)
   );
 
@@ -54,7 +53,7 @@ export default function CustomerInvoicesPage() {
     <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <PageHeader
         title="Invoices"
-        description="Tax invoices for the services you have paid for."
+        description="Receipts for the booking advances you paid BroCo online. The rest of each bill is paid at the garage."
         actions={
           <Link href="/customer/payments">
             <Button variant="outline" leftIcon={<CreditCard className="h-4 w-4" />} className="w-full">
@@ -76,7 +75,7 @@ export default function CustomerInvoicesPage() {
         <EmptyState
           icon={Receipt}
           title="No invoices yet"
-          description="Once you pay for a service, its tax invoice appears here."
+          description="When you pay a booking advance, its receipt appears here."
         />
       ) : (
         <>
@@ -84,7 +83,7 @@ export default function CustomerInvoicesPage() {
             <Input
               aria-label="Search invoices"
               type="search"
-              placeholder="Search by invoice number or garage"
+              placeholder="Search by invoice number or amount"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               leftIcon={<Search className="h-4 w-4" />}
@@ -95,14 +94,21 @@ export default function CustomerInvoicesPage() {
             <EmptyState icon={Search} title="No matching invoices" description="Try a different search." />
           ) : (
             <ListGroup>
-              {filteredInvoices.map((inv) => (
+              {filteredInvoices.map((inv) => {
+                const advance = bookingAdvanceLine(parseInvoiceLineItems(inv));
+                const balance = advance?.balanceAtGarage;
+                return (
                 <ListItem
                   key={inv.id}
                   href={`/customer/invoices/${inv.id}`}
                   leading={<IconTile icon={Receipt} tone="neutral" />}
-                  title={inv.garageName || 'Invoice'}
+                  title={advance ? 'Booking advance' : 'Invoice'}
                   subtitle={inv.invoiceNumber}
-                  meta={`Issued ${formatDate(inv.issuedAtUtc)}`}
+                  meta={
+                    balance && balance > 0
+                      ? `${formatINRWhole(balance)} to pay at the garage · Issued ${formatDate(inv.issuedAtUtc)}`
+                      : `Issued ${formatDate(inv.issuedAtUtc)}`
+                  }
                   trailing={
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-sm font-semibold tabular-nums text-navy-900">
@@ -112,7 +118,8 @@ export default function CustomerInvoicesPage() {
                     </div>
                   }
                 />
-              ))}
+                );
+              })}
             </ListGroup>
           )}
         </>

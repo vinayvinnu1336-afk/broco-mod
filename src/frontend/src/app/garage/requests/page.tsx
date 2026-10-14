@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import {
@@ -17,7 +17,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import { formatDate, formatRelative, humanize } from '@/lib/format';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { formatDate, formatRelative } from '@/lib/format';
 
 /** Requests the garage can still quote on. Others (declined/expired) stay visible but de-emphasised. */
 const CLOSED_STATUSES = ['DECLINED', 'EXPIRED'];
@@ -27,39 +30,80 @@ function formatKm(km: number | null | undefined) {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} km away`;
 }
 
+// Values are GarageRequestStatus names (the rows show them upper-case; the API accepts both).
+const STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'Notified', label: 'New' },
+  { value: 'Viewed', label: 'Viewed' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Accepted', label: 'Accepted' },
+  { value: 'Declined', label: 'Declined' },
+  { value: 'Expired', label: 'Expired' },
+];
+
+const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '' };
+const PAGE_SIZE = 10;
+
 export default function GarageRequestsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading requests..." />}>
+      <GarageRequests />
+    </Suspense>
+  );
+}
+
+function GarageRequests() {
   const router = useRouter();
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [requests, setRequests] = useState<GarageIncomingRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const latest = useRef(0);
 
   // Detail sheet
   const [selectedRequest, setSelectedRequest] = useState<GarageIncomingRequestDetailDto | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
-  async function loadRequests(p = 1, { quiet = false } = {}) {
+  const query = useMemo(
+    () => toQueryString({ page: urlPage, pageSize: PAGE_SIZE, search: f.q, status: f.status, ...dateRangeQuery(f) }),
+    [urlPage, f]
+  );
+
+  async function loadRequests(qs: string, { quiet = false } = {}) {
+    const id = ++latest.current;
     if (!quiet) {
       setLoading(true);
       setLoadError(null);
     }
-    const res = await apiFetch<PagedResult<GarageIncomingRequestDto>>(`/garage/requests?page=${p}&pageSize=10`);
+    const res = await apiFetch<PagedResult<GarageIncomingRequestDto>>(`/garage/requests${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setRequests(res.data.items);
       setPage(res.data.page);
       setTotalPages(res.data.totalPages);
+      setTotalCount(res.data.totalCount ?? 0);
     } else if (!quiet) {
       setLoadError(res.message || 'Could not load requests.');
     }
-    if (!quiet) setLoading(false);
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadRequests();
+    loadRequests(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [query]);
+
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const anyFilter = (Object.keys(FILTER_DEFAULTS) as (keyof typeof FILTER_DEFAULTS)[]).some((k) => filters.isActive(k));
 
   async function viewDetail(garageRequestId: string) {
     setDetailLoadingId(garageRequestId);
@@ -67,7 +111,7 @@ export default function GarageRequestsPage() {
     if (res.success && res.data) {
       setSelectedRequest(res.data);
       // Reload list in background to reflect VIEWED status
-      loadRequests(page, { quiet: true });
+      loadRequests(query, { quiet: true });
     } else {
       toast.error('Could not open request', res.message || 'Please try again.');
     }
@@ -85,6 +129,17 @@ export default function GarageRequestsPage() {
         description="Customer jobs near your workshop. Check the details, then send a quote."
       />
 
+      <FilterBar
+        className="mb-4"
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Request, car or plate"
+        searchLabel="Search requests"
+        status={{ key: 'status', options: STATUS_OPTIONS, ariaLabel: 'Request status' }}
+        fields={[{ type: 'dateRange', label: 'Received' }]}
+        summary={loading ? 'Loading…' : loadError ? null : `${totalCount} ${totalCount === 1 ? 'request' : 'requests'}`}
+      />
+
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
@@ -92,12 +147,16 @@ export default function GarageRequestsPage() {
           ))}
         </div>
       ) : loadError ? (
-        <ErrorState title="Couldn’t load requests" error={loadError} onRetry={() => loadRequests(page)} />
+        <ErrorState title="Couldn’t load requests" error={loadError} onRetry={() => loadRequests(query)} />
       ) : requests.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="No requests right now"
-          description="When a customer near your workshop books a service, it shows up here."
+          title={anyFilter ? 'No requests found' : 'No requests right now'}
+          description={
+            anyFilter
+              ? 'No requests match these filters.'
+              : 'When a customer near your workshop books a service, it shows up here.'
+          }
         />
       ) : (
         <div className="space-y-3">
@@ -164,7 +223,7 @@ export default function GarageRequestsPage() {
               <Button
                 variant="outline"
                 disabled={page <= 1}
-                onClick={() => loadRequests(page - 1)}
+                onClick={() => goToPage(page - 1)}
                 leftIcon={<ChevronLeft className="h-4 w-4" />}
               >
                 Previous
@@ -175,7 +234,7 @@ export default function GarageRequestsPage() {
               <Button
                 variant="outline"
                 disabled={page >= totalPages}
-                onClick={() => loadRequests(page + 1)}
+                onClick={() => goToPage(page + 1)}
                 rightIcon={<ChevronRight className="h-4 w-4" />}
               >
                 Next
@@ -235,7 +294,7 @@ export default function GarageRequestsPage() {
               </div>
               <div>
                 <dt className="text-xs text-navy-500">Service type</dt>
-                <dd className="font-medium text-navy-900">{humanize(selectedRequest.serviceCategory) || '—'}</dd>
+                <dd className="break-words font-medium text-navy-900">{selectedRequest.serviceCategory || '—'}</dd>
               </div>
               <div>
                 <dt className="text-xs text-navy-500">Area</dt>

@@ -225,137 +225,112 @@
   "prices": {
     "Hatchback": {
       "Petrol": {
-        "BASIC": 2199,
-        "STANDARD": 3499,
-        "PREMIUM": 5299
+        "BASIC": 2549,
+        "STANDARD": 3849,
+        "PREMIUM": 5649
       },
       "Diesel": {
-        "BASIC": 2599,
-        "STANDARD": 3999,
-        "PREMIUM": 5999
+        "BASIC": 2949,
+        "STANDARD": 4349,
+        "PREMIUM": 6349
       },
       "CNG": {
-        "BASIC": 2399,
-        "STANDARD": 3699,
-        "PREMIUM": 5599
-      },
-      "Electric": {
-        "BASIC": 1499,
-        "STANDARD": 2299,
-        "PREMIUM": 3499
+        "BASIC": 2749,
+        "STANDARD": 4049,
+        "PREMIUM": 5949
       },
       "Hybrid": {
-        "BASIC": 2499,
-        "STANDARD": 3799,
-        "PREMIUM": 5699
+        "BASIC": 2849,
+        "STANDARD": 4149,
+        "PREMIUM": 6049
       }
     },
     "Sedan": {
       "Petrol": {
-        "BASIC": 2799,
-        "STANDARD": 4199,
-        "PREMIUM": 6299
+        "BASIC": 3149,
+        "STANDARD": 4549,
+        "PREMIUM": 6649
       },
       "Diesel": {
-        "BASIC": 3199,
-        "STANDARD": 4699,
-        "PREMIUM": 6999
+        "BASIC": 3549,
+        "STANDARD": 5049,
+        "PREMIUM": 7349
       },
       "CNG": {
-        "BASIC": 2999,
-        "STANDARD": 4399,
-        "PREMIUM": 6599
-      },
-      "Electric": {
-        "BASIC": 1799,
-        "STANDARD": 2699,
-        "PREMIUM": 3999
+        "BASIC": 3349,
+        "STANDARD": 4749,
+        "PREMIUM": 6949
       },
       "Hybrid": {
-        "BASIC": 3099,
-        "STANDARD": 4599,
-        "PREMIUM": 6799
+        "BASIC": 3449,
+        "STANDARD": 4949,
+        "PREMIUM": 7149
       }
     },
     "CompactSUV": {
       "Petrol": {
-        "BASIC": 2899,
-        "STANDARD": 4299,
-        "PREMIUM": 6499
+        "BASIC": 3249,
+        "STANDARD": 4649,
+        "PREMIUM": 6849
       },
       "Diesel": {
-        "BASIC": 3199,
-        "STANDARD": 4799,
-        "PREMIUM": 7199
+        "BASIC": 3549,
+        "STANDARD": 5149,
+        "PREMIUM": 7549
       },
       "CNG": {
-        "BASIC": 3099,
-        "STANDARD": 4499,
-        "PREMIUM": 6799
-      },
-      "Electric": {
-        "BASIC": 1799,
-        "STANDARD": 2799,
-        "PREMIUM": 4199
+        "BASIC": 3449,
+        "STANDARD": 4849,
+        "PREMIUM": 7149
       },
       "Hybrid": {
-        "BASIC": 3199,
-        "STANDARD": 4699,
-        "PREMIUM": 6999
+        "BASIC": 3549,
+        "STANDARD": 5049,
+        "PREMIUM": 7349
       }
     },
     "SUV": {
       "Petrol": {
-        "BASIC": 3699,
-        "STANDARD": 5299,
-        "PREMIUM": 7799
+        "BASIC": 4049,
+        "STANDARD": 5649,
+        "PREMIUM": 8149
       },
       "Diesel": {
-        "BASIC": 4199,
-        "STANDARD": 5999,
-        "PREMIUM": 8799
+        "BASIC": 4549,
+        "STANDARD": 6349,
+        "PREMIUM": 9149
       },
       "CNG": {
-        "BASIC": 3899,
-        "STANDARD": 5499,
-        "PREMIUM": 7999
-      },
-      "Electric": {
-        "BASIC": 2299,
-        "STANDARD": 3499,
-        "PREMIUM": 4999
+        "BASIC": 4249,
+        "STANDARD": 5849,
+        "PREMIUM": 8349
       },
       "Hybrid": {
-        "BASIC": 3999,
-        "STANDARD": 5699,
-        "PREMIUM": 8299
+        "BASIC": 4349,
+        "STANDARD": 6049,
+        "PREMIUM": 8649
       }
     },
     "Luxury": {
       "Petrol": {
-        "BASIC": 12999,
-        "STANDARD": 17999,
-        "PREMIUM": 24999
+        "BASIC": 13349,
+        "STANDARD": 18349,
+        "PREMIUM": 25349
       },
       "Diesel": {
-        "BASIC": 13499,
-        "STANDARD": 18999,
-        "PREMIUM": 26499
+        "BASIC": 13849,
+        "STANDARD": 19349,
+        "PREMIUM": 26849
       },
       "CNG": {
-        "BASIC": 12999,
-        "STANDARD": 17999,
-        "PREMIUM": 24999
-      },
-      "Electric": {
-        "BASIC": 6999,
-        "STANDARD": 9999,
-        "PREMIUM": 14999
+        "BASIC": 13349,
+        "STANDARD": 18349,
+        "PREMIUM": 25349
       },
       "Hybrid": {
-        "BASIC": 13499,
-        "STANDARD": 18999,
-        "PREMIUM": 25999
+        "BASIC": 13849,
+        "STANDARD": 19349,
+        "PREMIUM": 26349
       }
     }
   }

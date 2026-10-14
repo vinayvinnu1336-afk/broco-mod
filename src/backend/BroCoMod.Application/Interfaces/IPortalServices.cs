@@ -6,6 +6,7 @@ public interface ICustomerPortalService
 {
     Task<CustomerDashboardDto> GetDashboardAsync(Guid customerId, CancellationToken cancellationToken = default);
     Task<CustomerProfileDto> GetProfileAsync(Guid customerId, CancellationToken cancellationToken = default);
+    Task<CustomerProfileDto> UpdateProfileAsync(Guid customerId, UpdateCustomerProfileRequest request, string? ipAddress = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CustomerVehicleDto>> GetVehiclesAsync(Guid customerId, CancellationToken cancellationToken = default);
     Task<CustomerVehicleDto> AddVehicleAsync(Guid customerId, CreateVehicleDto dto, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CustomerRequestSummaryDto>> GetRequestsAsync(Guid customerId, CancellationToken cancellationToken = default);

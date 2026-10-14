@@ -68,7 +68,7 @@ export default function CustomerPaymentsPage() {
     <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <PageHeader
         title="Payments"
-        description="Everything you have paid for services and extra work."
+        description="Booking advances you paid BroCo online. The rest of each bill, including any extra work, is paid at the garage."
         actions={
           <Link href="/customer/invoices">
             <Button variant="outline" leftIcon={<Receipt className="h-4 w-4" />} className="w-full">
@@ -90,7 +90,7 @@ export default function CustomerPaymentsPage() {
         <EmptyState
           icon={CreditCard}
           title="No payments yet"
-          description="When you accept a quote and pay for it, the payment shows up here."
+          description="When you pay a booking advance, it shows up here."
           action={
             <Link href="/customer/quotes">
               <Button variant="outline">See my quotes</Button>

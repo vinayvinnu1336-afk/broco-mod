@@ -59,6 +59,7 @@ public interface IApplicationDbContext
     DbSet<BroCoMod.Domain.Entities.VehicleMaster.VehicleManufacturerLogo> VehicleManufacturerLogos { get; }
     DbSet<GarageCommission> GarageCommissions { get; }
     DbSet<Lead> Leads { get; }
+    DbSet<ServiceMedia> ServiceMediaFiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

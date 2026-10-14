@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import { AdminJobListItem, PagedResult } from '@/types/adminOperations';
-import { ChevronLeft, ChevronRight, RefreshCw, Search, Wrench } from 'lucide-react';
+import { AdminGarageList, AdminJobListItem, PagedResult } from '@/types/adminOperations';
+import { ChevronLeft, ChevronRight, RefreshCw, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
@@ -17,10 +16,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { SERVICE_TYPE_OPTIONS } from '@/lib/filterOptions';
 
-// Values are the API's status filter values; labels are what operators read.
+// Values are ServiceJobStatus names (the API filters on them); labels are what operators read.
 const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
   { value: 'Scheduled', label: 'Scheduled' },
   { value: 'VehicleReceived', label: 'Car received' },
   { value: 'Inspection', label: 'Inspection' },
@@ -33,6 +33,8 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const FILTER_DEFAULTS = { q: '', status: '', garage: '', type: '', range: '', from: '', to: '', size: '25' };
+
 const rowLink =
   'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
 
@@ -44,26 +46,60 @@ function jobProgress(job: AdminJobListItem): string {
 }
 
 export default function AdminJobsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading service jobs..." />}>
+      <AdminJobs />
+    </Suspense>
+  );
+}
+
+function AdminJobs() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
+
   const [jobs, setJobs] = useState<AdminJobListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  // The search the current results were loaded with (paging keeps it even if the box is edited).
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [garageOptions, setGarageOptions] = useState<{ value: string; label: string }[]>([]);
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
+  const latest = useRef(0);
 
-  const loadJobs = useCallback(async (p: number, size: number, search: string, status: string) => {
+  useEffect(() => {
+    let alive = true;
+    apiFetch<PagedResult<AdminGarageList>>('/admin/garages?pageSize=100').then((res) => {
+      if (!alive || !res.success || !res.data) return;
+      setGarageOptions(
+        res.data.items.map((g) => ({ value: g.id, label: g.name })).sort((a, b) => a.label.localeCompare(b.label))
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize,
+        search: f.q,
+        status: f.status,
+        garageId: f.garage,
+        serviceType: f.type,
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadJobs = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    let url = `/admin/jobs?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-
-    const res = await apiFetch<PagedResult<AdminJobListItem>>(url);
+    const res = await apiFetch<PagedResult<AdminJobListItem>>(`/admin/jobs${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setJobs(res.data.items);
       setPage(res.data.page ?? res.data.pageNumber ?? 1);
@@ -78,29 +114,21 @@ export default function AdminJobsPage() {
   }, []);
 
   useEffect(() => {
-    loadJobs(1, pageSize, appliedSearch, statusFilter);
-  }, [loadJobs, pageSize, statusFilter, appliedSearch]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm === appliedSearch) {
-      loadJobs(1, pageSize, searchTerm, statusFilter);
-    } else {
-      setAppliedSearch(searchTerm);
-    }
-  };
+    loadJobs(query);
+  }, [loadJobs, query]);
 
   const goToPage = (p: number) => {
-    loadJobs(p, pageSize, appliedSearch, statusFilter);
+    filters.setPage(p);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const refresh = () => {
     setRefreshing(true);
-    loadJobs(page, pageSize, appliedSearch, statusFilter);
+    loadJobs(query);
   };
 
   const safeTotalPages = Math.max(1, totalPages);
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -114,37 +142,24 @@ export default function AdminJobsPage() {
         }
       />
 
-      {/* Search and filters */}
-      <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-          <div className="min-w-0 flex-1 sm:max-w-md">
-            <Input
-              type="search"
-              aria-label="Search jobs"
-              enterKeyHint="search"
-              placeholder="Job number, garage or customer"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <Button type="submit" variant="outline" className="hidden shrink-0 sm:inline-flex">
-            Search
-          </Button>
-        </form>
-
-        <FilterChips options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
-
-        <div className="flex items-center justify-between gap-3 text-xs text-navy-500">
-          <span>
-            {loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'job' : 'jobs'}`}
-            {appliedSearch.trim() && !loading && <> matching “{appliedSearch.trim()}”</>}
-          </span>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Job, garage, customer, phone or plate"
+        searchLabel="Search jobs"
+        fields={[
+          { type: 'select', key: 'status', label: 'Status', allLabel: 'All statuses', options: STATUS_OPTIONS },
+          { type: 'select', key: 'garage', label: 'Garage', allLabel: 'All garages', options: garageOptions },
+          { type: 'select', key: 'type', label: 'Service type', allLabel: 'Packages and repairs', options: SERVICE_TYPE_OPTIONS },
+          { type: 'dateRange', label: 'Created' },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'job' : 'jobs'}`}
+        trailing={
           <label className="flex items-center gap-2">
             Per page
             <select
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              onChange={(e) => filters.set({ size: e.target.value })}
               className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
             >
               <option value={25}>25</option>
@@ -152,8 +167,8 @@ export default function AdminJobsPage() {
               <option value={100}>100</option>
             </select>
           </label>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <LoadingState message="Loading service jobs..." />
@@ -164,9 +179,7 @@ export default function AdminJobsPage() {
           icon={Wrench}
           title="No service jobs found"
           description={
-            appliedSearch.trim() || statusFilter
-              ? 'No jobs match this search or filter.'
-              : 'Jobs appear here once a customer confirms a booking.'
+            anyFilter ? 'No jobs match these filters.' : 'Jobs appear here once a customer confirms a booking.'
           }
         />
       ) : (

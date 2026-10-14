@@ -31,12 +31,17 @@ It earns from two 10% charges: a booking advance from the customer and a commiss
 - **Reminders:** a commission is due 24 hours after handover (`Commission:DueHours`). Garages get an in-app reminder, plus SMS, email or WhatsApp once those providers are connected, every 12 hours (`Commission:ReminderIntervalHours`). The Garage portal also shows a banner.
 - **Blocking:** a garage with a commission overdue for more than 3 days (`Commission:BlockNewJobsAfterOverdueDays`, 0 = never) can't be assigned new jobs until it pays.
 - **Admins** can mark a commission as received (UPI or bank reference) or waive it with a reason. Both actions are written to the audit log.
+- **Two checkouts for the same due:** each online commission payment records which dues it covers (`GarageCommissionPaymentAllocations`). Whichever checkout is paid first settles the due. If a second one is also paid, it settles nothing. It is then logged as `GARAGE_COMMISSION_OVERPAID` and admins get a notification to refund or credit the garage.
+- **Refunds:** an admin can refund a customer's booking advance in full or in part (Admin → Payments). Commission payments can't be refunded there, because the commission would still show as paid. Waive or adjust the commission instead.
 
 ## Ledger entries
 | Event | Debit | Credit |
 |---|---|---|
 | Booking advance paid | PLATFORM_CASH | PLATFORM_BOOKING_FEE |
+| Booking advance refunded | PLATFORM_BOOKING_FEE | PLATFORM_CASH |
 | Commission paid | PLATFORM_CASH (total) | PLATFORM_COMMISSION (commission), GST_PAYABLE (GST) |
+
+Each customer gets a receipt for their advance (Customer → Invoices). It shows the service total and the balance they pay at the garage.
 
 The old full-payment, escrow and garage-payout records (`GarageSettlement`) are kept for history but are no longer created.
 

@@ -48,8 +48,56 @@ public class CatalogueSeeder
         }
 
         var newlyDetailedModels = await SeedVehiclesAsync(catalogue, ct);
+        var logos = new Dictionary<string, string>();
+        foreach (var brand in catalogue.Brands) logos[brand.Name] = brand.Logo ?? string.Empty;
+        await SyncBundledLogosAsync(logos, ct);
         await SeedPackagesAndPricesAsync(packages, newlyDetailedModels, ct);
     }
+
+    /// <summary>
+    /// Points brands at the logo file bundled for them (keyed by brand name) when they have no logo yet or still show
+    /// another bundled file, so existing databases pick up new or replaced files in /public/brands. A logo an admin
+    /// uploaded (served from /api/v1/vehicle-manufacturers/{id}/logo) is never replaced.
+    /// </summary>
+    public async Task<int> SyncBundledLogosAsync(IReadOnlyDictionary<string, string> logosByBrand, CancellationToken ct = default)
+    {
+        var wanted = new Dictionary<string, string>();
+        foreach (var (brand, logo) in logosByBrand)
+        {
+            if (!string.IsNullOrWhiteSpace(logo)) wanted[brand.Trim().ToUpperInvariant()] = logo.Trim();
+        }
+        if (wanted.Count == 0) return 0;
+
+        var names = wanted.Keys.ToList();
+        var manufacturers = await _context.VehicleManufacturers.Where(m => names.Contains(m.NormalizedName)).ToListAsync(ct);
+        var ids = manufacturers.Select(m => m.Id).ToList();
+        var uploaded = (await _context.VehicleManufacturerLogos.AsNoTracking()
+                .Where(l => ids.Contains(l.ManufacturerId))
+                .Select(l => l.ManufacturerId)
+                .ToListAsync(ct))
+            .ToHashSet();
+
+        var updated = 0;
+        foreach (var manufacturer in manufacturers)
+        {
+            var logo = wanted[manufacturer.NormalizedName];
+            if (manufacturer.LogoUrl == logo || uploaded.Contains(manufacturer.Id) || !IsBundledOrMissing(manufacturer.LogoUrl)) continue;
+            manufacturer.SetLogoUrl(logo);
+            updated++;
+        }
+        if (updated == 0) return 0;
+
+        await _context.SaveChangesAsync(ct);
+        await VehicleMasterService.InvalidateCatalogCacheAsync(_cache, cancellationToken: ct);
+        _logger.LogInformation("Vehicle catalogue: updated {Count} brand logos.", updated);
+        return updated;
+    }
+
+    // Empty, the bundled /brands/ files or the old /logos/ placeholders; anything else was set by an admin.
+    private static bool IsBundledOrMissing(string logoUrl) =>
+        string.IsNullOrWhiteSpace(logoUrl)
+        || logoUrl.StartsWith("/brands/", StringComparison.Ordinal)
+        || logoUrl.StartsWith("/logos/", StringComparison.Ordinal);
 
     private async Task<HashSet<Guid>> SeedVehiclesAsync(CatalogueFile file, CancellationToken ct)
     {

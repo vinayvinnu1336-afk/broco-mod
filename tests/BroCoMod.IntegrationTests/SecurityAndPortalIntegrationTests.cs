@@ -94,7 +94,7 @@ public class SecurityAndPortalIntegrationTests : IClassFixture<WebApplicationFac
             Email: uniqueEmail,
             Password: "Password123!",
             FullName: "Temporary Disabled User",
-            PhoneNumber: "+1 555 123 9999",
+            PhoneNumber: "+91 95551 23999",
             Role: AppRoles.Customer
         ));
         regResponse.EnsureSuccessStatusCode();
@@ -215,5 +215,41 @@ public class SecurityAndPortalIntegrationTests : IClassFixture<WebApplicationFac
         // Attempting to reuse revoked initialRefreshToken must fail
         var secondAttempt = await _client.PostAsJsonAsync("/api/v1/auth/refresh-token", new RefreshTokenRequest(initialRefreshToken));
         secondAttempt.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // Scenario 15: Passwords need at least 6 characters, for customers, garage owners and password resets
+    [Theory]
+    [InlineData("CUSTOMER")]
+    [InlineData("GARAGE_OWNER")]
+    public async Task Scenario15_SixCharacterPassword_Registers_FiveCharacterPassword_IsRejected(string role)
+    {
+        RegisterRequest SignUp(string email, string password) => new(
+            Email: email,
+            Password: password,
+            FullName: "Short Password User",
+            PhoneNumber: "+91 95551 23998",
+            Role: role,
+            GarageName: role == AppRoles.GarageOwner ? "Six Char Motors" : null,
+            Address: role == AppRoles.GarageOwner ? "MG Road, Bengaluru 560001" : null);
+
+        var tooShort = await _client.PostAsJsonAsync("/api/v1/auth/register", SignUp($"pw5.{Guid.NewGuid():N}@brocomod.com", "abc12"));
+        tooShort.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await tooShort.Content.ReadAsStringAsync()).Should().Contain("Password must be at least 6 characters.");
+
+        var email = $"pw6.{Guid.NewGuid():N}@brocomod.com";
+        var ok = await _client.PostAsJsonAsync("/api/v1/auth/register", SignUp(email, "abc123"));
+        ok.StatusCode.Should().Be(HttpStatusCode.OK, await ok.Content.ReadAsStringAsync());
+
+        var login = await LoginAsync(email, "abc123");
+        login.User.Roles.Should().Contain(role);
+    }
+
+    [Fact]
+    public async Task Scenario16_PasswordReset_WithFiveCharacterPassword_IsRejected()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/reset-password",
+            new ResetPasswordRequest("customer@brocomod.com", "123456", "abc12"));
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("Password must be at least 6 characters.");
     }
 }

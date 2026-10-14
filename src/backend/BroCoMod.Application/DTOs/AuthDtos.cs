@@ -1,10 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+using BroCoMod.Application.Common;
+
 namespace BroCoMod.Application.DTOs;
 
 public record RegisterRequest(
     string Email,
-    string Password,
+    [MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.TooShortMessage)] string Password,
     string FullName,
-    string PhoneNumber,
+    [IndianMobile] string PhoneNumber,
     string Role = "CUSTOMER",
     string? GarageName = null,
     string? Address = null,
@@ -55,7 +58,7 @@ public record ForgotPasswordRequest(
 public record ResetPasswordRequest(
     string Email,
     string Token,
-    string NewPassword
+    [MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.TooShortMessage)] string NewPassword
 );
 
 public record ApiResponse<T>(

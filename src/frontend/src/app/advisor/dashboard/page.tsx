@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { formatRelative } from '@/lib/format';
-import { Calculator, Clock, Inbox, ListTodo, RefreshCw, Wrench, AlertTriangle } from 'lucide-react';
+import { Calculator, Clock, Inbox, ListTodo, Package, RefreshCw, Wrench, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -14,6 +14,7 @@ import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
 
 // Shape returned by GET /advisor/dashboard (AdvisorDashboardKpiDto on the API).
 interface AdvisorDashboardRequest {
@@ -37,6 +38,8 @@ interface AdvisorDashboardData {
   customerQuotationsPendingCount?: number;
   activeJobsOverseeingCount?: number;
   additionalWorkPendingCount?: number;
+  /** Paid package bookings with no garage yet (packages are never sent out for quotes). */
+  packageBookingsToAssignCount?: number;
   recentAssignedRequests?: AdvisorDashboardRequest[];
 }
 
@@ -75,6 +78,7 @@ export default function AdvisorDashboardPage() {
 
   const firstName = user?.fullName?.split(' ')[0];
   const extraWork = data?.additionalWorkPendingCount ?? 0;
+  const packagesToAssign = data?.packageBookingsToAssignCount ?? 0;
   const recent = data?.recentAssignedRequests ?? [];
 
   return (
@@ -152,14 +156,27 @@ export default function AdvisorDashboardPage() {
             />
           </div>
 
-          {extraWork > 0 && (
+          <CommissionSummaryCard portal="advisor" title="Garage dues" />
+
+          {(extraWork > 0 || packagesToAssign > 0) && (
             <ListGroup>
-              <ListItem
-                href="/advisor/work-queue?stage=additional-work"
-                leading={<IconTile icon={AlertTriangle} tone="red" />}
-                title={`${extraWork} extra work request${extraWork === 1 ? '' : 's'} waiting for you`}
-                subtitle="Garages are waiting for your approval before they continue."
-              />
+              {extraWork > 0 && (
+                <ListItem
+                  href="/advisor/work-queue?stage=additional-work"
+                  leading={<IconTile icon={AlertTriangle} tone="red" />}
+                  title={`${extraWork} extra work request${extraWork === 1 ? '' : 's'} waiting for you`}
+                  subtitle="Garages are waiting for your approval before they continue."
+                />
+              )}
+              {packagesToAssign > 0 && (
+                <ListItem
+                  href="/advisor/work-queue?stage=packages"
+                  leading={<IconTile icon={Package} tone="blue" />}
+                  title={`${packagesToAssign} package booking${packagesToAssign === 1 ? '' : 's'} need${packagesToAssign === 1 ? 's' : ''} a garage`}
+                  subtitle="Advance paid. Assign a nearby garage to confirm the booking."
+                  wrap
+                />
+              )}
             </ListGroup>
           )}
 

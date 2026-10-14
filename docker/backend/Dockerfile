@@ -7,6 +7,8 @@ ENV ASPNETCORE_URLS=http://+:5000
 # Install curl for container health checks
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Uploaded photos/videos (Media__StoragePath). A new named volume copies this owner, so the API can write to it.
+RUN mkdir -p /app/data/media && chown -R app:app /app/data
 USER app
 
 # Stage 2: SDK Build & Restore

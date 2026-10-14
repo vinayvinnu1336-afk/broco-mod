@@ -333,6 +333,17 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var summary = await garageClient.GetFromJsonAsync<ApiResponse<GarageCommissionSummaryDto>>("/api/v1/garage/commission/summary", JsonOptions);
         summary!.Data!.OutstandingAmount.Should().BeGreaterThanOrEqualTo(due.TotalDue);
 
+        // Pay this due (only this one) so the shared demo garage never builds up overdue commission,
+        // which would block it from new jobs on a long-lived test database.
+        var pay = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/pay", new PayCommissionsRequest(new List<Guid> { due.Id }, null));
+        pay.EnsureSuccessStatusCode();
+        var payBody = await pay.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
+        var verifyPay = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/verify",
+            new VerifyPaymentRequestDto(payBody!.Data!.PaymentId, $"pay_cpay_{Guid.NewGuid():N}", "sig_fake_valid", payBody.Data.GatewayOrderId));
+        verifyPay.EnsureSuccessStatusCode();
+        var afterPay = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
+        afterPay!.Data!.Single(c => c.Id == due.Id).Status.Should().Be("Paid");
+
         // Step 10: Close Job
         var closeResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/close", new CloseJobRequest(
             "Final inspection report archived."

@@ -1,19 +1,19 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { formatINRWhole, formatRelative } from '@/lib/format';
-import { AlertTriangle, Calculator, CheckCircle2, FileText, Inbox, RefreshCw, Send, Wrench } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, FileText, Inbox, Package, RefreshCw, Send, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { inDateRange, matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 
 // Shapes returned by GET /advisor/work-queue (AdvisorWorkQueueDto on the API).
 interface QueueRequest {
@@ -55,17 +55,43 @@ interface QueueExtraWork {
   createdAtUtc: string;
 }
 
+/** A paid fixed-price package booking that needs a garage (packages are never sent out for quotes). */
+interface QueuePackageBooking {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  vehicleSummary: string;
+  locationSummary?: string;
+  packageName: string;
+  packagePrice: number;
+  advancePaidAmount: number;
+  advancePaidAtUtc?: string | null;
+  createdAtUtc: string;
+}
+
 interface AdvisorWorkQueueResponse {
   newRequests?: QueueRequest[];
   quotesToReview?: QueueRequest[];
   customerQuotationsPending?: QueueRequest[];
   activeJobs?: QueueJob[];
   additionalWorkPending?: QueueExtraWork[];
+  packageBookingsToAssign?: QueuePackageBooking[] | null;
 }
 
-type Stage = 'all' | 'new-requests' | 'pending-quotes' | 'ready-to-send' | 'awaiting-customer' | 'additional-work' | 'active-jobs';
+type Stage =
+  | 'all'
+  | 'packages'
+  | 'new-requests'
+  | 'pending-quotes'
+  | 'ready-to-send'
+  | 'awaiting-customer'
+  | 'additional-work'
+  | 'active-jobs';
 
-const STAGES: Stage[] = ['all', 'new-requests', 'pending-quotes', 'ready-to-send', 'awaiting-customer', 'additional-work', 'active-jobs'];
+const STAGES: Stage[] = ['all', 'packages', 'new-requests', 'pending-quotes', 'ready-to-send', 'awaiting-customer', 'additional-work', 'active-jobs'];
+
+// `stage` is the chip row; dashboard links open the page with ?stage=... already set.
+const FILTER_DEFAULTS = { stage: 'all', q: '', range: '', from: '', to: '' };
 
 /** A customer quotation is with the customer once the request moved to "quotation sent". */
 function isSentToCustomer(status: string) {
@@ -107,16 +133,14 @@ function RequestRow({ r, href, icon, tone, extra }: {
 }
 
 function AdvisorWorkQueueContent() {
-  const searchParams = useSearchParams();
-  const initialStage = searchParams.get('stage') || 'all';
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
+  const activeTab: Stage = (STAGES as string[]).includes(f.stage) ? (f.stage as Stage) : 'all';
 
   const [queue, setQueue] = useState<AdvisorWorkQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Stage>(
-    (STAGES as string[]).includes(initialStage) ? (initialStage as Stage) : 'all'
-  );
 
   const loadWorkQueue = useCallback(async () => {
     setRefreshing(true);
@@ -135,19 +159,45 @@ function AdvisorWorkQueueContent() {
     loadWorkQueue();
   }, [loadWorkQueue]);
 
+  // Search and date narrow every stage, so the chip counts show what is left in each.
   const groups = useMemo(() => {
-    const quotations = queue?.customerQuotationsPending ?? [];
+    const requestMatches = (r: QueueRequest) =>
+      inDateRange(r.createdAtUtc, f) &&
+      matchesSearch(
+        f.q,
+        r.requestNumber,
+        r.customerName,
+        vehicleLabel(r),
+        r.vehicleMake,
+        r.vehicleModel,
+        r.vehicleLicensePlate,
+        r.locationSummary,
+        r.assignedGarageName
+      );
+    const quotations = (queue?.customerQuotationsPending ?? []).filter(requestMatches);
     return {
-      newRequests: queue?.newRequests ?? [],
-      quotesToReview: queue?.quotesToReview ?? [],
+      packages: (queue?.packageBookingsToAssign ?? []).filter(
+        (p) =>
+          inDateRange(p.createdAtUtc, f) &&
+          matchesSearch(f.q, p.requestNumber, p.customerName, p.vehicleSummary, p.locationSummary, p.packageName)
+      ),
+      newRequests: (queue?.newRequests ?? []).filter(requestMatches),
+      quotesToReview: (queue?.quotesToReview ?? []).filter(requestMatches),
       readyToSend: quotations.filter((q) => !isSentToCustomer(q.status)),
       awaitingCustomer: quotations.filter((q) => isSentToCustomer(q.status)),
-      additionalWork: queue?.additionalWorkPending ?? [],
-      activeJobs: queue?.activeJobs ?? [],
+      additionalWork: (queue?.additionalWorkPending ?? []).filter(
+        (w) => inDateRange(w.createdAtUtc, f) && matchesSearch(f.q, w.description, w.reason)
+      ),
+      activeJobs: (queue?.activeJobs ?? []).filter(
+        (j) =>
+          inDateRange(j.createdAtUtc, f) &&
+          matchesSearch(f.q, j.jobNumber, j.requestNumber, j.garageName, j.customerName, j.vehicleSummary)
+      ),
     };
-  }, [queue]);
+  }, [queue, f]);
 
   const counts: Record<Stage, number> = {
+    packages: groups.packages.length,
     'new-requests': groups.newRequests.length,
     'pending-quotes': groups.quotesToReview.length,
     'ready-to-send': groups.readyToSend.length,
@@ -157,6 +207,7 @@ function AdvisorWorkQueueContent() {
     all: 0,
   };
   counts.all =
+    counts.packages +
     counts['new-requests'] +
     counts['pending-quotes'] +
     counts['ready-to-send'] +
@@ -167,6 +218,7 @@ function AdvisorWorkQueueContent() {
   const chipOptions = [
     { value: 'all', label: 'All', count: counts.all },
     { value: 'additional-work', label: 'Extra work', count: counts['additional-work'] },
+    { value: 'packages', label: 'Packages to assign', count: counts.packages },
     { value: 'pending-quotes', label: 'Quotes to review', count: counts['pending-quotes'] },
     { value: 'ready-to-send', label: 'Quotation to send', count: counts['ready-to-send'] },
     { value: 'new-requests', label: 'New requests', count: counts['new-requests'] },
@@ -193,6 +245,31 @@ function AdvisorWorkQueueContent() {
               <span className="text-sm font-semibold tabular-nums text-navy-900">
                 {formatINRWhole(w.estimatedAdditionalAmount)}
               </span>
+            }
+          />
+        ))}
+      </ListGroup>
+    );
+  }
+
+  if (show('packages') && groups.packages.length > 0) {
+    sections.push(
+      <ListGroup key="packages" title="Package bookings: assign a garage">
+        {groups.packages.map((p) => (
+          <ListItem
+            key={p.id}
+            href={`/advisor/requests/${p.id}`}
+            leading={<IconTile icon={Package} tone="blue" />}
+            title={p.vehicleSummary || p.requestNumber}
+            subtitle={[p.packageName, p.customerName, p.locationSummary].filter(Boolean).join(' · ')}
+            meta={
+              <>
+                <span className="font-mono">{p.requestNumber}</span> · advance {formatINRWhole(p.advancePaidAmount)} paid{' '}
+                {formatRelative(p.advancePaidAtUtc || p.createdAtUtc)}
+              </>
+            }
+            trailing={
+              <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(p.packagePrice)}</span>
             }
           />
         ))}
@@ -311,11 +388,13 @@ function AdvisorWorkQueueContent() {
         }
       />
 
-      <FilterChips
-        ariaLabel="Queue stage"
-        options={chipOptions}
-        value={activeTab}
-        onChange={(v) => setActiveTab(v as Stage)}
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Name, number or car"
+        searchLabel="Search the work queue"
+        status={{ key: 'stage', options: chipOptions, ariaLabel: 'Queue stage' }}
+        fields={[{ type: 'dateRange', label: 'Created' }]}
       />
 
       {loading ? (
@@ -330,7 +409,13 @@ function AdvisorWorkQueueContent() {
         <EmptyState
           icon={CheckCircle2}
           title="Nothing waiting here"
-          description={activeTab === 'all' ? 'You are all caught up.' : 'Nothing in this stage right now.'}
+          description={
+            f.q || f.range
+              ? 'Nothing in the queue matches these filters.'
+              : activeTab === 'all'
+              ? 'You are all caught up.'
+              : 'Nothing in this stage right now.'
+          }
         />
       ) : (
         <div className="space-y-5 sm:space-y-6">{sections}</div>

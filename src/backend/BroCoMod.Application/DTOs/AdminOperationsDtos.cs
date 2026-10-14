@@ -45,7 +45,11 @@ public record AdminRequestFilter(
     DateTime? FromDateUtc = null,
     DateTime? ToDateUtc = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    // "package" (Basic / Standard / Premium) or "quote" (priced by garage quotes)
+    string? ServiceType = null,
+    string? Category = null,
+    string? City = null
 );
 
 public record AdminRequestSummaryDto(
@@ -203,7 +207,10 @@ public record AdminGarageFilter(
     GarageStatus? Status = null,
     string? Search = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    string? City = null,
+    // Commission dues: "any" (something unpaid), "overdue", "blocked" (overdue long enough to stop new jobs) or "none"
+    string? Dues = null
 );
 
 public record AdminGarageListDto(
@@ -297,7 +304,10 @@ public record DeactivateAdvisorRequest(string Reason);
 public record AdminCustomerFilter(
     string? Search = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    bool? HasBookings = null,
+    DateTime? FromDateUtc = null,
+    DateTime? ToDateUtc = null
 );
 
 public record AdminCustomerListDto(
@@ -332,7 +342,10 @@ public record AdminJobFilter(
     Guid? GarageId = null,
     string? Search = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    DateTime? FromDateUtc = null,
+    DateTime? ToDateUtc = null,
+    string? ServiceType = null
 );
 
 public record AdminJobListItemDto(
@@ -407,7 +420,9 @@ public record AdminAuditFilter(
     DateTime? FromDateUtc = null,
     DateTime? ToDateUtc = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    // User email, entity id or details
+    string? Search = null
 );
 
 // ==========================================
@@ -418,7 +433,10 @@ public record AdminNotificationFilter(
     Guid? UserId = null,
     string? Search = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    DateTime? FromDateUtc = null,
+    DateTime? ToDateUtc = null,
+    string? Type = null
 );
 
 public record AdminNotificationListDto(
@@ -485,7 +503,8 @@ public record AdvisorDashboardKpiDto(
     int CustomerQuotationsPendingCount,
     int ActiveJobsOverseeingCount,
     int AdditionalWorkPendingCount,
-    IReadOnlyList<AdminRequestSummaryDto> RecentAssignedRequests
+    IReadOnlyList<AdminRequestSummaryDto> RecentAssignedRequests,
+    int PackageBookingsToAssignCount = 0
 );
 
 public record AdvisorWorkQueueDto(
@@ -493,5 +512,20 @@ public record AdvisorWorkQueueDto(
     IReadOnlyList<AdminRequestSummaryDto> QuotesToReview,
     IReadOnlyList<AdminRequestSummaryDto> CustomerQuotationsPending,
     IReadOnlyList<AdminJobListItemDto> ActiveJobs,
-    IReadOnlyList<AdditionalWorkRequestDto> AdditionalWorkPending
+    IReadOnlyList<AdditionalWorkRequestDto> AdditionalWorkPending,
+    IReadOnlyList<AdvisorPackageBookingQueueItemDto>? PackageBookingsToAssign = null
+);
+
+/// <summary>A paid fixed-price package booking that still needs the advisor to assign a garage.</summary>
+public record AdvisorPackageBookingQueueItemDto(
+    Guid Id,
+    string RequestNumber,
+    string CustomerName,
+    string VehicleSummary,
+    string LocationSummary,
+    string PackageName,
+    decimal PackagePrice,
+    decimal AdvancePaidAmount,
+    DateTime? AdvancePaidAtUtc,
+    DateTime CreatedAtUtc
 );

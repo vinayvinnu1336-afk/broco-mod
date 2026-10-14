@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -121,7 +122,7 @@ public class AdvisorQuotationService : IAdvisorQuotationService
 
         // Active assignment if present
         var activeAssignmentEntity = request.GarageAssignments
-            .FirstOrDefault(ga => ga.Status == GarageAssignmentStatus.Assigned);
+            .FirstOrDefault(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed);
 
         GarageAssignmentDto? activeAssignmentDto = null;
         if (activeAssignmentEntity != null)
@@ -354,6 +355,11 @@ public class AdvisorQuotationService : IAdvisorQuotationService
             return ApiResponse<GarageAssignmentDto>.Fail("Service request not found.");
         }
 
+        if (serviceRequest.IsPackageBooking)
+        {
+            return ApiResponse<GarageAssignmentDto>.Fail("This is a fixed-price package booking. Assign a garage from the package panel; garage quotes aren't used.");
+        }
+
         // 2. Validate Garage existence, active status, verified status
         var garage = await _context.Garages.FirstOrDefaultAsync(g => g.Id == request.GarageId, ct);
         if (garage == null)
@@ -573,12 +579,37 @@ public class AdvisorQuotationService : IAdvisorQuotationService
     public async Task<ApiResponse<List<GarageAssignmentDto>>> GetAllAssignmentsAsync(
         int page = 1,
         int pageSize = 50,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        ListFilter? filter = null)
     {
-        var assignments = await _context.GarageAssignments
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        IQueryable<GarageAssignment> query = _context.GarageAssignments
             .Include(ga => ga.ServiceRequest)
             .Include(ga => ga.Garage)
-            .Include(ga => ga.SelectedQuote)
+            .Include(ga => ga.SelectedQuote);
+
+        if (filter != null)
+        {
+            var status = ListFilters.Enum<GarageAssignmentStatus>(filter.Status, "assignment status");
+            if (status.HasValue) query = query.Where(ga => ga.Status == status.Value);
+
+            var search = ListFilters.Search(filter.Search);
+            if (search != null)
+            {
+                query = query.Where(ga =>
+                    ga.ServiceRequest!.RequestNumber.ToLower().Contains(search) ||
+                    ga.Garage!.Name.ToLower().Contains(search) ||
+                    (ga.SelectedQuote != null && ga.SelectedQuote.QuoteNumber.ToLower().Contains(search)));
+            }
+
+            var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+            if (fromUtc.HasValue) query = query.Where(ga => ga.AssignedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(ga => ga.AssignedAtUtc <= toUtc.Value);
+        }
+
+        var assignments = await query
             .OrderByDescending(ga => ga.AssignedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

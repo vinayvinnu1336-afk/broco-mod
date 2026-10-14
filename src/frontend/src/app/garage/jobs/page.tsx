@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { ServiceJobSummaryDto } from '@/types/serviceJob';
 import { PagedResult } from '@/types/serviceRequest';
 import { CarFront, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Wrench, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -22,8 +24,9 @@ type JobSummary = ServiceJobSummaryDto & { servicePackageName?: string | null; i
 /** Until the car is received the garage waits for the customer's 10% BroCo advance. */
 const AWAITING_ADVANCE_STATUSES = ['BookingConfirmed', 'Scheduled'];
 
+// Values are ServiceJobStatus names.
 const FILTERS = [
-  { value: 'ALL', label: 'All' },
+  { value: '', label: 'All' },
   { value: 'BookingConfirmed', label: 'To schedule' },
   { value: 'Scheduled', label: 'Scheduled' },
   { value: 'VehicleReceived', label: 'Car received' },
@@ -67,28 +70,54 @@ function jobMeta(job: ServiceJobSummaryDto) {
   return `Booked ${formatDate(job.createdAtUtc)} · not scheduled yet`;
 }
 
+const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '' };
+
+/** The API returns the latest this many matching jobs. */
+const JOB_LIMIT = 200;
+
 export default function GarageJobsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading jobs..." />}>
+      <GarageJobs />
+    </Suspense>
+  );
+}
+
+function GarageJobs() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isPaged, setIsPaged] = useState(false);
+  const latest = useRef(0);
+
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage > 1 ? urlPage : undefined,
+        search: f.q,
+        status: f.status,
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, f]
+  );
 
   useEffect(() => {
-    loadJobs(1);
+    loadJobs(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [query]);
 
-  async function loadJobs(p = 1) {
+  async function loadJobs(qs: string) {
+    const id = ++latest.current;
     setLoading(true);
     setError(null);
-    const query = statusFilter !== 'ALL' ? `&status=${statusFilter}` : '';
-    const res = await apiFetch<PagedResult<JobSummary> | JobSummary[]>(
-      `/garage/jobs?page=${p}&pageSize=15${query}`
-    );
+    const res = await apiFetch<PagedResult<JobSummary> | JobSummary[]>(`/garage/jobs${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
-      // The API currently returns a plain array (no paging); accept both shapes.
+      // The API returns a plain array (the latest matching jobs); accept a paged result too.
       if (Array.isArray(res.data)) {
         setJobs(res.data);
         setPage(1);
@@ -98,20 +127,36 @@ export default function GarageJobsPage() {
         setPage(res.data.page ?? 1);
         setTotalPages(res.data.totalPages ?? 1);
       }
+      setIsPaged(!Array.isArray(res.data));
     } else {
       setError(res.message || 'Could not load jobs.');
     }
     setLoading(false);
   }
 
-  const activeLabel = FILTERS.find((f) => f.value === statusFilter)?.label.toLowerCase();
+  const anyFilter = (Object.keys(FILTER_DEFAULTS) as (keyof typeof FILTER_DEFAULTS)[]).some((k) => filters.isActive(k));
+  const summary = loading
+    ? 'Loading…'
+    : error
+    ? null
+    : !isPaged && jobs.length >= JOB_LIMIT
+    ? `Latest ${JOB_LIMIT} jobs`
+    : `${jobs.length} ${jobs.length === 1 ? 'job' : 'jobs'}`;
 
   return (
     <div>
       <PageHeader title="Service jobs" description="Booked jobs from first booking to handover. Tap a job to move it to the next step." />
 
       <div className="space-y-4">
-        <FilterChips options={FILTERS} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter jobs by stage" />
+        <FilterBar
+          filters={filters}
+          searchKey="q"
+          searchPlaceholder="Job no., car or plate"
+          searchLabel="Search jobs"
+          status={{ key: 'status', options: FILTERS, ariaLabel: 'Filter jobs by stage' }}
+          fields={[{ type: 'dateRange', label: 'Booked' }]}
+          summary={summary}
+        />
 
         {loading ? (
           <div className="space-y-2">
@@ -120,15 +165,13 @@ export default function GarageJobsPage() {
             ))}
           </div>
         ) : error ? (
-          <ErrorState title="Couldn’t load jobs" error={error} onRetry={() => loadJobs(page)} />
+          <ErrorState title="Couldn’t load jobs" error={error} onRetry={() => loadJobs(query)} />
         ) : jobs.length === 0 ? (
           <EmptyState
             icon={Wrench}
-            title={statusFilter === 'ALL' ? 'No jobs yet' : `No jobs in “${activeLabel}”`}
+            title={anyFilter ? 'No jobs found' : 'No jobs yet'}
             description={
-              statusFilter === 'ALL'
-                ? 'When a customer accepts one of your quotes, the job appears here.'
-                : 'Try another filter.'
+              anyFilter ? 'No jobs match these filters.' : 'When a customer accepts one of your quotes, the job appears here.'
             }
           />
         ) : (
@@ -168,7 +211,7 @@ export default function GarageJobsPage() {
                 <Button
                   variant="outline"
                   disabled={page <= 1}
-                  onClick={() => loadJobs(page - 1)}
+                  onClick={() => filters.setPage(page - 1)}
                   leftIcon={<ChevronLeft className="h-4 w-4" />}
                 >
                   Previous
@@ -179,7 +222,7 @@ export default function GarageJobsPage() {
                 <Button
                   variant="outline"
                   disabled={page >= totalPages}
-                  onClick={() => loadJobs(page + 1)}
+                  onClick={() => filters.setPage(page + 1)}
                   rightIcon={<ChevronRight className="h-4 w-4" />}
                 >
                   Next

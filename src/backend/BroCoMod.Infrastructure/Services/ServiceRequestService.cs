@@ -1,6 +1,8 @@
 using System.Text.Json;
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
+using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
 using BroCoMod.Domain.Enums;
@@ -61,9 +63,10 @@ public class ServiceRequestService : IServiceRequestService
     {
         if (_serviceAreas == null) return;
 
-        var liveCities = string.Join(", ", _serviceAreas.GetAreas().Where(a => a.IsLive).Select(a => a.City));
+        var cities = _serviceAreas.GetAreas().Where(a => a.IsLive).Select(a => a.City).ToList();
+        var liveCities = cities.Count > 1 ? $"{string.Join(", ", cities.SkipLast(1))} and {cities[^1]}" : string.Join("", cities);
         var area = _serviceAreas.FindLiveAreaFor(request.Latitude, request.Longitude)
-            ?? throw new ArgumentException($"We currently serve only {liveCities}. Please pin a location inside {liveCities}.");
+            ?? throw new ArgumentException($"We currently serve only {liveCities}. Please pin a location inside {(cities.Count > 1 ? "one of these cities" : liveCities)}.");
 
         var pincode = new string((request.Pincode ?? string.Empty).Where(char.IsDigit).ToArray());
         if (pincode.Length != 6)
@@ -81,6 +84,37 @@ public class ServiceRequestService : IServiceRequestService
                     $"The pin on the map is in {place}, but the address says pincode {pincode}. Move the pin to your address or correct the address.");
             }
         }
+    }
+
+    /// <summary>
+    /// The stored category: the selected services joined ("AC Service &amp; Repair, Batteries"), each one
+    /// checked against the known list; or, for older clients, the single free-text ServiceCategory.
+    /// </summary>
+    private static string ResolveServiceCategory(CreateServiceBookingRequest request)
+    {
+        var picked = request.ServiceCategories?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
+        if (picked.Count == 0)
+        {
+            var single = string.IsNullOrWhiteSpace(request.ServiceCategory) ? "General" : request.ServiceCategory.Trim();
+            if (single.Length > ServiceCategories.MaxStoredLength)
+                throw new ArgumentException($"Service category must be at most {ServiceCategories.MaxStoredLength} characters.", nameof(request.ServiceCategory));
+            return single;
+        }
+
+        var categories = new List<string>();
+        foreach (var name in picked)
+        {
+            var canonical = ServiceCategories.Canonical(name)
+                ?? throw new ArgumentException($"'{name.Trim()}' is not a service we offer. Choose from the list.", nameof(request.ServiceCategories));
+            if (!categories.Contains(canonical)) categories.Add(canonical);
+        }
+        if (categories.Count > ServiceCategories.MaxPerRequest)
+            throw new ArgumentException($"Choose up to {ServiceCategories.MaxPerRequest} services in one request.", nameof(request.ServiceCategories));
+
+        var joined = ServiceCategories.Join(categories);
+        if (joined.Length > ServiceCategories.MaxStoredLength)
+            throw new ArgumentException("That's too many services for one request. Remove one and book it as a separate request.", nameof(request.ServiceCategories));
+        return joined;
     }
 
     public async Task<ServiceRequestDetailDto> CreateServiceRequestAsync(
@@ -141,6 +175,11 @@ public class ServiceRequestService : IServiceRequestService
 
         await ValidateServiceAreaAsync(request, cancellationToken);
 
+        // A package keeps its own fixed-price flow (advance at booking, no quotes), so quote-based
+        // services can't ride along on it; they are booked as a separate request.
+        if (!string.IsNullOrWhiteSpace(request.PackageCode) && request.ServiceCategories?.Any(c => !string.IsNullOrWhiteSpace(c)) == true)
+            throw new ArgumentException("A service package is booked on its own. Book other services as a separate request and garages will quote for them.");
+
         // Fixed-price package: the price is looked up on the server for this exact car and fuel.
         Domain.Entities.Catalogue.ServicePackage? package = null;
         decimal packagePrice = 0m;
@@ -156,6 +195,8 @@ public class ServiceRequestService : IServiceRequestService
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new InvalidOperationException($"{package.Name} isn't priced for a {vehicle.Make} {vehicle.Model} ({vehicle.FuelType}) yet. Choose another service and our garages will quote.");
         }
+
+        var serviceCategory = package != null ? "Periodic Service" : ResolveServiceCategory(request);
 
         var problemDescription = request.ProblemDescription?.Trim() ?? string.Empty;
         if (package != null && problemDescription.Length < 5)
@@ -192,7 +233,7 @@ public class ServiceRequestService : IServiceRequestService
             serviceLocationId: serviceLocation.Id,
             customerLocation: serviceLocation.Location,
             problemDescription: problemDescription,
-            serviceCategory: package != null ? "Periodic Service" : request.ServiceCategory ?? "General",
+            serviceCategory: serviceCategory,
             preferredServiceDate: request.PreferredServiceDate,
             radiusKm: 10.0,
             idempotencyKey: idempotencyKey);
@@ -203,27 +244,32 @@ public class ServiceRequestService : IServiceRequestService
             serviceRequest.AttachPackage(package.Id, package.Code, package.Name, packagePrice, vehicle.FuelType.ToString());
         }
 
-        // 6. PostGIS 10 KM Matching Engine
-        var eligibleGarages = await _garageMatchingService.FindEligibleGaragesAsync(
-            serviceLocation.Location,
-            radiusKm: 10.0,
-            cancellationToken: cancellationToken);
-
-        // 7. Create Separate GarageRequest Records for each eligible matched garage
-        foreach (var match in eligibleGarages)
+        // 6-7. Quote-based repairs go out to every eligible garage within 10 km for quotes.
+        // Fixed-price packages don't: they stay NEW until the advisor assigns a garage directly
+        // once the advance is paid (PackageBookingService), so no garage is asked to quote.
+        IReadOnlyList<EligibleGarageMatch> eligibleGarages = Array.Empty<EligibleGarageMatch>();
+        if (package == null)
         {
-            var garageReq = new GarageRequest(
-                serviceRequestId: serviceRequest.Id,
-                garageId: match.GarageId,
-                distanceKm: match.DistanceKm,
-                initialStatus: GarageRequestStatus.Notified);
+            eligibleGarages = await _garageMatchingService.FindEligibleGaragesAsync(
+                serviceLocation.Location,
+                radiusKm: 10.0,
+                cancellationToken: cancellationToken);
 
-            serviceRequest.GarageRequests.Add(garageReq);
-        }
+            foreach (var match in eligibleGarages)
+            {
+                var garageReq = new GarageRequest(
+                    serviceRequestId: serviceRequest.Id,
+                    garageId: match.GarageId,
+                    distanceKm: match.DistanceKm,
+                    initialStatus: GarageRequestStatus.Notified);
 
-        if (eligibleGarages.Count > 0)
-        {
-            serviceRequest.MarkGaragesNotified();
+                serviceRequest.GarageRequests.Add(garageReq);
+            }
+
+            if (eligibleGarages.Count > 0)
+            {
+                serviceRequest.MarkGaragesNotified();
+            }
         }
 
         // 7b. Give the request an owner (an active advisor with room, fewest open requests first).
@@ -260,7 +306,10 @@ public class ServiceRequestService : IServiceRequestService
         try
         {
             await _notificationService.NotifyAdvisorsOfNewRequestAsync(serviceRequest, cancellationToken);
-            await _notificationService.NotifyGaragesOfDispatchedRequestAsync(serviceRequest, serviceRequest.GarageRequests.ToList(), cancellationToken);
+            if (!serviceRequest.IsPackageBooking)
+            {
+                await _notificationService.NotifyGaragesOfDispatchedRequestAsync(serviceRequest, serviceRequest.GarageRequests.ToList(), cancellationToken);
+            }
         }
         catch (Exception ex)
         {
@@ -279,6 +328,7 @@ public class ServiceRequestService : IServiceRequestService
                 serviceRequest.VehicleMake,
                 serviceRequest.VehicleModel,
                 serviceRequest.VehicleYear,
+                serviceRequest.ServicePackageCode,
                 EligibleGaragesMatched = eligibleGarages.Count
             }),
             cancellationToken: cancellationToken);
@@ -343,7 +393,8 @@ public class ServiceRequestService : IServiceRequestService
             sr.GarageQuotes.Count,
             sr.ServicePackageName,
             sr.PackagePrice,
-            sr.AdvancePaidAtUtc != null)).ToList();
+            sr.AdvancePaidAtUtc != null,
+            sr.ServiceCategory)).ToList();
 
         return new PagedResult<CustomerServiceRequestSummaryDto>(dtos, page, pageSize, totalCount);
     }
@@ -406,16 +457,41 @@ public class ServiceRequestService : IServiceRequestService
         Guid garageId,
         int page = 1,
         int pageSize = 10,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ListFilter? filter = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 50);
 
-        var query = _context.GarageRequests
+        // Package bookings are never quoted; older ones may still have dispatch rows from before that rule.
+        IQueryable<GarageRequest> query = _context.GarageRequests
             .AsNoTracking()
             .Include(gr => gr.ServiceRequest)
                 .ThenInclude(sr => sr.ServiceLocation)
-            .Where(gr => gr.GarageId == garageId);
+            .Where(gr => gr.GarageId == garageId && gr.ServiceRequest.ServicePackageId == null);
+
+        if (filter != null)
+        {
+            var status = ListFilters.Enum<GarageRequestStatus>(filter.Status, "request status");
+            if (status.HasValue) query = query.Where(gr => gr.Status == status.Value);
+
+            // Garages never see the customer's name or phone, so search covers the request and the car only.
+            var search = ListFilters.Search(filter.Search);
+            if (search != null)
+            {
+                query = query.Where(gr =>
+                    gr.ServiceRequest.RequestNumber.ToLower().Contains(search) ||
+                    gr.ServiceRequest.VehicleMake.ToLower().Contains(search) ||
+                    gr.ServiceRequest.VehicleModel.ToLower().Contains(search) ||
+                    gr.ServiceRequest.VehicleLicensePlate.ToLower().Contains(search) ||
+                    gr.ServiceRequest.ServiceCategory.ToLower().Contains(search) ||
+                    gr.ServiceRequest.ProblemDescription.ToLower().Contains(search));
+            }
+
+            var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+            if (fromUtc.HasValue) query = query.Where(gr => gr.CreatedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(gr => gr.CreatedAtUtc <= toUtc.Value);
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -454,6 +530,11 @@ public class ServiceRequestService : IServiceRequestService
             throw new KeyNotFoundException($"Garage request with ID '{garageRequestId}' was not found or is unauthorized.");
         }
 
+        if (gr.ServiceRequest.IsPackageBooking)
+        {
+            throw new KeyNotFoundException(PackageBookingRules.NotForGarageQuotes(gr.ServiceRequest.RequestNumber));
+        }
+
         // Mark as viewed on access
         gr.MarkViewed();
         await _context.SaveChangesAsync(cancellationToken);
@@ -480,17 +561,44 @@ public class ServiceRequestService : IServiceRequestService
     public async Task<PagedResult<AdvisorServiceRequestSummaryDto>> GetAdvisorRequestsAsync(
         int page = 1,
         int pageSize = 20,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RequestListFilter? filter = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 50);
 
-        var query = _context.ServiceRequests
+        IQueryable<ServiceRequest> query = _context.ServiceRequests
             .AsNoTracking()
             .Include(sr => sr.ServiceLocation)
             .Include(sr => sr.CustomerProfile)
                 .ThenInclude(cp => cp!.User)
             .Include(sr => sr.GarageRequests);
+
+        if (filter != null)
+        {
+            var status = ListFilters.Enum<ServiceRequestStatus>(filter.Status, "request status");
+            if (status.HasValue) query = query.Where(sr => sr.Status == status.Value);
+
+            var search = ListFilters.Search(filter.Search);
+            if (search != null)
+            {
+                var compact = ListFilters.Compact(search)!;
+                query = query.Where(sr =>
+                    sr.RequestNumber.ToLower().Contains(search) ||
+                    sr.CustomerProfile!.User.FullName.ToLower().Contains(search) ||
+                    sr.CustomerProfile.User.Email.ToLower().Contains(search) ||
+                    sr.CustomerProfile.User.PhoneNumber.Replace(" ", "").Contains(compact) ||
+                    sr.VehicleLicensePlate.ToLower().Contains(search) ||
+                    sr.VehicleMake.ToLower().Contains(search) ||
+                    sr.VehicleModel.ToLower().Contains(search));
+            }
+
+            var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+            if (fromUtc.HasValue) query = query.Where(sr => sr.CreatedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(sr => sr.CreatedAtUtc <= toUtc.Value);
+
+            query = RequestListFilters.Apply(query, filter.ServiceType, filter.Category, filter.City);
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -533,6 +641,9 @@ public class ServiceRequestService : IServiceRequestService
                 .ThenInclude(cp => cp!.User)
             .Include(sr => sr.GarageRequests)
                 .ThenInclude(gr => gr.Garage!)
+            .Include(sr => sr.GarageAssignments)
+                .ThenInclude(ga => ga.Garage)
+            .Include(sr => sr.ServiceJob)
             .FirstOrDefaultAsync(sr => sr.Id == requestId, cancellationToken);
 
         if (request == null)
@@ -540,15 +651,21 @@ public class ServiceRequestService : IServiceRequestService
             throw new KeyNotFoundException($"Service request with ID '{requestId}' was not found.");
         }
 
-        var dispatchedGarages = request.GarageRequests.Select(gr => new DispatchedGarageSummaryDto(
-            gr.Id,
-            gr.GarageId,
-            gr.Garage != null ? gr.Garage.Name : "Partner Garage",
-            gr.Garage != null ? gr.Garage.PhoneNumber : "",
-            gr.DistanceKm,
-            FormatStatus(gr.Status),
-            gr.SentAtUtc
-        )).ToList();
+        // Package bookings are never dispatched for quotes; hide dispatch rows left over from before that rule.
+        var dispatchedGarages = request.IsPackageBooking
+            ? new List<DispatchedGarageSummaryDto>()
+            : request.GarageRequests.Select(gr => new DispatchedGarageSummaryDto(
+                gr.Id,
+                gr.GarageId,
+                gr.Garage != null ? gr.Garage.Name : "Partner Garage",
+                gr.Garage != null ? gr.Garage.PhoneNumber : "",
+                gr.DistanceKm,
+                FormatStatus(gr.Status),
+                gr.SentAtUtc
+            )).ToList();
+
+        var activeAssignment = request.GarageAssignments
+            .FirstOrDefault(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed);
 
         var locationDto = request.ServiceLocation != null
             ? new ServiceLocationDto(
@@ -587,7 +704,10 @@ public class ServiceRequestService : IServiceRequestService
             request.PackagePrice.HasValue ? BookingAdvance.Amount(request.PackagePrice.Value, _advancePercentage) : null,
             request.AdvancePaidAmount,
             request.AdvancePaidAtUtc,
-            request.VehicleFuel);
+            request.VehicleFuel,
+            activeAssignment?.Garage?.Name,
+            request.ServiceJob?.Id,
+            request.ServiceJob?.JobNumber);
     }
 
     public async Task<PagedResult<AdminServiceRequestSummaryDto>> GetAdminRequestsAsync(
@@ -744,7 +864,8 @@ public class ServiceRequestService : IServiceRequestService
             sr.PackagePrice.HasValue ? BookingAdvance.Amount(sr.PackagePrice.Value, _advancePercentage) : null,
             sr.AdvancePaidAmount,
             sr.AdvancePaidAtUtc,
-            sr.VehicleFuel);
+            sr.VehicleFuel,
+            ServiceCategories.Split(sr.ServiceCategory));
     }
 
     private static string FormatStatus(ServiceRequestStatus status) => status switch

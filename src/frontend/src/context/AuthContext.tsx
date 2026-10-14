@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserDto, AuthResponse } from '@/types/auth';
 import { apiFetch } from '@/lib/api';
+import { fieldErrors, firstApiError } from '@/lib/apiErrors';
 
 interface AuthContextType {
   user: UserDto | null;
@@ -20,7 +21,9 @@ interface AuthContextType {
     address?: string;
     latitude?: number;
     longitude?: number;
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; error?: string; fieldErrors?: Record<string, string> }>;
+  /** Merge changes (e.g. a new name after editing the profile) into the signed-in user. */
+  updateUser: (changes: Partial<UserDto>) => void;
   logout: () => Promise<void>;
   quickLogin: (role: 'customer' | 'garage' | 'advisor' | 'admin') => Promise<void>;
   hasRole: (role: string) => boolean;
@@ -102,10 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true };
       }
 
-      return { success: false, error: res.message || 'Registration failed.' };
+      return { success: false, error: firstApiError(res, 'Registration failed.'), fieldErrors: fieldErrors(res) };
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const updateUser = (changes: Partial<UserDto>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, ...changes };
+      try {
+        localStorage.setItem('broco_user', JSON.stringify(next));
+      } catch {
+        // Storage full or blocked: the in-memory user is still updated.
+      }
+      return next;
+    });
   };
 
   const logout = async () => {
@@ -166,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         register,
+        updateUser,
         logout,
         quickLogin,
         hasRole,

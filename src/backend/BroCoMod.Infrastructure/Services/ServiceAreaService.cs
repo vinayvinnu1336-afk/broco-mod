@@ -24,6 +24,8 @@ public class ServiceAreaService : IServiceAreaService
     private static readonly AreaOptions[] Defaults =
     {
         new() { City = "Hyderabad", State = "Telangana", Latitude = 17.385, Longitude = 78.4867, RadiusKm = 40, IsLive = true, PincodePrefixes = new() { "500", "501", "502" } },
+        new() { City = "Bengaluru", State = "Karnataka", Latitude = 12.9716, Longitude = 77.5946, RadiusKm = 40, IsLive = true, PincodePrefixes = new() { "560", "562" } },
+        new() { City = "Mancherial", State = "Telangana", Latitude = 18.8714, Longitude = 79.4443, RadiusKm = 25, IsLive = true, PincodePrefixes = new() { "504" } },
     };
 
     private readonly List<AreaOptions> _areas;

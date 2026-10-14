@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Inbox, Phone } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 import { formatDateTime, formatRelative, humanize } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { useCityOptions } from '@/lib/filterOptions';
+import { PagedResult } from '@/types/adminOperations';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
@@ -18,7 +22,10 @@ import { ChoiceChips, DetailRow, FormError } from '@/components/admin/FormContro
 import { adminCatalogueApi, apiError, type Lead } from '@/components/admin/catalogueAdminApi';
 
 const STATUSES = ['New', 'Contacted', 'Converted', 'Closed'] as const;
-type Filter = (typeof STATUSES)[number] | 'All';
+
+// New enquiries are the call-back queue, so that is the default; "All" is kept in the URL as status=All.
+const FILTER_DEFAULTS = { q: '', status: 'New', city: '', range: '', from: '', to: '' };
+const STATUS_CHIPS = [...STATUSES.map((s) => ({ value: s as string, label: s as string })), { value: 'All', label: 'All' }];
 
 const STATUS_STYLE: Record<string, { label: string; variant: BadgeVariant }> = {
   new: { label: 'New', variant: 'blue' },
@@ -52,9 +59,18 @@ function carLine(l: Lead): string {
 }
 
 export default function AdminLeadsPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-[72px] rounded-2xl" />}>
+      <AdminLeads />
+    </Suspense>
+  );
+}
+
+function AdminLeads() {
   const toast = useToast();
-  const [filter, setFilter] = useState<Filter>('New');
-  const [page, setPage] = useState(1);
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page } = filters;
+  const cityOptions = useCityOptions();
   const [items, setItems] = useState<Lead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,10 +83,23 @@ export default function AdminLeadsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const load = useCallback(async (f: Filter, p: number) => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page,
+        pageSize: PAGE_SIZE,
+        status: f.status === 'All' ? '' : f.status,
+        search: f.q,
+        city: f.city,
+        ...dateRangeQuery(f),
+      }),
+    [page, f]
+  );
+
+  const load = useCallback(async (qs: string) => {
     const requestId = ++request.current;
     setLoading(true);
-    const res = await adminCatalogueApi.leads({ status: f === 'All' ? undefined : f, page: p, pageSize: PAGE_SIZE });
+    const res = await apiFetch<PagedResult<Lead>>(`/admin/leads${qs}`);
     if (requestId !== request.current) return;
     if (res.success && res.data) {
       setItems(res.data.items ?? []);
@@ -83,8 +112,8 @@ export default function AdminLeadsPage() {
   }, []);
 
   useEffect(() => {
-    load(filter, page);
-  }, [filter, page, load]);
+    load(query);
+  }, [query, load]);
 
   const open = (lead: Lead) => {
     setSelected(lead);
@@ -107,13 +136,14 @@ export default function AdminLeadsPage() {
     if (res.success && res.data) {
       toast.success('Enquiry updated', `${displayMobile(res.data.mobileNumber)} · ${statusStyle(res.data.status).label}`);
       setSelected(null);
-      load(filter, page);
+      load(query);
     } else {
       setSaveError(apiError(res, 'Could not update this enquiry.'));
     }
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const otherFilters = f.q.trim() !== '' || f.city !== '' || f.range !== '';
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -122,14 +152,17 @@ export default function AdminLeadsPage() {
         description="Visitors who left their mobile number and car on the website to see prices. Call them back and track the outcome."
       />
 
-      <FilterChips
-        ariaLabel="Enquiry status"
-        value={filter}
-        onChange={(v) => {
-          setFilter(v as Filter);
-          setPage(1);
-        }}
-        options={[...STATUSES.map((s) => ({ value: s, label: s })), { value: 'All', label: 'All' }]}
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Mobile, car, city or service"
+        searchLabel="Search enquiries"
+        status={{ key: 'status', options: STATUS_CHIPS, ariaLabel: 'Enquiry status' }}
+        fields={[
+          { type: 'select', key: 'city', label: 'City', allLabel: 'All cities', options: cityOptions },
+          { type: 'dateRange', label: 'Received' },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'enquiry' : 'enquiries'}`}
       />
 
       {loading && items.length === 0 ? (
@@ -139,12 +172,22 @@ export default function AdminLeadsPage() {
           ))}
         </div>
       ) : error && items.length === 0 ? (
-        <ErrorState title="Enquiries unavailable" error={error} onRetry={() => load(filter, page)} />
+        <ErrorState title="Enquiries unavailable" error={error} onRetry={() => load(query)} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title={filter === 'All' ? 'No enquiries yet' : `No ${filter.toLowerCase()} enquiries`}
-          description="New enquiries appear here when visitors check prices on the website."
+          title={
+            otherFilters
+              ? 'No enquiries found'
+              : f.status === 'All'
+              ? 'No enquiries yet'
+              : `No ${f.status.toLowerCase()} enquiries`
+          }
+          description={
+            otherFilters
+              ? 'No enquiries match these filters.'
+              : 'New enquiries appear here when visitors check prices on the website.'
+          }
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -185,7 +228,7 @@ export default function AdminLeadsPage() {
               );
             })}
           </div>
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} totalItems={totalCount} pageSize={PAGE_SIZE} />
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={filters.setPage} totalItems={totalCount} pageSize={PAGE_SIZE} />
         </div>
       )}
 

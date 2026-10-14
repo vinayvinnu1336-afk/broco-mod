@@ -8,15 +8,23 @@ import { Car, ChevronLeft, ChevronRight, ClipboardList, Plus } from 'lucide-reac
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { formatRelative } from '@/lib/format';
-import { isRequestFinished } from '@/app/customer/_lib/customer-ui';
+import { formatINRWhole, formatRelative } from '@/lib/format';
+import { RequestStatusBadge, isRequestFinished } from '@/app/customer/_lib/customer-ui';
+
+/** Package fields on GET /customer/requests rows. */
+type RequestRow = CustomerServiceRequestSummaryDto & {
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  isAdvancePaid?: boolean;
+  /** The selected services, joined: "AC Service & Repair, Batteries". */
+  serviceCategory?: string | null;
+};
 
 export default function CustomerRequestsPage() {
-  const [requests, setRequests] = useState<CustomerServiceRequestSummaryDto[]>([]);
+  const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -25,7 +33,7 @@ export default function CustomerRequestsPage() {
   const loadRequests = useCallback(async (p = 1) => {
     setLoading(true);
     setError(null);
-    const res = await apiFetch<PagedResult<CustomerServiceRequestSummaryDto>>(
+    const res = await apiFetch<PagedResult<RequestRow>>(
       `/customer/requests?page=${p}&pageSize=10`
     );
     if (res.success && res.data) {
@@ -68,7 +76,7 @@ export default function CustomerRequestsPage() {
         <EmptyState
           icon={ClipboardList}
           title="No service requests yet"
-          description="Book a service and nearby garages will quote. Your advisor then sends you one clear price."
+          description="Book a fixed-price service package, or tell us what your car needs and nearby garages will quote."
           action={
             <Link href="/customer/requests/new">
               <Button variant="primary" leftIcon={<Plus className="h-4 w-4" />}>
@@ -82,10 +90,12 @@ export default function CustomerRequestsPage() {
           <ListGroup className={loading ? 'opacity-60 transition-opacity' : ''}>
             {requests.map((r) => {
               const finished = isRequestFinished(r.status);
+              const isPackage = !!r.servicePackageName;
+              const services = !isPackage && r.serviceCategory && r.serviceCategory !== 'General' ? r.serviceCategory : null;
               const meta = [
                 r.requestNumber,
                 formatRelative(r.submittedAtUtc || r.createdAtUtc),
-                r.quotesCount > 0 ? `${r.quotesCount} quote${r.quotesCount === 1 ? '' : 's'}` : null,
+                !isPackage && r.quotesCount > 0 ? `${r.quotesCount} quote${r.quotesCount === 1 ? '' : 's'}` : null,
               ]
                 .filter(Boolean)
                 .join(' · ');
@@ -95,9 +105,17 @@ export default function CustomerRequestsPage() {
                   href={`/customer/requests/${r.id}`}
                   leading={<IconTile icon={Car} tone={finished ? 'neutral' : 'blue'} />}
                   title={r.vehicleSummary || r.licensePlate || 'Service request'}
-                  subtitle={r.problemDescription}
+                  subtitle={
+                    isPackage
+                      ? [r.servicePackageName, typeof r.packagePrice === 'number' ? formatINRWhole(r.packagePrice) : null]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : services ?? r.problemDescription
+                  }
                   meta={meta}
-                  trailing={<StatusBadge status={r.status} />}
+                  // The package and price, or every selected service, are the point of the row, so let them wrap
+                  wrap={isPackage || !!services}
+                  trailing={<RequestStatusBadge status={r.status} isPackage={isPackage} advancePaid={!!r.isAdvancePaid} />}
                 />
               );
             })}

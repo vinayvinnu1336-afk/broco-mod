@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminCustomerList, PagedResult } from '@/types/adminOperations';
-import { RefreshCw, Search, Users } from 'lucide-react';
+import { RefreshCw, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Input } from '@/components/ui/Input';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
@@ -17,36 +17,71 @@ import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+// Sent as hasBookings=true|false.
+const BOOKINGS_OPTIONS = [
+  { value: 'true', label: 'With bookings' },
+  { value: 'false', label: 'No bookings' },
+];
+
+const FILTER_DEFAULTS = { q: '', bookings: '', range: '', from: '', to: '', size: '25' };
+
 export default function AdminCustomersPage() {
+  return (
+    <Suspense fallback={<CustomersSkeleton />}>
+      <AdminCustomers />
+    </Suspense>
+  );
+}
+
+function CustomersSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-16 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+function AdminCustomers() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [customers, setCustomers] = useState<AdminCustomerList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
 
   const requestId = useRef(0);
-  const searchRef = useRef(searchTerm);
-  searchRef.current = searchTerm;
 
-  const loadCustomers = useCallback(async (p: number, size: number, search: string) => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize,
+        search: f.q,
+        hasBookings: f.bookings === 'true' || f.bookings === 'false' ? f.bookings : '',
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadCustomers = useCallback(async (qs: string) => {
     const id = ++requestId.current;
     setLoading(true);
-    let url = `/admin/customers?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-
-    const res = await apiFetch<PagedResult<AdminCustomerList>>(url);
+    const res = await apiFetch<PagedResult<AdminCustomerList>>(`/admin/customers${qs}`);
     if (id !== requestId.current) return;
     if (res.success && res.data) {
       const data = res.data as PagedResult<AdminCustomerList> & { page?: number };
       setCustomers(data.items ?? []);
-      setPage(data.pageNumber ?? data.page ?? p);
+      setPage(data.page ?? data.pageNumber ?? 1);
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
       setLoadError(null);
@@ -58,15 +93,17 @@ export default function AdminCustomersPage() {
   }, []);
 
   useEffect(() => {
-    loadCustomers(1, pageSize, searchRef.current);
-  }, [pageSize, loadCustomers]);
+    loadCustomers(query);
+  }, [query, loadCustomers]);
 
-  const reload = () => loadCustomers(page, pageSize, searchTerm);
+  const reload = () => loadCustomers(query);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadCustomers(1, pageSize, searchTerm);
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -88,36 +125,27 @@ export default function AdminCustomersPage() {
         }
       />
 
-      <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-        <div className="flex-1">
-          <Input
-            type="search"
-            enterKeyHint="search"
-            aria-label="Search customers"
-            placeholder="Search by name, email or phone"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        <Button type="submit" variant="outline" className="shrink-0">
-          Search
-        </Button>
-      </form>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Name, email or phone"
+        searchLabel="Search customers"
+        fields={[
+          { type: 'select', key: 'bookings', label: 'Bookings', allLabel: 'With or without bookings', options: BOOKINGS_OPTIONS },
+          { type: 'dateRange', label: 'Joined' },
+        ]}
+        summary={loading ? 'Loading…' : plural(totalCount, 'customer', 'customers')}
+      />
 
       {loading && customers.length === 0 ? (
-        <div className="space-y-2" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
+        <CustomersSkeleton />
       ) : loadError && customers.length === 0 ? (
         <ErrorState title="Customers unavailable" error={loadError} onRetry={reload} />
       ) : customers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No customers found"
-          description={searchTerm ? 'Try a different name, email or phone number.' : 'Customers appear here when they sign up.'}
+          description={anyFilter ? 'No customers match these filters.' : 'Customers appear here when they sign up.'}
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -176,14 +204,14 @@ export default function AdminCustomersPage() {
                 totalPages={Math.max(1, totalPages)}
                 totalItems={totalCount}
                 pageSize={pageSize}
-                onPageChange={(p) => loadCustomers(p, pageSize, searchTerm)}
+                onPageChange={goToPage}
               />
             )}
             <div className="hidden w-40 sm:block">
               <Select
                 aria-label="Rows per page"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => filters.set({ size: e.target.value })}
                 options={[
                   { value: 25, label: '25 per page' },
                   { value: 50, label: '50 per page' },

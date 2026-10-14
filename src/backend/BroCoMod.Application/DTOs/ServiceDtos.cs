@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Domain.Enums;
 
 namespace BroCoMod.Application.DTOs;
@@ -43,7 +44,7 @@ public record GarageDto(
 public record CreateGarageDto(
     string Name,
     string Email,
-    string PhoneNumber,
+    [IndianMobile] string PhoneNumber,
     string Address,
     double Longitude,
     double Latitude

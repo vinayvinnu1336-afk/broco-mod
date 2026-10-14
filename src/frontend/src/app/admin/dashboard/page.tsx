@@ -23,6 +23,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatRelative, humanize } from '@/lib/format';
+import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
 
 const viewAllLink =
   'inline-flex min-h-[32px] items-center rounded-lg px-1.5 text-sm font-medium text-electric-600 hover:text-electric-700';
@@ -196,6 +197,8 @@ export default function AdminDashboardPage() {
           </>
         )}
       </ListGroup>
+
+      <CommissionSummaryCard portal="admin" title="Garage dues" />
 
       {/* Recent activity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

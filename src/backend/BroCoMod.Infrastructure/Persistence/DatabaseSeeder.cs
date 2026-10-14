@@ -150,7 +150,7 @@ public class DatabaseSeeder
             garage = new Garage(
                 name: "Central Metro Motors",
                 email: "info@centralmetro.com",
-                phoneNumber: "+91 40 4000 1234",
+                phoneNumber: "+91 90000 10001",
                 address: "Road No. 12, Banjara Hills, Hyderabad, Telangana 500034",
                 longitude: 78.4482,
                 latitude: 17.4126
@@ -163,7 +163,7 @@ public class DatabaseSeeder
         if (centralMetro != null && centralMetro.Location.X < 78.0)
         {
             // BroCo launches in Hyderabad: move the demo garage there so demo bookings find it.
-            centralMetro.UpdateContact("Road No. 12, Banjara Hills, Hyderabad, Telangana 500034", "+91 40 4000 1234");
+            centralMetro.UpdateContact("Road No. 12, Banjara Hills, Hyderabad, Telangana 500034", "+91 90000 10001");
             centralMetro.UpdateLocation(78.4482, 17.4126);
             await _context.SaveChangesAsync();
         }
@@ -264,10 +264,10 @@ public class DatabaseSeeder
             // Distances from Central Metro mirror the test expectations: ~2-5 km inside the 10 km radius, Uppal ~15 km outside.
             var hyderabadDemoGarages = new (string Name, string OldName, string Email, string Phone, string Address, double Lng, double Lat, bool Verified)[]
             {
-                ("Jubilee Hills Auto Hub", "Indiranagar Auto Hub", "jubileehills@autohub.com", "+91 40 2520 1122", "Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033", 78.4100, 17.4300, true),
-                ("Ameerpet Speed Works", "Koramangala Speed Works", "ameerpet@speedworks.in", "+91 40 4110 3344", "SR Nagar Main Road, Ameerpet, Hyderabad, Telangana 500038", 78.4482, 17.4375, true),
-                ("Uppal Precision Garage", "Whitefield Precision Garage", "contact@uppalprecision.com", "+91 40 6677 8899", "Uppal Ring Road, Uppal, Hyderabad, Telangana 500039", 78.5900, 17.4010, true),
-                ("Mehdipatnam Auto Care (Pending Verification)", "Jayanagar Auto Care (Pending Verification)", "service@mehdipatnamauto.com", "+91 40 2663 4455", "Rethibowli, Mehdipatnam, Hyderabad, Telangana 500028", 78.4400, 17.3950, false),
+                ("Jubilee Hills Auto Hub", "Indiranagar Auto Hub", "jubileehills@autohub.com", "+91 90000 10002", "Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033", 78.4100, 17.4300, true),
+                ("Ameerpet Speed Works", "Koramangala Speed Works", "ameerpet@speedworks.in", "+91 90000 10003", "SR Nagar Main Road, Ameerpet, Hyderabad, Telangana 500038", 78.4482, 17.4375, true),
+                ("Uppal Precision Garage", "Whitefield Precision Garage", "contact@uppalprecision.com", "+91 90000 10004", "Uppal Ring Road, Uppal, Hyderabad, Telangana 500039", 78.5900, 17.4010, true),
+                ("Mehdipatnam Auto Care (Pending Verification)", "Jayanagar Auto Care (Pending Verification)", "service@mehdipatnamauto.com", "+91 90000 10005", "Rethibowli, Mehdipatnam, Hyderabad, Telangana 500028", 78.4400, 17.3950, false),
             };
 
             foreach (var demo in hyderabadDemoGarages)
@@ -335,10 +335,49 @@ public class DatabaseSeeder
                         initialStatus: GarageRequestStatus.Notified));
 
                     demoRequest.MarkGaragesNotified();
+
+                    // Give it an owner the way real bookings get one. On a fresh database the earlier
+                    // unowned-request sweep ran before any advisor existed.
+                    var demoOwner = await AdvisorAssignment.PickResponsibleAdvisorAsync(_context);
+                    if (demoOwner.HasValue)
+                    {
+                        demoRequest.SetResponsibleAdvisor(demoOwner.Value);
+                    }
+
                     _context.ServiceRequests.Add(demoRequest);
                     await _context.SaveChangesAsync();
                 }
             }
+        }
+
+        // E. Bengaluru demo garage + its owner, so test bookings in Bengaluru find a workshop.
+        var bengaluruGarage = await _context.Garages.FirstOrDefaultAsync(g => g.Name == "Indiranagar Auto Care");
+        if (bengaluruGarage == null)
+        {
+            bengaluruGarage = new Garage(
+                name: "Indiranagar Auto Care",
+                email: "service@indiranagarauto.com",
+                phoneNumber: "+91 90000 10006",
+                address: "100 Feet Road, HAL 2nd Stage, Indiranagar, Bengaluru, Karnataka 560038",
+                longitude: 77.6408,
+                latitude: 12.9784,
+                isVerified: true,
+                isOperational: true);
+            _context.Garages.Add(bengaluruGarage);
+            await _context.SaveChangesAsync();
+        }
+
+        var bengaluruOwner = await SeedUserIfNotExists(
+            email: "garage.owner@indiranagarauto.com",
+            fullName: "Ravi Kumar (Owner)",
+            phoneNumber: "+91 90000 00005",
+            password: defaultPassword,
+            roleName: AppRoles.GarageOwner);
+
+        if (bengaluruOwner != null && !await _context.GarageUsers.AnyAsync(gu => gu.UserId == bengaluruOwner.Id))
+        {
+            _context.GarageUsers.Add(new GarageUser(bengaluruOwner.Id, bengaluruGarage.Id, AppRoles.GarageOwner, "Owner"));
+            await _context.SaveChangesAsync();
         }
 
         _logger.LogInformation("Database initialization and seeding completed successfully.");

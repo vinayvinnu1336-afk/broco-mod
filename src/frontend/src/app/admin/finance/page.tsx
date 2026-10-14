@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { FinanceOverviewDto, GarageSettlementDto, FinancialLedgerEntryDto } from '@/types/finance';
@@ -11,19 +11,22 @@ import {
   CreditCard,
   FileText,
   Percent,
+  ChevronLeft,
+  ChevronRight,
   RotateCcw,
-  Search,
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { FilterChips } from '@/components/ui/FilterChips';
 import { Input } from '@/components/ui/Input';
 import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -31,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/Toast';
 import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
 import { formatDate, formatDateTime, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
 // ---------------------------------------------------------------------------------------------
 // Response normalisation. The API returns settlements as a paged object and ledger rows with
@@ -59,15 +63,20 @@ function pickString(obj: Raw | null | undefined, ...keys: string[]): string | un
   return undefined;
 }
 
-function toList(data: unknown): { items: Raw[]; total: number } {
-  if (Array.isArray(data)) return { items: data as Raw[], total: data.length };
+function toList(data: unknown): { items: Raw[]; total: number; page: number; totalPages: number } {
+  if (Array.isArray(data)) return { items: data as Raw[], total: data.length, page: 1, totalPages: 1 };
   if (data && typeof data === 'object') {
     const items = (data as Raw).items;
     if (Array.isArray(items)) {
-      return { items: items as Raw[], total: pickNumber(data as Raw, 'totalCount') ?? items.length };
+      return {
+        items: items as Raw[],
+        total: pickNumber(data as Raw, 'totalCount') ?? items.length,
+        page: pickNumber(data as Raw, 'page') ?? 1,
+        totalPages: pickNumber(data as Raw, 'totalPages') ?? 1,
+      };
     }
   }
-  return { items: [], total: 0 };
+  return { items: [], total: 0, page: 1, totalPages: 1 };
 }
 
 interface SettlementRow {
@@ -148,6 +157,10 @@ function toLedgerRow(r: Raw): LedgerRow {
 }
 
 const ACCOUNT_LABELS: Record<string, string> = {
+  PLATFORM_CASH: 'BroCo cash',
+  PLATFORM_BOOKING_FEE: 'Booking advances',
+  PLATFORM_COMMISSION: 'Garage commission',
+  GST_PAYABLE: 'GST payable',
   ESCROW: 'Held in escrow',
   CUSTOMER: 'Customer',
   GARAGE_PAYABLE: 'Payable to garage',
@@ -171,23 +184,81 @@ function entryAmount(row: LedgerRow) {
 // ---------------------------------------------------------------------------------------------
 
 type Tab = 'settlements' | 'ledger';
-type SettlementFilter = 'all' | 'to-pay' | 'paid';
+
+// SettlementStatus names (sent to the API as they are).
+const SETTLEMENT_STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'Pending', label: 'To pay' },
+  { value: 'Processing', label: 'Processing' },
+  { value: 'OnHold', label: 'On hold' },
+  { value: 'Completed', label: 'Paid' },
+  { value: 'Cancelled', label: 'Cancelled' },
+];
+
+// LedgerEntryType names.
+const ENTRY_TYPE_OPTIONS = [
+  { value: 'BookingAdvance', label: 'Booking advance' },
+  { value: 'Commission', label: 'Commission' },
+  { value: 'Refund', label: 'Refund' },
+  { value: 'CustomerPayment', label: 'Customer payment' },
+  { value: 'PlatformFee', label: 'Platform fee' },
+  { value: 'GaragePayable', label: 'Payable to garage' },
+  { value: 'Adjustment', label: 'Adjustment' },
+];
+
+const ACCOUNT_OPTIONS = Object.entries(ACCOUNT_LABELS).map(([value, label]) => ({ value, label }));
+
+/** The ledger endpoint returns at most this many (latest) matching entries. */
+const LEDGER_LIMIT = 200;
+
+// Each tab keeps its own filters in the URL (l* = ledger, s* = settlements), so switching tabs keeps them.
+const FILTER_DEFAULTS = {
+  tab: 'ledger',
+  lq: '',
+  ltype: '',
+  lacct: '',
+  lrange: '',
+  lfrom: '',
+  lto: '',
+  sq: '',
+  sstatus: '',
+  srange: '',
+  sfrom: '',
+  sto: '',
+  ssize: '25',
+};
+type FilterKey = keyof typeof FILTER_DEFAULTS;
+const LEDGER_KEYS: FilterKey[] = ['lq', 'ltype', 'lacct', 'lrange', 'lfrom', 'lto'];
+const SETTLEMENT_KEYS: FilterKey[] = ['sq', 'sstatus', 'srange', 'sfrom', 'sto'];
 
 export default function AdminFinancePage() {
+  return (
+    <Suspense fallback={<ListSkeleton />}>
+      <AdminFinance />
+    </Suspense>
+  );
+}
+
+function AdminFinance() {
   const router = useRouter();
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
+  const activeTab: Tab = f.tab === 'settlements' ? 'settlements' : 'ledger';
 
   const [overview, setOverview] = useState<Raw | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [settlementsTotal, setSettlementsTotal] = useState(0);
+  const [settlementsPage, setSettlementsPage] = useState(1);
+  const [settlementsPages, setSettlementsPages] = useState(1);
+  const [settlementsLoading, setSettlementsLoading] = useState(true);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [ledgerLoading, setLedgerLoading] = useState(true);
   const [errors, setErrors] = useState<{ overview?: string; settlements?: string; ledger?: string }>({});
-
-  const [activeTab, setActiveTab] = useState<Tab>('settlements');
-  const [settlementSearch, setSettlementSearch] = useState('');
-  const [settlementFilter, setSettlementFilter] = useState<SettlementFilter>('all');
-  const [accountFilter, setAccountFilter] = useState('all');
+  const settlementsPageSize = [25, 50, 100].includes(Number(f.ssize)) ? Number(f.ssize) : 25;
+  const latestSettlements = useRef(0);
+  const latestLedger = useRef(0);
 
   // Settlement sheet (details + mark paid)
   const [selectedSettlement, setSelectedSettlement] = useState<SettlementRow | null>(null);
@@ -195,37 +266,89 @@ export default function AdminFinancePage() {
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [ovRes, setRes, ledRes] = await Promise.all([
-      apiFetch<FinanceOverviewDto>('/admin/finance/overview'),
-      apiFetch<GarageSettlementDto[]>('/admin/finance/settlements'),
-      apiFetch<FinancialLedgerEntryDto[]>('/admin/finance/ledger?limit=100'),
-    ]);
+  const settlementsQuery = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize: settlementsPageSize,
+        search: f.sq,
+        status: f.sstatus,
+        ...dateRangeQuery({ range: f.srange, from: f.sfrom, to: f.sto }, ['fromDate', 'toDate']),
+      }),
+    [urlPage, settlementsPageSize, f.sq, f.sstatus, f.srange, f.sfrom, f.sto]
+  );
 
-    const nextErrors: { overview?: string; settlements?: string; ledger?: string } = {};
+  const ledgerQuery = useMemo(
+    () =>
+      toQueryString({
+        search: f.lq,
+        entryType: f.ltype,
+        accountType: f.lacct,
+        ...dateRangeQuery({ range: f.lrange, from: f.lfrom, to: f.lto }),
+      }),
+    [f.lq, f.ltype, f.lacct, f.lrange, f.lfrom, f.lto]
+  );
 
-    if (ovRes.success && ovRes.data) setOverview(ovRes.data as unknown as Raw);
-    else nextErrors.overview = ovRes.message || 'Could not load the finance summary.';
-
-    if (setRes.success && setRes.data) {
-      const { items, total } = toList(setRes.data);
-      setSettlements(items.map(toSettlementRow));
-      setSettlementsTotal(total);
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    const res = await apiFetch<FinanceOverviewDto>('/admin/finance/overview');
+    if (res.success && res.data) {
+      setOverview(res.data as unknown as Raw);
+      setErrors((e) => ({ ...e, overview: undefined }));
     } else {
-      nextErrors.settlements = setRes.message || 'Could not load settlements.';
+      setErrors((e) => ({ ...e, overview: res.message || 'Could not load the finance summary.' }));
     }
+    setOverviewLoading(false);
+  }, []);
 
-    if (ledRes.success && ledRes.data) setLedger(toList(ledRes.data).items.map(toLedgerRow));
-    else nextErrors.ledger = ledRes.message || 'Could not load ledger entries.';
+  const loadSettlements = useCallback(async (qs: string) => {
+    const id = ++latestSettlements.current;
+    setSettlementsLoading(true);
+    const res = await apiFetch<GarageSettlementDto[]>(`/admin/finance/settlements${qs}`);
+    if (id !== latestSettlements.current) return; // a newer filter change is already loading
+    if (res.success && res.data) {
+      const data = toList(res.data);
+      setSettlements(data.items.map(toSettlementRow));
+      setSettlementsTotal(data.total);
+      setSettlementsPage(data.page);
+      setSettlementsPages(data.totalPages);
+      setErrors((e) => ({ ...e, settlements: undefined }));
+    } else {
+      setErrors((e) => ({ ...e, settlements: res.message || 'Could not load settlements.' }));
+    }
+    setSettlementsLoading(false);
+  }, []);
 
-    setErrors(nextErrors);
-    setLoading(false);
+  const loadLedger = useCallback(async (qs: string) => {
+    const id = ++latestLedger.current;
+    setLedgerLoading(true);
+    const res = await apiFetch<FinancialLedgerEntryDto[]>(`/admin/finance/ledger${qs}`);
+    if (id !== latestLedger.current) return;
+    if (res.success && res.data) {
+      setLedger(toList(res.data).items.map(toLedgerRow));
+      setErrors((e) => ({ ...e, ledger: undefined }));
+    } else {
+      setErrors((e) => ({ ...e, ledger: res.message || 'Could not load ledger entries.' }));
+    }
+    setLedgerLoading(false);
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadOverview();
+  }, [loadOverview]);
+
+  useEffect(() => {
+    loadSettlements(settlementsQuery);
+  }, [loadSettlements, settlementsQuery]);
+
+  useEffect(() => {
+    loadLedger(ledgerQuery);
+  }, [loadLedger, ledgerQuery]);
+
+  const goToSettlementsPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const openSettlement = (s: SettlementRow) => {
     setSelectedSettlement(s);
@@ -263,57 +386,24 @@ export default function AdminFinancePage() {
       toast.success('Settlement marked as paid', `${selectedSettlement.garageName} · ${formatINR(selectedSettlement.net)}`);
       setSelectedSettlement(null);
       setPayoutRef('');
-      loadData();
+      loadOverview();
+      loadSettlements(settlementsQuery);
     } else {
       setCompleteError(res.message || 'Could not mark this settlement as paid. Please try again.');
     }
   };
 
-  // ---- Derived lists ----
-  const settlementCounts = useMemo(
-    () => ({
-      all: settlements.length,
-      toPay: settlements.filter(isPayable).length,
-      paid: settlements.filter((s) => s.status.toUpperCase() === 'COMPLETED').length,
-    }),
-    [settlements]
-  );
-
-  const filteredSettlements = useMemo(() => {
-    const q = settlementSearch.trim().toLowerCase();
-    return settlements.filter((s) => {
-      if (settlementFilter === 'to-pay' && !isPayable(s)) return false;
-      if (settlementFilter === 'paid' && s.status.toUpperCase() !== 'COMPLETED') return false;
-      if (!q) return true;
-      return (
-        s.number.toLowerCase().includes(q) ||
-        s.garageName.toLowerCase().includes(q) ||
-        (s.payoutRef ?? '').toLowerCase().includes(q) ||
-        (s.jobNumber ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [settlements, settlementSearch, settlementFilter]);
-
-  const accountOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    ledger.forEach((l) => counts.set(l.account, (counts.get(l.account) ?? 0) + 1));
-    return [
-      { value: 'all', label: 'All', count: ledger.length },
-      ...Array.from(counts.entries()).map(([account, count]) => ({ value: account, label: accountLabel(account), count })),
-    ];
-  }, [ledger]);
-
-  const filteredLedger = useMemo(
-    () => (accountFilter === 'all' ? ledger : ledger.filter((l) => l.account === accountFilter)),
-    [ledger, accountFilter]
-  );
+  const anyLedgerFilter = LEDGER_KEYS.some((k) => filters.isActive(k));
+  const anySettlementFilter = SETTLEMENT_KEYS.some((k) => filters.isActive(k));
+  const safeSettlementsPages = Math.max(1, settlementsPages);
 
   // ---- KPI values (only what the API returns) ----
   const kpi = {
     collected: pickNumber(overview, 'totalGrossRevenue'),
     paymentsCount: pickNumber(overview, 'totalPaymentsCount'),
-    platformFee: pickNumber(overview, 'totalPlatformRevenue'),
-    platformFeeGst: pickNumber(overview, 'totalPlatformFeeGst', 'totalTaxOnPlatformFee'),
+    advances: pickNumber(overview, 'totalBookingAdvances'),
+    commission: pickNumber(overview, 'totalCommissionCollected'),
+    commissionGst: pickNumber(overview, 'totalCommissionGst'),
     advisorMargin: pickNumber(overview, 'totalPlatformMargin', 'totalAdvisorMargin'),
     payable: pickNumber(overview, 'totalGarageSettlements', 'totalGaragePayouts'),
     pendingCount: pickNumber(overview, 'pendingSettlementsCount'),
@@ -332,7 +422,7 @@ export default function AdminFinancePage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Finance"
-        description="Money collected from customers, what the platform keeps, and what is owed to garages."
+        description="Booking advances customers paid online, commission garages paid BroCo, and refunds."
         actions={
           <Button
             variant="outline"
@@ -345,14 +435,14 @@ export default function AdminFinancePage() {
       />
 
       {/* KPIs */}
-      {loading && !overview ? (
+      {overviewLoading && !overview ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-[104px] rounded-2xl" />
           ))}
         </div>
       ) : errors.overview && !overview ? (
-        <ErrorState title="Finance summary unavailable" error={errors.overview} onRetry={loadData} />
+        <ErrorState title="Finance summary unavailable" error={errors.overview} onRetry={loadOverview} />
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {kpi.collected !== undefined && (
@@ -364,26 +454,31 @@ export default function AdminFinancePage() {
               hint={kpi.paymentsCount !== undefined ? `${kpi.paymentsCount} payments` : 'From customers'}
             />
           )}
-          {kpi.platformFee !== undefined && (
+          {kpi.advances !== undefined && (
             <StatCard
-              label={kpi.platformFeeGst !== undefined ? 'Platform fee' : 'Platform fee incl. GST'}
-              value={formatINRShort(
-                kpi.platformFeeGst !== undefined ? kpi.platformFee - kpi.platformFeeGst : kpi.platformFee
-              )}
+              label="Booking advances"
+              value={formatINRShort(kpi.advances)}
               icon={Percent}
               tone="green"
-              hint="From settlements"
+              hint="10% paid online, net of refunds"
             />
           )}
-          {kpi.platformFeeGst !== undefined && (
-            <StatCard label="GST on fee" value={formatINRShort(kpi.platformFeeGst)} icon={FileText} tone="neutral" />
-          )}
-          {kpi.advisorMargin !== undefined && (
-            <StatCard label="Advisor margin" value={formatINRShort(kpi.advisorMargin)} icon={Banknote} tone="green" />
-          )}
-          {kpi.payable !== undefined && (
+          {kpi.commission !== undefined && (
             <StatCard
-              label="Payable to garages"
+              label="Commission received"
+              value={formatINRShort(kpi.commission - (kpi.commissionGst ?? 0))}
+              icon={Banknote}
+              tone="green"
+              hint={kpi.commissionGst ? `From garages · ${formatINRShort(kpi.commissionGst)} GST excluded` : 'From garages, ex GST'}
+            />
+          )}
+          {/* Only from before the 10% model: markup and garage payouts are no longer created. */}
+          {kpi.advisorMargin !== undefined && kpi.advisorMargin > 0 && (
+            <StatCard label="Advisor margin (legacy)" value={formatINRShort(kpi.advisorMargin)} icon={Banknote} tone="neutral" />
+          )}
+          {kpi.payable !== undefined && kpi.payable > 0 && (
+            <StatCard
+              label="Payable to garages (legacy)"
               value={formatINRShort(kpi.payable)}
               icon={Building2}
               tone="amber"
@@ -403,47 +498,58 @@ export default function AdminFinancePage() {
       <FilterChips
         ariaLabel="Finance section"
         value={activeTab}
-        onChange={(v) => setActiveTab(v as Tab)}
+        onChange={(v) => filters.set({ tab: v })}
         options={[
-          { value: 'settlements', label: 'Garage settlements', count: loading ? undefined : settlements.length },
-          { value: 'ledger', label: 'Ledger', count: loading ? undefined : ledger.length },
+          { value: 'ledger', label: 'Ledger', count: ledgerLoading ? undefined : ledger.length },
+          { value: 'settlements', label: 'Legacy settlements', count: settlementsLoading ? undefined : settlementsTotal },
         ]}
       />
 
       {/* ---------------- Settlements ---------------- */}
       {activeTab === 'settlements' && (
         <section className="space-y-3" aria-label="Garage settlements">
-          <Input
-            type="search"
-            aria-label="Search settlements"
-            placeholder="Search by garage, settlement or payout reference"
-            value={settlementSearch}
-            onChange={(e) => setSettlementSearch(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-          <FilterChips
-            ariaLabel="Settlement status"
-            value={settlementFilter}
-            onChange={(v) => setSettlementFilter(v as SettlementFilter)}
-            options={[
-              { value: 'all', label: 'All', count: settlementCounts.all },
-              { value: 'to-pay', label: 'To pay', count: settlementCounts.toPay },
-              { value: 'paid', label: 'Paid', count: settlementCounts.paid },
-            ]}
+          <FilterBar
+            filters={filters}
+            searchKey="sq"
+            searchPlaceholder="Garage, settlement, job or payout reference"
+            searchLabel="Search settlements"
+            status={{ key: 'sstatus', options: SETTLEMENT_STATUS_OPTIONS, ariaLabel: 'Settlement status' }}
+            fields={[{ type: 'dateRange', label: 'Created', keys: { range: 'srange', from: 'sfrom', to: 'sto' } }]}
+            summary={
+              settlementsLoading ? 'Loading…' : `${settlementsTotal} ${settlementsTotal === 1 ? 'settlement' : 'settlements'}`
+            }
+            trailing={
+              <label className="flex items-center gap-2">
+                Per page
+                <select
+                  value={settlementsPageSize}
+                  onChange={(e) => filters.set({ ssize: e.target.value })}
+                  className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+            }
           />
 
-          {loading && settlements.length === 0 ? (
+          {settlementsLoading && settlements.length === 0 ? (
             <ListSkeleton />
           ) : errors.settlements && settlements.length === 0 ? (
-            <ErrorState title="Settlements unavailable" error={errors.settlements} onRetry={loadData} />
-          ) : filteredSettlements.length === 0 ? (
+            <ErrorState
+              title="Settlements unavailable"
+              error={errors.settlements}
+              onRetry={() => loadSettlements(settlementsQuery)}
+            />
+          ) : settlements.length === 0 ? (
             <EmptyState
               icon={Building2}
-              title={settlements.length === 0 ? 'No settlements yet' : 'No matching settlements'}
+              title={anySettlementFilter ? 'No matching settlements' : 'No settlements yet'}
               description={
-                settlements.length === 0
-                  ? 'A settlement is created for the garage when a customer payment is received.'
-                  : 'Try a different search or status filter.'
+                anySettlementFilter
+                  ? 'No settlements match these filters.'
+                  : 'Settlements are no longer created. BroCo now collects a 10% booking advance online, and the garage pays its commission after each job.'
               }
             />
           ) : (
@@ -466,7 +572,7 @@ export default function AdminFinancePage() {
                     </tr>
                   </TableHeader>
                   <TableBody>
-                    {filteredSettlements.map((s) => (
+                    {settlements.map((s) => (
                       <TableRow key={s.id}>
                         <TableCell>
                           <div className="font-semibold text-navy-900">{s.number}</div>
@@ -502,7 +608,7 @@ export default function AdminFinancePage() {
               {/* Phone list */}
               <div className="md:hidden">
                 <ListGroup>
-                  {filteredSettlements.map((s) => (
+                  {settlements.map((s) => (
                     <ListItem
                       key={s.id}
                       onClick={() => openSettlement(s)}
@@ -521,11 +627,40 @@ export default function AdminFinancePage() {
                 </ListGroup>
               </div>
 
-              {settlementsTotal > settlements.length && (
-                <p className="px-1 text-xs text-navy-500">
-                  Showing the latest {settlements.length} of {settlementsTotal} settlements.
-                </p>
+              {safeSettlementsPages > 1 && (
+                <div className="flex items-center gap-3 md:hidden">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    disabled={settlementsPage <= 1 || settlementsLoading}
+                    onClick={() => goToSettlementsPage(settlementsPage - 1)}
+                    leftIcon={<ChevronLeft className="h-4 w-4" />}
+                  >
+                    Previous
+                  </Button>
+                  <span className="shrink-0 text-sm tabular-nums text-navy-500">
+                    {settlementsPage} / {safeSettlementsPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    disabled={settlementsPage >= safeSettlementsPages || settlementsLoading}
+                    onClick={() => goToSettlementsPage(settlementsPage + 1)}
+                    rightIcon={<ChevronRight className="h-4 w-4" />}
+                  >
+                    Next
+                  </Button>
+                </div>
               )}
+              <div className="hidden md:block">
+                <Pagination
+                  currentPage={settlementsPage}
+                  totalPages={safeSettlementsPages}
+                  totalItems={settlementsTotal}
+                  pageSize={settlementsPageSize}
+                  onPageChange={goToSettlementsPage}
+                />
+              </div>
             </>
           )}
         </section>
@@ -537,16 +672,39 @@ export default function AdminFinancePage() {
           <p className="px-1 text-sm text-navy-500">
             Every money movement is recorded twice: once leaving one account (debit) and once arriving in another (credit).
           </p>
-          {ledger.length > 0 && (
-            <FilterChips ariaLabel="Ledger account" value={accountFilter} onChange={setAccountFilter} options={accountOptions} />
-          )}
+          <FilterBar
+            filters={filters}
+            searchKey="lq"
+            searchPlaceholder="Reference or description"
+            searchLabel="Search ledger"
+            fields={[
+              { type: 'select', key: 'ltype', label: 'Entry type', allLabel: 'All entry types', options: ENTRY_TYPE_OPTIONS },
+              { type: 'select', key: 'lacct', label: 'Account', allLabel: 'All accounts', options: ACCOUNT_OPTIONS },
+              { type: 'dateRange', label: 'Date', keys: { range: 'lrange', from: 'lfrom', to: 'lto' } },
+            ]}
+            summary={
+              ledgerLoading
+                ? 'Loading…'
+                : ledger.length >= LEDGER_LIMIT
+                  ? `Latest ${LEDGER_LIMIT} entries`
+                  : `${ledger.length} ${ledger.length === 1 ? 'entry' : 'entries'}`
+            }
+          />
 
-          {loading && ledger.length === 0 ? (
+          {ledgerLoading && ledger.length === 0 ? (
             <ListSkeleton />
           ) : errors.ledger && ledger.length === 0 ? (
-            <ErrorState title="Ledger unavailable" error={errors.ledger} onRetry={loadData} />
-          ) : filteredLedger.length === 0 ? (
-            <EmptyState icon={FileText} title="No ledger entries yet" description="Entries appear once payments and settlements are recorded." />
+            <ErrorState title="Ledger unavailable" error={errors.ledger} onRetry={() => loadLedger(ledgerQuery)} />
+          ) : ledger.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title={anyLedgerFilter ? 'No matching entries' : 'No ledger entries yet'}
+              description={
+                anyLedgerFilter
+                  ? 'No ledger entries match these filters.'
+                  : 'Entries appear once a booking advance or a commission is paid.'
+              }
+            />
           ) : (
             <>
               <div className="hidden md:block">
@@ -562,7 +720,7 @@ export default function AdminFinancePage() {
                     </tr>
                   </TableHeader>
                   <TableBody>
-                    {filteredLedger.map((l) => (
+                    {ledger.map((l) => (
                       <TableRow key={l.id}>
                         <TableCell className="text-xs font-medium text-navy-700">{l.reference}</TableCell>
                         <TableCell className="whitespace-nowrap font-medium text-navy-900">{accountLabel(l.account)}</TableCell>
@@ -580,7 +738,7 @@ export default function AdminFinancePage() {
 
               <div className="md:hidden">
                 <ListGroup>
-                  {filteredLedger.map((l) => {
+                  {ledger.map((l) => {
                     const amount = entryAmount(l);
                     return (
                       <ListItem

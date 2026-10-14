@@ -36,6 +36,11 @@ public interface INotificationService
         ServiceRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>A package booking's advance is paid: the advisor who owns it should now assign a garage.</summary>
+    Task NotifyAdvisorOfPaidPackageBookingAsync(
+        ServiceRequest request,
+        CancellationToken cancellationToken = default);
+
     Task NotifyGaragesOfDispatchedRequestAsync(
         ServiceRequest request,
         IReadOnlyList<GarageRequest> garageRequests,

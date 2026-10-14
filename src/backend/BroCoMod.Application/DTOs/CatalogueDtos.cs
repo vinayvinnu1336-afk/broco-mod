@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BroCoMod.Application.Common;
 
 namespace BroCoMod.Application.DTOs;
 
@@ -116,7 +117,7 @@ public record ServiceAreaDto(
 // ---------- Leads from the public website ----------
 
 public record CreateLeadRequest(
-    [Required, RegularExpression(@"^(\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}$", ErrorMessage = "Enter a valid 10-digit Indian mobile number.")] string MobileNumber,
+    [Required(ErrorMessage = IndianMobile.InvalidMessage), IndianMobile] string MobileNumber,
     [Required, StringLength(100)] string City,
     Guid? VehicleModelId,
     [StringLength(30)] string? FuelType,
@@ -176,7 +177,13 @@ public record GarageCommissionDto(
     string? WaiverReason,
     int RemindersSent,
     DateTime? LastReminderAtUtc,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    // Filled on the staff "Garage dues" lists.
+    string? GaragePhone = null,
+    int DaysOverdue = 0,
+    bool GarageBlocked = false,
+    // When staff may send the next manual reminder for this due; null = now.
+    DateTime? NextManualReminderAtUtc = null
 );
 
 public record GarageCommissionSummaryDto(
@@ -209,7 +216,74 @@ public record AdminCommissionOverviewDto(
     decimal OverdueAmount,
     int OverdueCount,
     decimal CollectedAmount,
-    int GaragesWithOverdue
+    int GaragesWithOverdue,
+    int GaragesWithDues = 0,
+    int GaragesBlocked = 0
+);
+
+/// <summary>Filters for the staff "Garage dues" lists (admin and advisor portals).</summary>
+public record CommissionDuesQuery(
+    string? Search = null,
+    // Due (default), Overdue, Paid, Waived or All.
+    string? Status = null,
+    Guid? GarageId = null,
+    DateTime? DueFrom = null,
+    DateTime? DueTo = null,
+    // due (oldest first, default), garage, amount or reminded (least recently reminded first).
+    string? Sort = null,
+    int Page = 1,
+    int PageSize = 20
+);
+
+/// <summary>Unpaid commission totals for staff; advisors see this without the collected revenue.</summary>
+public record GarageDuesOverviewDto(
+    decimal OutstandingAmount,
+    int OutstandingCount,
+    decimal OverdueAmount,
+    int OverdueCount,
+    int GaragesWithDues,
+    int GaragesWithOverdue,
+    int GaragesBlocked
+);
+
+/// <summary>One garage's unpaid commission, for the garage filter and the grouped view.</summary>
+public record GarageDuesSummaryDto(
+    Guid GarageId,
+    string GarageName,
+    string GaragePhone,
+    decimal OutstandingAmount,
+    int OutstandingCount,
+    decimal OverdueAmount,
+    int OverdueCount,
+    DateTime? OldestDueAtUtc,
+    bool NewJobsBlocked,
+    DateTime? LastReminderAtUtc
+);
+
+public record RemindOverdueCommissionsRequest(
+    // Only this garage's overdue dues; null = every garage.
+    Guid? GarageId
+);
+
+public record CommissionReminderResultDto(
+    bool Sent,
+    string Message,
+    GarageCommissionDto Commission,
+    // When not sent: "TooSoon" (reminded in the last hour) or "NoRecipients" (garage has no active users).
+    string? NotSentReason = null
+);
+
+public static class ReminderNotSent
+{
+    public const string TooSoon = "TooSoon";
+    public const string NoRecipients = "NoRecipients";
+}
+
+public record BulkCommissionReminderResultDto(
+    int DuesReminded,
+    int GaragesReminded,
+    // Overdue dues left out because staff already reminded them in the last hour.
+    int SkippedRecentlyReminded
 );
 
 public record AssignPackageGarageRequest(

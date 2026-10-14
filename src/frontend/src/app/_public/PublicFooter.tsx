@@ -26,7 +26,7 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: 'Garages',
     links: [
-      { href: '/register?role=garage', label: 'Register your garage' },
+      { href: '/register/garage', label: 'Register your garage' },
       { href: '/#garages', label: 'Why partner with BroCo' },
     ],
   },
@@ -44,7 +44,7 @@ export function PublicFooter() {
               garage.
             </p>
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-surface-300">
-              <MapPin className="h-3.5 w-3.5" aria-hidden /> Now serving Hyderabad
+              <MapPin className="h-3.5 w-3.5" aria-hidden /> Now serving Hyderabad, Bengaluru and Mancherial
             </p>
             {SUPPORT_PHONE && (
               <a href={telHref(SUPPORT_PHONE)} className="mt-2 flex min-h-[40px] items-center gap-1.5 text-sm text-white hover:text-sky-300">

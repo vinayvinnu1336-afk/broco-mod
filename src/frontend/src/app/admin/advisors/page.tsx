@@ -1,17 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminAdvisorList, PagedResult } from '@/types/adminOperations';
-import { RefreshCw, Search, UserCheck } from 'lucide-react';
+import { RefreshCw, UserCheck } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { FilterChips } from '@/components/ui/FilterChips';
-import { Input } from '@/components/ui/Input';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -23,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/format';
+import { toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
 const ACTIVE_FILTERS = [
   { value: '', label: 'All' },
@@ -30,18 +30,38 @@ const ACTIVE_FILTERS = [
   { value: 'false', label: 'Inactive' },
 ];
 
+const FILTER_DEFAULTS = { q: '', active: '', size: '25' };
+
 export default function AdminAdvisorsPage() {
+  return (
+    <Suspense fallback={<AdvisorsSkeleton />}>
+      <AdminAdvisors />
+    </Suspense>
+  );
+}
+
+function AdvisorsSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-16 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+function AdminAdvisors() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [advisors, setAdvisors] = useState<AdminAdvisorList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string>('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
 
   // Advisor sheet (phones) and confirmations
   const [selectedAdvisor, setSelectedAdvisor] = useState<AdminAdvisorList | null>(null);
@@ -51,22 +71,21 @@ export default function AdminAdvisorsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const requestId = useRef(0);
-  const searchRef = useRef(searchTerm);
-  searchRef.current = searchTerm;
 
-  const loadAdvisors = useCallback(async (p: number, size: number, search: string, active: string) => {
+  const query = useMemo(
+    () => toQueryString({ page: urlPage, pageSize, search: f.q, isActive: f.active === 'true' || f.active === 'false' ? f.active : '' }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadAdvisors = useCallback(async (qs: string) => {
     const id = ++requestId.current;
     setLoading(true);
-    let url = `/admin/advisors?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (active !== '') url += `&isActive=${active === 'true'}`;
-
-    const res = await apiFetch<PagedResult<AdminAdvisorList>>(url);
+    const res = await apiFetch<PagedResult<AdminAdvisorList>>(`/admin/advisors${qs}`);
     if (id !== requestId.current) return;
     if (res.success && res.data) {
       const data = res.data as PagedResult<AdminAdvisorList> & { page?: number };
       setAdvisors(data.items ?? []);
-      setPage(data.pageNumber ?? data.page ?? p);
+      setPage(data.page ?? data.pageNumber ?? 1);
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
       setLoadError(null);
@@ -78,15 +97,17 @@ export default function AdminAdvisorsPage() {
   }, []);
 
   useEffect(() => {
-    loadAdvisors(1, pageSize, searchRef.current, activeFilter);
-  }, [pageSize, activeFilter, loadAdvisors]);
+    loadAdvisors(query);
+  }, [query, loadAdvisors]);
 
-  const reload = () => loadAdvisors(page, pageSize, searchTerm, activeFilter);
+  const reload = () => loadAdvisors(query);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadAdvisors(1, pageSize, searchTerm, activeFilter);
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const anyFilter = filters.isActive('q') || filters.isActive('active');
 
   const openConfirm = (type: 'activate' | 'deactivate', adv: AdminAdvisorList) => {
     setSelectedAdvisor(null);
@@ -158,39 +179,24 @@ export default function AdminAdvisorsPage() {
         }
       />
 
-      <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-          <div className="flex-1">
-            <Input
-              type="search"
-              enterKeyHint="search"
-              aria-label="Search advisors"
-              placeholder="Search by name, email or employee code"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <Button type="submit" variant="outline" className="shrink-0">
-            Search
-          </Button>
-        </form>
-        <FilterChips ariaLabel="Advisor status" value={activeFilter} onChange={setActiveFilter} options={ACTIVE_FILTERS} />
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Name, email, phone or employee code"
+        searchLabel="Search advisors"
+        status={{ key: 'active', options: ACTIVE_FILTERS, ariaLabel: 'Advisor status' }}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'advisor' : 'advisors'}`}
+      />
 
       {loading && advisors.length === 0 ? (
-        <div className="space-y-2" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
+        <AdvisorsSkeleton />
       ) : loadError && advisors.length === 0 ? (
         <ErrorState title="Advisors unavailable" error={loadError} onRetry={reload} />
       ) : advisors.length === 0 ? (
         <EmptyState
           icon={UserCheck}
           title="No advisors found"
-          description={searchTerm || activeFilter ? 'Try a different search or filter.' : 'No advisor accounts yet.'}
+          description={anyFilter ? 'No advisors match these filters.' : 'No advisor accounts yet.'}
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -275,14 +281,14 @@ export default function AdminAdvisorsPage() {
                 totalPages={Math.max(1, totalPages)}
                 totalItems={totalCount}
                 pageSize={pageSize}
-                onPageChange={(p) => loadAdvisors(p, pageSize, searchTerm, activeFilter)}
+                onPageChange={goToPage}
               />
             )}
             <div className="hidden w-40 sm:block">
               <Select
                 aria-label="Rows per page"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => filters.set({ size: e.target.value })}
                 options={[
                   { value: 25, label: '25 per page' },
                   { value: 50, label: '50 per page' },

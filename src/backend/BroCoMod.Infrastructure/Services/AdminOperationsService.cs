@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -15,19 +16,24 @@ public class AdminOperationsService : IAdminOperationsService
     private readonly IApplicationDbContext _context;
     private readonly IAuditService _auditService;
     private readonly IAdminPortalService _adminPortalService;
-    private readonly IConfiguration _configuration;
+    // The app-wide connection registered at startup; absent when Redis was unreachable then.
+    private readonly IConnectionMultiplexer? _redis;
     private static readonly DateTime ServiceStartTimeUtc = DateTime.UtcNow;
+    // Same setting CommissionService uses to stop new jobs for garages with long-overdue commission.
+    private readonly int _blockAfterOverdueDays;
 
     public AdminOperationsService(
         IApplicationDbContext context,
         IAuditService auditService,
         IAdminPortalService adminPortalService,
-        IConfiguration configuration)
+        IConnectionMultiplexer? redis = null,
+        IConfiguration? configuration = null)
     {
         _context = context;
         _auditService = auditService;
         _adminPortalService = adminPortalService;
-        _configuration = configuration;
+        _redis = redis;
+        _blockAfterOverdueDays = Math.Max(0, configuration?.GetValue<int?>("Commission:BlockNewJobsAfterOverdueDays") ?? 3);
     }
 
     public async Task<AdminDashboardKpiDto> GetDashboardKpisAsync(CancellationToken cancellationToken = default)
@@ -130,19 +136,23 @@ public class AdminOperationsService : IAdminOperationsService
 
         var query = _context.ServiceRequests.AsNoTracking();
 
+        // An unknown status is ignored (as before); the newer filters reject bad input with a 400.
         if (!string.IsNullOrWhiteSpace(filter.Status) && Enum.TryParse<ServiceRequestStatus>(filter.Status, true, out var status))
         {
             query = query.Where(sr => sr.Status == status);
         }
 
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
         {
-            var search = filter.Search.Trim().ToLower();
+            var compact = ListFilters.Compact(search)!;
             query = query.Where(sr =>
                 sr.RequestNumber.ToLower().Contains(search) ||
-                sr.CustomerProfile.User.FullName.ToLower().Contains(search) ||
+                sr.CustomerProfile!.User.FullName.ToLower().Contains(search) ||
                 sr.CustomerProfile.User.Email.ToLower().Contains(search) ||
+                sr.CustomerProfile.User.PhoneNumber.Replace(" ", "").Contains(compact) ||
                 sr.VehicleLicensePlate.ToLower().Contains(search) ||
+                sr.VehicleLicensePlate.Replace(" ", "").Replace("-", "").ToLower().Contains(compact.Replace("-", "")) ||
                 sr.VehicleMake.ToLower().Contains(search) ||
                 sr.VehicleModel.ToLower().Contains(search));
         }
@@ -152,15 +162,18 @@ public class AdminOperationsService : IAdminOperationsService
             query = query.Where(sr => sr.AssignedAdvisorId == filter.AssignedAdvisorId.Value);
         }
 
-        if (filter.FromDateUtc.HasValue)
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue)
         {
-            query = query.Where(sr => sr.CreatedAtUtc >= filter.FromDateUtc.Value);
+            query = query.Where(sr => sr.CreatedAtUtc >= fromUtc.Value);
         }
 
-        if (filter.ToDateUtc.HasValue)
+        if (toUtc.HasValue)
         {
-            query = query.Where(sr => sr.CreatedAtUtc <= filter.ToDateUtc.Value);
+            query = query.Where(sr => sr.CreatedAtUtc <= toUtc.Value);
         }
+
+        query = RequestListFilters.Apply(query, filter.ServiceType, filter.Category, filter.City);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -405,14 +418,54 @@ public class AdminOperationsService : IAdminOperationsService
             query = query.Where(g => g.Status == filter.Status.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
         {
-            var search = filter.Search.Trim().ToLower();
+            var compact = ListFilters.Compact(search)!;
             query = query.Where(g =>
                 g.Name.ToLower().Contains(search) ||
                 g.Email.ToLower().Contains(search) ||
                 g.PhoneNumber.ToLower().Contains(search) ||
+                g.PhoneNumber.Replace(" ", "").Contains(compact) ||
                 g.Address.ToLower().Contains(search));
+        }
+
+        // Garages have no separate city column; the city is part of the address.
+        var city = ListFilters.Search(filter.City);
+        if (city != null)
+        {
+            query = query.Where(g => g.Address.ToLower().Contains(city));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Dues))
+        {
+            var now = DateTime.UtcNow;
+            var dues = _context.GarageCommissions.Where(c => c.Status == GarageCommissionStatus.Due);
+            switch (filter.Dues.Trim().ToLowerInvariant())
+            {
+                case "any":
+                    query = query.Where(g => dues.Any(c => c.GarageId == g.Id));
+                    break;
+                case "overdue":
+                    query = query.Where(g => dues.Any(c => c.GarageId == g.Id && c.DueAtUtc < now));
+                    break;
+                case "blocked":
+                    if (_blockAfterOverdueDays <= 0)
+                    {
+                        query = query.Where(g => false);
+                    }
+                    else
+                    {
+                        var cutoff = now.AddDays(-_blockAfterOverdueDays);
+                        query = query.Where(g => dues.Any(c => c.GarageId == g.Id && c.DueAtUtc < cutoff));
+                    }
+                    break;
+                case "none":
+                    query = query.Where(g => !dues.Any(c => c.GarageId == g.Id));
+                    break;
+                default:
+                    throw new ArgumentException($"'{filter.Dues.Trim()}' is not a valid dues filter. Use any, overdue, blocked or none.");
+            }
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -751,14 +804,28 @@ public class AdminOperationsService : IAdminOperationsService
             .Include(c => c.User)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
         {
-            var search = filter.Search.Trim().ToLower();
+            var compact = ListFilters.Compact(search)!;
             query = query.Where(c =>
                 c.User.FullName.ToLower().Contains(search) ||
                 c.User.Email.ToLower().Contains(search) ||
-                c.User.PhoneNumber.ToLower().Contains(search));
+                c.User.PhoneNumber.ToLower().Contains(search) ||
+                // Numbers are stored as "+91 98765 43210"; let "9876543210" find them too.
+                c.User.PhoneNumber.Replace(" ", "").Contains(compact));
         }
+
+        if (filter.HasBookings.HasValue)
+        {
+            query = filter.HasBookings.Value
+                ? query.Where(c => _context.ServiceRequests.Any(sr => sr.CustomerId == c.Id))
+                : query.Where(c => !_context.ServiceRequests.Any(sr => sr.CustomerId == c.Id));
+        }
+
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue) query = query.Where(c => c.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(c => c.CreatedAtUtc <= toUtc.Value);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -876,16 +943,28 @@ public class AdminOperationsService : IAdminOperationsService
             query = query.Where(j => j.GarageId == filter.GarageId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
         {
-            var search = filter.Search.Trim().ToLower();
+            var compact = ListFilters.Compact(search)!;
             query = query.Where(j =>
                 j.JobNumber.ToLower().Contains(search) ||
                 j.ServiceRequest.RequestNumber.ToLower().Contains(search) ||
                 j.Garage.Name.ToLower().Contains(search) ||
                 j.ServiceRequest.CustomerProfile.User.FullName.ToLower().Contains(search) ||
-                j.ServiceRequest.VehicleLicensePlate.ToLower().Contains(search));
+                j.ServiceRequest.CustomerProfile.User.PhoneNumber.Replace(" ", "").Contains(compact) ||
+                j.ServiceRequest.VehicleLicensePlate.ToLower().Contains(search) ||
+                j.ServiceRequest.VehicleMake.ToLower().Contains(search) ||
+                j.ServiceRequest.VehicleModel.ToLower().Contains(search));
         }
+
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue) query = query.Where(j => j.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(j => j.CreatedAtUtc <= toUtc.Value);
+
+        var isPackage = ListFilters.ServiceType(filter.ServiceType);
+        if (isPackage == true) query = query.Where(j => j.ServiceRequest.ServicePackageId != null);
+        else if (isPackage == false) query = query.Where(j => j.ServiceRequest.ServicePackageId == null);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -1185,14 +1264,25 @@ public class AdminOperationsService : IAdminOperationsService
             query = query.Where(al => al.UserId == filter.UserId.Value);
         }
 
-        if (filter.FromDateUtc.HasValue)
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue)
         {
-            query = query.Where(al => al.TimestampUtc >= filter.FromDateUtc.Value);
+            query = query.Where(al => al.TimestampUtc >= fromUtc.Value);
         }
 
-        if (filter.ToDateUtc.HasValue)
+        if (toUtc.HasValue)
         {
-            query = query.Where(al => al.TimestampUtc <= filter.ToDateUtc.Value);
+            query = query.Where(al => al.TimestampUtc <= toUtc.Value);
+        }
+
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
+        {
+            query = query.Where(al =>
+                (al.UserEmail != null && al.UserEmail.ToLower().Contains(search)) ||
+                (al.EntityId != null && al.EntityId.ToLower().Contains(search)) ||
+                (al.Details != null && al.Details.ToLower().Contains(search)) ||
+                al.Action.ToLower().Contains(search));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -1236,13 +1326,23 @@ public class AdminOperationsService : IAdminOperationsService
             query = query.Where(n => n.UserId == filter.UserId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
         {
-            var search = filter.Search.Trim().ToLower();
             query = query.Where(n =>
                 n.Title.ToLower().Contains(search) ||
                 n.Message.ToLower().Contains(search) ||
                 n.User.Email.ToLower().Contains(search));
+        }
+
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue) query = query.Where(n => n.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(n => n.CreatedAtUtc <= toUtc.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.Type))
+        {
+            var type = filter.Type.Trim().ToLower();
+            query = query.Where(n => n.Type.ToLower() == type);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -1349,12 +1449,18 @@ public class AdminOperationsService : IAdminOperationsService
         var redisSw = Stopwatch.StartNew();
         try
         {
-            var redisConnection = _configuration.GetConnectionString("Redis") ?? "localhost:6379";
-            var muxer = await ConnectionMultiplexer.ConnectAsync(redisConnection);
-            var server = muxer.GetServer(muxer.GetEndPoints().First());
-            var ping = await server.PingAsync();
-            redisSw.Stop();
-            redisHealth = new RedisHealthDto("Healthy", ping.TotalMilliseconds);
+            // Ping the shared connection. Opening a new one per call would leak a client on every page view.
+            if (_redis is null || !_redis.IsConnected)
+            {
+                redisSw.Stop();
+                redisHealth = new RedisHealthDto("Degraded", redisSw.Elapsed.TotalMilliseconds, "Redis is not connected; using the in-memory cache.");
+            }
+            else
+            {
+                var ping = await _redis.GetDatabase().PingAsync();
+                redisSw.Stop();
+                redisHealth = new RedisHealthDto("Healthy", ping.TotalMilliseconds);
+            }
         }
         catch (Exception ex)
         {

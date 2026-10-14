@@ -1,36 +1,43 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PaymentDto } from '@/types/finance';
-import { CreditCard, IndianRupee, RotateCcw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CreditCard, IndianRupee, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Input } from '@/components/ui/Input';
 import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatDateTime, formatINR, formatINRWhole, humanize } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
-// The API returns a paged object ({ items, totalCount }); a plain array is also accepted.
-function toList(data: unknown): { items: PaymentDto[]; total: number } {
-  if (Array.isArray(data)) return { items: data as PaymentDto[], total: data.length };
+// The API returns a paged object ({ items, page, totalCount, totalPages }); a plain array is also accepted.
+function toPage(data: unknown): { items: PaymentDto[]; total: number; page: number; totalPages: number } {
+  if (Array.isArray(data)) return { items: data as PaymentDto[], total: data.length, page: 1, totalPages: 1 };
   if (data && typeof data === 'object') {
-    const obj = data as { items?: unknown; totalCount?: unknown };
+    const obj = data as { items?: unknown; totalCount?: unknown; page?: unknown; totalPages?: unknown };
     if (Array.isArray(obj.items)) {
       const total = typeof obj.totalCount === 'number' ? obj.totalCount : obj.items.length;
-      return { items: obj.items as PaymentDto[], total };
+      return {
+        items: obj.items as PaymentDto[],
+        total,
+        page: typeof obj.page === 'number' ? obj.page : 1,
+        totalPages: typeof obj.totalPages === 'number' ? obj.totalPages : 1,
+      };
     }
   }
-  return { items: [], total: 0 };
+  return { items: [], total: 0, page: 1, totalPages: 1 };
 }
 
 const METHOD_LABELS: Record<string, string> = {
@@ -48,29 +55,71 @@ function methodLabel(method?: string | null): string {
 }
 
 const refundableAmount = (p: PaymentDto) => Number(p.amount ?? 0) - Number(p.refundedAmount ?? 0);
+// Garage commission payments are settled or waived from Commissions, never refunded here.
 const canRefund = (p: PaymentDto) =>
-  (p.status === 'Paid' || p.status === 'PartiallyRefunded') && refundableAmount(p) > 0;
+  (p.status === 'Paid' || p.status === 'PartiallyRefunded') && p.purpose !== 'GarageCommission' && refundableAmount(p) > 0;
 
+// Values are PaymentStatus names (sent to the API as they are).
 const STATUS_FILTERS = [
-  { value: 'ALL', label: 'All' },
-  { value: 'PAID', label: 'Paid' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'PARTIALLYREFUNDED', label: 'Part refunded' },
-  { value: 'REFUNDED', label: 'Refunded' },
-  { value: 'FAILED', label: 'Failed' },
+  { value: '', label: 'All' },
+  { value: 'Paid', label: 'Paid' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'PartiallyRefunded', label: 'Part refunded' },
+  { value: 'Refunded', label: 'Refunded' },
+  { value: 'Failed', label: 'Failed' },
 ];
 
-const statusKey = (status: string) => String(status ?? '').replace(/[\s_]/g, '').toUpperCase();
+// PaymentPurpose / PaymentMethod names.
+const PURPOSE_OPTIONS = [
+  { value: 'BookingAdvance', label: 'Booking advance' },
+  { value: 'GarageCommission', label: 'Garage commission' },
+  { value: 'ServiceQuotation', label: 'Quoted service' },
+  { value: 'AdditionalWork', label: 'Extra work' },
+  { value: 'Other', label: 'Other' },
+];
+
+const METHOD_OPTIONS = [
+  { value: 'Upi', label: 'UPI' },
+  { value: 'Card', label: 'Card' },
+  { value: 'NetBanking', label: 'Net banking' },
+  { value: 'Wallet', label: 'Wallet' },
+  { value: 'BankTransfer', label: 'Bank transfer' },
+  { value: 'TestProvider', label: 'Test payment' },
+];
+
+const FILTER_DEFAULTS = { q: '', status: '', purpose: '', method: '', range: '', from: '', to: '', size: '25' };
 
 export default function AdminPaymentsPage() {
+  return (
+    <Suspense fallback={<PaymentsSkeleton />}>
+      <AdminPayments />
+    </Suspense>
+  );
+}
+
+function PaymentsSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-16 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+function AdminPayments() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
 
   const [payments, setPayments] = useState<PaymentDto[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
+  const latest = useRef(0);
 
   // Payment sheet (details / refund)
   const [selectedPayment, setSelectedPayment] = useState<PaymentDto | null>(null);
@@ -80,13 +129,31 @@ export default function AdminPaymentsPage() {
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
 
-  const loadPayments = useCallback(async () => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize,
+        search: f.q,
+        status: f.status,
+        purpose: f.purpose,
+        method: f.method,
+        ...dateRangeQuery(f, ['fromDate', 'toDate']),
+      }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadPayments = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    const res = await apiFetch<PaymentDto[]>('/admin/finance/payments');
+    const res = await apiFetch<unknown>(`/admin/finance/payments${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
-      const { items, total } = toList(res.data);
-      setPayments(items);
-      setTotalCount(total);
+      const data = toPage(res.data);
+      setPayments(data.items);
+      setTotalCount(data.total);
+      setPage(data.page);
+      setTotalPages(data.totalPages);
       setLoadError(null);
     } else {
       setLoadError(res.message || 'Could not load payments.');
@@ -95,8 +162,13 @@ export default function AdminPaymentsPage() {
   }, []);
 
   useEffect(() => {
-    loadPayments();
-  }, [loadPayments]);
+    loadPayments(query);
+  }, [loadPayments, query]);
+
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const openPayment = (p: PaymentDto, mode: 'details' | 'refund') => {
     setSelectedPayment(p);
@@ -150,76 +222,64 @@ export default function AdminPaymentsPage() {
       setSelectedPayment(null);
       setRefundAmount('');
       setRefundReason('');
-      loadPayments();
+      loadPayments(query);
     } else {
       setRefundError(res.message || 'The refund could not be processed. Please try again.');
     }
   };
 
-  const counts = useMemo(() => {
-    const map: Record<string, number> = { ALL: payments.length };
-    payments.forEach((p) => {
-      const key = statusKey(p.status);
-      map[key] = (map[key] ?? 0) + 1;
-    });
-    return map;
-  }, [payments]);
-
-  const filteredPayments = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return payments.filter((p) => {
-      const matchesStatus = filterStatus === 'ALL' || statusKey(p.status) === filterStatus;
-      const matchesSearch =
-        !q ||
-        (p.paymentNumber ?? '').toLowerCase().includes(q) ||
-        (p.gatewayPaymentId ?? '').toLowerCase().includes(q) ||
-        (p.gatewayOrderId ?? '').toLowerCase().includes(q);
-      return matchesStatus && matchesSearch;
-    });
-  }, [payments, filterStatus, searchTerm]);
+  const safeTotalPages = Math.max(1, totalPages);
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Payments"
-        description="Customer payments received through the payment gateway. Refund a payment from here."
+        description="Payments received through the payment gateway: customer booking advances and garage commission. Refund a customer payment from here."
         backHref="/admin/finance"
         backLabel="Finance"
       />
 
-      <div className="space-y-3">
-        <Input
-          type="search"
-          aria-label="Search payments"
-          placeholder="Search by payment number or gateway reference"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />}
-        />
-        <FilterChips
-          ariaLabel="Payment status"
-          value={filterStatus}
-          onChange={setFilterStatus}
-          options={STATUS_FILTERS.map((f) => ({ ...f, count: loading ? undefined : counts[f.value] ?? 0 }))}
-        />
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Payment no., garage or request"
+        searchLabel="Search payments"
+        status={{ key: 'status', options: STATUS_FILTERS, ariaLabel: 'Payment status' }}
+        fields={[
+          { type: 'select', key: 'purpose', label: 'For', allLabel: 'All purposes', options: PURPOSE_OPTIONS },
+          { type: 'select', key: 'method', label: 'Method', allLabel: 'All methods', options: METHOD_OPTIONS },
+          { type: 'dateRange', label: 'Created' },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'payment' : 'payments'}`}
+        trailing={
+          <label className="flex items-center gap-2">
+            Per page
+            <select
+              value={pageSize}
+              onChange={(e) => filters.set({ size: e.target.value })}
+              className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+        }
+      />
 
       {loading && payments.length === 0 ? (
-        <div className="space-y-2" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
+        <PaymentsSkeleton />
       ) : loadError && payments.length === 0 ? (
-        <ErrorState title="Payments unavailable" error={loadError} onRetry={loadPayments} />
-      ) : filteredPayments.length === 0 ? (
+        <ErrorState title="Payments unavailable" error={loadError} onRetry={() => loadPayments(query)} />
+      ) : payments.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title={payments.length === 0 ? 'No payments yet' : 'No matching payments'}
+          title={anyFilter ? 'No matching payments' : 'No payments yet'}
           description={
-            payments.length === 0
-              ? 'Payments appear here once customers pay for an accepted quote.'
-              : 'Try a different search or status filter.'
+            anyFilter
+              ? 'No payments match these filters.'
+              : 'Payments appear here once customers pay for an accepted quote.'
           }
         />
       ) : (
@@ -241,7 +301,7 @@ export default function AdminPaymentsPage() {
                 </tr>
               </TableHeader>
               <TableBody>
-                {filteredPayments.map((p) => (
+                {payments.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell>
                       <button
@@ -291,7 +351,7 @@ export default function AdminPaymentsPage() {
           {/* Phone list */}
           <div className="md:hidden">
             <ListGroup>
-              {filteredPayments.map((p) => (
+              {payments.map((p) => (
                 <ListItem
                   key={p.id}
                   onClick={() => openPayment(p, 'details')}
@@ -314,11 +374,40 @@ export default function AdminPaymentsPage() {
             </ListGroup>
           </div>
 
-          {totalCount > payments.length && (
-            <p className="px-1 text-xs text-navy-500">
-              Showing the latest {payments.length} of {totalCount} payments.
-            </p>
+          {safeTotalPages > 1 && (
+            <div className="flex items-center gap-3 md:hidden">
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={page <= 1 || loading}
+                onClick={() => goToPage(page - 1)}
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
+              >
+                Previous
+              </Button>
+              <span className="shrink-0 text-sm tabular-nums text-navy-500">
+                {page} / {safeTotalPages}
+              </span>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={page >= safeTotalPages || loading}
+                onClick={() => goToPage(page + 1)}
+                rightIcon={<ChevronRight className="h-4 w-4" />}
+              >
+                Next
+              </Button>
+            </div>
           )}
+          <div className="hidden md:block">
+            <Pagination
+              currentPage={page}
+              totalPages={safeTotalPages}
+              totalItems={totalCount}
+              pageSize={pageSize}
+              onPageChange={goToPage}
+            />
+          </div>
         </>
       )}
 
@@ -350,6 +439,9 @@ export default function AdminPaymentsPage() {
               </Button>
               {canRefund(selectedPayment) && (
                 <Button
+                  // Own key: otherwise React reuses this button as the refund form's submit button mid-click,
+                  // which submits the empty form straight away.
+                  key="start-refund"
                   variant="outline"
                   onClick={() => setSheetMode('refund')}
                   leftIcon={<RotateCcw className="h-4 w-4" />}

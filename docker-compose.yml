@@ -102,7 +102,16 @@ services:
       Commission__DueHours: ${COMMISSION_DUE_HOURS:-24}
       Commission__ReminderIntervalHours: ${COMMISSION_REMINDER_HOURS:-12}
       Commission__BlockNewJobsAfterOverdueDays: ${COMMISSION_BLOCK_AFTER_DAYS:-3}
+      # Google Maps (docs/google-maps-setup.md). Read at startup: a new key needs only
+      # `docker compose up -d backend`, no frontend rebuild.
+      GoogleMaps__BrowserApiKey: ${GOOGLE_MAPS_BROWSER_KEY:-}
       GoogleMaps__ServerApiKey: ${GOOGLE_MAPS_SERVER_KEY:-}
+      Geocoding__FallbackProvider: ${GEOCODING_FALLBACK_PROVIDER:-OpenStreetMap}
+      # Job photos and videos (docs/architecture/media.md). Kept in the broco-mod-media volume; back it up with the database.
+      Media__StoragePath: /app/data/media
+      Media__SigningKey: ${MEDIA_SIGNING_KEY:-}
+    volumes:
+      - media_data:/app/data/media
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz/live"]
       interval: 10s
@@ -121,7 +130,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         NEXT_PUBLIC_DEMO_MODE: ${ENABLE_DEMO_SEEDING:-false}
-        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_BROWSER_KEY:-}
+        # Optional: bakes a browser key into the build (it then wins over the runtime key from the API).
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_BROWSER_KEY_AT_BUILD:-}
         NEXT_PUBLIC_SUPPORT_PHONE: ${SUPPORT_PHONE:-}
         NEXT_PUBLIC_SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
         NEXT_PUBLIC_SUPPORT_WHATSAPP: ${SUPPORT_WHATSAPP:-}
@@ -189,3 +199,5 @@ volumes:
     name: broco-mod-letsencrypt
   certbot_www:
     name: broco-mod-certbot-www
+  media_data:
+    name: broco-mod-media

@@ -26,10 +26,10 @@ public class GaragePortalService : IGaragePortalService
 
         var garageName = garage?.Name ?? "Partner Garage";
 
-        // Query quotes submitted strictly by this garage
+        // Query quotes submitted strictly by this garage. Package bookings are jobs, never quotes or requests.
         var quotes = await _context.GarageQuotes
             .AsNoTracking()
-            .Where(q => q.GarageId == garageId)
+            .Where(q => q.GarageId == garageId && q.ServiceRequest.ServicePackageId == null)
             .OrderByDescending(q => q.CreatedAtUtc)
             .Take(5)
             .Select(q => new GarageQuoteSummaryDto(
@@ -50,13 +50,13 @@ public class GaragePortalService : IGaragePortalService
             .ToListAsync(cancellationToken);
 
         var submittedQuotesCount = await _context.GarageQuotes
-            .CountAsync(q => q.GarageId == garageId, cancellationToken);
+            .CountAsync(q => q.GarageId == garageId && q.ServiceRequest.ServicePackageId == null, cancellationToken);
 
         // Query incoming dispatched requests strictly belonging to this garage
         var requests = await _context.GarageRequests
             .AsNoTracking()
             .Include(gr => gr.ServiceRequest)
-            .Where(gr => gr.GarageId == garageId)
+            .Where(gr => gr.GarageId == garageId && gr.ServiceRequest.ServicePackageId == null)
             .OrderByDescending(gr => gr.CreatedAtUtc)
             .Take(5)
             .Select(gr => new GarageRequestSummaryDto(
@@ -73,6 +73,7 @@ public class GaragePortalService : IGaragePortalService
         // KPI counts are aggregated in SQL over the garage's full data set, not over the 5-row previews above.
         var newRequestsCount = await _context.GarageRequests
             .CountAsync(gr => gr.GarageId == garageId &&
+                              gr.ServiceRequest.ServicePackageId == null &&
                               (gr.Status == GarageRequestStatus.Pending ||
                                gr.Status == GarageRequestStatus.Notified ||
                                gr.Status == GarageRequestStatus.Viewed), cancellationToken);

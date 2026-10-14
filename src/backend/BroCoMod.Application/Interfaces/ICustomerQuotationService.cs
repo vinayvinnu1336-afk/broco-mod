@@ -12,5 +12,5 @@ public interface ICustomerQuotationService
     Task<ApiResponse<CustomerQuotationDto>> SendCustomerQuotationAsync(Guid quotationId, Guid advisorId, CancellationToken ct = default);
     Task<ApiResponse<List<CustomerFacingQuotationDto>>> GetQuotationsForCustomerAsync(Guid customerId, CancellationToken ct = default);
     Task<ApiResponse<CustomerFacingQuotationDto>> GetCustomerQuotationForCustomerAsync(Guid quotationId, Guid customerId, CancellationToken ct = default);
-    Task<ApiResponse<List<CustomerQuotationSummaryDto>>> GetPlatformCustomerQuotationsAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
+    Task<ApiResponse<List<CustomerQuotationSummaryDto>>> GetPlatformCustomerQuotationsAsync(int page = 1, int pageSize = 50, CancellationToken ct = default, ListFilter? filter = null);
 }

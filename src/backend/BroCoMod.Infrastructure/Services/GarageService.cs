@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -53,10 +54,13 @@ public class GarageService : IGarageService
         CreateGarageDto dto,
         CancellationToken cancellationToken = default)
     {
+        var phoneNumber = IndianMobile.Normalize(dto.PhoneNumber)
+            ?? throw new ArgumentException(IndianMobile.InvalidMessage);
+
         var garage = new Garage(
             dto.Name,
             dto.Email,
-            dto.PhoneNumber,
+            phoneNumber,
             dto.Address,
             dto.Longitude,
             dto.Latitude

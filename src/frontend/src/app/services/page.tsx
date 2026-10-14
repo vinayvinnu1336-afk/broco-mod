@@ -7,9 +7,9 @@ import { PublicFooter } from '../_public/PublicFooter';
 import { ServiceGrid } from '../_public/ServiceGrid';
 
 export const metadata: Metadata = {
-  title: 'Car services in Hyderabad',
+  title: 'Car services in Hyderabad, Bengaluru and Mancherial',
   description:
-    'Periodic service packages, AC, batteries, tyres, denting and painting, detailing, clutch, suspension and more from verified garages in Hyderabad.',
+    'Periodic service packages, AC, batteries, tyres, denting and painting, detailing, clutch, suspension and more from verified garages in Hyderabad, Bengaluru and Mancherial.',
 };
 
 const pricing = [
@@ -21,12 +21,12 @@ const pricing = [
   {
     icon: MessageSquareQuote,
     title: 'Everything else',
-    desc: 'Tell us what your car needs and verified garages send you quotes to choose from.',
+    desc: 'Pick one or more services and verified garages send you free quotes. Pay only after you accept one.',
   },
   {
     icon: CreditCard,
-    title: 'Pay 10% to book',
-    desc: 'Either way, you pay just 10% online to confirm the booking.',
+    title: 'Pay 10% to confirm',
+    desc: 'Packages: 10% online when you book. Quoted services: 10% online only after you accept the quote.',
   },
   {
     icon: Store,
@@ -49,7 +49,7 @@ export default function ServicesPage() {
             </nav>
             <h1 className="mt-2 text-xl font-extrabold tracking-tight text-navy-900 sm:text-3xl">All car services</h1>
             <p className="mt-1 max-w-2xl text-sm text-navy-500 sm:text-base">
-              From routine service to repairs, done by verified garages in Hyderabad.
+              From routine service to repairs, done by verified garages in Hyderabad, Bengaluru and Mancherial.
             </p>
           </div>
         </section>

@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, Clock, IndianRupee, Receipt } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { formatDate, formatDateTime, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { Badge } from '@/components/ui/Badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -18,7 +18,9 @@ import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { useToast } from '@/components/ui/Toast';
+import { inDateRange, matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 import {
   GarageCommission,
   GarageCommissionSummary,
@@ -27,7 +29,14 @@ import {
   pctLabel,
 } from '@/components/garage/commission';
 
-type Filter = 'Due' | 'Paid' | 'All';
+// The list opens on what is due; `All` shows everything. `Overdue` is a due item past its due time.
+const FILTER_DEFAULTS = { status: 'Due', q: '', range: '', from: '', to: '' };
+
+function statusMatches(c: GarageCommission, filter: string) {
+  if (filter === 'All') return true;
+  if (filter === 'Overdue') return c.status === 'Due' && c.isOverdue;
+  return c.status === filter;
+}
 
 /** Exact rupees in KPI tiles while they fit; compact once they get long. */
 function kpiAmount(value: number) {
@@ -65,12 +74,22 @@ function statusChip(c: GarageCommission) {
 }
 
 export default function GarageCommissionPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading your commission..." />}>
+      <GarageCommissionContent />
+    </Suspense>
+  );
+}
+
+function GarageCommissionContent() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
+  const filter = f.status;
   const [summary, setSummary] = useState<GarageCommissionSummary | null>(null);
   const [items, setItems] = useState<GarageCommission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('Due');
   const [selected, setSelected] = useState<GarageCommission | null>(null);
   /** 'all' while paying every outstanding due, or the id of the single due being paid. */
   const [paying, setPaying] = useState<string | null>(null);
@@ -103,8 +122,34 @@ export default function GarageCommissionPage() {
     [items]
   );
 
+  // Fully loaded list: filter here. Chip counts follow the search and date.
+  const matching = useMemo(
+    () =>
+      items.filter(
+        (c) =>
+          inDateRange(c.dueAtUtc, f) &&
+          matchesSearch(f.q, c.commissionNumber, c.jobNumber, c.requestNumber, c.vehicleSummary, c.paymentReference)
+      ),
+    [items, f]
+  );
+
+  const chipOptions = useMemo(() => {
+    const count = (value: string) => matching.filter((c) => statusMatches(c, value)).length;
+    const showOverdue = filter === 'Overdue' || items.some((c) => c.status === 'Due' && c.isOverdue);
+    const showWaived = filter === 'Waived' || items.some((c) => c.status === 'Waived');
+    return [
+      { value: 'Due', label: 'Due', count: count('Due') },
+      ...(showOverdue ? [{ value: 'Overdue', label: 'Overdue', count: count('Overdue') }] : []),
+      { value: 'Paid', label: 'Paid', count: count('Paid') },
+      ...(showWaived ? [{ value: 'Waived', label: 'Waived', count: count('Waived') }] : []),
+      { value: 'All', label: 'All', count: matching.length },
+    ];
+  }, [items, matching, filter]);
+
+  const searchOrDate = !!f.q || filters.isActive('range');
+
   const visible = useMemo(() => {
-    const rows = filter === 'All' ? items : items.filter((c) => c.status === filter);
+    const rows = matching.filter((c) => statusMatches(c, filter));
     // Overdue first, then the soonest due; paid rows newest first.
     return [...rows].sort((a, b) => {
       if (a.status === 'Due' && b.status === 'Due') {
@@ -115,7 +160,7 @@ export default function GarageCommissionPage() {
       if (b.status === 'Due') return 1;
       return new Date(b.paidAtUtc ?? b.createdAtUtc).getTime() - new Date(a.paidAtUtc ?? a.createdAtUtc).getTime();
     });
-  }, [items, filter]);
+  }, [matching, filter]);
 
   const outstandingAmount = summary?.outstandingAmount ?? items.filter((c) => c.status === 'Due').reduce((s, c) => s + c.totalDue, 0);
   const outstandingCount = summary?.outstandingCount ?? counts.Due;
@@ -193,23 +238,36 @@ export default function GarageCommissionPage() {
           </div>
 
           <section className="space-y-3">
-            <FilterChips
-              ariaLabel="Filter commission"
-              value={filter}
-              onChange={(v) => setFilter(v as Filter)}
-              options={[
-                { value: 'Due', label: 'Due', count: counts.Due },
-                { value: 'Paid', label: 'Paid', count: counts.Paid },
-                { value: 'All', label: 'All', count: counts.All },
-              ]}
+            <FilterBar
+              filters={filters}
+              searchKey="q"
+              searchPlaceholder="Commission or job no."
+              searchLabel="Search commission"
+              status={{ key: 'status', options: chipOptions, ariaLabel: 'Filter commission' }}
+              fields={[{ type: 'dateRange', label: 'Due' }]}
+              summary={`${visible.length} ${visible.length === 1 ? 'job' : 'jobs'}`}
             />
 
             {visible.length === 0 ? (
               <EmptyState
                 icon={Receipt}
-                title={filter === 'Due' ? 'No commission due' : filter === 'Paid' ? 'Nothing paid yet' : 'No commission yet'}
+                title={
+                  searchOrDate
+                    ? 'Nothing found'
+                    : filter === 'Due'
+                    ? 'No commission due'
+                    : filter === 'Overdue'
+                    ? 'Nothing overdue'
+                    : filter === 'Paid'
+                    ? 'Nothing paid yet'
+                    : filter === 'Waived'
+                    ? 'Nothing waived'
+                    : 'No commission yet'
+                }
                 description={
-                  filter === 'Due'
+                  searchOrDate
+                    ? 'No commission matches these filters.'
+                    : filter === 'Due'
                     ? 'When you hand a car back, BroCo’s commission for that job shows up here. You have 24 hours to pay it.'
                     : 'Commission for each handed-over job appears here.'
                 }

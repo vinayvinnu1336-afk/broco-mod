@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { ServiceRequestDetailDto } from '@/types/serviceRequest';
 import { CustomerServiceJobDetailDto, ServiceJobStatus } from '@/types/serviceJob';
@@ -17,14 +18,17 @@ import { Alert } from '@/components/ui/Alert';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { formatDate, formatDateTime, formatINRWhole, humanize } from '@/lib/format';
 import { advanceFor, payBookingAdvance } from '@/components/booking/advancePayment';
 import {
   DetailRow,
   RequestProgress,
+  RequestStatusBadge,
   StepList,
+  packageNextStep,
+  packageStageIndex,
   requestNextStep,
-  requestStageIndex,
   statusKey,
 } from '@/app/customer/_lib/customer-ui';
 
@@ -37,6 +41,7 @@ type RequestDetail = ServiceRequestDetailDto & {
   advancePaidAmount?: number | null;
   advancePaidAtUtc?: string | null;
   vehicleFuel?: string | null;
+  serviceCategories?: string[] | null;
 };
 
 const JOB_ORDER: ServiceJobStatus[] = [
@@ -132,7 +137,7 @@ export default function CustomerRequestDetailPage() {
     if (res.success) {
       setCancelOpen(false);
       setCancelReason('');
-      toast.success('Request cancelled');
+      toast.success(request.servicePackageCode ? 'Booking cancelled' : 'Request cancelled');
       loadData();
     } else {
       setCancelError(res.message || 'Failed to cancel service request.');
@@ -146,7 +151,7 @@ export default function CustomerRequestDetailPage() {
     if (result.kind === 'redirect') return; // continuing on the provider's checkout page
     setPaying(false);
     if (result.kind === 'paid') {
-      toast.success('Booking confirmed', `${formatINRWhole(result.amount)} advance received. An advisor will assign a verified garage near you shortly.`);
+      toast.success('Booking confirmed', `${formatINRWhole(result.amount)} advance received. BroCo is assigning a verified garage near you.`);
       loadData();
     } else {
       toast.error('Payment not completed', result.message);
@@ -177,13 +182,16 @@ export default function CustomerRequestDetailPage() {
   const canCancel = reqKey !== 'CANCELLED' && reqKey !== 'COMPLETED';
   const isPackageBooking = !!request.servicePackageCode;
   const advancePaid = !!request.advancePaidAtUtc;
-  // Package bookings have a fixed price: no garage quotes, an advisor assigns a garage once the advance is paid.
-  const nextStep =
-    isPackageBooking && requestStageIndex(request.status) === 0
-      ? advancePaid
-        ? 'Booking confirmed. An advisor will assign a verified garage near you shortly.'
-        : 'Pay the 10% booking advance below to confirm your booking.'
-      : requestNextStep(request.status);
+  // Package bookings have a fixed price: no garage quotes, BroCo assigns a garage once the advance is paid.
+  const nextStep = isPackageBooking ? packageNextStep(request.status, advancePaid) : requestNextStep(request.status);
+  const awaitingGarage = isPackageBooking && packageStageIndex(request.status) === 0;
+  const packageName = request.servicePackageName || 'Your service package';
+  // Every service the customer picked (stored joined, e.g. "AC Service & Repair, Batteries").
+  const services = isPackageBooking
+    ? []
+    : (request.serviceCategories?.length ? request.serviceCategories : (request.serviceCategory ?? '').split(','))
+        .map((s) => s.trim())
+        .filter((s) => s && s !== 'General');
 
   const jobIdx = job ? JOB_ORDER.indexOf(job.status as ServiceJobStatus) : -1;
   const jobFinished = jobIdx >= JOB_ORDER.indexOf('HandedOver');
@@ -205,7 +213,7 @@ export default function CustomerRequestDetailPage() {
         backLabel="My requests"
         eyebrow={
           <>
-            <StatusBadge status={request.status} />
+            <RequestStatusBadge status={request.status} isPackage={isPackageBooking} advancePaid={advancePaid} />
             <span className="font-mono text-xs text-navy-500">{request.requestNumber}</span>
           </>
         }
@@ -259,8 +267,14 @@ export default function CustomerRequestDetailPage() {
       ) : (
         <Card className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-navy-900">Where things stand</h2>
-          <RequestProgress status={request.status} className="mt-3" />
-          {nextStep && <p className="mt-3 text-sm text-navy-700">{nextStep}</p>}
+          <RequestProgress status={request.status} isPackage={isPackageBooking} className="mt-3" />
+          {nextStep && <p className="mt-3 text-sm font-medium text-navy-800">{nextStep}</p>}
+          {awaitingGarage && (
+            <p className="mt-1 text-sm leading-relaxed text-navy-500">
+              {packageName} at a fixed price of {formatINRWhole(request.packagePrice ?? 0)}. No quotes needed
+              {advancePaid ? ". We'll let you know as soon as your garage is confirmed." : '.'}
+            </p>
+          )}
           {request.matchedGaragesCount > 0 && reqKey !== 'CANCELLED' && !isPackageBooking && (
             <p className="mt-1 text-sm text-navy-500">
               {request.matchedGaragesCount} garage{request.matchedGaragesCount === 1 ? '' : 's'} contacted so far.
@@ -297,6 +311,9 @@ export default function CustomerRequestDetailPage() {
         </Card>
       )}
 
+      {/* Photos & videos the garage or advisor shared (view only) */}
+      <ServiceMediaSection requestId={id} audience="customer" title="Photos & videos of your car" hideWhenEmpty />
+
       {/* Updates */}
       {job && (
         <section>
@@ -325,13 +342,30 @@ export default function CustomerRequestDetailPage() {
 
       {/* Request details */}
       <Card className="p-4 sm:p-5">
-        <h2 className="text-base font-semibold text-navy-900">Request details</h2>
+        <h2 className="text-base font-semibold text-navy-900">{isPackageBooking ? 'Booking details' : 'Request details'}</h2>
+        {services.length > 0 && (
+          <div className="mt-3">
+            <div className="text-xs font-medium text-navy-400">
+              {services.length > 1 ? `Services (${services.length})` : 'Service'}
+            </div>
+            <ul className="mt-1 flex flex-wrap gap-1.5">
+              {services.map((s) => (
+                <li
+                  key={s}
+                  className="rounded-full border border-surface-200 bg-surface-50 px-2.5 py-1 text-xs font-semibold text-navy-800"
+                >
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="mt-3">
-          <div className="text-xs font-medium text-navy-400">Problem</div>
-          <p className="mt-0.5 whitespace-pre-wrap text-sm text-navy-800">{request.problemDescription}</p>
+          <div className="text-xs font-medium text-navy-400">{isPackageBooking ? 'Booked service' : 'Problem'}</div>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-navy-800">{request.problemDescription}</p>
         </div>
         <dl className="mt-3 divide-y divide-surface-200 border-t border-surface-200">
-          {request.serviceCategory && <DetailRow label="Service">{request.serviceCategory}</DetailRow>}
+          {isPackageBooking && <DetailRow label="Package">{packageName}</DetailRow>}
           {request.preferredServiceDate && (
             <DetailRow label="Preferred date">{formatDate(request.preferredServiceDate)}</DetailRow>
           )}
@@ -339,7 +373,7 @@ export default function CustomerRequestDetailPage() {
             <DetailRow label="Location">{request.serviceLocation.formattedAddress}</DetailRow>
           )}
           {request.assignedAdvisorName && <DetailRow label="Your advisor">{request.assignedAdvisorName}</DetailRow>}
-          <DetailRow label="Requested">{formatDateTime(request.submittedAtUtc)}</DetailRow>
+          <DetailRow label={isPackageBooking ? 'Booked' : 'Requested'}>{formatDateTime(request.submittedAtUtc)}</DetailRow>
         </dl>
 
         {request.cancelledAtUtc && (
@@ -360,7 +394,7 @@ export default function CustomerRequestDetailPage() {
               setCancelOpen(true);
             }}
           >
-            Cancel this request
+            {isPackageBooking ? 'Cancel this booking' : 'Cancel this request'}
           </Button>
         </div>
       )}
@@ -368,8 +402,14 @@ export default function CustomerRequestDetailPage() {
       <Modal
         isOpen={cancelOpen}
         onClose={() => !cancelLoading && setCancelOpen(false)}
-        title="Cancel this request?"
-        description="Garages preparing a quote will be told you no longer need the service."
+        title={isPackageBooking ? 'Cancel this booking?' : 'Cancel this request?'}
+        description={
+          awaitingGarage
+            ? 'BroCo will stop looking for a garage for this booking.'
+            : isPackageBooking
+            ? 'Your garage will be told you no longer need the service.'
+            : 'Garages preparing a quote will be told you no longer need the service.'
+        }
         size="sm"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -379,7 +419,7 @@ export default function CustomerRequestDetailPage() {
               disabled={cancelLoading}
               className="w-full sm:w-auto"
             >
-              Keep request
+              {isPackageBooking ? 'Keep booking' : 'Keep request'}
             </Button>
             <Button
               variant="danger"
@@ -388,7 +428,7 @@ export default function CustomerRequestDetailPage() {
               disabled={!cancelReason.trim()}
               className="w-full sm:w-auto"
             >
-              Cancel request
+              {isPackageBooking ? 'Cancel booking' : 'Cancel request'}
             </Button>
           </div>
         }
@@ -418,13 +458,33 @@ function PaymentCard({ request, paying, onPay }: { request: RequestDetail; payin
 
   if (!isPackage) {
     if (cancelled) return null;
+    const advancePaidAmount = Number(request.advancePaidAmount ?? 0);
+    const quoteAccepted = ['CUSTOMER_ACCEPTED', 'BOOKING_CONFIRMED', 'IN_PROGRESS'].includes(statusKey(request.status));
+    // Quote-based: nothing is payable here. The advance is paid on the accepted quote, never before.
     return (
       <Card className="p-4 sm:p-5">
         <h2 className="text-base font-semibold text-navy-900">Payment</h2>
-        <p className="mt-1 text-sm leading-relaxed text-navy-600">
-          Nothing to pay yet. Once you accept a garage quote, you pay 10% online to BroCo to confirm the booking and the
-          remaining 90% directly at the garage after the service.
-        </p>
+        {request.advancePaidAtUtc ? (
+          <p className="mt-1 flex items-start gap-1.5 text-sm leading-relaxed text-navy-600">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <span>
+              Booking advance of {formatINRWhole(advancePaidAmount)} paid. Pay the rest directly at the garage after the service.
+            </span>
+          </p>
+        ) : quoteAccepted ? (
+          <p className="mt-1 text-sm leading-relaxed text-navy-600">
+            You accepted the quote. Pay the 10% booking advance on{' '}
+            <Link href="/customer/quotes" className="font-semibold text-electric-700 underline underline-offset-2">
+              your quote
+            </Link>{' '}
+            to confirm; the rest is paid at the garage after the service.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm leading-relaxed text-navy-600">
+            Nothing to pay yet. Quotes are free; you pay only after you accept one — 10% online to BroCo to confirm the
+            booking and the remaining 90% directly at the garage after the service.
+          </p>
+        )}
       </Card>
     );
   }

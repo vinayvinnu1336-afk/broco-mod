@@ -68,7 +68,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ServicePackagePrice> ServicePackagePrices => Set<ServicePackagePrice>();
     public DbSet<VehicleManufacturerLogo> VehicleManufacturerLogos => Set<VehicleManufacturerLogo>();
     public DbSet<GarageCommission> GarageCommissions => Set<GarageCommission>();
+    public DbSet<GarageCommissionPaymentAllocation> GarageCommissionPaymentAllocations => Set<GarageCommissionPaymentAllocation>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<ServiceMedia> ServiceMediaFiles => Set<ServiceMedia>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -189,7 +191,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(sr => sr.VehicleModel).IsRequired().HasMaxLength(100);
             builder.Property(sr => sr.VehicleLicensePlate).HasMaxLength(50);
             builder.Property(sr => sr.ProblemDescription).IsRequired().HasMaxLength(4000);
-            builder.Property(sr => sr.ServiceCategory).HasMaxLength(100);
+            builder.Property(sr => sr.ServiceCategory).HasMaxLength(300);
             builder.Property(sr => sr.CancellationReason).HasMaxLength(1000);
             builder.Property(sr => sr.IdempotencyKey).HasMaxLength(128);
             builder.Property(sr => sr.ServicePackageCode).HasMaxLength(20);
@@ -1143,6 +1145,45 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasOne(c => c.Garage).WithMany().HasForeignKey(c => c.GarageId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(c => c.ServiceJob).WithMany().HasForeignKey(c => c.ServiceJobId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(c => c.ServiceRequest).WithMany().HasForeignKey(c => c.ServiceRequestId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Which dues each online commission payment covers
+        modelBuilder.Entity<GarageCommissionPaymentAllocation>(builder =>
+        {
+            builder.HasKey(a => a.Id);
+            builder.HasIndex(a => new { a.PaymentId, a.GarageCommissionId }).IsUnique();
+            builder.HasIndex(a => a.GarageCommissionId);
+            builder.Property(a => a.Amount).HasPrecision(18, 2);
+            builder.HasOne<Payment>().WithMany().HasForeignKey(a => a.PaymentId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne<GarageCommission>().WithMany().HasForeignKey(a => a.GarageCommissionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Photos and videos of the car, per service request (and job). Files live in media storage.
+        modelBuilder.Entity<ServiceMedia>(builder =>
+        {
+            builder.ToTable("ServiceMedia");
+            builder.HasKey(m => m.Id);
+            builder.Property(m => m.UploadedByRole).IsRequired().HasMaxLength(32);
+            builder.Property(m => m.UploadedByName).IsRequired().HasMaxLength(200);
+            builder.Property(m => m.FileName).IsRequired().HasMaxLength(200);
+            builder.Property(m => m.ContentType).IsRequired().HasMaxLength(100);
+            builder.Property(m => m.StoragePath).IsRequired().HasMaxLength(300);
+            builder.Property(m => m.ThumbnailPath).HasMaxLength(300);
+            builder.Property(m => m.ThumbnailContentType).HasMaxLength(100);
+            builder.Property(m => m.Caption).HasMaxLength(ServiceMedia.MaxCaptionLength);
+
+            builder.HasIndex(m => new { m.ServiceRequestId, m.IsDeleted });
+            builder.HasIndex(m => m.ServiceJobId);
+
+            builder.HasOne(m => m.ServiceRequest)
+                .WithMany()
+                .HasForeignKey(m => m.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne<ServiceJob>()
+                .WithMany()
+                .HasForeignKey(m => m.ServiceJobId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Lead>(builder =>

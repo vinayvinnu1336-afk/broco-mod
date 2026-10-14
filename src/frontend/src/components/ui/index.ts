@@ -1,5 +1,6 @@
 export * from './Button';
 export * from './Input';
+export * from './PhoneInput';
 export * from './Select';
 export * from './Textarea';
 export * from './Checkbox';
@@ -30,3 +31,4 @@ export * from './ListItem';
 export * from './StatCard';
 export * from './ActionBar';
 export * from './FilterChips';
+export * from './FilterBar';

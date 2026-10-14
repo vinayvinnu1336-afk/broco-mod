@@ -5,12 +5,12 @@ namespace BroCoMod.Application.Interfaces;
 public interface IServiceJobService
 {
     // Queries
-    Task<IEnumerable<ServiceJobSummaryDto>> GetGarageJobsAsync(Guid garageId, string? status = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ServiceJobSummaryDto>> GetGarageJobsAsync(Guid garageId, string? status = null, CancellationToken cancellationToken = default, ListFilter? filter = null);
     Task<GarageServiceJobDetailDto> GetGarageJobDetailAsync(Guid jobId, Guid garageId, CancellationToken cancellationToken = default);
     Task<CustomerServiceJobDetailDto> GetCustomerJobDetailAsync(Guid serviceRequestId, Guid customerId, CancellationToken cancellationToken = default);
     Task<CustomerServiceJobDetailDto> GetCustomerJobByIdAsync(Guid jobId, Guid customerId, CancellationToken cancellationToken = default);
     Task<AdvisorServiceJobDetailDto> GetAdvisorJobDetailAsync(Guid jobId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ServiceJobSummaryDto>> GetAllJobsAsync(string? status = null, Guid? garageId = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ServiceJobSummaryDto>> GetAllJobsAsync(string? status = null, Guid? garageId = null, CancellationToken cancellationToken = default, ListFilter? filter = null);
 
     // Lifecycle Commands (Garage operations)
     Task<GarageServiceJobDetailDto> ScheduleJobAsync(Guid jobId, Guid garageId, Guid userId, ScheduleJobRequest request, CancellationToken cancellationToken = default);

@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminGarageList, PagedResult } from '@/types/adminOperations';
-import { Building2, RefreshCw, Search } from 'lucide-react';
+import { Building2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { FilterChips } from '@/components/ui/FilterChips';
-import { Input } from '@/components/ui/Input';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { IconTile, ListGroup, ListItem } from '@/components/ui/ListItem';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Pagination } from '@/components/ui/Pagination';
@@ -21,6 +20,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/format';
+import { toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { useCityOptions } from '@/lib/filterOptions';
 
 // The API serialises the garage status enum as a number (1-4); names are also accepted.
 const GARAGE_STATUS_NAMES: Record<string, string> = {
@@ -41,6 +42,16 @@ const STATUS_FILTERS = [
   { value: 'Suspended', label: 'Suspended' },
   { value: 'Inactive', label: 'Inactive' },
 ];
+
+// Commission dues filter values the API accepts.
+const DUES_OPTIONS = [
+  { value: 'any', label: 'Unpaid commission' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'blocked', label: 'Blocked for dues' },
+  { value: 'none', label: 'No dues' },
+];
+
+const FILTER_DEFAULTS = { q: '', status: '', city: '', dues: '', size: '25' };
 
 type GarageAction = 'verify' | 'activate' | 'suspend' | 'deactivate';
 
@@ -72,17 +83,36 @@ const ACTION_COPY: Record<GarageAction, { title: string; message: string; confir
 };
 
 export default function AdminGaragesPage() {
+  return (
+    <Suspense fallback={<GaragesSkeleton />}>
+      <AdminGarages />
+    </Suspense>
+  );
+}
+
+function GaragesSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-16 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+function AdminGarages() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
+  const cityOptions = useCityOptions();
   const [garages, setGarages] = useState<AdminGarageList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
 
   // Confirmation for verify / reactivate / suspend / deactivate
   const [action, setAction] = useState<{ type: GarageAction; garageId: string; garageName: string } | null>(null);
@@ -91,22 +121,21 @@ export default function AdminGaragesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const requestId = useRef(0);
-  const searchRef = useRef(searchTerm);
-  searchRef.current = searchTerm;
 
-  const loadGarages = useCallback(async (p: number, size: number, search: string, status: string) => {
+  const query = useMemo(
+    () => toQueryString({ page: urlPage, pageSize, search: f.q, status: f.status, city: f.city, dues: f.dues }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadGarages = useCallback(async (qs: string) => {
     const id = ++requestId.current;
     setLoading(true);
-    let url = `/admin/garages?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-
-    const res = await apiFetch<PagedResult<AdminGarageList>>(url);
+    const res = await apiFetch<PagedResult<AdminGarageList>>(`/admin/garages${qs}`);
     if (id !== requestId.current) return; // a newer request is in flight
     if (res.success && res.data) {
       const data = res.data as PagedResult<AdminGarageList> & { page?: number };
       setGarages(data.items ?? []);
-      setPage(data.pageNumber ?? data.page ?? p);
+      setPage(data.page ?? data.pageNumber ?? 1);
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
       setLoadError(null);
@@ -118,15 +147,17 @@ export default function AdminGaragesPage() {
   }, []);
 
   useEffect(() => {
-    loadGarages(1, pageSize, searchRef.current, statusFilter);
-  }, [pageSize, statusFilter, loadGarages]);
+    loadGarages(query);
+  }, [query, loadGarages]);
 
-  const reload = () => loadGarages(page, pageSize, searchTerm, statusFilter);
+  const reload = () => loadGarages(query);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadGarages(1, pageSize, searchTerm, statusFilter);
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   const openAction = (type: GarageAction, g: AdminGarageList) => {
     setAction({ type, garageId: g.id, garageName: g.name });
@@ -216,39 +247,28 @@ export default function AdminGaragesPage() {
         }
       />
 
-      <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-          <div className="flex-1">
-            <Input
-              type="search"
-              enterKeyHint="search"
-              aria-label="Search garages"
-              placeholder="Search by name, email or address"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <Button type="submit" variant="outline" className="shrink-0">
-            Search
-          </Button>
-        </form>
-        <FilterChips ariaLabel="Garage status" value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS} />
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Name, phone, email or area"
+        searchLabel="Search garages"
+        status={{ key: 'status', options: STATUS_FILTERS, ariaLabel: 'Garage status' }}
+        fields={[
+          { type: 'select', key: 'city', label: 'City', allLabel: 'All cities', options: cityOptions },
+          { type: 'select', key: 'dues', label: 'Commission dues', allLabel: 'Dues: all', options: DUES_OPTIONS },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'garage' : 'garages'}`}
+      />
 
       {loading && garages.length === 0 ? (
-        <div className="space-y-2" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-2xl" />
-          ))}
-        </div>
+        <GaragesSkeleton />
       ) : loadError && garages.length === 0 ? (
         <ErrorState title="Garages unavailable" error={loadError} onRetry={reload} />
       ) : garages.length === 0 ? (
         <EmptyState
           icon={Building2}
           title="No garages found"
-          description={searchTerm || statusFilter ? 'Try a different search or status.' : 'Garages appear here when they sign up.'}
+          description={anyFilter ? 'No garages match these filters.' : 'Garages appear here when they sign up.'}
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -321,14 +341,14 @@ export default function AdminGaragesPage() {
                 totalPages={Math.max(1, totalPages)}
                 totalItems={totalCount}
                 pageSize={pageSize}
-                onPageChange={(p) => loadGarages(p, pageSize, searchTerm, statusFilter)}
+                onPageChange={goToPage}
               />
             )}
             <div className="hidden w-40 sm:block">
               <Select
                 aria-label="Rows per page"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => filters.set({ size: e.target.value })}
                 options={[
                   { value: 25, label: '25 per page' },
                   { value: 50, label: '50 per page' },

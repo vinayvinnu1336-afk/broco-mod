@@ -8,7 +8,8 @@ namespace BroCoMod.Infrastructure.Services;
 
 /// <summary>
 /// Reminds garages about unpaid BroCo commission (in-app + SMS/email/WhatsApp providers) every
-/// <c>Commission:ReminderIntervalHours</c>. One API replica runs each sweep (advisory lock).
+/// <c>Commission:ReminderIntervalHours</c>, and tells admins and advisors once when a due goes overdue.
+/// One API replica runs each sweep (advisory lock).
 /// </summary>
 public class CommissionReminderBackgroundService : BackgroundService
 {
@@ -42,6 +43,8 @@ public class CommissionReminderBackgroundService : BackgroundService
                     {
                         var sent = await scope.ServiceProvider.GetRequiredService<ICommissionService>().SendDueRemindersAsync(stoppingToken);
                         if (sent > 0) _logger.LogInformation("Sent {Count} commission reminder(s).", sent);
+                        var announced = await scope.ServiceProvider.GetRequiredService<ICommissionDuesService>().NotifyStaffOfOverdueDuesAsync(stoppingToken);
+                        if (announced > 0) _logger.LogInformation("Told staff about {Count} newly overdue commission due(s).", announced);
                     }
                     finally
                     {

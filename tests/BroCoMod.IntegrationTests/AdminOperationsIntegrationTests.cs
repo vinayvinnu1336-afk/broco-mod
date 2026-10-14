@@ -87,26 +87,49 @@ public class AdminOperationsIntegrationTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task Admin_GetRequestDetail_ReturnsUnifiedOperationalTimeline()
     {
-        var token = await LoginAsync("admin@brocomod.com", "Password123!");
-        var client = CreateAuthenticatedClient(token);
+        // Book a request owned by this test. The newest request in the shared database can belong to another
+        // class that has not written its creation audit row yet.
+        var email = $"admin_detail_{Guid.NewGuid():N}@brocomod.com";
+        var register = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Detail Customer", "+91 98765 43210"));
+        register.EnsureSuccessStatusCode();
+        var customer = CreateAuthenticatedClient(await LoginAsync(email, "Password123!"));
 
-        // Find any existing request from the list
-        var listRes = await client.GetAsync("/api/v1/admin/requests?page=1&pageSize=1");
-        var listBody = await listRes.Content.ReadFromJsonAsync<ApiResponse<PagedResult<AdminRequestSummaryDto>>>(JsonOptions);
-        listBody.Should().NotBeNull();
+        var brands = await customer.GetFromJsonAsync<ApiResponse<IReadOnlyList<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);
+        var bmw = brands!.Data!.First(m => m.Name == "BMW");
+        var models = await customer.GetFromJsonAsync<ApiResponse<IReadOnlyList<VehicleModelDto>>>($"/api/v1/vehicle-manufacturers/{bmw.Id}/models", JsonOptions);
+        var model = models!.Data!.First(m => m.Name == "3 Series");
+        var vehicle = await customer.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
+            bmw.Id, model.Id, null, 2022, FuelType.Petrol, "Automatic", $"TS-{Guid.NewGuid():N}"[..12].ToUpper(), "", 15000, "Black"));
+        vehicle.EnsureSuccessStatusCode();
+        var vehicleBody = await vehicle.Content.ReadFromJsonAsync<ApiResponse<CustomerVehicleDetailDto>>(JsonOptions);
 
-        if (listBody!.Data!.Items.Count > 0)
-        {
-            var reqId = listBody.Data.Items[0].Id;
-            var response = await client.GetAsync($"/api/v1/admin/requests/{reqId}");
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
+            VehicleId: vehicleBody!.Data!.Id,
+            AddressLine1: "Road No. 12, Banjara Hills",
+            AddressLine2: null,
+            City: "Hyderabad",
+            State: "Telangana",
+            Pincode: "500034",
+            Country: "India",
+            Latitude: 17.4126,
+            Longitude: 78.4482,
+            ProblemDescription: "Brakes squeal when slowing down.",
+            ServiceCategory: "Brakes",
+            PreferredServiceDate: DateTime.UtcNow.AddDays(1)));
+        booking.StatusCode.Should().Be(HttpStatusCode.Created);
+        var bookingBody = await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions);
+        var reqId = bookingBody!.Data!.Id;
 
-            var body = await response.Content.ReadFromJsonAsync<ApiResponse<AdminRequestOperationalDetailDto>>(JsonOptions);
-            body.Should().NotBeNull();
-            body!.Data.Should().NotBeNull();
-            body.Data!.TimelineEvents.Should().NotBeNull();
-            body.Data.TimelineEvents.Count.Should().BeGreaterThan(0);
-        }
+        var client = CreateAuthenticatedClient(await LoginAsync("admin@brocomod.com", "Password123!"));
+        var response = await client.GetAsync($"/api/v1/admin/requests/{reqId}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<AdminRequestOperationalDetailDto>>(JsonOptions);
+        body.Should().NotBeNull();
+        body!.Data.Should().NotBeNull();
+        body.Data!.Id.Should().Be(reqId);
+        // The creation audit is saved before the booking POST returns.
+        body.Data.TimelineEvents.Should().Contain(e => e.Action == "SERVICE_REQUEST_CREATED");
     }
 
     [Fact]

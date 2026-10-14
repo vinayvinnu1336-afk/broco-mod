@@ -62,10 +62,11 @@ const actionBar = (page: Page, name: RegExp) => page.getByRole('button', { name 
 test('1. visitor checks prices, signs up and books the Standard package', async ({ browser }) => {
   const { context, page } = await phone(browser);
 
-  // Home: Hyderabad is preselected; pick the car and leave a mobile number.
+  // Home: the card starts empty; choose Hyderabad, pick the car and leave a mobile number.
   await page.goto('/');
-  await expect(page.getByLabel('Location')).toHaveValue('Hyderabad');
+  await expect(page.getByLabel('Location')).toHaveValue('');
   await checkLayout(page, 'home');
+  await page.getByLabel('Location').selectOption('Hyderabad');
   await page.getByRole('button', { name: 'Select your car' }).click();
   await pickCar(page, CAR);
   await expect(page.getByRole('button', { name: `${CAR.brand} ${CAR.model}, ${CAR.fuel}` })).toBeVisible();
@@ -160,6 +161,15 @@ test('1. visitor checks prices, signs up and books the Standard package', async 
   const href = await page.getByRole('link', { name: 'View booking' }).getAttribute('href');
   state.requestId = href!.split('/').pop();
   await checkLayout(page, 'booking confirmed');
+
+  // The receipt covers only the advance and says what is left to pay at the garage.
+  await page.goto('/customer/invoices');
+  await page.getByRole('link', { name: /Booking advance/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Booking advance receipt' })).toBeVisible();
+  await expect(valueOf(page, 'Service total')).toHaveText(inr(state.price!, 2));
+  await expect(valueOf(page, 'Advance paid to BroCo')).toHaveText(inr(state.advance!, 2));
+  await expect(valueOf(page, 'Balance, pay at the garage')).toHaveText(inr(state.atGarage!, 2));
+  await checkLayout(page, 'advance receipt');
 
   await context.close();
 });

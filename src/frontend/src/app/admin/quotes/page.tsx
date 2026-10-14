@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminGarageQuoteSummaryDto, AdminGarageQuoteDetailDto } from '@/types/garageQuote';
-import { FileSpreadsheet, Search } from 'lucide-react';
+import { FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LoadingState } from '@/components/ui/LoadingState';
@@ -17,18 +16,20 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useToast } from '@/components/ui/Toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate, formatDateTime, formatINR, formatINRWhole, humanize } from '@/lib/format';
+import { inDateRange, matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 
-// Client-side filter: compared against the quote status upper-cased (e.g. "UnderReview" -> "UNDERREVIEW").
+// Client-side filter on GarageQuoteStatus names, compared case-insensitively with the row status.
 const STATUS_OPTIONS = [
-  { value: 'ALL', label: 'All' },
-  { value: 'SUBMITTED', label: 'Submitted' },
-  { value: 'UNDERREVIEW', label: 'Under review' },
-  { value: 'SELECTEDBYADVISOR', label: 'Selected' },
-  { value: 'REJECTEDBYADVISOR', label: 'Not selected' },
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'WITHDRAWN', label: 'Withdrawn' },
-  { value: 'EXPIRED', label: 'Expired' },
+  { value: 'Submitted', label: 'Submitted' },
+  { value: 'UnderReview', label: 'Under review' },
+  { value: 'SelectedByAdvisor', label: 'Selected' },
+  { value: 'RejectedByAdvisor', label: 'Not selected' },
+  { value: 'Draft', label: 'Draft' },
+  { value: 'Withdrawn', label: 'Withdrawn' },
+  { value: 'Expired', label: 'Expired' },
 ];
+
+const FILTER_DEFAULTS = { q: '', status: '', garage: '', range: '', from: '', to: '' };
 
 function estimatedTime(quote: AdminGarageQuoteDetailDto): string {
   const parts: string[] = [];
@@ -45,12 +46,20 @@ const Field: React.FC<{ label: string; children: React.ReactNode; className?: st
 );
 
 export default function AdminGarageQuotesPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading garage quotes..." />}>
+      <AdminGarageQuotes />
+    </Suspense>
+  );
+}
+
+function AdminGarageQuotes() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
   const [quotes, setQuotes] = useState<AdminGarageQuoteSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Detail modal
   const [selectedQuote, setSelectedQuote] = useState<AdminGarageQuoteDetailDto | null>(null);
@@ -95,33 +104,42 @@ export default function AdminGarageQuotesPage() {
     setDetailLoading(false);
   }
 
-  const counts = useMemo(() => {
-    const map: Record<string, number> = {};
-    quotes.forEach((q) => {
-      const key = q.status.toUpperCase();
-      map[key] = (map[key] ?? 0) + 1;
-    });
-    return map;
+  const garageOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    quotes.forEach((q) => names.set(q.garageId, q.garageName));
+    return Array.from(names, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [quotes]);
 
-  const filteredQuotes = quotes.filter((q) => {
-    const term = search.toLowerCase();
-    const matchesSearch =
-      q.quoteNumber.toLowerCase().includes(term) ||
-      q.garageName.toLowerCase().includes(term) ||
-      q.serviceRequestNumber.toLowerCase().includes(term) ||
-      q.vehicleSummary.toLowerCase().includes(term);
+  // Rows matching everything except the status, so each chip can show how many it would leave.
+  const matchingOtherFilters = useMemo(
+    () =>
+      quotes.filter(
+        (q) =>
+          matchesSearch(f.q, q.quoteNumber, q.serviceRequestNumber, q.garageName, q.vehicleSummary) &&
+          (!f.garage || q.garageId === f.garage) &&
+          inDateRange(q.submittedAtUtc, f)
+      ),
+    [quotes, f]
+  );
 
-    const matchesStatus = statusFilter === 'ALL' || q.status.toUpperCase() === statusFilter.toUpperCase();
+  const filteredQuotes = useMemo(
+    () => matchingOtherFilters.filter((q) => !f.status || q.status.toUpperCase() === f.status.toUpperCase()),
+    [matchingOtherFilters, f.status]
+  );
 
-    return matchesSearch && matchesStatus;
-  });
+  const statusOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    matchingOtherFilters.forEach((q) => {
+      const key = q.status.toUpperCase();
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return [
+      { value: '', label: 'All', count: matchingOtherFilters.length },
+      ...STATUS_OPTIONS.map((o) => ({ ...o, count: counts[o.value.toUpperCase()] ?? 0 })),
+    ];
+  }, [matchingOtherFilters]);
 
-  const statusOptions = STATUS_OPTIONS.map((o) => ({
-    ...o,
-    count: o.value === 'ALL' ? quotes.length : counts[o.value] ?? 0,
-  }));
-
+  const anyFilter = (Object.keys(FILTER_DEFAULTS) as (keyof typeof FILTER_DEFAULTS)[]).some((k) => filters.isActive(k));
   const modalOpen = detailLoading || selectedQuote !== null;
 
   return (
@@ -131,22 +149,18 @@ export default function AdminGarageQuotesPage() {
         description="Every quote garages have sent, with line items and version history. Read-only."
       />
 
-      {/* Search and filters */}
-      <div className="space-y-3">
-        <div className="sm:max-w-md">
-          <Input
-            type="search"
-            aria-label="Search garage quotes"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Quote number, garage, request or vehicle"
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        {quotes.length > 0 && (
-          <FilterChips options={statusOptions} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
-        )}
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Quote, request, garage or car"
+        searchLabel="Search garage quotes"
+        status={{ key: 'status', options: statusOptions }}
+        fields={[
+          { type: 'select', key: 'garage', label: 'Garage', allLabel: 'All garages', options: garageOptions },
+          { type: 'dateRange', label: 'Submitted' },
+        ]}
+        summary={loading ? 'Loading…' : `${filteredQuotes.length} ${filteredQuotes.length === 1 ? 'quote' : 'quotes'}`}
+      />
 
       {loading ? (
         <LoadingState message="Loading garage quotes..." />
@@ -157,17 +171,11 @@ export default function AdminGarageQuotesPage() {
           icon={FileSpreadsheet}
           title="No quotes found"
           description={
-            search || statusFilter !== 'ALL'
-              ? 'No quotes match this search or filter.'
-              : 'Quotes appear here once garages respond to requests.'
+            anyFilter ? 'No quotes match these filters.' : 'Quotes appear here once garages respond to requests.'
           }
         />
       ) : (
         <>
-          <p className="text-xs text-navy-500">
-            {filteredQuotes.length} {filteredQuotes.length === 1 ? 'quote' : 'quotes'}
-          </p>
-
           {/* Phones */}
           <div className="md:hidden">
             <ListGroup>

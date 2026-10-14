@@ -1,6 +1,9 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
+using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Entities.Identity;
 using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,10 +12,12 @@ namespace BroCoMod.Infrastructure.Services;
 public class CustomerPortalService : ICustomerPortalService
 {
     private readonly IApplicationDbContext _context;
+    private readonly IAuditService _auditService;
 
-    public CustomerPortalService(IApplicationDbContext context)
+    public CustomerPortalService(IApplicationDbContext context, IAuditService auditService)
     {
         _context = context;
+        _auditService = auditService;
     }
 
     public async Task<CustomerDashboardDto> GetDashboardAsync(Guid customerId, CancellationToken cancellationToken = default)
@@ -97,15 +102,69 @@ public class CustomerPortalService : ICustomerPortalService
             throw new KeyNotFoundException($"Customer profile not found for ID: {customerId}");
         }
 
-        return new CustomerProfileDto(
-            profile.Id,
-            profile.UserId,
-            profile.User.FullName,
-            profile.User.Email,
-            profile.User.PhoneNumber,
-            profile.Address,
-            profile.PreferredContactMethod);
+        return ToProfileDto(profile);
     }
+
+    public async Task<CustomerProfileDto> UpdateProfileAsync(
+        Guid customerId,
+        UpdateCustomerProfileRequest request,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default)
+    {
+        // The id comes from the caller's token, so a customer can only ever reach their own profile.
+        var profile = await _context.CustomerProfiles
+            .Include(cp => cp.User)
+            .FirstOrDefaultAsync(cp => cp.Id == customerId || cp.UserId == customerId, cancellationToken)
+            ?? throw new KeyNotFoundException("Customer profile not found.");
+
+        var fullName = (request.FullName ?? string.Empty).Trim();
+        if (fullName.Length is < 2 or > 100)
+            throw new ArgumentException("Name must be 2 to 100 characters.");
+        var phone = IndianMobile.Normalize(request.PhoneNumber)
+            ?? throw new ArgumentException(IndianMobile.InvalidMessage);
+        var address = request.Address is null ? profile.Address : request.Address.Trim();
+        if (address.Length > 500)
+            throw new ArgumentException("Address must be 500 characters or fewer.");
+        var contact = string.IsNullOrWhiteSpace(request.PreferredContactMethod)
+            ? profile.PreferredContactMethod
+            : ContactMethods.Normalize(request.PreferredContactMethod)
+              ?? throw new ArgumentException($"Preferred contact must be one of: {string.Join(", ", ContactMethods.All)}.");
+
+        var changed = new List<string>();
+        if (fullName != profile.User.FullName) changed.Add("name");
+        if (phone != profile.User.PhoneNumber) changed.Add("mobile");
+        if (address != profile.Address) changed.Add("address");
+        if (contact != profile.PreferredContactMethod) changed.Add("preferred contact");
+
+        if (changed.Count > 0)
+        {
+            profile.User.UpdateProfile(fullName, phone);
+            profile.UpdateProfile(address, contact);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Field names only: the audit trail should not become a second copy of personal data.
+            await _auditService.LogAsync(
+                action: AuditActions.UserUpdated,
+                userId: profile.UserId,
+                userEmail: profile.User.Email,
+                entityName: nameof(CustomerProfile),
+                entityId: profile.Id.ToString(),
+                details: $"Customer updated their profile: {string.Join(", ", changed)}",
+                ipAddress: ipAddress,
+                cancellationToken: cancellationToken);
+        }
+
+        return ToProfileDto(profile);
+    }
+
+    private static CustomerProfileDto ToProfileDto(CustomerProfile profile) => new(
+        profile.Id,
+        profile.UserId,
+        profile.User.FullName,
+        profile.User.Email,
+        profile.User.PhoneNumber,
+        profile.Address,
+        profile.PreferredContactMethod);
 
     public async Task<IReadOnlyList<CustomerVehicleDto>> GetVehiclesAsync(Guid customerId, CancellationToken cancellationToken = default)
     {

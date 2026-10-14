@@ -20,7 +20,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
-import { formatDate, formatDateTime, formatINR, humanize } from '@/lib/format';
+import { formatDate, formatDateTime, formatINR, formatINRWhole, humanize } from '@/lib/format';
 import { DetailRow } from '@/app/customer/_lib/customer-ui';
 import { PriceSplit } from '@/components/booking/PriceSplit';
 import { advanceFor } from '@/components/booking/advancePayment';
@@ -295,7 +295,7 @@ export default function CustomerQuotationDetailPage() {
   const total = Number(quote.customerTotal ?? 0);
   const advance = paymentComplete?.amount ?? initiatedAmount ?? advanceFor(total);
   const atGarage = Math.max(0, total - advance);
-  const splitText = `Pay 10% now (${money(advance)}) to confirm · ${money(atGarage)} at the garage`;
+  const splitText = `After you accept: 10% online (${money(advance)}) to confirm · ${money(atGarage)} at the garage`;
   const showDecisionBar = isSent;
 
   return (
@@ -399,7 +399,7 @@ export default function CustomerQuotationDetailPage() {
 
       {/* Total */}
       <Card className="p-4 sm:p-5">
-        <div className="text-sm text-navy-500">{isAccepted ? 'Total' : 'Total to pay'}</div>
+        <div className="text-sm text-navy-500">{isAccepted ? 'Total' : 'Quoted total'}</div>
         <div className="mt-0.5 text-3xl font-bold tracking-tight tabular-nums text-navy-900">
           {money(quote.customerTotal)}
         </div>
@@ -407,7 +407,7 @@ export default function CustomerQuotationDetailPage() {
           Includes {money(quote.customerTax)} tax
           {quote.customerDiscount > 0 && ` and a ${money(quote.customerDiscount)} discount`}
         </p>
-        {(isSent || isAccepted) && (
+        {isAccepted && (
           <PriceSplit
             className="mt-3"
             total={total}
@@ -418,10 +418,27 @@ export default function CustomerQuotationDetailPage() {
           />
         )}
         {isSent && (
-          <p className="mt-2 text-xs leading-relaxed text-navy-500">
-            When you accept, you pay 10% online to BroCo to confirm the booking. The remaining 90% is paid directly at the
-            garage after the service.
-          </p>
+          <>
+            {/* Not accepted yet: nothing is payable, so no "pay now" wording. */}
+            <dl className="mt-3 divide-y divide-surface-200 rounded-xl border border-surface-200 bg-white px-3.5 text-sm">
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-navy-500">Quote total</dt>
+                <dd className="font-semibold tabular-nums text-navy-900">{formatINRWhole(total)}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-navy-800">Online after you accept (10%)</dt>
+                <dd className="font-semibold tabular-nums text-navy-900">{formatINRWhole(advance)}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-navy-800">Pay at garage after service</dt>
+                <dd className="font-semibold tabular-nums text-navy-900">{formatINRWhole(atGarage)}</dd>
+              </div>
+            </dl>
+            <p className="mt-2 text-xs leading-relaxed text-navy-500">
+              Nothing to pay until you accept. After you accept, you pay 10% online to BroCo to confirm the booking and the
+              remaining 90% directly at the garage after the service.
+            </p>
+          </>
         )}
         {validityText && (
           <div
@@ -593,7 +610,7 @@ export default function CustomerQuotationDetailPage() {
             <DetailRow label="Total" strong>
               {money(quote.customerTotal)}
             </DetailRow>
-            <DetailRow label="Pay now (10%)" strong>
+            <DetailRow label="Then pay online (10%)" strong>
               {money(advance)}
             </DetailRow>
             <DetailRow label="Pay at the garage">{money(atGarage)}</DetailRow>

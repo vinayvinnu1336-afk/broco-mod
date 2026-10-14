@@ -1,4 +1,5 @@
-﻿using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.Common;
+using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
@@ -178,6 +179,38 @@ public class FinancialLedgerService : IFinancialLedgerService
     {
         var txRef = $"TXN-REFUND-{payment.PaymentNumber}-{Guid.NewGuid():N}";
 
+        // A booking advance never passed through escrow: it was booked as Dr PLATFORM_CASH / Cr PLATFORM_BOOKING_FEE,
+        // so the refund reverses exactly that pair.
+        if (payment.Purpose == PaymentPurpose.BookingAdvance)
+        {
+            _context.FinancialLedgerEntries.AddRange(
+                new FinancialLedgerEntry(
+                    transactionReference: txRef,
+                    entryType: LedgerEntryType.Refund,
+                    debitAmount: refundAmount,
+                    creditAmount: 0.0m,
+                    accountType: "PLATFORM_BOOKING_FEE",
+                    description: $"Booking advance refund {payment.PaymentNumber}: {reason}",
+                    currency: payment.Currency,
+                    accountId: payment.CustomerId,
+                    paymentId: payment.Id),
+                new FinancialLedgerEntry(
+                    transactionReference: txRef,
+                    entryType: LedgerEntryType.Refund,
+                    debitAmount: 0.0m,
+                    creditAmount: refundAmount,
+                    accountType: "PLATFORM_CASH",
+                    description: $"Booking advance refunded to customer {payment.PaymentNumber}: {reason}",
+                    currency: payment.Currency,
+                    accountId: payment.CustomerId,
+                    paymentId: payment.Id));
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Recorded booking advance refund ledger entries for payment {PaymentNumber}, amount {Amount}. Reason: {Reason}",
+                payment.PaymentNumber, refundAmount, reason);
+            return;
+        }
+
         // Compensating entries:
         // 1. Debit Customer (Refund payout to customer)
         var debitCustomer = new FinancialLedgerEntry(
@@ -214,7 +247,8 @@ public class FinancialLedgerService : IFinancialLedgerService
     public async Task<IEnumerable<FinancialLedgerEntryDto>> GetLedgerEntriesAsync(
         Guid? accountId = null,
         string? accountType = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        LedgerFilter? filter = null)
     {
         var query = _context.FinancialLedgerEntries.AsNoTracking().AsQueryable();
 
@@ -227,6 +261,24 @@ public class FinancialLedgerService : IFinancialLedgerService
         {
             var acc = accountType.Trim().ToUpperInvariant();
             query = query.Where(l => l.AccountType == acc);
+        }
+
+        if (filter != null)
+        {
+            var entryType = ListFilters.Enum<LedgerEntryType>(filter.EntryType, "ledger entry type");
+            if (entryType.HasValue) query = query.Where(l => l.EntryType == entryType.Value);
+
+            var search = ListFilters.Search(filter.Search);
+            if (search != null)
+            {
+                query = query.Where(l =>
+                    l.TransactionReference.ToLower().Contains(search) ||
+                    l.Description.ToLower().Contains(search));
+            }
+
+            var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+            if (fromUtc.HasValue) query = query.Where(l => l.CreatedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(l => l.CreatedAtUtc <= toUtc.Value);
         }
 
         var list = await query

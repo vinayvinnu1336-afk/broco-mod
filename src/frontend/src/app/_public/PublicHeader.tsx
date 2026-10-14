@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, LayoutDashboard, Menu, Phone, X } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, Menu, Phone, Store, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { homePathForRoles } from '@/components/auth/ProtectedRoute';
 import { BroCoLogo } from '@/components/brand/BroCoLogo';
@@ -211,6 +211,12 @@ export function PublicHeader() {
               </Link>
               <Link href="/register" className="flex min-h-[48px] items-center justify-center rounded-xl bg-electric-600 text-sm font-semibold text-white">
                 Sign up
+              </Link>
+              <Link
+                href="/register/garage"
+                className="col-span-2 flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-white/5 text-sm font-semibold text-white"
+              >
+                <Store className="h-4 w-4 text-sky-300" aria-hidden /> Own a garage? Register it
               </Link>
             </div>
           )}

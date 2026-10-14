@@ -279,6 +279,7 @@ public class VehicleMasterService : IVehicleMasterService
     public IReadOnlyList<VehicleFuelTypeDto> GetFuelTypes()
     {
         return Enum.GetValues<FuelType>()
+            .Where(f => f != FuelType.Electric) // not serviced by BroCo
             .Select(f => new VehicleFuelTypeDto(
                 (int)f,
                 f.ToString(),

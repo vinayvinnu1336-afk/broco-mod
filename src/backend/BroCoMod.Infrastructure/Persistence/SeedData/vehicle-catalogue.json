@@ -157,16 +157,6 @@
           "yearTo": null
         },
         {
-          "name": "e Vitara",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
           "name": "Celerio",
           "bodyType": "Hatchback",
           "segment": "Hatchback",
@@ -467,16 +457,6 @@
           "yearTo": null
         },
         {
-          "name": "Creta Electric",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
           "name": "Venue",
           "bodyType": "SUV",
           "segment": "CompactSUV",
@@ -551,26 +531,6 @@
             "Diesel"
           ],
           "yearFrom": 2005,
-          "yearTo": null
-        },
-        {
-          "name": "Kona Electric",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2019,
-          "yearTo": 2024
-        },
-        {
-          "name": "Ioniq 5",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
           "yearTo": null
         },
         {
@@ -715,16 +675,6 @@
           "yearTo": null
         },
         {
-          "name": "Nexon EV",
-          "bodyType": "SUV",
-          "segment": "CompactSUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2020,
-          "yearTo": null
-        },
-        {
           "name": "Punch",
           "bodyType": "SUV",
           "segment": "CompactSUV",
@@ -733,16 +683,6 @@
             "CNG"
           ],
           "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
-          "name": "Punch EV",
-          "bodyType": "SUV",
-          "segment": "CompactSUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
           "yearTo": null
         },
         {
@@ -755,16 +695,6 @@
             "CNG"
           ],
           "yearFrom": 2016,
-          "yearTo": null
-        },
-        {
-          "name": "Tiago EV",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
           "yearTo": null
         },
         {
@@ -791,16 +721,6 @@
           "yearTo": null
         },
         {
-          "name": "Tigor EV",
-          "bodyType": "Sedan",
-          "segment": "Sedan",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2019,
-          "yearTo": null
-        },
-        {
           "name": "Altroz",
           "bodyType": "Hatchback",
           "segment": "Hatchback",
@@ -820,16 +740,6 @@
             "Diesel"
           ],
           "yearFrom": 2019,
-          "yearTo": null
-        },
-        {
-          "name": "Harrier EV",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
           "yearTo": null
         },
         {
@@ -859,16 +769,6 @@
           "fuels": [
             "Petrol",
             "Diesel"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
-          "name": "Curvv EV",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
           ],
           "yearFrom": 2024,
           "yearTo": null
@@ -1211,16 +1111,6 @@
           "yearTo": 2021
         },
         {
-          "name": "XUV400",
-          "bodyType": "SUV",
-          "segment": "CompactSUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
           "name": "Thar",
           "bodyType": "SUV",
           "segment": "CompactSUV",
@@ -1260,26 +1150,6 @@
             "Diesel"
           ],
           "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
-          "name": "BE 6",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
-          "name": "XEV 9e",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
           "yearTo": null
         },
         {
@@ -1394,26 +1264,6 @@
           ],
           "yearFrom": 2007,
           "yearTo": 2009
-        },
-        {
-          "name": "e2o Plus",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2016,
-          "yearTo": 2019
-        },
-        {
-          "name": "Reva",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2001,
-          "yearTo": 2012
         },
         {
           "name": "Bolero Pickup",
@@ -1917,16 +1767,6 @@
           "yearTo": null
         },
         {
-          "name": "Carens Clavis EV",
-          "bodyType": "MUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
           "name": "Carnival",
           "bodyType": "MUV",
           "segment": "SUV",
@@ -1934,26 +1774,6 @@
             "Diesel"
           ],
           "yearFrom": 2020,
-          "yearTo": null
-        },
-        {
-          "name": "EV6",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "EV9",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
           "yearTo": null
         }
       ]
@@ -2496,56 +2316,6 @@
           ],
           "yearFrom": 2020,
           "yearTo": null
-        },
-        {
-          "name": "ZS EV",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2020,
-          "yearTo": null
-        },
-        {
-          "name": "Comet EV",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
-          "name": "Windsor EV",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
-          "name": "M9",
-          "bodyType": "MUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
-          "name": "Cyberster",
-          "bodyType": "Convertible",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
         }
       ]
     },
@@ -3000,7 +2770,7 @@
       "slug": "datsun",
       "country": "Japan",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/datsun.svg",
       "models": [
         {
           "name": "redi-GO",
@@ -3103,16 +2873,6 @@
           "yearTo": null
         },
         {
-          "name": "eC3",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
           "name": "Aircross",
           "bodyType": "SUV",
           "segment": "SUV",
@@ -3145,70 +2905,11 @@
       ]
     },
     {
-      "name": "BYD",
-      "slug": "byd",
-      "country": "China",
-      "popular": false,
-      "logo": "",
-      "models": [
-        {
-          "name": "Atto 3",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "eMAX 7",
-          "bodyType": "MUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
-          "name": "e6",
-          "bodyType": "MUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": 2024
-        },
-        {
-          "name": "Seal",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
-          "name": "Sealion 7",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        }
-      ]
-    },
-    {
       "name": "Mercedes-Benz",
       "slug": "mercedes-benz",
       "country": "Germany",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/mercedes-benz.svg",
       "models": [
         {
           "name": "A-Class",
@@ -3390,66 +3091,6 @@
             "Diesel"
           ],
           "yearFrom": 2019,
-          "yearTo": null
-        },
-        {
-          "name": "EQA",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
-          "name": "EQB",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "EQC",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2020,
-          "yearTo": 2023
-        },
-        {
-          "name": "EQE SUV",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
-          "name": "EQS",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "EQS SUV",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
           "yearTo": null
         },
         {
@@ -3695,56 +3336,6 @@
           ],
           "yearFrom": 2008,
           "yearTo": null
-        },
-        {
-          "name": "i4",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "i5",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
-          "name": "i7",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
-          "name": "iX",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
-          "name": "iX1",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
         }
       ]
     },
@@ -3875,26 +3466,6 @@
           "yearTo": null
         },
         {
-          "name": "e-tron",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
-          "name": "e-tron GT",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
           "name": "R8",
           "bodyType": "Coupe",
           "segment": "Luxury",
@@ -3961,7 +3532,7 @@
       "slug": "jaguar",
       "country": "United Kingdom",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/jaguar.svg",
       "models": [
         {
           "name": "XE",
@@ -4026,16 +3597,6 @@
           ],
           "yearFrom": 2013,
           "yearTo": 2024
-        },
-        {
-          "name": "I-Pace",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": null
         }
       ]
     },
@@ -4044,7 +3605,7 @@
       "slug": "land-rover",
       "country": "United Kingdom",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/land-rover.svg",
       "models": [
         {
           "name": "Defender",
@@ -4177,36 +3738,6 @@
           "yearTo": null
         },
         {
-          "name": "EX40",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
-          "name": "EC40",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2023,
-          "yearTo": null
-        },
-        {
-          "name": "EX30",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
           "name": "S60",
           "bodyType": "Sedan",
           "segment": "Luxury",
@@ -4309,7 +3840,7 @@
       "slug": "lexus",
       "country": "Japan",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/lexus.svg",
       "models": [
         {
           "name": "ES",
@@ -4402,16 +3933,6 @@
           "yearTo": null
         },
         {
-          "name": "Cooper SE",
-          "bodyType": "Hatchback",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2022,
-          "yearTo": null
-        },
-        {
           "name": "Countryman",
           "bodyType": "SUV",
           "segment": "Luxury",
@@ -4420,16 +3941,6 @@
             "Diesel"
           ],
           "yearFrom": 2012,
-          "yearTo": null
-        },
-        {
-          "name": "Countryman Electric",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
           "yearTo": null
         },
         {
@@ -4474,16 +3985,6 @@
           "yearTo": null
         },
         {
-          "name": "Macan Electric",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
-        },
-        {
           "name": "Panamera",
           "bodyType": "Sedan",
           "segment": "Luxury",
@@ -4502,26 +4003,6 @@
             "Petrol"
           ],
           "yearFrom": 2005,
-          "yearTo": null
-        },
-        {
-          "name": "Taycan",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
-          "yearTo": null
-        },
-        {
-          "name": "Taycan Cross Turismo",
-          "bodyType": "Sedan",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2021,
           "yearTo": null
         },
         {
@@ -4621,7 +4102,7 @@
       "slug": "isuzu",
       "country": "Japan",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/isuzu.svg",
       "models": [
         {
           "name": "D-Max V-Cross",
@@ -4660,7 +4141,7 @@
       "slug": "force-motors",
       "country": "India",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/force-motors.svg",
       "models": [
         {
           "name": "Gurkha",
@@ -4715,59 +4196,11 @@
       ]
     },
     {
-      "name": "Tesla",
-      "slug": "tesla",
-      "country": "United States",
-      "popular": false,
-      "logo": "/brands/tesla.svg",
-      "models": [
-        {
-          "name": "Model Y",
-          "bodyType": "SUV",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        }
-      ]
-    },
-    {
-      "name": "VinFast",
-      "slug": "vinfast",
-      "country": "Vietnam",
-      "popular": false,
-      "logo": "",
-      "models": [
-        {
-          "name": "VF6",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        },
-        {
-          "name": "VF7",
-          "bodyType": "SUV",
-          "segment": "SUV",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2025,
-          "yearTo": null
-        }
-      ]
-    },
-    {
       "name": "Hindustan Motors",
       "slug": "hindustan-motors",
       "country": "India",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/hindustan-motors.svg",
       "models": [
         {
           "name": "Ambassador",
@@ -4798,7 +4231,7 @@
       "slug": "premier",
       "country": "India",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/premier.svg",
       "models": [
         {
           "name": "Rio",
@@ -4855,50 +4288,11 @@
       ]
     },
     {
-      "name": "Daewoo",
-      "slug": "daewoo",
-      "country": "South Korea",
-      "popular": false,
-      "logo": "",
-      "models": [
-        {
-          "name": "Matiz",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Petrol"
-          ],
-          "yearFrom": 1998,
-          "yearTo": 2004
-        },
-        {
-          "name": "Cielo",
-          "bodyType": "Sedan",
-          "segment": "Sedan",
-          "fuels": [
-            "Petrol"
-          ],
-          "yearFrom": 1995,
-          "yearTo": 2003
-        },
-        {
-          "name": "Nexia",
-          "bodyType": "Sedan",
-          "segment": "Sedan",
-          "fuels": [
-            "Petrol"
-          ],
-          "yearFrom": 1997,
-          "yearTo": 2003
-        }
-      ]
-    },
-    {
       "name": "SsangYong",
       "slug": "ssangyong",
       "country": "South Korea",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/ssangyong.svg",
       "models": [
         {
           "name": "Rexton",
@@ -4917,7 +4311,7 @@
       "slug": "foton",
       "country": "China",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/foton.svg",
       "models": [
         {
           "name": "ViW CS2",
@@ -4932,49 +4326,11 @@
       ]
     },
     {
-      "name": "DC Design",
-      "slug": "dc-design",
-      "country": "India",
-      "popular": false,
-      "logo": "",
-      "models": [
-        {
-          "name": "Avanti",
-          "bodyType": "Coupe",
-          "segment": "Luxury",
-          "fuels": [
-            "Petrol"
-          ],
-          "yearFrom": 2015,
-          "yearTo": 2019
-        }
-      ]
-    },
-    {
-      "name": "Jayem",
-      "slug": "jayem",
-      "country": "India",
-      "popular": false,
-      "logo": "",
-      "models": [
-        {
-          "name": "Neo",
-          "bodyType": "Hatchback",
-          "segment": "Hatchback",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2018,
-          "yearTo": 2021
-        }
-      ]
-    },
-    {
       "name": "Hummer",
       "slug": "hummer",
       "country": "United States",
       "popular": false,
-      "logo": "",
+      "logo": "/brands/hummer.svg",
       "models": [
         {
           "name": "H2",
@@ -5166,16 +4522,6 @@
           ],
           "yearFrom": 2016,
           "yearTo": 2023
-        },
-        {
-          "name": "Spectre",
-          "bodyType": "Coupe",
-          "segment": "Luxury",
-          "fuels": [
-            "Electric"
-          ],
-          "yearFrom": 2024,
-          "yearTo": null
         }
       ]
     },

@@ -4,17 +4,19 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using BroCoMod.Application.DTOs;
+using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace BroCoMod.IntegrationTests;
 
 /// <summary>
-/// Basic / Standard / Premium packages: public prices per car, Hyderabad-only booking, the 10% advance,
+/// Basic / Standard / Premium packages: public prices per car, booking only in live cities, the 10% advance,
 /// advisor garage assignment, plus admin catalogue management and website enquiries.
 /// </summary>
 public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
@@ -65,8 +67,9 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
         return (customer, doc.RootElement.GetProperty("data").GetProperty("id").GetGuid(), modelId);
     }
 
-    private static CreateServiceBookingRequest Booking(Guid vehicleId, string? package, double lat = 17.4126, double lng = 78.4482, string pincode = "500034") =>
-        new(vehicleId, "Plot 7, Road No. 3", "Banjara Hills", "Hyderabad", "Telangana", pincode, "India", lat, lng,
+    private static CreateServiceBookingRequest Booking(Guid vehicleId, string? package, double lat = 17.4126, double lng = 78.4482, string pincode = "500034",
+        string area = "Banjara Hills", string city = "Hyderabad", string state = "Telangana") =>
+        new(vehicleId, "Plot 7, Road No. 3", area, city, state, pincode, "India", lat, lng,
             ProblemDescription: package == null ? "AC not cooling" : "", ServiceCategory: package == null ? "AC Service & Repair" : null, PackageCode: package);
 
     [Fact]
@@ -75,7 +78,7 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
         var anon = _factory.CreateClient();
 
         var areas = await anon.GetFromJsonAsync<ApiResponse<List<ServiceAreaDto>>>("/api/v1/service-areas", JsonOptions);
-        areas!.Data.Should().ContainSingle(a => a.IsLive).Which.City.Should().Be("Hyderabad");
+        areas!.Data!.Where(a => a.IsLive).Select(a => a.City).Should().Equal("Hyderabad", "Bengaluru", "Mancherial");
 
         var makes = await anon.GetFromJsonAsync<ApiResponse<List<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);
         makes!.Data!.Count.Should().BeGreaterThan(30);
@@ -94,17 +97,53 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
     }
 
     [Fact]
-    public async Task Booking_OutsideHyderabad_OrWithNonHyderabadPincode_IsRejected()
+    public async Task Booking_OutsideLiveCities_OrWithAnotherCitysPincode_IsRejected()
     {
         var (customer, vehicleId, _) = await NewCustomerWithSwiftAsync();
 
-        var bengaluru = await customer.PostAsJsonAsync("/api/v1/customer/requests", Booking(vehicleId, "BASIC", 12.9716, 77.5946, "560001"));
-        bengaluru.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await bengaluru.Content.ReadAsStringAsync()).Should().Contain("Hyderabad");
+        var chennai = await customer.PostAsJsonAsync("/api/v1/customer/requests",
+            Booking(vehicleId, "BASIC", 13.0827, 80.2707, "600001", "T. Nagar", "Chennai", "Tamil Nadu"));
+        chennai.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await chennai.Content.ReadAsStringAsync()).Should().Contain("Hyderabad, Bengaluru and Mancherial");
 
+        // Hyderabad pin with a Bengaluru pincode, and the other way round
         var wrongPincode = await customer.PostAsJsonAsync("/api/v1/customer/requests", Booking(vehicleId, "BASIC", pincode: "560001"));
         wrongPincode.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await wrongPincode.Content.ReadAsStringAsync()).Should().Contain("560001");
+
+        var hyderabadPincodeInBengaluru = await customer.PostAsJsonAsync("/api/v1/customer/requests",
+            Booking(vehicleId, "BASIC", 12.9719, 77.6412, "500034", "Indiranagar", "Bengaluru", "Karnataka"));
+        hyderabadPincodeInBengaluru.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await hyderabadPincodeInBengaluru.Content.ReadAsStringAsync()).Should().Contain("Bengaluru service area");
+    }
+
+    [Fact]
+    public async Task Booking_InBengaluru_IsAccepted_AndTheAdvisorSeesTheIndiranagarGarage()
+    {
+        var (customer, vehicleId, _) = await NewCustomerWithSwiftAsync();
+
+        var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests",
+            Booking(vehicleId, "BASIC", 12.9719, 77.6412, "560038", "Indiranagar", "Bengaluru", "Karnataka"));
+        var raw = await booking.Content.ReadAsStringAsync();
+        booking.IsSuccessStatusCode.Should().BeTrue(raw);
+        var request = (await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!;
+        request.ServicePackageCode.Should().Be("BASIC");
+
+        var advisor = await SignedInAsync("advisor@brocomod.com");
+        var candidates = await advisor.GetFromJsonAsync<ApiResponse<List<PackageGarageCandidateDto>>>($"/api/v1/advisor/requests/{request.Id}/package-garages", JsonOptions);
+        candidates!.Data.Should().Contain(g => g.Name == "Indiranagar Auto Care");
+        candidates.Data.Should().NotContain(g => g.Name == "Central Metro Motors");
+    }
+
+    [Fact]
+    public async Task Booking_InMancherial_IsAccepted()
+    {
+        var (customer, vehicleId, _) = await NewCustomerWithSwiftAsync();
+
+        var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests",
+            Booking(vehicleId, "BASIC", 18.8700, 79.4460, "504208", "Ramnagar", "Mancherial", "Telangana"));
+        var raw = await booking.Content.ReadAsStringAsync();
+        booking.IsSuccessStatusCode.Should().BeTrue(raw);
     }
 
     [Fact]
@@ -123,6 +162,9 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
         request.PackagePrice.Should().Be(standard.Price);
         request.AdvanceAmountDue.Should().Be(standard.AdvanceAmount);
         request.ServiceCategory.Should().Be("Periodic Service");
+        // Fixed price: no garage is asked to quote, the request waits for the advisor
+        request.MatchedGaragesCount.Should().Be(0);
+        request.Status.Should().Be("NEW");
 
         // Advisor can't assign before the advance is paid
         var advisor = await SignedInAsync("advisor@brocomod.com");
@@ -222,6 +264,54 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
     }
 
     [Fact]
+    public async Task CatalogueSeeder_GivesBrandsTheirBundledLogo_ButKeepsUploadedOnes()
+    {
+        var admin = await SignedInAsync("admin@brocomod.com");
+        async Task<VehicleManufacturerDto> NewHiddenBrandAsync()
+        {
+            var res = await admin.PostAsJsonAsync("/api/v1/admin/catalogue/manufacturers",
+                new UpsertManufacturerRequest($"Logotest {Guid.NewGuid():N}"[..20], "India", 90, IsActive: false));
+            res.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await res.Content.ReadFromJsonAsync<ApiResponse<VehicleManufacturerDto>>(JsonOptions))!.Data!;
+        }
+        var noLogo = await NewHiddenBrandAsync();
+        var oldBundled = await NewHiddenBrandAsync();
+        var uploaded = await NewHiddenBrandAsync();
+        noLogo.LogoUrl.Should().BeEmpty();
+
+        var png = new ByteArrayContent(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3 });
+        png.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        (await admin.PostAsync($"/api/v1/admin/catalogue/manufacturers/{uploaded.Id}/logo", new MultipartFormDataContent { { png, "file", "logo.png" } }))
+            .EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await db.VehicleManufacturers.SingleAsync(m => m.Id == oldBundled.Id)).SetLogoUrl("/brands/logotest-old.svg");
+        await db.SaveChangesAsync();
+        var uploadedUrl = (await db.VehicleManufacturers.AsNoTracking().SingleAsync(m => m.Id == uploaded.Id)).LogoUrl;
+
+        var seeder = new CatalogueSeeder(db, scope.ServiceProvider.GetRequiredService<ICacheService>(), NullLogger.Instance);
+        var updated = await seeder.SyncBundledLogosAsync(new Dictionary<string, string>
+        {
+            [noLogo.Name] = "/brands/logotest-new.svg",
+            [oldBundled.Name] = "/brands/logotest-new.svg",
+            [uploaded.Name] = "/brands/logotest-new.svg",
+        });
+        updated.Should().Be(2);
+
+        var after = await db.VehicleManufacturers.AsNoTracking()
+            .Where(m => m.Id == noLogo.Id || m.Id == oldBundled.Id || m.Id == uploaded.Id)
+            .ToDictionaryAsync(m => m.Id, m => m.LogoUrl);
+        after[noLogo.Id].Should().Be("/brands/logotest-new.svg");
+        after[oldBundled.Id].Should().Be("/brands/logotest-new.svg");
+        after[uploaded.Id].Should().Be(uploadedUrl).And.StartWith($"/api/v1/vehicle-manufacturers/{uploaded.Id}/logo");
+
+        // Brands that used to show a letter tile now come with their bundled logo
+        var makes = await _factory.CreateClient().GetFromJsonAsync<ApiResponse<List<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);
+        makes!.Data!.Single(m => m.Name == "Mercedes-Benz").LogoUrl.Should().Be("/brands/mercedes-benz.svg");
+    }
+
+    [Fact]
     public async Task CatalogueAdministration_IsAdminOnly()
     {
         var customer = await SignedInAsync("customer@brocomod.com");
@@ -258,7 +348,8 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
 
         var admin = await SignedInAsync("admin@brocomod.com");
         var leads = await admin.GetFromJsonAsync<ApiResponse<PagedResult<LeadDto>>>("/api/v1/admin/leads?pageSize=50", JsonOptions);
-        var lead = leads!.Data!.Items.First(l => l.MobileNumber.EndsWith(mobile));
+        // Stored in the one canonical format, whatever the visitor typed.
+        var lead = leads!.Data!.Items.First(l => l.MobileNumber == $"+91 {mobile[..5]} {mobile[5..]}");
         lead.VehicleSummary.Should().Be("Maruti Suzuki Swift");
         lead.Status.Should().Be("New");
 

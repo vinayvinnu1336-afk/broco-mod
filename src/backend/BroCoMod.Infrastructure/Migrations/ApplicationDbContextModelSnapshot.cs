@@ -1064,6 +1064,38 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.ToTable("GarageCommissions");
                 });
 
+            modelBuilder.Entity("BroCoMod.Domain.Entities.GarageCommissionPaymentAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GarageCommissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GarageCommissionId");
+
+                    b.HasIndex("PaymentId", "GarageCommissionId")
+                        .IsUnique();
+
+                    b.ToTable("GarageCommissionPaymentAllocations");
+                });
+
             modelBuilder.Entity("BroCoMod.Domain.Entities.GarageQuote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2542,6 +2574,94 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.ToTable("ServiceLocations");
                 });
 
+            modelBuilder.Entity("BroCoMod.Domain.Entities.ServiceMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVisibleToCustomer")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ServiceJobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServiceRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Stage")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("ThumbnailContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ThumbnailPath")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedByName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("UploadedByRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceJobId");
+
+                    b.HasIndex("ServiceRequestId", "IsDeleted");
+
+                    b.ToTable("ServiceMedia", (string)null);
+                });
+
             modelBuilder.Entity("BroCoMod.Domain.Entities.ServiceRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2607,8 +2727,8 @@ namespace BroCoMod.Infrastructure.Migrations
 
                     b.Property<string>("ServiceCategory")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<Guid?>("ServiceLocationId")
                         .HasColumnType("uuid");
@@ -3109,6 +3229,21 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.Navigation("ServiceRequest");
                 });
 
+            modelBuilder.Entity("BroCoMod.Domain.Entities.GarageCommissionPaymentAllocation", b =>
+                {
+                    b.HasOne("BroCoMod.Domain.Entities.GarageCommission", null)
+                        .WithMany()
+                        .HasForeignKey("GarageCommissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BroCoMod.Domain.Entities.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("BroCoMod.Domain.Entities.GarageQuote", b =>
                 {
                     b.HasOne("BroCoMod.Domain.Entities.Garage", "Garage")
@@ -3434,6 +3569,22 @@ namespace BroCoMod.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ServiceJob");
+                });
+
+            modelBuilder.Entity("BroCoMod.Domain.Entities.ServiceMedia", b =>
+                {
+                    b.HasOne("BroCoMod.Domain.Entities.ServiceJob", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceJobId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("BroCoMod.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
                 });
 
             modelBuilder.Entity("BroCoMod.Domain.Entities.ServiceRequest", b =>

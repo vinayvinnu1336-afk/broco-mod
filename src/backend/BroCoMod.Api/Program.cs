@@ -135,6 +135,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // can never exhaust the allowance of everyone else.
 var authPermitPerMinute = builder.Configuration.GetValue("RateLimiting:AuthPermitPerMinute", 10);
 var apiPermitPerMinute = builder.Configuration.GetValue("RateLimiting:ApiPermitPerMinute", 300);
+var geoPermitPerMinute = builder.Configuration.GetValue("RateLimiting:GeoPermitPerMinute", 30);
 
 static string ClientPartitionKey(HttpContext context) =>
     context.User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -166,7 +167,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    // Address lookups are billed (Google) or rationed (OpenStreetMap); a few per pin is plenty.
+    options.AddPolicy("geo-rate-limit", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"geo:{ClientPartitionKey(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = geoPermitPerMinute,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.GlobalLimiter =PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetSlidingWindowLimiter(
             $"api:{ClientPartitionKey(context)}",
             _ => new SlidingWindowRateLimiterOptions

@@ -15,8 +15,10 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { formatINR, formatINRWhole, formatRelative } from '@/lib/format';
 import {
   RequestProgress,
+  RequestStatusBadge,
   SectionTitle,
   isRequestFinished,
+  packageNextStep,
   requestNextStep,
   statusKey,
 } from '@/app/customer/_lib/customer-ui';
@@ -118,12 +120,14 @@ export default function CustomerDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      // Request rows carry package and advance status; the dashboard summary does not.
-      apiFetch<{ items?: RequestSummaryExtras[] } | RequestSummaryExtras[]>('/customer/requests?page=1&pageSize=20').then((r) => {
-        const items = Array.isArray(r.data) ? r.data : r.data?.items ?? [];
-        setExtras(Object.fromEntries(items.map((i) => [i.id, i])));
-      });
-      const res = await apiFetch<CustomerDashboardData>('/customer/dashboard');
+      // Request rows carry package and advance status; the dashboard summary does not. Loaded
+      // together so package bookings never flash up with quote wording first.
+      const [rows, res] = await Promise.all([
+        apiFetch<{ items?: RequestSummaryExtras[] } | RequestSummaryExtras[]>('/customer/requests?page=1&pageSize=20'),
+        apiFetch<CustomerDashboardData>('/customer/dashboard'),
+      ]);
+      const items = Array.isArray(rows.data) ? rows.data : rows.data?.items ?? [];
+      setExtras(Object.fromEntries(items.map((i) => [i.id, i])));
       if (res.success && res.data) {
         setData(res.data);
       } else {
@@ -141,7 +145,11 @@ export default function CustomerDashboardPage() {
   }, [loadDashboard]);
 
   const recentRequests = useMemo(() => data?.recentRequests ?? [], [data]);
-  const recentQuotes = useMemo(() => data?.pendingQuotes ?? [], [data]);
+  // Fixed-price packages never have a quote for the customer; hide the internal one BroCo records.
+  const recentQuotes = useMemo(
+    () => (data?.pendingQuotes ?? []).filter((q) => !extras[q.serviceRequestId]?.servicePackageName),
+    [data, extras]
+  );
 
   // Quotes the customer still has to accept or decline.
   const quotesAwaitingDecision = useMemo(
@@ -265,9 +273,9 @@ export default function CustomerDashboardPage() {
           </SectionTitle>
           <div className="space-y-3">
             {activeRequests.slice(0, 3).map((r) => {
-              const next = requestNextStep(r.status);
               const extra = extras[r.id];
               const isPackage = !!extra?.servicePackageName;
+              const next = isPackage ? packageNextStep(r.status, !!extra.isAdvancePaid) : requestNextStep(r.status);
               return (
                 <Link
                   key={r.id}
@@ -281,7 +289,12 @@ export default function CustomerDashboardPage() {
                         <p className="mt-0.5 line-clamp-1 text-sm text-navy-500">{r.description}</p>
                       )}
                     </div>
-                    <StatusBadge status={r.status} className="shrink-0" />
+                    <RequestStatusBadge
+                      status={r.status}
+                      isPackage={isPackage}
+                      advancePaid={!!extra?.isAdvancePaid}
+                      className="shrink-0"
+                    />
                   </div>
                   {isPackage && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-50 px-3 py-2 text-sm">
@@ -298,12 +311,12 @@ export default function CustomerDashboardPage() {
                       )}
                     </div>
                   )}
-                  <RequestProgress status={r.status} className="mt-4" />
+                  <RequestProgress status={r.status} isPackage={isPackage} className="mt-4" />
                   {next && <p className="mt-3 text-sm text-navy-700">{next}</p>}
                   <div className="mt-2 flex items-center justify-between text-xs text-navy-400">
                     <span>
-                      Requested {formatRelative(r.createdAtUtc)}
-                      {r.quotesReceivedCount > 0 &&
+                      {isPackage ? 'Booked' : 'Requested'} {formatRelative(r.createdAtUtc)}
+                      {!isPackage && r.quotesReceivedCount > 0 &&
                         ` · ${r.quotesReceivedCount} garage quote${r.quotesReceivedCount === 1 ? '' : 's'}`}
                     </span>
                     <ChevronRight className="h-4 w-4 text-surface-400" aria-hidden="true" />
@@ -326,8 +339,8 @@ export default function CustomerDashboardPage() {
               </h2>
               <p className="mt-0.5 text-sm text-navy-500">
                 {vehiclesCount === 0
-                  ? 'Add your car, then tell us what it needs. Nearby garages will quote and your advisor will send you one clear price.'
-                  : 'Tell us what your car needs. Nearby garages will quote and your advisor will send you one clear price.'}
+                  ? 'Add your car, then book a fixed-price service package or tell us what it needs and nearby garages will quote.'
+                  : 'Book a fixed-price service package, or tell us what your car needs and nearby garages will quote.'}
               </p>
             </div>
           </div>
@@ -379,9 +392,15 @@ export default function CustomerDashboardPage() {
                 href={`/customer/requests/${row.id}`}
                 leading={<IconTile icon={ClipboardList} tone="neutral" />}
                 title={vehicleName(row.item)}
-                subtitle={row.item.description || 'Service request'}
-                meta={`Request · ${formatRelative(row.at)}`}
-                trailing={<StatusBadge status={row.item.status} />}
+                subtitle={extras[row.id]?.servicePackageName || row.item.description || 'Service request'}
+                meta={`${extras[row.id]?.servicePackageName ? 'Booking' : 'Request'} · ${formatRelative(row.at)}`}
+                trailing={
+                  <RequestStatusBadge
+                    status={row.item.status}
+                    isPackage={!!extras[row.id]?.servicePackageName}
+                    advancePaid={!!extras[row.id]?.isAdvancePaid}
+                  />
+                }
               />
             ) : (
               <ListItem

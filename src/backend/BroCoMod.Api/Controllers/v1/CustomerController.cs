@@ -65,6 +65,29 @@ public class CustomerController : ControllerBase
         return Ok(ApiResponse<CustomerProfileDto>.Ok(profile));
     }
 
+    [HttpPut("profile")]
+    [ProducesResponseType(typeof(ApiResponse<CustomerProfileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateCustomerProfileRequest request, CancellationToken cancellationToken)
+    {
+        var customerId = GetEffectiveCustomerId();
+        try
+        {
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var profile = await _customerPortalService.UpdateProfileAsync(customerId, request, ipAddress, cancellationToken);
+            return Ok(ApiResponse<CustomerProfileDto>.Ok(profile, "Profile updated."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
     [HttpGet("vehicles")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CustomerVehicleDetailDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetVehicles(CancellationToken cancellationToken)

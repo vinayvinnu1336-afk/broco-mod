@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { apiFetch } from '@/lib/api';
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT } from '@/lib/password';
 
 type Step = 'request' | 'reset' | 'done';
 
@@ -95,8 +96,8 @@ function ForgotPasswordForm() {
       setError('Enter the 6-digit code from the email.');
       return;
     }
-    if (newPassword.length < 8) {
-      setError('Your new password must be at least 8 characters.');
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_TOO_SHORT);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -225,10 +226,10 @@ function ForgotPasswordForm() {
                     label="New password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    placeholder="At least 8 characters"
+                    placeholder={PASSWORD_HINT}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={8}
+                    minLength={PASSWORD_MIN_LENGTH}
                     className="pr-12"
                     rightIcon={passwordToggle}
                     required

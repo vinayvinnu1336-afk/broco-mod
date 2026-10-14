@@ -75,7 +75,7 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
   // Step 1: other services → AC, describe the problem.
   await page.goto('/customer/requests/new');
   await page.getByRole('tab', { name: 'Other services' }).click();
-  await page.getByRole('radio', { name: SERVICE }).click();
+  await page.getByRole('checkbox', { name: SERVICE }).click();
   await page.getByLabel(/^Describe the problem/).fill('AC blows warm air and makes a rattling noise when switched on.');
   await checkLayout(page, 'booking: other services');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -188,13 +188,14 @@ test('4. customer accepts the quote', async ({ browser }) => {
   await expect(page).toHaveURL(/\/customer\/quotes\//);
   state.quoteUrl = page.url();
 
-  // 10% now, the rest at the garage.
+  // Nothing is payable before accepting: 10% online after accepting, the rest at the garage.
   // The split is shown in whole rupees.
   await expect(valueOf(page, 'Quote total')).toHaveText(inr(QUOTE_TOTAL));
-  await expect(valueOf(page, 'Pay now (10%)').first()).toHaveText(inr(ADVANCE));
+  await expect(valueOf(page, 'Online after you accept (10%)')).toHaveText(inr(ADVANCE));
   await expect(valueOf(page, 'Pay at garage after service')).toHaveText(inr(QUOTE_TOTAL - ADVANCE));
   for (const item of ITEMS) await expect(page.getByText(item.description).first()).toBeVisible();
   await checkLayout(page, 'customer quote');
+  await expect(page.getByRole('button', { name: /^Pay / })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Accept', exact: true }).click();
   await checkLayout(page, 'accept quote sheet');

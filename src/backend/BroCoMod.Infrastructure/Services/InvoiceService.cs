@@ -92,6 +92,7 @@ public class InvoiceService : IInvoiceService
         decimal discount = 0m;
         decimal tax = 0m;
         decimal total = payment.Amount;
+        decimal? balanceAtGarage = null;
         var lineItemList = new List<object>();
 
         if (payment.Purpose == PaymentPurpose.BookingAdvance)
@@ -104,13 +105,17 @@ public class InvoiceService : IInvoiceService
             var what = request?.ServicePackageName ?? payment.CustomerQuotation?.ScopeSummary ?? "car service";
             var car = request == null ? string.Empty : $" · {request.VehicleMake} {request.VehicleModel}".TrimEnd();
             subtotal = total;
+            balanceAtGarage = Math.Max(0m, serviceTotal - total);
             lineItemList.Add(new
             {
-                description = $"Booking advance for {what}{car} (service total ₹{serviceTotal:N2}; balance ₹{serviceTotal - total:N2} payable at the garage)",
+                description = $"Booking advance for {what}{car} (service total ₹{serviceTotal:N2}; balance ₹{balanceAtGarage:N2} payable at the garage)",
                 itemType = "BookingAdvance",
                 quantity = 1,
                 unitPrice = total,
-                totalPrice = total
+                totalPrice = total,
+                // Kept as numbers so the receipt can show the balance without parsing the description.
+                serviceTotal,
+                balanceAtGarage
             });
         }
         else if (payment.CustomerQuotation != null)
@@ -198,10 +203,13 @@ public class InvoiceService : IInvoiceService
             cancellationToken: cancellationToken
         );
 
+        var isAdvance = payment.Purpose == PaymentPurpose.BookingAdvance;
         await _notificationService.SendInAppNotificationAsync(
             userId: customerUserId,
-            title: "Tax Invoice Issued",
-            message: $"Your tax invoice {invoice.InvoiceNumber} for payment {payment.PaymentNumber} ({invoice.TotalAmount} {invoice.Currency}) is available.",
+            title: isAdvance ? "Booking advance receipt" : "Tax Invoice Issued",
+            message: isAdvance
+                ? $"Receipt {invoice.InvoiceNumber} for your ₹{invoice.TotalAmount:N0} booking advance is ready. The balance of ₹{balanceAtGarage ?? 0m:N0} is paid at the garage."
+                : $"Your tax invoice {invoice.InvoiceNumber} for payment {payment.PaymentNumber} ({invoice.TotalAmount} {invoice.Currency}) is available.",
             type: "INVOICE_ISSUED",
             referenceId: invoice.Id,
             referenceType: nameof(Invoice),

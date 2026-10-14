@@ -98,7 +98,7 @@ export default function CustomerQuotesPage() {
         <EmptyState
           icon={FileCheck2}
           title="No quotes yet"
-          description="After you book a service, garages quote and your advisor sends you one price here."
+          description="When you book a repair, garages quote and your advisor sends you one price here. Fixed-price service packages don't need a quote."
           action={
             <Link href="/customer/requests/new">
               <Button variant="primary" leftIcon={<Plus className="h-4 w-4" />}>

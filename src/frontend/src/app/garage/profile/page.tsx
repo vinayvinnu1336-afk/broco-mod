@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { humanize } from '@/lib/format';
+import { formatIndianMobile, mobileTelHref } from '@/lib/phone';
 
 interface GarageProfileData {
   garageId: string;
@@ -96,9 +97,9 @@ export default function GarageProfilePage() {
           <ListGroup title="Contact">
             <ListItem
               leading={<IconTile icon={Phone} tone="neutral" />}
-              title={profile.phoneNumber || 'Not set'}
+              title={profile.phoneNumber ? formatIndianMobile(profile.phoneNumber) : 'Not set'}
               subtitle="Phone"
-              href={profile.phoneNumber ? `tel:${profile.phoneNumber.replace(/\s+/g, '')}` : undefined}
+              href={profile.phoneNumber ? mobileTelHref(profile.phoneNumber) : undefined}
               hideChevron
             />
             <ListItem

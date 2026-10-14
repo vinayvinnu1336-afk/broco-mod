@@ -43,7 +43,8 @@ public interface IGeocodingService
 public interface ILeadService
 {
     Task<LeadDto> CreateAsync(CreateLeadRequest request, CancellationToken ct = default);
-    Task<PagedResult<LeadDto>> GetLeadsAsync(string? status, int page, int pageSize, CancellationToken ct = default);
+    Task<PagedResult<LeadDto>> GetLeadsAsync(string? status, int page, int pageSize, CancellationToken ct = default,
+        ListFilter? filter = null, string? city = null);
     Task<LeadDto> UpdateAsync(Guid id, UpdateLeadRequest request, CancellationToken ct = default);
 }
 
@@ -67,6 +68,25 @@ public interface ICommissionService
 
     Task<bool> IsGarageBlockedForNewJobsAsync(Guid garageId, CancellationToken ct = default);
     Task<int> SendDueRemindersAsync(CancellationToken ct = default);
+}
+
+/// <summary>
+/// Staff (admin and advisor) view of commission garages have not paid yet, with on-demand reminders and
+/// alerts when a due goes overdue. Kept apart from <see cref="ICommissionService"/> so its test doubles stay small.
+/// </summary>
+public interface ICommissionDuesService
+{
+    Task<PagedResult<GarageCommissionDto>> GetDuesAsync(CommissionDuesQuery query, CancellationToken ct = default);
+    Task<GarageDuesOverviewDto> GetDuesOverviewAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<GarageDuesSummaryDto>> GetGarageDuesAsync(CancellationToken ct = default);
+
+    /// <summary>Reminds the garage about one due now. Not sent (Sent = false) if staff reminded it within the last hour.</summary>
+    Task<CommissionReminderResultDto> SendManualReminderAsync(Guid commissionId, Guid staffUserId, CancellationToken ct = default);
+    /// <summary>One reminder per garage covering all its overdue dues, skipping dues staff reminded within the last hour.</summary>
+    Task<BulkCommissionReminderResultDto> RemindOverdueAsync(Guid? garageId, Guid staffUserId, CancellationToken ct = default);
+
+    /// <summary>Tells admins and advisors (in-app, once per due) about dues that have gone overdue.</summary>
+    Task<int> NotifyStaffOfOverdueDuesAsync(CancellationToken ct = default);
 }
 
 /// <summary>Turns a paid package booking into a confirmed job at the chosen garage.</summary>
