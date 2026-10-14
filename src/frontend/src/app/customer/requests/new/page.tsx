@@ -7,12 +7,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BatteryCharging,
   Car,
+  CarFront,
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
   Clock,
   Cog,
   Disc,
@@ -23,6 +21,7 @@ import {
   Snowflake,
   Sparkles,
   SprayCan,
+  Truck,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -63,6 +62,7 @@ import {
 import { liveCitiesLabel, useLiveServiceArea, useLiveServiceAreas } from '@/components/location/serviceArea';
 import { PaymentModelNote, PriceSplit } from '@/components/booking/PriceSplit';
 import { ADVANCE_PERCENT, payBookingAdvance } from '@/components/booking/advancePayment';
+import { PICKUP_SLOTS, formatPickup } from '@/components/booking/pickup';
 
 // ---------------------------------------------------------------------------------------------
 // Data
@@ -86,13 +86,16 @@ const MAX_SERVICES = 8;
 const MAX_SERVICES_TEXT = 300;
 const joinServices = (names: string[]) => names.join(', ');
 
-const STEPS = ['Service', 'Car', 'Location', 'Review'] as const;
+const PICKUP_NOTES_MAX = 300;
 
-const TIME_SLOTS = [
-  { key: 'morning', label: 'Morning', hint: '9 am – 12 pm', hour: 9 },
-  { key: 'afternoon', label: 'Afternoon', hint: '12 – 4 pm', hour: 12 },
-  { key: 'evening', label: 'Evening', hint: '4 – 7 pm', hour: 16 },
-] as const;
+/** The four sections of the page, in the order problems are reported. */
+const SECTION_IDS = {
+  service: 'booking-service',
+  car: 'booking-car',
+  location: 'booking-location',
+  pickup: 'booking-pickup',
+} as const;
+type SectionKey = keyof typeof SECTION_IDS;
 
 /** GET /customer/vehicles */
 interface SavedVehicle {
@@ -170,8 +173,7 @@ function BookingSkeleton() {
   return (
     <div className="mx-auto max-w-2xl space-y-4" aria-busy="true" aria-label="Loading booking">
       <Skeleton className="h-7 w-48" />
-      <Skeleton className="h-2 w-full" />
-      <Skeleton className="h-12" />
+      <Skeleton className="h-64" />
       <Skeleton className="h-40" />
       <Skeleton className="h-40" />
     </div>
@@ -185,8 +187,7 @@ function BookingFlow() {
   const serviceArea = useLiveServiceArea();
   const liveAreas = useLiveServiceAreas();
 
-  const [step, setStep] = useState(1);
-  const [stepError, setStepError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
   // ---- Service
@@ -197,7 +198,7 @@ function BookingFlow() {
   const [problem, setProblem] = useState('');
   const [packageNotes, setPackageNotes] = useState('');
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [openIncludes, setOpenIncludes] = useState<Record<string, boolean>>({});
 
   // ---- Car
   const [vehicles, setVehicles] = useState<SavedVehicle[]>([]);
@@ -222,10 +223,12 @@ function BookingFlow() {
   const [location, setLocation] = useState<LocationDraft>(() => emptyLocationDraft(serviceArea));
   const handleLocationChange = useCallback((next: LocationDraft) => {
     setLocation(next);
-    setStepError(null);
+    setFormError(null);
   }, []);
 
-  // ---- When
+  // ---- Pick-up & drop and when
+  const [needsPickup, setNeedsPickup] = useState<boolean | null>(null);
+  const [pickupNotes, setPickupNotes] = useState('');
   const [preferredDay, setPreferredDay] = useState('');
   const [preferredSlot, setPreferredSlot] = useState('');
 
@@ -462,7 +465,7 @@ function BookingFlow() {
     setSavingCar(false);
     if (!res.success) {
       const message = res.message || res.errors?.[0] || 'Could not save your car. Please check the details.';
-      setStepError(message);
+      setFormError(message);
       toast.error('Could not save your car', message);
       return null;
     }
@@ -487,12 +490,14 @@ function BookingFlow() {
     return saved;
   };
 
-  // ------------------------------------------------------------------ navigation
-  const goTo = (n: number) => {
-    setStep(n);
-    setStepError(null);
-    setShowErrors(false);
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ------------------------------------------------------------------ validation
+  const carFormVisible = addingCar || (!loadingVehicles && vehicles.length === 0);
+
+  const scrollToSection = (key: SectionKey) => {
+    const el = document.getElementById(SECTION_IDS[key]);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.focus({ preventScroll: true });
   };
 
   const packageUnavailableMessage = (): string | null => {
@@ -505,10 +510,11 @@ function BookingFlow() {
     return null;
   };
 
-  const validateService = (): string | null => {
+  // Each section's first problem; field-level messages are shown by the fields themselves.
+  const serviceProblem = (): string | null => {
     if (mode === 'package') {
-      if (!pricingCar) return 'Select your car first so we can show the right price.';
       if (!packageCode) return 'Choose a service package.';
+      if (!pricingCar) return null; // the car section asks for the car
       if (offersLoading) return 'Loading prices for your car…';
       if (offersError) return offersError;
       return packageUnavailableMessage();
@@ -517,55 +523,29 @@ function BookingFlow() {
     if (problem.trim().length < 5) return 'Describe the problem in a few words (at least 5 characters).';
     return null;
   };
+  const carProblem = (): string | null => {
+    if (loadingVehicles) return 'Still loading your cars, one moment…';
+    if (vehiclesError) return vehiclesError;
+    if (carFormVisible) return Object.values(carErrors).some(Boolean) ? 'Please complete your car details.' : null;
+    if (!selectedVehicleId) return 'Choose the car that needs service.';
+    return null;
+  };
+  const locationErrors = validateLocation(location, serviceArea);
+  const locationConfirmed = !hasLocationErrors(locationErrors);
+  const locationProblem = (): string | null =>
+    locationConfirmed ? null : locationErrors.pin || locationErrors.confirm || 'Please complete the address.';
+  const pickupProblem = (): string | null => (needsPickup === null ? 'Tell us if you need pick-up & drop.' : null);
 
-  const handleContinue = async () => {
-    setStepError(null);
-    if (step === 1) {
-      const err = validateService();
-      if (err) {
-        setShowErrors(true);
-        setStepError(err);
-        return;
-      }
-      goTo(2);
-      return;
-    }
-    if (step === 2) {
-      if (addingCar || vehicles.length === 0) {
-        if (Object.values(carErrors).some(Boolean)) {
-          setShowErrors(true);
-          setStepError('Please complete your car details.');
-          return;
-        }
-        const saved = await saveCar();
-        if (!saved) return;
-      } else if (!selectedVehicleId) {
-        setStepError('Choose the car that needs service.');
-        return;
-      }
-      const unavailable = packageUnavailableMessage();
-      if (unavailable) {
-        setStepError(unavailable);
-        return;
-      }
-      goTo(3);
-      return;
-    }
-    if (step === 3) {
-      const errs = validateLocation(location, serviceArea);
-      if (hasLocationErrors(errs)) {
-        setShowErrors(true);
-        setStepError(errs.pin || errs.confirm || 'Please complete the address.');
-        return;
-      }
-      goTo(4);
-    }
+  const sectionErrors: Record<SectionKey, string | null> = {
+    service: showErrors ? serviceProblem() : null,
+    car: showErrors && !carFormVisible ? carProblem() : null,
+    // The picker already shows a missing pin in red next to the button; the alert covers the rest.
+    location: showErrors && !locationErrors.pin ? locationProblem() : null,
+    pickup: showErrors ? pickupProblem() : null,
   };
 
-  const handleBack = () => goTo(Math.max(1, step - 1));
-
   const toggleCategory = (name: string) => {
-    setStepError(null);
+    setFormError(null);
     if (categories.includes(name)) {
       setCategories(categories.filter((c) => c !== name));
       setServiceLimitHit(false);
@@ -580,27 +560,34 @@ function BookingFlow() {
   };
 
   // ------------------------------------------------------------------ submit
+  const slot = PICKUP_SLOTS.find((s) => s.key === preferredSlot) ?? null;
+
   const preferredServiceDate = useMemo(() => {
     if (!preferredDay) return null;
     const [y, m, d] = preferredDay.split('-').map(Number);
-    const slot = TIME_SLOTS.find((s) => s.key === preferredSlot);
-    return new Date(y, m - 1, d, slot?.hour ?? 10, 0, 0).toISOString();
+    const chosen = PICKUP_SLOTS.find((s) => s.key === preferredSlot);
+    return new Date(y, m - 1, d, chosen?.hour ?? 10, 0, 0).toISOString();
   }, [preferredDay, preferredSlot]);
 
-  const createRequest = async (): Promise<CreatedRequest | null> => {
+  const pickupSummary = formatPickup(
+    { needsPickup, pickupNotes: pickupNotes.trim(), pickupSlot: slot?.value ?? null },
+    "No, I'll drive to the garage"
+  );
+
+  const createRequest = async (vehicleId: string): Promise<CreatedRequest | null> => {
     if (created) return created;
     const loc = toLocationValue(location, serviceArea);
     if (!loc.confirmed || loc.latitude === null || loc.longitude === null) {
-      goTo(3);
       setShowErrors(true);
-      setStepError('Please check your location.');
+      scrollToSection('location');
       return null;
     }
-    const slotLabel = TIME_SLOTS.find((s) => s.key === preferredSlot)?.label;
     const notes = mode === 'package' ? packageNotes.trim() : problem.trim();
-    const description = [notes, slotLabel ? `Preferred time: ${slotLabel.toLowerCase()}.` : ''].filter(Boolean).join('\n');
+    // When the garage picks the car up, the slot travels in its own field.
+    const timeNote = slot && !needsPickup ? `Preferred time: ${slot.label.toLowerCase()}.` : '';
+    const description = [notes, timeNote].filter(Boolean).join('\n');
     const body: Record<string, unknown> = {
-      vehicleId: selectedVehicleId,
+      vehicleId,
       addressLine1: loc.addressLine1,
       addressLine2: loc.addressLine2 || null,
       city: loc.city,
@@ -612,6 +599,9 @@ function BookingFlow() {
       problemDescription: description,
       serviceCategory: mode === 'package' ? selectedPackage?.name ?? 'Periodic Service' : joinServices(categories),
       preferredServiceDate,
+      needsPickup: needsPickup === true,
+      pickupNotes: needsPickup ? pickupNotes.trim() || null : null,
+      pickupSlot: needsPickup ? slot?.value ?? null : null,
     };
     if (mode === 'package') body.packageCode = packageCode;
     else body.serviceCategories = categories;
@@ -625,7 +615,7 @@ function BookingFlow() {
     if (!res.success || !res.data) {
       setBusy(null);
       const message = res.message || 'We could not create your booking. Please try again.';
-      setStepError(message);
+      setFormError(message);
       toast.error('Booking not created', message);
       return null;
     }
@@ -635,8 +625,34 @@ function BookingFlow() {
   };
 
   const handleSubmit = async () => {
-    setStepError(null);
-    const req = await createRequest();
+    setFormError(null);
+    const problems: { section: SectionKey; message: string }[] = [];
+    const s = serviceProblem();
+    if (s) problems.push({ section: 'service', message: s });
+    const c = carProblem();
+    if (c) problems.push({ section: 'car', message: c });
+    const l = locationProblem();
+    if (l) problems.push({ section: 'location', message: l });
+    const p = pickupProblem();
+    if (p) problems.push({ section: 'pickup', message: p });
+    if (problems.length > 0) {
+      setShowErrors(true);
+      scrollToSection(problems[0].section);
+      return;
+    }
+
+    // A car typed in on this page is saved to the profile first, then booked.
+    let vehicleId = selectedVehicleId;
+    if (carFormVisible) {
+      const saved = await saveCar();
+      if (!saved) {
+        scrollToSection('car');
+        return;
+      }
+      vehicleId = saved.id;
+    }
+
+    const req = await createRequest(vehicleId);
     if (!req) return;
 
     if (mode === 'other') {
@@ -705,6 +721,10 @@ function BookingFlow() {
                 {created.servicePackageName || created.serviceCategory}
               </dd>
             </div>
+            <div className="flex items-start justify-between gap-3 py-2.5">
+              <dt className="shrink-0 text-navy-500">Pick-up &amp; drop</dt>
+              <dd className="min-w-0 break-words text-right font-medium text-navy-900">{pickupSummary}</dd>
+            </div>
           </dl>
 
           {isPackage ? (
@@ -750,73 +770,58 @@ function BookingFlow() {
     );
   }
 
-  // ================================================================== FLOW
-  const isReview = step === STEPS.length;
-  const carFormVisible = addingCar || (!loadingVehicles && vehicles.length === 0);
+  // ================================================================== THE PAGE
   const advance = selectedOffer?.advanceAmount ?? 0;
   const atGarage = selectedOffer?.payAtGarageAmount ?? 0;
   const ctaLabel =
     mode === 'package'
-      ? busy === 'creating'
+      ? savingCar
+        ? 'Saving your car…'
+        : busy === 'creating'
         ? 'Creating booking…'
         : busy === 'paying'
         ? 'Confirming payment…'
         : busy === 'redirecting'
         ? 'Opening payment…'
         : `Pay ${formatINRWhole(advance)} & book`
+      : savingCar
+      ? 'Saving your car…'
       : busy
       ? 'Sending…'
       : 'Get quotes from garages';
 
+  const carSummary = (() => {
+    if (selectedVehicle && !addingCar) {
+      return {
+        name: `${selectedVehicle.make} ${selectedVehicle.model} · ${selectedVehicle.fuelType}`,
+        plate: selectedVehicle.licensePlate,
+        logo: logos[selectedVehicle.manufacturerId],
+        brand: selectedVehicle.make,
+      };
+    }
+    if (carDraft?.modelId) {
+      return {
+        name: `${carDraft.manufacturerName} ${carDraft.modelName} · ${carDraft.fuelType}`,
+        plate: plate.trim().toUpperCase() || 'Registration number needed',
+        logo: carDraft.logoUrl ?? logos[carDraft.manufacturerId],
+        brand: carDraft.manufacturerName,
+      };
+    }
+    return null;
+  })();
+
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Book a service" backHref="/customer/requests" backLabel="My requests" />
+      <PageHeader
+        title="Book a service"
+        description="Everything on one page: pick the service, your car, where it is and whether we should collect it."
+        backHref="/customer/requests"
+        backLabel="My requests"
+      />
 
-      {/* Stepper */}
-      <nav aria-label="Booking progress" className="mb-5">
-        <ol className="grid grid-cols-4 gap-1.5">
-          {STEPS.map((label, i) => {
-            const n = i + 1;
-            const doneStep = n < step;
-            const active = n === step;
-            return (
-              <li key={label}>
-                <button
-                  type="button"
-                  onClick={() => doneStep && !busy && goTo(n)}
-                  disabled={!doneStep || !!busy}
-                  aria-current={active ? 'step' : undefined}
-                  aria-label={`Step ${n}: ${label}${doneStep ? ' (done, go back)' : active ? ' (current)' : ''}`}
-                  className="flex w-full flex-col gap-1.5 py-1.5 text-left disabled:cursor-default"
-                >
-                  <span className={`h-1.5 w-full rounded-full ${doneStep || active ? 'bg-electric-600' : 'bg-surface-200'}`} />
-                  <span
-                    className={`truncate text-xs ${
-                      active ? 'font-semibold text-navy-900' : doneStep ? 'font-medium text-electric-700' : 'text-navy-400'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
-
-      {stepError && (
-        <Alert type="error" onClose={() => setStepError(null)} className="mb-4">
-          {stepError}
-        </Alert>
-      )}
-
-      {/* ============================ STEP 1: SERVICE ============================ */}
-      {step === 1 && (
-        <section className="space-y-4" aria-labelledby="step-service">
-          <h2 id="step-service" className="text-base font-semibold text-navy-900">
-            What does your car need?
-          </h2>
-
+      <div className="space-y-4">
+        {/* ============================ 1. SERVICE ============================ */}
+        <SectionCard id={SECTION_IDS.service} n={1} title="Service" error={sectionErrors.service}>
           <div role="tablist" aria-label="Service type" className="grid grid-cols-2 gap-1 rounded-xl bg-surface-100 p-1">
             {(
               [
@@ -831,8 +836,7 @@ function BookingFlow() {
                 aria-selected={mode === key}
                 onClick={() => {
                   setMode(key);
-                  setStepError(null);
-                  setShowErrors(false);
+                  setFormError(null);
                 }}
                 className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition ${
                   mode === key ? 'bg-white text-navy-900 shadow-card' : 'text-navy-500 hover:text-navy-800'
@@ -852,26 +856,13 @@ function BookingFlow() {
 
           {mode === 'package' ? (
             <div className="space-y-4">
-              <CarSelectField
-                label="Your car"
-                value={pricingCar}
-                onChange={handleCarPicked}
-                placeholder="Select your car to see prices"
-                error={showErrors && !pricingCar ? 'Select your car to see prices.' : undefined}
-              />
-              {loadingVehicles && !pricingCar && <p className="-mt-2 text-xs text-navy-400">Loading your saved cars…</p>}
-
-              {offersError && (
-                <Alert type="error">
-                  {offersError}
-                </Alert>
-              )}
+              {offersError && <Alert type="error">{offersError}</Alert>}
 
               {!packages ? (
                 <div className="space-y-3">
-                  <Skeleton className="h-36" />
-                  <Skeleton className="h-36" />
-                  <Skeleton className="h-36" />
+                  <Skeleton className="h-24" />
+                  <Skeleton className="h-24" />
+                  <Skeleton className="h-24" />
                 </div>
               ) : packages.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
@@ -881,101 +872,47 @@ function BookingFlow() {
                 <div role="radiogroup" aria-label="Service package" className="space-y-3">
                   {packages.map((pkg) => {
                     const offer = offerFor(pkg.code);
-                    const selected = packageCode.toUpperCase() === pkg.code.toUpperCase();
-                    const priced = offer && offer.price !== null;
-                    const unavailable = !!pricingCar && !!offers && !priced;
-                    const isOpen = expanded === pkg.code;
-                    const includes = offer?.package.includes ?? pkg.includes ?? [];
+                    const priced = !!offer && offer.price !== null;
                     return (
-                      <div
+                      <PackageCard
                         key={pkg.code}
-                        className={`rounded-2xl border bg-white shadow-card transition ${
-                          selected ? 'border-electric-600 ring-2 ring-electric-600/20' : 'border-surface-200'
-                        } ${unavailable ? 'opacity-60' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          disabled={unavailable}
-                          onClick={() => {
-                            setPackageCode(pkg.code);
-                            setStepError(null);
-                          }}
-                          className="flex w-full items-start gap-3 p-4 text-left disabled:cursor-not-allowed"
-                        >
-                          <span
-                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                              selected ? 'border-electric-600 bg-electric-600' : 'border-surface-300'
-                            }`}
-                            aria-hidden="true"
-                          >
-                            {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-2">
-                              <span className="text-[15px] font-semibold text-navy-900">{pkg.name}</span>
-                              {pkg.isRecommended && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                                  Most booked
-                                </span>
-                              )}
-                            </span>
-                            <span className="mt-0.5 block text-sm leading-snug text-navy-500">{pkg.tagline}</span>
-                            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-navy-500">
-                              <span className="inline-flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5" /> {formatHours(pkg.durationHours)}
-                              </span>
-                              <span aria-hidden="true">·</span>
-                              <span>Every {pkg.intervalKm.toLocaleString('en-IN')} km</span>
-                              {pkg.warrantyDays > 0 && (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span>{pkg.warrantyDays}-day warranty</span>
-                                </>
-                              )}
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            {!pricingCar ? (
-                              <span className="text-xs text-navy-400">Select car</span>
-                            ) : offersLoading ? (
-                              <Skeleton className="h-5 w-16" />
-                            ) : priced ? (
-                              <>
-                                <span className="block text-base font-bold tabular-nums text-navy-900">
-                                  {formatINRWhole(offer!.price)}
-                                </span>
-                                <span className="block text-[11px] text-electric-700">
-                                  {formatINRWhole(offer!.advanceAmount)} now
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-xs text-navy-400">Not available</span>
-                            )}
-                          </span>
-                        </button>
-                        {includes.length > 0 && (
-                          <div className="border-t border-surface-100 px-4 pb-3 pt-2">
-                            <PackageIncludes includes={includes} compact collapsedGroups={1} />
-                          </div>
-                        )}
-                      </div>
+                        pkg={pkg}
+                        offer={offer}
+                        selected={packageCode.toUpperCase() === pkg.code.toUpperCase()}
+                        unavailable={!!pricingCar && !!offers && !priced}
+                        hasCar={!!pricingCar}
+                        loadingPrice={offersLoading}
+                        open={!!openIncludes[pkg.code]}
+                        onToggle={() => setOpenIncludes((o) => ({ ...o, [pkg.code]: !o[pkg.code] }))}
+                        onSelect={() => {
+                          setPackageCode(pkg.code);
+                          setFormError(null);
+                        }}
+                      />
                     );
                   })}
                 </div>
               )}
 
-              {selectedOffer && selectedOffer.price !== null && (
-                <div className="space-y-2">
-                  <PriceSplit
-                    total={selectedOffer.price}
-                    advance={selectedOffer.advanceAmount ?? 0}
-                    atGarage={selectedOffer.payAtGarageAmount ?? 0}
-                    percent={advancePercent}
-                  />
-                  <PaymentModelNote />
-                </div>
+              {!pricingCar && !loadingVehicles && (
+                <p className="text-sm text-navy-500">
+                  Prices depend on the car.{' '}
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('car')}
+                    className="font-semibold text-electric-700 underline underline-offset-2"
+                  >
+                    Choose your car below
+                  </button>{' '}
+                  to see them.
+                </p>
+              )}
+              {pricingCar && selectedPackage && !offersLoading && selectedOffer && selectedOffer.price !== null && (
+                <p className="text-sm text-navy-600">
+                  {selectedPackage.name} for {pricingCar.manufacturerName} {pricingCar.modelName} · {pricingCar.fuelType}:{' '}
+                  <strong className="tabular-nums text-navy-900">{formatINRWhole(selectedOffer.price)}</strong>, pay{' '}
+                  <strong className="tabular-nums text-electric-700">{formatINRWhole(selectedOffer.advanceAmount ?? 0)}</strong> now.
+                </p>
               )}
 
               <Textarea
@@ -992,8 +929,7 @@ function BookingFlow() {
                   type="button"
                   onClick={() => {
                     setMode('other');
-                    setStepError(null);
-                    setShowErrors(false);
+                    setFormError(null);
                   }}
                   className="font-semibold text-electric-700 underline underline-offset-2"
                 >
@@ -1046,13 +982,10 @@ function BookingFlow() {
                     );
                   })}
                 </div>
-                {serviceLimitHit ? (
+                {serviceLimitHit && (
                   <p className="mt-2 text-sm text-amber-800" role="status">
                     That&apos;s the most we can take in one request. Book the rest as a separate request.
                   </p>
-                ) : (
-                  showErrors &&
-                  categories.length === 0 && <p className="mt-2 text-sm text-semantic-error">Choose at least one service.</p>
                 )}
               </div>
 
@@ -1070,21 +1003,16 @@ function BookingFlow() {
               <QuoteFirstNote percent={advancePercent} />
             </div>
           )}
-        </section>
-      )}
+        </SectionCard>
 
-      {/* ============================ STEP 2: CAR ============================ */}
-      {step === 2 && (
-        <section className="space-y-4" aria-labelledby="step-car">
-          <div>
-            <h2 id="step-car" className="text-base font-semibold text-navy-900">
-              Which car needs service?
-            </h2>
-            {mode === 'package' && selectedPackage && (
-              <p className="mt-0.5 text-sm text-navy-500">The {selectedPackage.name} price depends on your car and fuel.</p>
-            )}
-          </div>
-
+        {/* ============================ 2. CAR ============================ */}
+        <SectionCard
+          id={SECTION_IDS.car}
+          n={2}
+          title="Your car"
+          subtitle={mode === 'package' && selectedPackage ? `The ${selectedPackage.name} price depends on your car and fuel.` : undefined}
+          error={sectionErrors.car}
+        >
           {loadingVehicles ? (
             <div className="space-y-3">
               <Skeleton className="h-[72px]" />
@@ -1111,7 +1039,7 @@ function BookingFlow() {
                       onClick={() => {
                         setSelectedVehicleId(v.id);
                         setAddingCar(false);
-                        setStepError(null);
+                        setFormError(null);
                       }}
                       className={`flex min-h-[72px] w-full items-center gap-3 rounded-2xl border bg-white p-3.5 text-left transition touch-manipulation ${
                         selected ? 'border-electric-600 ring-2 ring-electric-600/20' : 'border-surface-200 hover:border-surface-300'
@@ -1146,7 +1074,7 @@ function BookingFlow() {
                     type="button"
                     onClick={() => {
                       setAddingCar(true);
-                      setStepError(null);
+                      setFormError(null);
                     }}
                     className="flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-surface-300 text-sm font-semibold text-electric-700 hover:border-electric-300"
                   >
@@ -1158,13 +1086,13 @@ function BookingFlow() {
           )}
 
           {!loadingVehicles && !vehiclesError && carFormVisible && (
-            <div className="space-y-4 rounded-2xl border border-surface-200 bg-white p-4 shadow-card sm:p-5">
+            <div className="space-y-4 rounded-2xl border border-surface-200 bg-surface-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-navy-900">
+                  <h3 className="text-[15px] font-semibold text-navy-900">
                     {carDraft?.modelName ? 'Add this car' : 'Add your car'}
                   </h3>
-                  <p className="mt-0.5 text-sm text-navy-500">We save it to your profile for future bookings.</p>
+                  <p className="mt-0.5 text-sm text-navy-500">We save it to your profile when you book.</p>
                 </div>
                 {vehicles.length > 0 && (
                   <button
@@ -1229,46 +1157,82 @@ function BookingFlow() {
             </div>
           )}
 
-          {pricingCar && mode === 'package' && selectedPackage && (
-            <div className="rounded-xl bg-surface-50 p-3 text-sm">
-              {offersLoading ? (
-                <span className="text-navy-500">Checking the {selectedPackage.name} price for this car…</span>
-              ) : selectedOffer && selectedOffer.price !== null ? (
-                <span className="text-navy-700">
-                  {selectedPackage.name} for {pricingCar.manufacturerName} {pricingCar.modelName} · {pricingCar.fuelType}:{' '}
-                  <strong className="tabular-nums text-navy-900">{formatINRWhole(selectedOffer.price)}</strong>
-                </span>
-              ) : (
-                <span className="text-amber-800">{packageUnavailableMessage()}</span>
-              )}
-            </div>
+          {pricingCar && mode === 'package' && selectedPackage && !offersLoading && !selectedOffer?.price && offers && (
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{packageUnavailableMessage()}</p>
           )}
-        </section>
-      )}
+        </SectionCard>
 
-      {/* ============================ STEP 3: LOCATION ============================ */}
-      {step === 3 && (
-        <section className="space-y-4" aria-labelledby="step-location">
-          <div>
-            <h2 id="step-location" className="text-base font-semibold text-navy-900">
-              Where is your car?
-            </h2>
-            <p className="mt-0.5 text-sm text-navy-500">
-              We match you with verified garages close to this pin. We currently serve {liveCitiesLabel(liveAreas)}.
-            </p>
-          </div>
+        {/* ============================ 3. LOCATION ============================ */}
+        <SectionCard
+          id={SECTION_IDS.location}
+          n={3}
+          title="Where is your car?"
+          subtitle={`We match you with verified garages close to this pin. We currently serve ${liveCitiesLabel(liveAreas)}.`}
+          error={sectionErrors.location}
+          invalid={showErrors && !locationConfirmed}
+        >
           <LocationPicker value={location} onChange={handleLocationChange} serviceArea={serviceArea} showErrors={showErrors} />
-        </section>
-      )}
+        </SectionCard>
 
-      {/* ============================ STEP 4: REVIEW ============================ */}
-      {isReview && (
-        <section className="space-y-5" aria-labelledby="step-review">
+        {/* ============================ 4. PICK-UP & DROP ============================ */}
+        <SectionCard
+          id={SECTION_IDS.pickup}
+          n={4}
+          title="Pick-up & drop"
+          subtitle="Free in every city we serve. The garage collects your car from this location and drops it back."
+          error={sectionErrors.pickup}
+        >
           <div>
-            <h2 id="step-when" className="text-base font-semibold text-navy-900">
-              When would you like the service? <span className="font-normal text-navy-400">(optional)</span>
-            </h2>
-            <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0">
+            <p id="pickup-label" className="mb-2 text-sm font-medium text-navy-800">
+              Do you need free pick-up &amp; drop?
+            </p>
+            <div role="radiogroup" aria-labelledby="pickup-label" className="grid gap-2 sm:grid-cols-2">
+              <ChoiceCard
+                icon={Truck}
+                title="Yes, pick up my car"
+                sub="We collect it and bring it back after the service."
+                selected={needsPickup === true}
+                onClick={() => {
+                  setNeedsPickup(true);
+                  setFormError(null);
+                }}
+              />
+              <ChoiceCard
+                icon={CarFront}
+                title="No, I'll drive to the garage"
+                sub="You drop the car at the garage yourself."
+                selected={needsPickup === false}
+                onClick={() => {
+                  setNeedsPickup(false);
+                  setFormError(null);
+                }}
+              />
+            </div>
+          </div>
+
+          {needsPickup && (
+            <Textarea
+              id="pickupNotes"
+              label="Pick-up notes (optional)"
+              rows={2}
+              maxLength={PICKUP_NOTES_MAX}
+              value={pickupNotes}
+              onChange={(e) => setPickupNotes(e.target.value.slice(0, PICKUP_NOTES_MAX))}
+              placeholder="e.g. Gate 2, call before coming"
+              helperText={`Where to find the car, who to call. ${pickupNotes.length}/${PICKUP_NOTES_MAX}`}
+            />
+          )}
+
+          <div>
+            <p id="when-label" className="text-sm font-medium text-navy-800">
+              {needsPickup ? 'When should we pick it up?' : 'When would you like the service?'}{' '}
+              <span className="font-normal text-navy-400">(optional)</span>
+            </p>
+            <div
+              role="group"
+              aria-labelledby="when-label"
+              className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0"
+            >
               <DayChip label="Any day" sub="Flexible" selected={!preferredDay} onClick={() => setPreferredDay('')} />
               {nextDays(14).map((d, i) => (
                 <DayChip
@@ -1281,18 +1245,22 @@ function BookingFlow() {
               ))}
             </div>
             {preferredDay && (
-              <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Preferred time">
-                {TIME_SLOTS.map((s) => {
-                  const selected = preferredSlot === s.key;
+              <div
+                className="mt-2 grid grid-cols-3 gap-2"
+                role="radiogroup"
+                aria-label={needsPickup ? 'Preferred pick-up time' : 'Preferred time'}
+              >
+                {PICKUP_SLOTS.map((s) => {
+                  const chosen = preferredSlot === s.key;
                   return (
                     <button
                       key={s.key}
                       type="button"
                       role="radio"
-                      aria-checked={selected}
-                      onClick={() => setPreferredSlot(selected ? '' : s.key)}
+                      aria-checked={chosen}
+                      onClick={() => setPreferredSlot(chosen ? '' : s.key)}
                       className={`flex min-h-[52px] flex-col items-center justify-center rounded-xl border px-2 text-center transition ${
-                        selected ? 'border-electric-600 bg-electric-50 ring-1 ring-electric-600' : 'border-surface-200 bg-white'
+                        chosen ? 'border-electric-600 bg-electric-50 ring-1 ring-electric-600' : 'border-surface-200 bg-white'
                       }`}
                     >
                       <span className="text-sm font-semibold text-navy-900">{s.label}</span>
@@ -1302,91 +1270,121 @@ function BookingFlow() {
                 })}
               </div>
             )}
-            <p className="mt-2 text-xs text-navy-400">The garage confirms the exact slot with you.</p>
+            <p className="mt-2 text-xs text-navy-400">
+              {needsPickup ? 'The garage calls you to confirm the exact pick-up time.' : 'The garage confirms the exact slot with you.'}
+            </p>
           </div>
+        </SectionCard>
 
-          <div>
-            <h2 id="step-review" className="mb-2 text-base font-semibold text-navy-900">
-              Check your booking
-            </h2>
-            <div className="divide-y divide-surface-200 rounded-2xl border border-surface-200 bg-white shadow-card">
-              <ReviewBlock title="Service" onEdit={() => goTo(1)} disabled={!!busy}>
-                {mode === 'package' ? (
+        {/* ============================ CHECK & PAY ============================ */}
+        <section aria-labelledby="booking-review" className="space-y-3">
+          <h2 id="booking-review" className="px-1 text-base font-semibold text-navy-900">
+            Check your booking
+          </h2>
+          <div className="divide-y divide-surface-200 rounded-2xl border border-surface-200 bg-white shadow-card">
+            <ReviewBlock title="Service" onEdit={() => scrollToSection('service')} disabled={!!busy}>
+              {mode === 'package' ? (
+                selectedPackage ? (
                   <>
-                    <div className="font-semibold text-navy-900">{selectedPackage?.name}</div>
+                    <div className="font-semibold text-navy-900">{selectedPackage.name}</div>
                     {packageNotes.trim() && <p className="mt-0.5 whitespace-pre-wrap text-navy-600">{packageNotes.trim()}</p>}
                   </>
                 ) : (
-                  <>
-                    <ul className="flex flex-wrap gap-1.5" aria-label={`${categories.length} services`}>
-                      {categories.map((c) => (
-                        <li
-                          key={c}
-                          className="rounded-full border border-electric-200 bg-electric-50 px-2.5 py-1 text-xs font-semibold text-electric-800"
-                        >
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-navy-600">{problem.trim()}</p>
-                  </>
-                )}
-              </ReviewBlock>
-              <ReviewBlock title="Car" onEdit={() => goTo(2)} disabled={!!busy}>
-                {selectedVehicle ? (
-                  <div className="flex items-center gap-2.5">
-                    <BrandLogo name={selectedVehicle.make} logoUrl={logos[selectedVehicle.manufacturerId]} size={32} />
-                    <div className="min-w-0">
-                      <div className="font-semibold text-navy-900">
-                        {selectedVehicle.make} {selectedVehicle.model} · {selectedVehicle.fuelType}
-                      </div>
-                      <div className="font-mono text-xs text-navy-500">{selectedVehicle.licensePlate}</div>
-                    </div>
+                  <div className="text-navy-500">No package chosen yet</div>
+                )
+              ) : categories.length > 0 ? (
+                <>
+                  <ul className="flex flex-wrap gap-1.5" aria-label={`${categories.length} services`}>
+                    {categories.map((c) => (
+                      <li
+                        key={c}
+                        className="rounded-full border border-electric-200 bg-electric-50 px-2.5 py-1 text-xs font-semibold text-electric-800"
+                      >
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                  {problem.trim() && <p className="mt-2 whitespace-pre-wrap break-words text-navy-600">{problem.trim()}</p>}
+                </>
+              ) : (
+                <div className="text-navy-500">No services chosen yet</div>
+              )}
+            </ReviewBlock>
+            <ReviewBlock title="Car" onEdit={() => scrollToSection('car')} disabled={!!busy}>
+              {carSummary ? (
+                <div className="flex items-center gap-2.5">
+                  <BrandLogo name={carSummary.brand} logoUrl={carSummary.logo} size={32} />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-navy-900">{carSummary.name}</div>
+                    <div className="font-mono text-xs text-navy-500">{carSummary.plate}</div>
                   </div>
-                ) : (
-                  <div className="text-navy-500">No car selected</div>
-                )}
-              </ReviewBlock>
-              <ReviewBlock title="Car location" onEdit={() => goTo(3)} disabled={!!busy}>
-                <div className="text-navy-900">{formatLocationDraft(location)}</div>
-                <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Pin and address match
+                </div>
+              ) : (
+                <div className="text-navy-500">No car chosen yet</div>
+              )}
+            </ReviewBlock>
+            <ReviewBlock title="Car location" onEdit={() => scrollToSection('location')} disabled={!!busy}>
+              {locationConfirmed ? (
+                <>
+                  <div className="text-navy-900">{formatLocationDraft(location)}</div>
+                  <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Pin and address match
+                  </div>
+                </>
+              ) : (
+                <div className="text-navy-500">Pin and address not confirmed yet</div>
+              )}
+            </ReviewBlock>
+            <ReviewBlock title="Pick-up & drop" onEdit={() => scrollToSection('pickup')} disabled={!!busy}>
+              {needsPickup === null ? (
+                <div className="text-navy-500">Not chosen yet</div>
+              ) : (
+                <div className="break-words text-navy-900">{pickupSummary}</div>
+              )}
+            </ReviewBlock>
+            {preferredDay && (
+              <ReviewBlock title={needsPickup ? 'Pick-up time' : 'Preferred time'} onEdit={() => scrollToSection('pickup')} hideEdit>
+                <div className="text-navy-900">
+                  {formatDate(preferredServiceDate)}
+                  {slot && ` · ${slot.label}`}
                 </div>
               </ReviewBlock>
-              {preferredDay && (
-                <ReviewBlock title="Preferred time" onEdit={() => undefined} hideEdit>
-                  <div className="text-navy-900">
-                    {formatDate(preferredServiceDate)}
-                    {preferredSlot && ` · ${TIME_SLOTS.find((s) => s.key === preferredSlot)?.label}`}
-                  </div>
-                </ReviewBlock>
-              )}
-            </div>
+            )}
           </div>
 
-          {mode === 'package' && selectedOffer && selectedOffer.price !== null ? (
-            <div className="space-y-2">
-              <h2 className="text-base font-semibold text-navy-900">Payment</h2>
-              <PriceSplit total={selectedOffer.price} advance={advance} atGarage={atGarage} percent={advancePercent} />
-              <PaymentModelNote />
-            </div>
+          {mode === 'package' ? (
+            selectedOffer && selectedOffer.price !== null ? (
+              <div className="space-y-2">
+                <h3 className="px-1 text-sm font-semibold text-navy-900">Payment</h3>
+                <PriceSplit total={selectedOffer.price} advance={advance} atGarage={atGarage} percent={advancePercent} />
+                <PaymentModelNote />
+              </div>
+            ) : (
+              <p className="px-1 text-sm text-navy-500">
+                Choose a package and your car above to see the price. You pay {advancePercent}% online now and the rest at the garage.
+              </p>
+            )
           ) : (
-            mode === 'other' && (
-              <div className="rounded-2xl border border-surface-200 bg-white p-4 shadow-card">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-50 text-electric-600">
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-semibold text-navy-900">Nothing to pay now</div>
-                    <p className="mt-0.5 text-xs leading-relaxed text-navy-500">
-                      Quotes are free. You pay only after you accept one: {advancePercent}% online to BroCo to confirm the
-                      booking, and the rest directly at the garage after the service.
-                    </p>
-                  </div>
+            <div className="rounded-2xl border border-surface-200 bg-white p-4 shadow-card">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-electric-50 text-electric-600">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <div>
+                  <div className="text-sm font-semibold text-navy-900">Nothing to pay now</div>
+                  <p className="mt-0.5 text-xs leading-relaxed text-navy-500">
+                    Quotes are free. You pay only after you accept one: {advancePercent}% online to BroCo to confirm the
+                    booking, and the rest directly at the garage after the service.
+                  </p>
                 </div>
               </div>
-            )
+            </div>
+          )}
+
+          {formError && (
+            <Alert type="error" onClose={() => setFormError(null)}>
+              {formError}
+            </Alert>
           )}
 
           {created && mode === 'package' && (
@@ -1399,32 +1397,224 @@ function BookingFlow() {
             </Alert>
           )}
         </section>
-      )}
+      </div>
 
       <ActionBar>
-        {step > 1 && (
-          <Button variant="outline" onClick={handleBack} disabled={!!busy || savingCar} leftIcon={<ChevronLeft className="h-4 w-4" />}>
-            Back
-          </Button>
-        )}
-        {isReview ? (
-          <Button variant="primary" onClick={handleSubmit} isLoading={!!busy} disabled={!!busy}>
-            {ctaLabel}
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            onClick={handleContinue}
-            isLoading={savingCar}
-            disabled={step === 2 && loadingVehicles}
-            rightIcon={!savingCar ? <ChevronRight className="h-4 w-4" /> : undefined}
-          >
-            {step === 2 && carFormVisible ? (savingCar ? 'Saving…' : 'Save & continue') : 'Continue'}
-          </Button>
-        )}
+        <Button variant="primary" onClick={handleSubmit} isLoading={!!busy || savingCar} disabled={!!busy || savingCar}>
+          {ctaLabel}
+        </Button>
       </ActionBar>
       <ActionBarSpacer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pieces
+
+/** One numbered section of the page; its first problem is announced inside it. */
+function SectionCard({
+  id,
+  n,
+  title,
+  subtitle,
+  error,
+  invalid,
+  children,
+}: {
+  id: string;
+  n: number;
+  title: string;
+  subtitle?: string;
+  error?: string | null;
+  /** Marks the section even when its fields show the problem themselves. */
+  invalid?: boolean;
+  children: React.ReactNode;
+}) {
+  const flagged = !!error || !!invalid;
+  return (
+    <section
+      id={id}
+      tabIndex={-1}
+      aria-labelledby={`${id}-title`}
+      className={`scroll-mt-4 space-y-4 rounded-2xl border bg-white p-4 shadow-card outline-none sm:p-5 ${
+        flagged ? 'border-semantic-error/60' : 'border-surface-200'
+      }`}
+    >
+      <div>
+        <h2 id={`${id}-title`} className="flex items-center gap-2.5 text-base font-semibold text-navy-900">
+          <span
+            aria-hidden="true"
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              flagged ? 'bg-semantic-error text-white' : 'bg-navy-900 text-white'
+            }`}
+          >
+            {n}
+          </span>
+          {title}
+        </h2>
+        {subtitle && <p className="mt-1 text-sm text-navy-500">{subtitle}</p>}
+      </div>
+      {error && <Alert type="error">{error}</Alert>}
+      {children}
+    </section>
+  );
+}
+
+/** A package as a compact radio card: name, tagline and price; the rest behind "What's included". */
+function PackageCard({
+  pkg,
+  offer,
+  selected,
+  unavailable,
+  hasCar,
+  loadingPrice,
+  open,
+  onToggle,
+  onSelect,
+}: {
+  pkg: ServicePackage;
+  offer: PackageOffer | null;
+  selected: boolean;
+  unavailable: boolean;
+  hasCar: boolean;
+  loadingPrice: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onSelect: () => void;
+}) {
+  const priced = !!offer && offer.price !== null;
+  const includes = offer?.package.includes ?? pkg.includes ?? [];
+  const detailsId = `pkg-details-${pkg.code}`;
+  return (
+    <div
+      className={`rounded-2xl border bg-white transition ${
+        selected ? 'border-electric-600 ring-2 ring-electric-600/20' : 'border-surface-200'
+      } ${unavailable ? 'opacity-60' : ''}`}
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        disabled={unavailable}
+        onClick={onSelect}
+        className="flex w-full items-center gap-3 p-4 text-left disabled:cursor-not-allowed"
+      >
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+            selected ? 'border-electric-600 bg-electric-600' : 'border-surface-300'
+          }`}
+          aria-hidden="true"
+        >
+          {selected && <span className="h-2 w-2 rounded-full bg-white" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="text-[15px] font-semibold text-navy-900">{pkg.name}</span>
+            {pkg.isRecommended && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Most booked</span>
+            )}
+          </span>
+          {pkg.tagline && <span className="mt-0.5 block truncate text-sm text-navy-500">{pkg.tagline}</span>}
+        </span>
+        <span className="shrink-0 text-right">
+          {!hasCar ? (
+            <span className="text-xs text-navy-400">Select car</span>
+          ) : loadingPrice ? (
+            <Skeleton className="h-5 w-16" />
+          ) : priced ? (
+            <>
+              <span className="block text-base font-bold tabular-nums text-navy-900">{formatINRWhole(offer!.price!)}</span>
+              <span className="block text-[11px] text-electric-700">{formatINRWhole(offer!.advanceAmount ?? 0)} now</span>
+            </>
+          ) : (
+            <span className="text-xs text-navy-400">Not available</span>
+          )}
+        </span>
+      </button>
+      <div className="border-t border-surface-100 px-4">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={detailsId}
+          className="flex min-h-[40px] w-full items-center justify-between gap-2 text-left text-sm font-semibold text-electric-700"
+        >
+          What&apos;s included
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        {open && (
+          <div id={detailsId} className="pb-4">
+            <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-navy-500">
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" /> {formatHours(pkg.durationHours)}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>Every {pkg.intervalKm.toLocaleString('en-IN')} km</span>
+              {pkg.warrantyDays > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{pkg.warrantyDays}-day warranty</span>
+                </>
+              )}
+            </p>
+            {includes.length > 0 ? (
+              <PackageIncludes includes={includes} compact collapsedGroups={0} />
+            ) : (
+              <p className="text-sm text-navy-500">The garage shares the full checklist with you.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Yes / No card for the pick-up question. */
+function ChoiceCard({
+  icon: Icon,
+  title,
+  sub,
+  selected,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  sub: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={`flex min-h-[64px] items-center gap-3 rounded-xl border p-3 text-left transition touch-manipulation ${
+        selected ? 'border-electric-600 bg-electric-50 ring-1 ring-electric-600' : 'border-surface-200 bg-white hover:border-surface-300'
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+          selected ? 'bg-electric-600 text-white' : 'bg-surface-100 text-navy-500'
+        }`}
+        aria-hidden="true"
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-navy-900">{title}</span>
+        <span className="block text-xs text-navy-500">{sub}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+          selected ? 'border-electric-600 bg-electric-600' : 'border-surface-300'
+        }`}
+      >
+        {selected && <span className="h-2 w-2 rounded-full bg-white" />}
+      </span>
+    </button>
   );
 }
 

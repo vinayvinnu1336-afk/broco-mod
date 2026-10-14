@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/Toast';
 import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { formatDate, formatDateTime, formatINRWhole, humanize } from '@/lib/format';
 import { advanceFor, payBookingAdvance } from '@/components/booking/advancePayment';
+import { formatPickup } from '@/components/booking/pickup';
 import {
   DetailRow,
   RequestProgress,
@@ -370,6 +371,7 @@ export default function CustomerRequestDetailPage() {
           {request.preferredServiceDate && (
             <DetailRow label="Preferred date">{formatDate(request.preferredServiceDate)}</DetailRow>
           )}
+          <DetailRow label="Pick-up & drop">{formatPickup(request, "No, you'll drive to the garage")}</DetailRow>
           {request.serviceLocation?.formattedAddress && (
             <DetailRow label="Location">{request.serviceLocation.formattedAddress}</DetailRow>
           )}

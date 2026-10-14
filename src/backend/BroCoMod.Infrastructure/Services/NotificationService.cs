@@ -151,8 +151,8 @@ public class NotificationService : INotificationService
             : $"New Service Request: {request.RequestNumber}";
         var body = request.IsPackageBooking
             ? $"{request.ServicePackageName} for {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}{FuelSuffix(request)} at a fixed ₹{request.PackagePrice:N0}. " +
-              "Assign a nearby garage once the customer pays the 10% advance."
-            : $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}. Services: {request.ServiceCategory}. Problem: {request.ProblemDescription}";
+              $"Pick-up & drop: {request.PickupSummary}. Assign a nearby garage once the customer pays the 10% advance."
+            : $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}. Services: {request.ServiceCategory}. Pick-up & drop: {request.PickupSummary}. Problem: {request.ProblemDescription}";
         var metadata = JsonSerializer.Serialize(new
         {
             request.Id,
@@ -254,7 +254,7 @@ public class NotificationService : INotificationService
             if (garageRequestsByGarageId.TryGetValue(gu.GarageId, out var gr))
             {
                 var title = $"New Job Request: {request.RequestNumber}";
-                var body = $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel} ({gr.DistanceKm} KM away). Services: {request.ServiceCategory}. Problem: {request.ProblemDescription}";
+                var body = $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel} ({gr.DistanceKm} KM away). Services: {request.ServiceCategory}. Pick-up & drop: {request.PickupSummary}. Problem: {request.ProblemDescription}";
                 var metadata = JsonSerializer.Serialize(new
                 {
                     GarageRequestId = gr.Id,

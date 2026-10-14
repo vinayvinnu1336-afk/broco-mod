@@ -193,8 +193,11 @@ public class PackageBookingService : IPackageBookingService
             details: $"{request.RequestNumber}: {request.ServicePackageName} assigned to {garage.Name}, job {job.JobNumber}.",
             cancellationToken: ct);
 
+        var pickupLine = request.NeedsPickup
+            ? $" The garage will pick up your car{(string.IsNullOrWhiteSpace(request.PickupSlot) ? string.Empty : $" ({request.PickupSlot})")} and drop it back for free."
+            : " Drive in to the garage at the scheduled time.";
         await _notifications.SendInAppNotificationAsync(customerUserId, "Booking confirmed",
-            $"Your {request.ServicePackageName} is booked at {garage.Name}. Pay the balance of ₹{price - request.AdvancePaidAmount:N0} at the garage after the service.",
+            $"Your {request.ServicePackageName} is booked at {garage.Name}.{pickupLine} Pay the balance of ₹{price - request.AdvancePaidAmount:N0} at the garage after the service.",
             "BookingConfirmed", request.Id, nameof(ServiceRequest), cancellationToken: ct);
 
         var garageUserIds = await _context.GarageUsers.AsNoTracking()
@@ -202,7 +205,7 @@ public class PackageBookingService : IPackageBookingService
         foreach (var userId in garageUserIds)
         {
             await _notifications.SendInAppNotificationAsync(userId, "New package job",
-                $"{job.JobNumber}: {description} at ₹{price:N0}. Customer pays you ₹{price - request.AdvancePaidAmount:N0} at handover.",
+                $"{job.JobNumber}: {description} at ₹{price:N0}. Pick-up & drop: {request.PickupSummary}. Customer pays you ₹{price - request.AdvancePaidAmount:N0} at handover.",
                 "NewJob", job.Id, nameof(ServiceJob), cancellationToken: ct);
         }
 

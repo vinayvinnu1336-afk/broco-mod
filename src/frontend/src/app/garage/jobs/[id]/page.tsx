@@ -51,6 +51,7 @@ import { useToast } from '@/components/ui/Toast';
 import { formatDateTime, formatINR, humanize } from '@/lib/format';
 import { GarageCommission } from '@/components/garage/commission';
 import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
+import { PickupSummary } from '@/components/booking/PickupSummary';
 import type { MediaStage } from '@/types/media';
 
 /** Payment fields the API adds to the garage job detail (not yet in the shared type). */
@@ -616,6 +617,7 @@ export default function GarageJobDetailPage() {
         {/* Customer's problem */}
         <Section title="Customer’s problem">
           <div className="space-y-3 rounded-2xl border border-surface-200 bg-white p-4 text-sm shadow-card sm:p-5">
+            <PickupSummary needsPickup={job.needsPickup} pickupNotes={job.pickupNotes} pickupSlot={job.pickupSlot} />
             <p className="whitespace-pre-wrap text-navy-800">{job.problemDescription || 'Not described.'}</p>
             {job.customerComplaintSnapshot && job.customerComplaintSnapshot !== job.problemDescription && (
               <div className="border-t border-surface-200 pt-3">

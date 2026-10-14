@@ -114,6 +114,9 @@ export interface GarageServiceJobDetailDto {
   activities: ServiceJobActivityDto[];
   additionalWorkRequests: AdditionalWorkRequestDto[];
   concurrencyToken: string;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface CustomerServiceJobDetailDto {
@@ -175,6 +178,9 @@ export interface AdvisorServiceJobDetailDto {
   activities: ServiceJobActivityDto[];
   additionalWorkRequests: AdditionalWorkRequestDto[];
   concurrencyToken: string;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface ScheduleJobRequest {

@@ -107,7 +107,10 @@ public record GarageServiceJobDetailDto(
     decimal ServiceValue = 0,
     decimal AdvancePaidAmount = 0,
     bool IsAdvancePaid = false,
-    decimal BalanceToCollect = 0
+    decimal BalanceToCollect = 0,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record CustomerServiceJobDetailDto(
@@ -168,7 +171,10 @@ public record AdvisorServiceJobDetailDto(
     List<ServiceInspectionDto> Inspections,
     List<ServiceJobActivityDto> Activities,
     List<AdditionalWorkRequestDto> AdditionalWorkRequests,
-    Guid ConcurrencyToken
+    Guid ConcurrencyToken,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 // Command DTOs

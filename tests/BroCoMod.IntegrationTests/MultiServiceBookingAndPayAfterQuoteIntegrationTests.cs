@@ -234,4 +234,110 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
         var lateAdvance = await customer.PostAsJsonAsync($"/api/v1/customer/requests/{request.Id}/advance/pay", new InitiateAdvancePaymentRequest(null));
         lateAdvance.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
+
+    [Fact]
+    public async Task Pickup_choice_is_stored_and_shown_to_customer_advisor_garage_and_admin()
+    {
+        var (customer, vehicleId) = await NewCustomerWithCarAsync();
+
+        var created = await CreateRequestAsync(customer, Booking(vehicleId, new[] { "Batteries" }) with
+        {
+            NeedsPickup = true,
+            PickupNotes = "  Gate 2, call before coming  ",
+            PickupSlot = "Morning 9-12",
+        });
+        created.NeedsPickup.Should().BeTrue();
+        created.PickupNotes.Should().Be("Gate 2, call before coming");
+        created.PickupSlot.Should().Be("Morning 9-12");
+
+        var detail = await customer.GetFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>($"/api/v1/customer/requests/{created.Id}", JsonOptions);
+        detail!.Data!.NeedsPickup.Should().BeTrue();
+        detail.Data.PickupNotes.Should().Be("Gate 2, call before coming");
+        detail.Data.PickupSlot.Should().Be("Morning 9-12");
+
+        var advisor = await SignInAsync("advisor@brocomod.com");
+        var advisorDetail = await advisor.GetFromJsonAsync<ApiResponse<AdvisorServiceRequestDetailDto>>($"/api/v1/advisor/requests/{created.Id}", JsonOptions);
+        advisorDetail!.Data!.NeedsPickup.Should().BeTrue();
+        advisorDetail.Data.PickupSlot.Should().Be("Morning 9-12");
+        var comparison = await advisor.GetFromJsonAsync<ApiResponse<QuoteComparisonDto>>($"/api/v1/advisor/requests/{created.Id}/quotes", JsonOptions);
+        comparison!.Data!.NeedsPickup.Should().BeTrue();
+        comparison.Data.PickupNotes.Should().Be("Gate 2, call before coming");
+
+        var admin = await SignInAsync("admin@brocomod.com");
+        var adminDetail = await admin.GetFromJsonAsync<ApiResponse<AdminRequestOperationalDetailDto>>($"/api/v1/admin/requests/{created.Id}", JsonOptions);
+        adminDetail!.Data!.NeedsPickup.Should().BeTrue();
+        adminDetail.Data.PickupSlot.Should().Be("Morning 9-12");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var stored = await db.ServiceRequests.AsNoTracking().Include(r => r.GarageRequests).FirstAsync(r => r.Id == created.Id);
+        stored.NeedsPickup.Should().BeTrue();
+        stored.PickupSummary.Should().Be("Yes, Morning 9-12 - Gate 2, call before coming");
+
+        var garageId = (await db.GarageUsers.Include(gu => gu.User).FirstAsync(gu => gu.User.Email == GarageEmail)).GarageId;
+        var garageRequest = stored.GarageRequests.Single(gr => gr.GarageId == garageId);
+        var garage = await SignInAsync(GarageEmail);
+        var incoming = await garage.GetFromJsonAsync<ApiResponse<GarageIncomingRequestDetailDto>>($"/api/v1/garage/requests/{garageRequest.Id}", JsonOptions);
+        incoming!.Data!.NeedsPickup.Should().BeTrue();
+        incoming.Data.PickupNotes.Should().Be("Gate 2, call before coming");
+        incoming.Data.PickupSlot.Should().Be("Morning 9-12");
+
+        // Garage and advisor notifications carry the choice.
+        var garageRequestIds = stored.GarageRequests.Select(gr => gr.Id).ToList();
+        var garageNotified = await db.Notifications.AsNoTracking()
+            .Where(n => n.ReferenceId.HasValue && garageRequestIds.Contains(n.ReferenceId.Value) && n.Type == "GARAGE_REQUEST_DISPATCHED")
+            .Select(n => n.Message)
+            .ToListAsync();
+        garageNotified.Should().NotBeEmpty().And.OnlyContain(m => m.Contains("Pick-up & drop: Yes, Morning 9-12 - Gate 2, call before coming."));
+        var advisorNotified = await db.Notifications.AsNoTracking()
+            .Where(n => n.ReferenceId == created.Id && n.Type == "SERVICE_REQUEST_CREATED")
+            .Select(n => n.Message)
+            .ToListAsync();
+        advisorNotified.Should().NotBeEmpty().And.OnlyContain(m => m.Contains("Pick-up & drop: Yes, Morning 9-12 - Gate 2, call before coming."));
+
+        // Driving in: notes and slot are dropped, and everyone sees "customer drives in".
+        var driveIn = await CreateRequestAsync(customer, Booking(vehicleId, new[] { "AC Service & Repair" }) with
+        {
+            NeedsPickup = false,
+            PickupNotes = "ignored",
+            PickupSlot = "Evening 3-6",
+        });
+        driveIn.NeedsPickup.Should().BeFalse();
+        driveIn.PickupNotes.Should().BeNull();
+        driveIn.PickupSlot.Should().BeNull();
+        var storedDriveIn = await db.ServiceRequests.AsNoTracking().FirstAsync(r => r.Id == driveIn.Id);
+        storedDriveIn.PickupSummary.Should().Be("No, customer drives in");
+    }
+
+    [Fact]
+    public async Task Pickup_notes_over_300_characters_are_rejected()
+    {
+        var (customer, vehicleId) = await NewCustomerWithCarAsync();
+
+        var tooLong = await customer.PostAsJsonAsync("/api/v1/customer/requests", Booking(vehicleId, new[] { "Batteries" }) with
+        {
+            NeedsPickup = true,
+            PickupNotes = new string('x', 301),
+        });
+        tooLong.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await tooLong.Content.ReadAsStringAsync()).Should().Contain("300");
+
+        var longSlot = await customer.PostAsJsonAsync("/api/v1/customer/requests", Booking(vehicleId, new[] { "Batteries" }) with
+        {
+            NeedsPickup = true,
+            PickupSlot = new string('s', 31),
+        });
+        longSlot.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Exactly 300 is fine.
+        var ok = await customer.PostAsJsonAsync("/api/v1/customer/requests", Booking(vehicleId, new[] { "Batteries" }) with
+        {
+            NeedsPickup = true,
+            PickupNotes = new string('y', 300),
+        });
+        ok.StatusCode.Should().Be(HttpStatusCode.Created, await ok.Content.ReadAsStringAsync());
+
+        var list = await customer.GetFromJsonAsync<ApiResponse<PagedResult<CustomerServiceRequestSummaryDto>>>("/api/v1/customer/requests?page=1&pageSize=10", JsonOptions);
+        list!.Data!.TotalCount.Should().Be(1, "rejected bookings must not leave a request behind");
+    }
 }

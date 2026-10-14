@@ -88,6 +88,7 @@ export function CarServiceContent() {
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState(false);
   const [selected, setSelected] = useState<string>('STANDARD');
+  const [openIncludes, setOpenIncludes] = useState<Record<string, boolean>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [city, setCity] = useState(DEFAULT_CITY);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -313,7 +314,7 @@ export function CarServiceContent() {
             </div>
           )
         ) : (
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 md:items-start">
             {list.map((pkg) => {
               const offer = offerFor(pkg.code);
               const priced = !!car && !offersLoading && offer?.price != null;
@@ -369,28 +370,47 @@ export function CarServiceContent() {
                       )}
                     </div>
 
-                    {/* Chips */}
-                    <ul className="mt-3 flex flex-wrap gap-1.5 text-xs font-medium text-navy-700">
-                      <li className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-1">
-                        <Gauge className="h-3.5 w-3.5 text-navy-400" aria-hidden />
-                        Every {formatKm(pkg.intervalKm)} / {pkg.intervalMonths} months
-                      </li>
-                      <li className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-1">
-                        <Clock className="h-3.5 w-3.5 text-navy-400" aria-hidden />
-                        Takes {formatHours(pkg.durationHours)}
-                      </li>
-                      <li className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
-                        <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
-                        {formatKm(pkg.warrantyKm)} / {pkg.warrantyDays}-day warranty
-                      </li>
-                    </ul>
-
-                    {/* Includes */}
-                    <h3 className="mt-4 text-sm font-semibold text-navy-900">What&apos;s included</h3>
-                    <PackageIncludes includes={pkg.includes} className="mt-2.5" />
+                    {/* Details stay behind a toggle: the card shows the package and its price only. */}
+                    <div className="mt-3 border-t border-surface-100">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenIncludes((o) => ({ ...o, [pkg.code]: !o[pkg.code] }));
+                        }}
+                        aria-expanded={!!openIncludes[pkg.code]}
+                        aria-controls={`pkg-details-${pkg.code}`}
+                        className="flex min-h-[44px] w-full items-center justify-between gap-2 text-left text-sm font-semibold text-electric-700"
+                      >
+                        What&apos;s included
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 transition-transform ${openIncludes[pkg.code] ? 'rotate-180' : ''}`}
+                          aria-hidden
+                        />
+                      </button>
+                      {openIncludes[pkg.code] && (
+                        <div id={`pkg-details-${pkg.code}`} className="pb-1">
+                          <ul className="flex flex-wrap gap-1.5 text-xs font-medium text-navy-700">
+                            <li className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-1">
+                              <Gauge className="h-3.5 w-3.5 text-navy-400" aria-hidden />
+                              Every {formatKm(pkg.intervalKm)} / {pkg.intervalMonths} months
+                            </li>
+                            <li className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-1">
+                              <Clock className="h-3.5 w-3.5 text-navy-400" aria-hidden />
+                              Takes {formatHours(pkg.durationHours)}
+                            </li>
+                            <li className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
+                              <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+                              {formatKm(pkg.warrantyKm)} / {pkg.warrantyDays}-day warranty
+                            </li>
+                          </ul>
+                          <PackageIncludes includes={pkg.includes} className="mt-3" collapsedGroups={0} />
+                        </div>
+                      )}
+                    </div>
 
                     {/* CTA */}
-                    <div className="mt-auto pt-5">
+                    <div className="mt-auto pt-4">
                       {onRequest ? (
                         <Link
                           href={quoteHref}

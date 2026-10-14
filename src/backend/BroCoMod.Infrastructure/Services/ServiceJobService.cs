@@ -1079,7 +1079,10 @@ public class ServiceJobService : IServiceJobService
             ServiceValue: ServiceValueOf(job),
             AdvancePaidAmount: job.ServiceRequest?.AdvancePaidAmount ?? 0m,
             IsAdvancePaid: job.ServiceRequest?.IsAdvancePaid ?? false,
-            BalanceToCollect: Math.Max(0m, ServiceValueOf(job) - (job.ServiceRequest?.AdvancePaidAmount ?? 0m))
+            BalanceToCollect: Math.Max(0m, ServiceValueOf(job) - (job.ServiceRequest?.AdvancePaidAmount ?? 0m)),
+            NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
+            PickupNotes: job.ServiceRequest?.PickupNotes,
+            PickupSlot: job.ServiceRequest?.PickupSlot
         );
     }
 
@@ -1194,7 +1197,10 @@ public class ServiceJobService : IServiceJobService
                 CreatedAtUtc: a.CreatedAtUtc
             )).ToList(),
             AdditionalWorkRequests: job.AdditionalWorkRequests.OrderBy(r => r.CreatedAtUtc).Select(MapToAdditionalWorkDto).ToList(),
-            ConcurrencyToken: job.ConcurrencyToken
+            ConcurrencyToken: job.ConcurrencyToken,
+            NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
+            PickupNotes: job.ServiceRequest?.PickupNotes,
+            PickupSlot: job.ServiceRequest?.PickupSlot
         );
     }
 
