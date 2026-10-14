@@ -42,6 +42,7 @@ import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { PickupSummary } from '@/components/booking/PickupSummary';
 
 const linkButtonPrimary =
   'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-electric-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2';
@@ -417,6 +418,11 @@ export default function AdvisorRequestQuotationReviewPage() {
               <span>{comparison.customerFormattedAddress}</span>
             </p>
           )}
+          <PickupSummary
+            needsPickup={comparison.needsPickup}
+            pickupNotes={comparison.pickupNotes}
+            pickupSlot={comparison.pickupSlot}
+          />
           {!isPackage && (
           <dl className="grid grid-cols-2 gap-3 border-t border-surface-200 pt-4 sm:grid-cols-4">
             <div>

@@ -174,7 +174,10 @@ public class AdvisorQuotationService : IAdvisorQuotationService
             lowest,
             latest,
             activeAssignmentDto,
-            quotesComparison
+            quotesComparison,
+            request.NeedsPickup,
+            request.PickupNotes,
+            request.PickupSlot
         );
 
         return ApiResponse<QuoteComparisonDto>.Ok(dto);

@@ -79,6 +79,9 @@ export interface QuoteComparisonDto {
   latestQuoteReceivedAtUtc?: string;
   activeAssignment?: GarageAssignmentDto;
   quotes: QuoteComparisonItemDto[];
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface AdvisorRequestNoteDto {

@@ -402,7 +402,10 @@ public class AdminOperationsService : IAdminOperationsService
             customerQuotationDto,
             customerDecisionDto,
             serviceJobDto,
-            timelineEvents
+            timelineEvents,
+            sr.NeedsPickup,
+            sr.PickupNotes,
+            sr.PickupSlot
         );
     }
 

@@ -21,6 +21,7 @@ import { FilterBar } from '@/components/ui/FilterBar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 import { formatDate, formatRelative } from '@/lib/format';
+import { PickupSummary } from '@/components/booking/PickupSummary';
 
 /** Requests the garage can still quote on. Others (declined/expired) stay visible but de-emphasised. */
 const CLOSED_STATUSES = ['DECLINED', 'EXPIRED'];
@@ -286,6 +287,12 @@ function GarageRequests() {
               <div className="text-xs text-navy-500">Problem</div>
               <p className="mt-0.5 whitespace-pre-wrap text-navy-900">{selectedRequest.problemDescription}</p>
             </div>
+
+            <PickupSummary
+              needsPickup={selectedRequest.needsPickup}
+              pickupNotes={selectedRequest.pickupNotes}
+              pickupSlot={selectedRequest.pickupSlot}
+            />
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div>

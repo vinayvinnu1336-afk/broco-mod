@@ -199,6 +199,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(sr => sr.PackagePrice).HasPrecision(18, 2);
             builder.Property(sr => sr.VehicleFuel).HasMaxLength(30);
             builder.Property(sr => sr.AdvancePaidAmount).HasPrecision(18, 2);
+            builder.Property(sr => sr.NeedsPickup).HasDefaultValue(false);
+            builder.Property(sr => sr.PickupNotes).HasMaxLength(ServiceRequest.PickupNotesMaxLength);
+            builder.Property(sr => sr.PickupSlot).HasMaxLength(ServiceRequest.PickupSlotMaxLength);
             builder.HasIndex(sr => sr.ServicePackageId);
 
             // PostGIS spatial geography column with spatial indexing

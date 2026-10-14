@@ -105,7 +105,10 @@ public record AdminRequestOperationalDetailDto(
     AdminCustomerQuotationDto? CustomerQuotation,
     AdminCustomerDecisionDto? CustomerDecision,
     AdminServiceJobSummaryDto? ServiceJob,
-    IReadOnlyList<AdminAuditLogSummaryDto> TimelineEvents
+    IReadOnlyList<AdminAuditLogSummaryDto> TimelineEvents,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record AdminDispatchedGarageDto(

@@ -47,8 +47,29 @@ public class ServiceRequest : BaseEntity
     public DateTime? AdvancePaidAtUtc { get; private set; }
     public Guid? AdvancePaymentId { get; private set; }
 
+    // Free pick-up & drop: the customer chooses at booking; the garage plans the job around it.
+    public bool NeedsPickup { get; private set; }
+    public string? PickupNotes { get; private set; }
+    public string? PickupSlot { get; private set; }
+
+    public const int PickupNotesMaxLength = 300;
+    public const int PickupSlotMaxLength = 30;
+
     public bool IsPackageBooking => ServicePackageId.HasValue;
     public bool IsAdvancePaid => AdvancePaidAtUtc.HasValue;
+
+    /// <summary>"Yes, Morning 9-12 - Gate 2" or "No, customer drives in": one line for screens and notifications.</summary>
+    public string PickupSummary
+    {
+        get
+        {
+            if (!NeedsPickup) return "No, customer drives in";
+            var parts = new List<string> { "Yes" };
+            if (!string.IsNullOrWhiteSpace(PickupSlot)) parts.Add(PickupSlot);
+            var summary = string.Join(", ", parts);
+            return string.IsNullOrWhiteSpace(PickupNotes) ? summary : $"{summary} - {PickupNotes}";
+        }
+    }
 
     // Navigation properties
     public CustomerProfile? CustomerProfile { get; private set; }
@@ -143,6 +164,21 @@ public class ServiceRequest : BaseEntity
     public void SetVehicleFuel(string? vehicleFuel)
     {
         VehicleFuel = vehicleFuel;
+    }
+
+    public void SetPickup(bool needsPickup, string? notes, string? slot)
+    {
+        var trimmedNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        var trimmedSlot = string.IsNullOrWhiteSpace(slot) ? null : slot.Trim();
+        if (trimmedNotes != null && trimmedNotes.Length > PickupNotesMaxLength)
+            throw new ArgumentException($"Pick-up notes must be at most {PickupNotesMaxLength} characters.", nameof(notes));
+        if (trimmedSlot != null && trimmedSlot.Length > PickupSlotMaxLength)
+            throw new ArgumentException($"Pick-up slot must be at most {PickupSlotMaxLength} characters.", nameof(slot));
+
+        NeedsPickup = needsPickup;
+        // Notes and slot only mean something when the car is picked up.
+        PickupNotes = needsPickup ? trimmedNotes : null;
+        PickupSlot = needsPickup ? trimmedSlot : null;
     }
 
     public void RecordAdvancePaid(decimal amount, Guid paymentId, DateTime paidAtUtc)

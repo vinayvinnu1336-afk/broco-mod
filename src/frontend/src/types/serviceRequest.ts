@@ -61,6 +61,9 @@ export interface ServiceRequestDetailDto {
   submittedAtUtc: string;
   cancelledAtUtc?: string | null;
   cancellationReason?: string | null;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface CustomerServiceRequestSummaryDto {
@@ -105,6 +108,9 @@ export interface GarageIncomingRequestDetailDto {
   sentAtUtc: string;
   viewedAtUtc?: string | null;
   respondedAtUtc?: string | null;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface DispatchedGarageSummaryDto {
@@ -151,6 +157,9 @@ export interface AdvisorServiceRequestDetailDto {
   assignedAdvisorId?: string | null;
   dispatchedGarages: DispatchedGarageSummaryDto[];
   submittedAtUtc: string;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface AdminServiceRequestSummaryDto {
@@ -187,6 +196,9 @@ export interface AdminServiceRequestDetailDto {
   submittedAtUtc: string;
   cancelledAtUtc?: string | null;
   cancellationReason?: string | null;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface PagedResult<T> {

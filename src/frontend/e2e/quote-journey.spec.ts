@@ -72,30 +72,32 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
   await expect(page).toHaveURL(/\/customer\/dashboard/);
   await checkLayout(page, 'new customer dashboard');
 
-  // Step 1: other services → AC, describe the problem.
+  // Booking (one page). Service: other services → AC, describe the problem.
   await page.goto('/customer/requests/new');
   await page.getByRole('tab', { name: 'Other services' }).click();
   await page.getByRole('checkbox', { name: SERVICE }).click();
   await page.getByLabel(/^Describe the problem/).fill('AC blows warm air and makes a rattling noise when switched on.');
   await checkLayout(page, 'booking: other services');
-  await page.getByRole('button', { name: 'Continue' }).click();
 
-  // Step 2: add the car.
+  // Your car: add the car (saved when the request is sent).
   await expect(page.getByRole('heading', { name: 'Add your car' })).toBeVisible();
   await page.getByRole('button', { name: 'Select your car' }).click();
   await pickCar(page, CAR);
   await page.getByLabel(/^Registration number/).fill(`TS 07 QT ${Math.floor(1000 + Math.random() * 8999)}`);
   await page.getByLabel(/^Year/).selectOption('2020');
-  await page.getByRole('button', { name: 'Save & continue' }).click();
 
-  // Step 3: pin the car in Hyderabad.
+  // Where is your car: pin the car in Hyderabad.
   await pinCarInHyderabad(page, { house: '8-2-293, Road No. 12', area: 'Banjara Hills', pincode: '500034' });
-  await page.getByRole('button', { name: 'Continue' }).click();
 
-  // Step 4: nothing to pay yet; garages will quote.
+  // Pick-up & drop: the customer drives in.
+  await page.getByRole('radio', { name: /No, I'll drive to the garage/ }).click();
+
+  // Check your booking: nothing to pay yet; garages will quote.
+  const review = page.getByRole('region', { name: 'Check your booking' });
   await expect(page.getByRole('heading', { name: 'Check your booking' })).toBeVisible();
   await expect(page.getByText('Nothing to pay now')).toBeVisible();
-  await expect(page.getByText(SERVICE, { exact: true })).toBeVisible();
+  await expect(review.getByText(SERVICE, { exact: true })).toBeVisible();
+  await expect(review.getByText("No, I'll drive to the garage")).toBeVisible();
   await checkLayout(page, 'booking: review (quote)');
   await page.getByRole('button', { name: 'Get quotes from garages' }).click();
 

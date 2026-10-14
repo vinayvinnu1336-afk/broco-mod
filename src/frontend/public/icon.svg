@@ -1,21 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BroCo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="BroCo">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#062A9E"/>
-      <stop offset="0.55" stop-color="#0A72E0"/>
-      <stop offset="1" stop-color="#5CC4FF"/>
+      <stop offset="0" stop-color="#0130BA"/>
+      <stop offset="0.12" stop-color="#0433BF"/>
+      <stop offset="0.5" stop-color="#0389FC"/>
+      <stop offset="0.85" stop-color="#44C5FE"/>
+      <stop offset="1" stop-color="#54CCFE"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <g fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M19.5 30 22.4 21.6A3.4 3.4 0 0 1 25.6 19.3h12.8a3.4 3.4 0 0 1 3.2 2.3L44.5 30"/>
-    <rect x="13" y="30" width="38" height="14.5" rx="4.2"/>
-    <path d="M15.5 44.5v5.6a1.9 1.9 0 0 0 3.8 0v-5.6M44.7 44.5v5.6a1.9 1.9 0 0 0 3.8 0v-5.6"/>
-  </g>
-  <g fill="#fff">
-    <ellipse cx="11.9" cy="27.7" rx="3.4" ry="2.3"/>
-    <ellipse cx="52.1" cy="27.7" rx="3.4" ry="2.3"/>
-    <circle cx="20.6" cy="37.3" r="2.6"/>
-    <circle cx="43.4" cy="37.3" r="2.6"/>
+  <rect width="128" height="128" rx="28" fill="url(#g)"/>
+  <g transform="translate(64 64) scale(1.32) translate(-64 -65.6)">
+    <path d="M39.6 60.4 46.4 45.7A6 6 0 0 1 51.8 42.2H76.2A6 6 0 0 1 81.6 45.7L88.4 60.4" fill="none" stroke="#fff" stroke-width="5"/>
+    <g fill="#fff" fill-rule="evenodd">
+      <path d="M41.9 57.7H86.1A10.4 10.4 0 0 1 96.5 68.1V78.1A6.5 6.5 0 0 1 90 84.6H38A6.5 6.5 0 0 1 31.5 78.1V68.1A10.4 10.4 0 0 1 41.9 57.7ZM42 62.3H86A5.6 5.6 0 0 1 91.8 68.1V76.4A3.9 3.9 0 0 1 87.9 80.3H40.1A3.9 3.9 0 0 1 36.2 76.4V68.1A5.6 5.6 0 0 1 42 62.3Z"/>
+      <path d="M36.6 81.7H44.8V87.3A4.1 4.1 0 0 1 36.6 87.3ZM39 84.6H42.5V87.2A1.75 1.75 0 0 1 39 87.2ZM83.2 81.7H91.4V87.3A4.1 4.1 0 0 1 83.2 87.3ZM85.5 84.6H89V87.2A1.75 1.75 0 0 1 85.5 87.2Z"/>
+      <ellipse cx="35" cy="54.9" rx="4.9" ry="4"/>
+      <ellipse cx="93" cy="54.9" rx="4.9" ry="4"/>
+      <circle cx="46.5" cy="71.9" r="4"/>
+      <circle cx="81.5" cy="71.9" r="4"/>
+    </g>
   </g>
 </svg>

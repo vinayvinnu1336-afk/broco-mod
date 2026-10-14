@@ -15,7 +15,11 @@ public record CreateServiceBookingRequest(
     DateTime? PreferredServiceDate = null,
     string? PackageCode = null,
     // Several quote-based services in one request (e.g. AC + Batteries). Wins over ServiceCategory when given.
-    IReadOnlyList<string>? ServiceCategories = null
+    IReadOnlyList<string>? ServiceCategories = null,
+    // Free pick-up & drop. Notes (max 300) and slot (max 30, e.g. "Morning 9-12") apply only when NeedsPickup.
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record CancelServiceRequestCommand(
@@ -61,7 +65,10 @@ public record ServiceRequestDetailDto(
     decimal AdvancePaidAmount = 0,
     DateTime? AdvancePaidAtUtc = null,
     string? VehicleFuel = null,
-    IReadOnlyList<string>? ServiceCategories = null
+    IReadOnlyList<string>? ServiceCategories = null,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record CustomerServiceRequestSummaryDto(
@@ -109,7 +116,10 @@ public record GarageIncomingRequestDetailDto(
     string Status,
     DateTime SentAtUtc,
     DateTime? ViewedAtUtc,
-    DateTime? RespondedAtUtc
+    DateTime? RespondedAtUtc,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record AdvisorServiceRequestSummaryDto(
@@ -168,7 +178,10 @@ public record AdvisorServiceRequestDetailDto(
     string? VehicleFuel = null,
     string? AssignedGarageName = null,
     Guid? ServiceJobId = null,
-    string? ServiceJobNumber = null
+    string? ServiceJobNumber = null,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record AdminServiceRequestSummaryDto(
@@ -213,7 +226,10 @@ public record AdminServiceRequestDetailDto(
     IReadOnlyList<DispatchedGarageSummaryDto> DispatchedGarages,
     DateTime SubmittedAtUtc,
     DateTime? CancelledAtUtc,
-    string? CancellationReason
+    string? CancellationReason,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record PagedResult<T>(

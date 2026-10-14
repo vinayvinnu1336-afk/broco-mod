@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminRequestOperationalDetail } from '@/types/adminOperations';
+import { PickupSummary } from '@/components/booking/PickupSummary';
 import { CarFront, CheckCircle2, ClipboardList, Tag, Wrench, XCircle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -130,6 +131,7 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
             {data.serviceCategory && (
               <p className="mt-2 break-words text-xs text-navy-500">Services: {data.serviceCategory}</p>
             )}
+            <PickupSummary className="mt-3" needsPickup={data.needsPickup} pickupNotes={data.pickupNotes} pickupSlot={data.pickupSlot} />
           </Section>
 
           <Card className="p-4 sm:p-5">

@@ -222,6 +222,9 @@ export interface AdminRequestOperationalDetail {
     ipAddress?: string;
     timestampUtc: string;
   }>;
+  needsPickup?: boolean;
+  pickupNotes?: string | null;
+  pickupSlot?: string | null;
 }
 
 export interface AdminGarageList {

@@ -14,7 +14,10 @@ public record QuoteComparisonDto(
     decimal? LowestQuotedAmount,
     DateTime? LatestQuoteReceivedAtUtc,
     GarageAssignmentDto? ActiveAssignment,
-    List<QuoteComparisonItemDto> Quotes
+    List<QuoteComparisonItemDto> Quotes,
+    bool NeedsPickup = false,
+    string? PickupNotes = null,
+    string? PickupSlot = null
 );
 
 public record QuoteComparisonItemDto(

@@ -208,6 +208,11 @@ public class ServiceRequestService : IServiceRequestService
             throw new ArgumentException("Problem description must be at least 5 characters long.", nameof(request.ProblemDescription));
         }
 
+        if (request.NeedsPickup && (request.PickupNotes?.Trim().Length ?? 0) > ServiceRequest.PickupNotesMaxLength)
+            throw new ArgumentException($"Pick-up notes must be at most {ServiceRequest.PickupNotesMaxLength} characters.", nameof(request.PickupNotes));
+        if (request.NeedsPickup && (request.PickupSlot?.Trim().Length ?? 0) > ServiceRequest.PickupSlotMaxLength)
+            throw new ArgumentException($"Pick-up slot must be at most {ServiceRequest.PickupSlotMaxLength} characters.", nameof(request.PickupSlot));
+
         var serviceLocation = new ServiceLocation(
             request.AddressLine1,
             request.AddressLine2,
@@ -239,6 +244,7 @@ public class ServiceRequestService : IServiceRequestService
             idempotencyKey: idempotencyKey);
 
         serviceRequest.SetVehicleFuel(vehicle.FuelType.ToString());
+        serviceRequest.SetPickup(request.NeedsPickup, request.PickupNotes, request.PickupSlot);
         if (package != null)
         {
             serviceRequest.AttachPackage(package.Id, package.Code, package.Name, packagePrice, vehicle.FuelType.ToString());
@@ -555,7 +561,10 @@ public class ServiceRequestService : IServiceRequestService
             FormatStatus(gr.Status),
             gr.SentAtUtc,
             gr.ViewedAtUtc,
-            gr.RespondedAtUtc);
+            gr.RespondedAtUtc,
+            gr.ServiceRequest.NeedsPickup,
+            gr.ServiceRequest.PickupNotes,
+            gr.ServiceRequest.PickupSlot);
     }
 
     public async Task<PagedResult<AdvisorServiceRequestSummaryDto>> GetAdvisorRequestsAsync(
@@ -707,7 +716,10 @@ public class ServiceRequestService : IServiceRequestService
             request.VehicleFuel,
             activeAssignment?.Garage?.Name,
             request.ServiceJob?.Id,
-            request.ServiceJob?.JobNumber);
+            request.ServiceJob?.JobNumber,
+            request.NeedsPickup,
+            request.PickupNotes,
+            request.PickupSlot);
     }
 
     public async Task<PagedResult<AdminServiceRequestSummaryDto>> GetAdminRequestsAsync(
@@ -814,7 +826,10 @@ public class ServiceRequestService : IServiceRequestService
             dispatchedGarages,
             request.SubmittedAtUtc,
             request.CancelledAtUtc,
-            request.CancellationReason);
+            request.CancellationReason,
+            request.NeedsPickup,
+            request.PickupNotes,
+            request.PickupSlot);
     }
 
     private ServiceRequestDetailDto MapToDetailDto(
@@ -865,7 +880,10 @@ public class ServiceRequestService : IServiceRequestService
             sr.AdvancePaidAmount,
             sr.AdvancePaidAtUtc,
             sr.VehicleFuel,
-            ServiceCategories.Split(sr.ServiceCategory));
+            ServiceCategories.Split(sr.ServiceCategory),
+            sr.NeedsPickup,
+            sr.PickupNotes,
+            sr.PickupSlot);
     }
 
     private static string FormatStatus(ServiceRequestStatus status) => status switch
