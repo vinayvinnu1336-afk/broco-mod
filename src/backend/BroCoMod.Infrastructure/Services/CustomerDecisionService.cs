@@ -137,6 +137,11 @@ public class CustomerDecisionService : ICustomerDecisionService
             return ApiResponse<BookingConfirmationDto>.Fail("This quotation has already been rejected and cannot be accepted.");
         }
 
+        if (quotation.Status == CustomerQuotationStatus.Expired)
+        {
+            return ApiResponse<BookingConfirmationDto>.Fail("Cannot accept an expired customer quotation.");
+        }
+
         if (quotation.Status != CustomerQuotationStatus.Sent)
         {
             return ApiResponse<BookingConfirmationDto>.Fail($"Cannot accept customer quotation in '{quotation.Status}' state. Allowed only when 'Sent'.");
@@ -145,7 +150,14 @@ public class CustomerDecisionService : ICustomerDecisionService
         if (quotation.ValidUntilUtc <= DateTime.UtcNow)
         {
             quotation.Expire();
-            await _context.SaveChangesAsync(ct);
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // The expiry sweep (or another request) updated this row first. It is past its validity either way.
+            }
             return ApiResponse<BookingConfirmationDto>.Fail("Cannot accept an expired customer quotation.");
         }
 
@@ -432,6 +444,11 @@ public class CustomerDecisionService : ICustomerDecisionService
         if (quotation.Status == CustomerQuotationStatus.Rejected)
         {
             return ApiResponse<CustomerQuotationDecisionDto>.Fail("This quotation has already been rejected.");
+        }
+
+        if (quotation.Status == CustomerQuotationStatus.Expired)
+        {
+            return ApiResponse<CustomerQuotationDecisionDto>.Fail("This quotation has expired, so there is nothing to reject.");
         }
 
         if (quotation.Status != CustomerQuotationStatus.Sent)

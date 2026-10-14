@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PortalLayout, NavItem } from '@/components/layout/PortalLayout';
 import {
@@ -25,6 +25,7 @@ import {
   Inbox,
   PackageCheck,
 } from 'lucide-react';
+import { useGarageDuesOverview } from '@/components/commissions/useGarageDuesOverview';
 
 const adminNavItems: NavItem[] = [
   { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard, primary: true, section: 'Operations' },
@@ -49,16 +50,29 @@ const adminNavItems: NavItem[] = [
   { label: 'Settings', href: '/admin/settings', icon: Settings, section: 'Platform' },
 ];
 
+/** Nav with the overdue garage-dues count on "Commissions". */
+function AdminPortal({ children }: { children: ReactNode }) {
+  const { overview } = useGarageDuesOverview('admin');
+  const overdue = overview?.overdueCount ?? 0;
+  const navItems = useMemo(
+    () => adminNavItems.map((item) => (item.href === '/admin/commissions' && overdue > 0 ? { ...item, badge: overdue } : item)),
+    [overdue]
+  );
+  return (
+    <PortalLayout
+      portalName="Admin"
+      portalBadgeColor="bg-red-50 text-red-700 border-red-200"
+      navItems={navItems}
+    >
+      {children}
+    </PortalLayout>
+  );
+}
+
 export default function AdminPortalRootLayout({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute allowedRoles={['SUPER_ADMIN']} portalName="Super Admin">
-      <PortalLayout
-        portalName="Admin"
-        portalBadgeColor="bg-red-50 text-red-700 border-red-200"
-        navItems={adminNavItems}
-      >
-        {children}
-      </PortalLayout>
+      <AdminPortal>{children}</AdminPortal>
     </ProtectedRoute>
   );
 }

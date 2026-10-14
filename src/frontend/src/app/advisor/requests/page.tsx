@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { formatDate, formatINRWhole, formatRelative } from '@/lib/format';
@@ -23,6 +23,9 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { SERVICE_CATEGORY_OPTIONS, SERVICE_TYPE_OPTIONS, useCityOptions } from '@/lib/filterOptions';
 
 // The API names some fields differently from the shared types; read both so counts and contacts show.
 type RequestSummary = AdvisorServiceRequestSummaryDto & {
@@ -54,6 +57,15 @@ function PackageBadges({ r }: { r: RequestSummary }) {
 }
 type DispatchedGarage = DispatchedGarageSummaryDto & { garagePhoneNumber?: string; sentAtUtc?: string };
 
+/** Package fields on GET /advisor/requests/{id}. */
+type RequestDetail = AdvisorServiceRequestDetailDto & {
+  servicePackageCode?: string | null;
+  servicePackageName?: string | null;
+  packagePrice?: number | null;
+  advancePaidAtUtc?: string | null;
+  assignedGarageName?: string | null;
+};
+
 function garagesNotified(r: RequestSummary): number | null {
   const n = r.dispatchedGaragesCount ?? r.notifiedGaragesCount ?? r.matchedGaragesCount;
   return typeof n === 'number' ? n : null;
@@ -71,44 +83,99 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
+// Values are ServiceRequestStatus names (the API also accepts the upper-case form the rows show).
+const STATUS_OPTIONS = [
+  { value: 'Submitted', label: 'Submitted' },
+  { value: 'GaragesNotified', label: 'Garages notified' },
+  { value: 'QuotesReceived', label: 'Quotes received' },
+  { value: 'AdvisorReview', label: 'Advisor review' },
+  { value: 'CustomerQuotationSent', label: 'Quote sent' },
+  { value: 'CustomerAccepted', label: 'Accepted' },
+  { value: 'BookingConfirmed', label: 'Booking confirmed' },
+  { value: 'InProgress', label: 'In progress' },
+  { value: 'Completed', label: 'Completed' },
+  { value: 'CustomerRejected', label: 'Declined' },
+  { value: 'Cancelled', label: 'Cancelled' },
+];
+
+const FILTER_DEFAULTS = { q: '', status: '', type: '', category: '', city: '', range: '', from: '', to: '' };
+const PAGE_SIZE = 10;
+
 export default function AdvisorRequestsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading service requests..." />}>
+      <AdvisorRequests />
+    </Suspense>
+  );
+}
+
+function AdvisorRequests() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
+  const cityOptions = useCityOptions();
   const [requests, setRequests] = useState<RequestSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const latest = useRef(0);
 
   // Request details sheet
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<AdvisorServiceRequestDetailDto | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<RequestDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const loadRequests = useCallback(async (p = 1) => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize: PAGE_SIZE,
+        search: f.q,
+        status: f.status,
+        serviceType: f.type,
+        category: f.category,
+        city: f.city,
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, f]
+  );
+
+  const loadRequests = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    const res = await apiFetch<PagedResult<AdvisorServiceRequestSummaryDto>>(
-      `/advisor/requests?page=${p}&pageSize=10`
-    );
+    const res = await apiFetch<PagedResult<AdvisorServiceRequestSummaryDto>>(`/advisor/requests${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setRequests(res.data.items ?? []);
       setPage(res.data.page);
       setTotalPages(res.data.totalPages);
+      setTotalCount(res.data.totalCount ?? 0);
       setError(null);
     } else {
+      setRequests([]);
       setError(res.message || 'Could not load service requests.');
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+    loadRequests(query);
+  }, [loadRequests, query]);
+
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const anyFilter = (Object.keys(FILTER_DEFAULTS) as (keyof typeof FILTER_DEFAULTS)[]).some((k) => filters.isActive(k));
 
   async function viewDetail(requestId: string) {
     setDetailOpen(true);
     setSelectedRequest(null);
     setDetailLoading(true);
-    const res = await apiFetch<AdvisorServiceRequestDetailDto>(`/advisor/requests/${requestId}`);
+    const res = await apiFetch<RequestDetail>(`/advisor/requests/${requestId}`);
     if (res.success && res.data) {
       setSelectedRequest(res.data);
     } else {
@@ -128,7 +195,7 @@ export default function AdvisorRequestsPage() {
       <Button
         variant="outline"
         disabled={page <= 1 || loading}
-        onClick={() => loadRequests(page - 1)}
+        onClick={() => goToPage(page - 1)}
         leftIcon={<ChevronLeft className="h-4 w-4" />}
       >
         Previous
@@ -139,7 +206,7 @@ export default function AdvisorRequestsPage() {
       <Button
         variant="outline"
         disabled={page >= totalPages || loading}
-        onClick={() => loadRequests(page + 1)}
+        onClick={() => goToPage(page + 1)}
         rightIcon={<ChevronRight className="h-4 w-4" />}
       >
         Next
@@ -148,12 +215,28 @@ export default function AdvisorRequestsPage() {
   );
 
   const garages = (selectedRequest?.dispatchedGarages ?? []) as DispatchedGarage[];
+  const selectedIsPackage = !!(selectedRequest?.servicePackageCode || selectedRequest?.servicePackageName);
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Service requests"
-        description="Requests assigned to you. Open one to compare garage quotes and assign a garage."
+        description="Requests assigned to you. Open one to compare garage quotes, or to assign a garage to a package booking."
+      />
+
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Request, name or plate"
+        searchLabel="Search requests"
+        fields={[
+          { type: 'select', key: 'status', label: 'Status', allLabel: 'All statuses', options: STATUS_OPTIONS },
+          { type: 'select', key: 'type', label: 'Service type', allLabel: 'Packages and repairs', options: SERVICE_TYPE_OPTIONS },
+          { type: 'select', key: 'category', label: 'Service', allLabel: 'All services', options: SERVICE_CATEGORY_OPTIONS },
+          { type: 'select', key: 'city', label: 'City', allLabel: 'All cities', options: cityOptions },
+          { type: 'dateRange', label: 'Created' },
+        ]}
+        summary={loading ? 'Loading…' : error ? null : `${totalCount} ${totalCount === 1 ? 'request' : 'requests'}`}
       />
 
       {loading && requests.length === 0 ? (
@@ -163,12 +246,12 @@ export default function AdvisorRequestsPage() {
           ))}
         </div>
       ) : error && requests.length === 0 ? (
-        <ErrorState title="Could not load service requests" error={error} onRetry={() => loadRequests(page)} />
+        <ErrorState title="Could not load service requests" error={error} onRetry={() => loadRequests(query)} />
       ) : requests.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="No service requests yet"
-          description="Customer requests assigned to you will appear here."
+          title={anyFilter ? 'No requests found' : 'No service requests yet'}
+          description={anyFilter ? 'No service requests match these filters.' : 'Customer requests assigned to you will appear here.'}
         />
       ) : (
         <>
@@ -207,7 +290,7 @@ export default function AdvisorRequestsPage() {
                       </TableCell>
                       <TableCell className="max-w-xs">
                         <p className="line-clamp-2 text-navy-700">{r.problemDescription}</p>
-                        {notified !== null && (
+                        {notified !== null && !r.servicePackageName && (
                           <div className="mt-0.5 text-xs text-navy-500">
                             {notified} garage{notified === 1 ? '' : 's'} notified
                           </div>
@@ -300,7 +383,7 @@ export default function AdvisorRequestsPage() {
                 Close
               </Button>
               <Link href={`/advisor/requests/${selectedRequest.id}`} className={`${linkButtonPrimary} w-full sm:w-auto`}>
-                Compare quotes
+                {selectedIsPackage ? (selectedRequest.assignedGarageName ? 'Open booking' : 'Assign garage') : 'Compare quotes'}
               </Link>
             </div>
           ) : undefined
@@ -365,6 +448,25 @@ export default function AdvisorRequestsPage() {
               </section>
             )}
 
+            {selectedIsPackage ? (
+              <section>
+                <h4 className="text-sm font-semibold text-navy-900">Package booking</h4>
+                <p className="mt-1 text-sm text-navy-700">
+                  {[
+                    selectedRequest.servicePackageName,
+                    typeof selectedRequest.packagePrice === 'number' ? `fixed price ${formatINRWhole(selectedRequest.packagePrice)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                  .{' '}
+                  {selectedRequest.assignedGarageName
+                    ? `Assigned to ${selectedRequest.assignedGarageName}.`
+                    : selectedRequest.advancePaidAtUtc
+                    ? 'Advance paid. Garages don’t quote for packages: assign a nearby garage.'
+                    : 'Waiting for the customer’s 10% advance before you assign a garage.'}
+                </p>
+              </section>
+            ) : (
             <section>
               <h4 className="text-sm font-semibold text-navy-900">
                 Garages notified ({garages.length})
@@ -397,6 +499,7 @@ export default function AdvisorRequestsPage() {
                 <p className="mt-1 text-sm text-navy-500">No garages have been notified for this request yet.</p>
               )}
             </section>
+            )}
           </div>
         )}
       </Modal>

@@ -85,9 +85,17 @@ public class AdvisorController : ControllerBase
     public async Task<IActionResult> GetRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
+        [FromQuery] string? serviceType = null,
+        [FromQuery] string? category = null,
+        [FromQuery] string? city = null,
         CancellationToken cancellationToken = default)
     {
-        var requests = await _serviceRequestService.GetAdvisorRequestsAsync(page, pageSize, cancellationToken);
+        var filter = new RequestListFilter(search, status, fromDateUtc, toDateUtc, serviceType, category, city);
+        var requests = await _serviceRequestService.GetAdvisorRequestsAsync(page, pageSize, cancellationToken, filter);
         return Ok(ApiResponse<PagedResult<AdvisorServiceRequestSummaryDto>>.Ok(requests));
     }
 
@@ -330,9 +338,16 @@ public class AdvisorController : ControllerBase
 
     [HttpGet("jobs")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<ServiceJobSummaryDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetJobs([FromQuery] string? status, [FromQuery] Guid? garageId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetJobs(
+        [FromQuery] string? status,
+        [FromQuery] Guid? garageId,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? fromDateUtc,
+        [FromQuery] DateTime? toDateUtc,
+        CancellationToken cancellationToken)
     {
-        var jobs = await _serviceJobService.GetAllJobsAsync(status, garageId, cancellationToken);
+        var jobs = await _serviceJobService.GetAllJobsAsync(status, garageId, cancellationToken,
+            new ListFilter(search, null, fromDateUtc, toDateUtc));
         return Ok(ApiResponse<IEnumerable<ServiceJobSummaryDto>>.Ok(jobs));
     }
 

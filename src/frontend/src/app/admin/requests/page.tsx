@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminRequestSummary, PagedResult } from '@/types/adminOperations';
-import { ChevronLeft, ChevronRight, FileText, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
@@ -17,11 +16,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate, formatRelative } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { SERVICE_CATEGORY_OPTIONS, SERVICE_TYPE_OPTIONS, useCityOptions } from '@/lib/filterOptions';
 
 // Values must be ServiceRequestStatus names (the API parses them with Enum.TryParse and silently
 // ignores anything else); labels are what operators read.
 const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
   { value: 'Submitted', label: 'Submitted' },
   { value: 'GaragesNotified', label: 'Garages notified' },
   { value: 'QuotesReceived', label: 'Quotes received' },
@@ -35,30 +35,54 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const FILTER_DEFAULTS = { q: '', status: '', type: '', category: '', city: '', range: '', from: '', to: '', size: '25' };
+
 const rowLink =
   'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
 
 export default function AdminRequestsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading service requests..." />}>
+      <AdminRequests />
+    </Suspense>
+  );
+}
+
+function AdminRequests() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
+  const cityOptions = useCityOptions();
+
   const [requests, setRequests] = useState<AdminRequestSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  // The search the current results were loaded with (paging keeps it even if the box is edited).
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
+  const latest = useRef(0);
 
-  const loadRequests = useCallback(async (p: number, size: number, search: string, status: string) => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize,
+        search: f.q,
+        status: f.status,
+        serviceType: f.type,
+        category: f.category,
+        city: f.city,
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadRequests = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    let url = `/admin/requests?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-
-    const res = await apiFetch<PagedResult<AdminRequestSummary>>(url);
+    const res = await apiFetch<PagedResult<AdminRequestSummary>>(`/admin/requests${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setRequests(res.data.items);
       setPage(res.data.page ?? res.data.pageNumber ?? 1);
@@ -73,29 +97,21 @@ export default function AdminRequestsPage() {
   }, []);
 
   useEffect(() => {
-    loadRequests(1, pageSize, appliedSearch, statusFilter);
-  }, [loadRequests, pageSize, statusFilter, appliedSearch]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm === appliedSearch) {
-      loadRequests(1, pageSize, searchTerm, statusFilter);
-    } else {
-      setAppliedSearch(searchTerm);
-    }
-  };
+    loadRequests(query);
+  }, [loadRequests, query]);
 
   const goToPage = (p: number) => {
-    loadRequests(p, pageSize, appliedSearch, statusFilter);
+    filters.setPage(p);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const refresh = () => {
     setRefreshing(true);
-    loadRequests(page, pageSize, appliedSearch, statusFilter);
+    loadRequests(query);
   };
 
   const safeTotalPages = Math.max(1, totalPages);
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -109,37 +125,25 @@ export default function AdminRequestsPage() {
         }
       />
 
-      {/* Search and filters */}
-      <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-          <div className="min-w-0 flex-1 sm:max-w-md">
-            <Input
-              type="search"
-              aria-label="Search requests"
-              enterKeyHint="search"
-              placeholder="Request number, customer or number plate"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <Button type="submit" variant="outline" className="hidden shrink-0 sm:inline-flex">
-            Search
-          </Button>
-        </form>
-
-        <FilterChips options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
-
-        <div className="flex items-center justify-between gap-3 text-xs text-navy-500">
-          <span>
-            {loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'request' : 'requests'}`}
-            {appliedSearch.trim() && !loading && <> matching “{appliedSearch.trim()}”</>}
-          </span>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Request number, customer, phone or number plate"
+        searchLabel="Search requests"
+        fields={[
+          { type: 'select', key: 'status', label: 'Status', allLabel: 'All statuses', options: STATUS_OPTIONS },
+          { type: 'select', key: 'type', label: 'Service type', allLabel: 'Packages and repairs', options: SERVICE_TYPE_OPTIONS },
+          { type: 'select', key: 'category', label: 'Service', allLabel: 'All services', options: SERVICE_CATEGORY_OPTIONS },
+          { type: 'select', key: 'city', label: 'City', allLabel: 'All cities', options: cityOptions },
+          { type: 'dateRange', label: 'Created' },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'request' : 'requests'}`}
+        trailing={
           <label className="flex items-center gap-2">
             Per page
             <select
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              onChange={(e) => filters.set({ size: e.target.value })}
               className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
             >
               <option value={25}>25</option>
@@ -147,8 +151,8 @@ export default function AdminRequestsPage() {
               <option value={100}>100</option>
             </select>
           </label>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <LoadingState message="Loading service requests..." />
@@ -159,8 +163,8 @@ export default function AdminRequestsPage() {
           icon={FileText}
           title="No requests found"
           description={
-            appliedSearch.trim() || statusFilter
-              ? 'No service requests match this search or filter.'
+            anyFilter
+              ? 'No service requests match these filters.'
               : 'Customer requests will appear here once they are submitted.'
           }
         />

@@ -1,19 +1,20 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { GarageSettlementDto } from '@/types/finance';
-import { Banknote, CheckCircle2, Clock, Percent, Search, Wallet } from 'lucide-react';
+import { Banknote, CheckCircle2, Clock, Percent, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
-import { FilterChips } from '@/components/ui/FilterChips';
-import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { StatusBadge, statusLabel } from '@/components/ui/StatusBadge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { inDateRange, matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 import { Alert } from '@/components/ui/Alert';
 import { formatDate, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 
@@ -73,18 +74,30 @@ function jobRef(s: SettlementRow) {
   return s.jobNumber || (s.serviceJobId ? `Job ${s.serviceJobId.substring(0, 8)}` : null);
 }
 
-const FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'due', label: 'Due' },
-  { value: 'paid', label: 'Paid' },
-];
+/** `due` and `paid` group statuses; any other value is a single settlement status (e.g. OnHold). */
+function statusMatches(s: SettlementRow, filter: string) {
+  if (!filter) return true;
+  if (filter === 'due') return DUE_STATUSES.includes(s.status);
+  if (filter === 'paid') return PAID_STATUSES.includes(s.status);
+  return s.status === filter;
+}
+
+const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '' };
 
 export default function GarageFinancePage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading payouts..." />}>
+      <GarageFinance />
+    </Suspense>
+  );
+}
+
+function GarageFinance() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState('all');
 
   async function loadSettlements() {
     setLoading(true);
@@ -121,13 +134,29 @@ export default function GarageFinancePage() {
     };
   }, [settlements]);
 
-  const filtered = settlements.filter((s) => {
-    if (filter === 'due' && !DUE_STATUSES.includes(s.status)) return false;
-    if (filter === 'paid' && !PAID_STATUSES.includes(s.status)) return false;
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return true;
-    return [s.settlementNumber, payoutRef(s), jobRef(s)].some((v) => v && v.toLowerCase().includes(term));
-  });
+  // Fully loaded list: filter here. Chip counts follow the search and date.
+  const matching = useMemo(
+    () =>
+      settlements.filter(
+        (s) => inDateRange(s.createdAtUtc, f) && matchesSearch(f.q, s.settlementNumber, payoutRef(s), jobRef(s))
+      ),
+    [settlements, f]
+  );
+
+  const chipOptions = useMemo(() => {
+    const count = (value: string) => matching.filter((s) => statusMatches(s, value)).length;
+    const grouped = [...DUE_STATUSES, ...PAID_STATUSES];
+    const other = Array.from(new Set([...settlements.map((s) => s.status), f.status]))
+      .filter((s) => s && s !== 'due' && s !== 'paid' && !grouped.includes(s));
+    return [
+      { value: '', label: 'All', count: matching.length },
+      { value: 'due', label: 'Due', count: count('due') },
+      { value: 'paid', label: 'Paid', count: count('paid') },
+      ...other.map((s) => ({ value: s, label: statusLabel(s), count: count(s) })),
+    ];
+  }, [settlements, matching, f.status]);
+
+  const filtered = matching.filter((s) => statusMatches(s, f.status));
 
   return (
     <div>
@@ -198,17 +227,15 @@ export default function GarageFinancePage() {
         </div>
 
         {!loading && !error && settlements.length > 0 && (
-          <div className="space-y-3">
-            <Input
-              id="payout-search"
-              aria-label="Search payouts"
-              placeholder="Search by payout, job or UTR number"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-            <FilterChips options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter payouts" />
-          </div>
+          <FilterBar
+            filters={filters}
+            searchKey="q"
+            searchPlaceholder="Payout, job or UTR"
+            searchLabel="Search payouts"
+            status={{ key: 'status', options: chipOptions, ariaLabel: 'Filter payouts' }}
+            fields={[{ type: 'dateRange', label: 'Created' }]}
+            summary={`${filtered.length} ${filtered.length === 1 ? 'payout' : 'payouts'}`}
+          />
         )}
 
         {loading ? (
@@ -233,7 +260,7 @@ export default function GarageFinancePage() {
                   .
                 </>
               ) : (
-                'Try a different search or filter.'
+                'No payouts match these filters.'
               )
             }
           />

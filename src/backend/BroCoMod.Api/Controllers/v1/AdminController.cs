@@ -84,11 +84,15 @@ public class AdminController : ControllerBase
         [FromQuery] Guid? assignedAdvisorId,
         [FromQuery] DateTime? fromDateUtc,
         [FromQuery] DateTime? toDateUtc,
+        [FromQuery] string? serviceType = null,
+        [FromQuery] string? category = null,
+        [FromQuery] string? city = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminRequestFilter(status, search, assignedAdvisorId, fromDateUtc, toDateUtc, page, pageSize);
+        var filter = new AdminRequestFilter(status, search, assignedAdvisorId, fromDateUtc, toDateUtc, page, pageSize,
+            ServiceType: serviceType, Category: category, City: city);
         var requests = await _adminOperationsService.GetRequestsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminRequestSummaryDto>>.Ok(requests));
     }
@@ -114,11 +118,13 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetGarages(
         [FromQuery] GarageStatus? status,
         [FromQuery] string? search,
+        [FromQuery] string? city = null,
+        [FromQuery] string? dues = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminGarageFilter(status, search, page, pageSize);
+        var filter = new AdminGarageFilter(status, search, page, pageSize, City: city, Dues: dues);
         var result = await _adminOperationsService.GetGaragesAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminGarageListDto>>.Ok(result));
     }
@@ -313,11 +319,14 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<PagedResult<AdminCustomerListDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCustomers(
         [FromQuery] string? search,
+        [FromQuery] bool? hasBookings = null,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminCustomerFilter(search, page, pageSize);
+        var filter = new AdminCustomerFilter(search, page, pageSize, hasBookings, fromDateUtc, toDateUtc);
         var customers = await _adminOperationsService.GetCustomersAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminCustomerListDto>>.Ok(customers));
     }
@@ -355,11 +364,14 @@ public class AdminController : ControllerBase
         [FromQuery] NotificationStatus? status,
         [FromQuery] Guid? userId,
         [FromQuery] string? search,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
+        [FromQuery] string? type = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminNotificationFilter(status, userId, search, page, pageSize);
+        var filter = new AdminNotificationFilter(status, userId, search, page, pageSize, fromDateUtc, toDateUtc, type);
         var notifications = await _adminOperationsService.GetNotificationsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminNotificationListDto>>.Ok(notifications));
     }
@@ -405,6 +417,7 @@ public class AdminController : ControllerBase
         [FromQuery] Guid? userId,
         [FromQuery] DateTime? fromDateUtc,
         [FromQuery] DateTime? toDateUtc,
+        [FromQuery] string? search = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
@@ -415,7 +428,7 @@ public class AdminController : ControllerBase
             return Ok(ApiResponse<IReadOnlyList<AdminAuditLogSummaryDto>>.Ok(logs));
         }
 
-        var filter = new AdminAuditFilter(entityName, entityId, action, userId, fromDateUtc, toDateUtc, page, pageSize);
+        var filter = new AdminAuditFilter(entityName, entityId, action, userId, fromDateUtc, toDateUtc, page, pageSize, search);
         var pagedLogs = await _adminOperationsService.GetAuditLogsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminAuditLogSummaryDto>>.Ok(pagedLogs));
     }
@@ -437,11 +450,14 @@ public class AdminController : ControllerBase
         [FromQuery] ServiceJobStatus? status,
         [FromQuery] Guid? garageId,
         [FromQuery] string? search,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
+        [FromQuery] string? serviceType = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminJobFilter(status, garageId, search, page, pageSize);
+        var filter = new AdminJobFilter(status, garageId, search, page, pageSize, fromDateUtc, toDateUtc, serviceType);
         var jobs = await _adminOperationsService.GetJobsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminJobListItemDto>>.Ok(jobs));
     }
@@ -488,22 +504,32 @@ public class AdminController : ControllerBase
     [HttpGet("assignments")]
     [ProducesResponseType(typeof(ApiResponse<List<GarageAssignmentDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAssignments(
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var result = await _advisorQuotationService.GetAllAssignmentsAsync(page, pageSize, cancellationToken);
+        var result = await _advisorQuotationService.GetAllAssignmentsAsync(page, pageSize, cancellationToken,
+            new ListFilter(search, status, fromDateUtc, toDateUtc));
         return Ok(result);
     }
 
     [HttpGet("customer-quotations")]
     [ProducesResponseType(typeof(ApiResponse<List<CustomerQuotationSummaryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCustomerQuotations(
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var result = await _customerQuotationService.GetPlatformCustomerQuotationsAsync(page, pageSize, cancellationToken);
+        var result = await _customerQuotationService.GetPlatformCustomerQuotationsAsync(page, pageSize, cancellationToken,
+            new ListFilter(search, status, fromDateUtc, toDateUtc));
         return Ok(result);
     }
 

@@ -1,4 +1,5 @@
-﻿using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.Common;
+using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
@@ -55,7 +56,8 @@ public class ServiceJobService : IServiceJobService
     public async Task<IEnumerable<ServiceJobSummaryDto>> GetGarageJobsAsync(
         Guid garageId,
         string? status = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ListFilter? filter = null)
     {
         var query = _context.ServiceJobs
             .AsNoTracking()
@@ -67,6 +69,8 @@ public class ServiceJobService : IServiceJobService
         {
             query = query.Where(j => j.Status == parsedStatus);
         }
+
+        query = ApplyJobListFilter(query, filter, includeGarageName: false);
 
         var jobs = await query
             .OrderByDescending(j => j.CreatedAtUtc)
@@ -174,7 +178,8 @@ public class ServiceJobService : IServiceJobService
     public async Task<IEnumerable<ServiceJobSummaryDto>> GetAllJobsAsync(
         string? status = null,
         Guid? garageId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ListFilter? filter = null)
     {
         var query = _context.ServiceJobs
             .AsNoTracking()
@@ -192,12 +197,38 @@ public class ServiceJobService : IServiceJobService
             query = query.Where(j => j.Status == parsedStatus);
         }
 
+        query = ApplyJobListFilter(query, filter, includeGarageName: true);
+
         var jobs = await query
             .OrderByDescending(j => j.CreatedAtUtc)
             .Take(MaxJobListResults)
             .ToListAsync(cancellationToken);
 
         return jobs.Select(MapToSummaryDto);
+    }
+
+    /// <summary>Search and created-date filters for the job lists (applied before the result cap).</summary>
+    private static IQueryable<ServiceJob> ApplyJobListFilter(IQueryable<ServiceJob> query, ListFilter? filter, bool includeGarageName)
+    {
+        if (filter == null) return query;
+
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
+        {
+            query = query.Where(j =>
+                j.JobNumber.ToLower().Contains(search) ||
+                j.ServiceRequest!.RequestNumber.ToLower().Contains(search) ||
+                j.ServiceRequest.VehicleMake.ToLower().Contains(search) ||
+                j.ServiceRequest.VehicleModel.ToLower().Contains(search) ||
+                j.ServiceRequest.VehicleLicensePlate.ToLower().Contains(search) ||
+                (includeGarageName && j.Garage!.Name.ToLower().Contains(search)));
+        }
+
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+        if (fromUtc.HasValue) query = query.Where(j => j.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(j => j.CreatedAtUtc <= toUtc.Value);
+
+        return query;
     }
 
     #endregion

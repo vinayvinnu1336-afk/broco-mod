@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BatteryCharging,
   Car,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -59,7 +60,7 @@ import {
   toLocationValue,
   validateLocation,
 } from '@/components/location/LocationPicker';
-import { useLiveServiceArea } from '@/components/location/serviceArea';
+import { liveCitiesLabel, useLiveServiceArea, useLiveServiceAreas } from '@/components/location/serviceArea';
 import { PaymentModelNote, PriceSplit } from '@/components/booking/PriceSplit';
 import { ADVANCE_PERCENT, payBookingAdvance } from '@/components/booking/advancePayment';
 
@@ -78,6 +79,12 @@ const OTHER_SERVICES: { name: string; icon: LucideIcon }[] = [
   { name: 'Insurance Claims', icon: ShieldCheck },
   { name: 'General Repair', icon: Wrench },
 ];
+
+// Mirrors ServiceCategories on the server: at most 8 per request, and the joined names must fit
+// the 100-character ServiceCategory column.
+const MAX_SERVICES = 8;
+const MAX_SERVICES_TEXT = 300;
+const joinServices = (names: string[]) => names.join(', ');
 
 const STEPS = ['Service', 'Car', 'Location', 'Review'] as const;
 
@@ -176,6 +183,7 @@ function BookingFlow() {
   const router = useRouter();
   const toast = useToast();
   const serviceArea = useLiveServiceArea();
+  const liveAreas = useLiveServiceAreas();
 
   const [step, setStep] = useState(1);
   const [stepError, setStepError] = useState<string | null>(null);
@@ -184,7 +192,8 @@ function BookingFlow() {
   // ---- Service
   const [mode, setMode] = useState<Mode>('package');
   const [packageCode, setPackageCode] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [serviceLimitHit, setServiceLimitHit] = useState(false);
   const [problem, setProblem] = useState('');
   const [packageNotes, setPackageNotes] = useState('');
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
@@ -238,13 +247,13 @@ function BookingFlow() {
       setPackageCode(qpPackage);
     } else if (qpCategory) {
       setMode('other');
-      setCategory(qpCategory);
+      setCategories([qpCategory]);
     } else if (intent?.packageCode) {
       setMode('package');
       setPackageCode(intent.packageCode.toUpperCase());
     } else if (findCategory(intent?.serviceCategory)) {
       setMode('other');
-      setCategory(findCategory(intent?.serviceCategory)!);
+      setCategories([findCategory(intent?.serviceCategory)!]);
     }
 
     catalogueApi.packages().then((res) => {
@@ -504,7 +513,7 @@ function BookingFlow() {
       if (offersError) return offersError;
       return packageUnavailableMessage();
     }
-    if (!category) return 'Choose the service you need.';
+    if (categories.length === 0) return 'Choose at least one service.';
     if (problem.trim().length < 5) return 'Describe the problem in a few words (at least 5 characters).';
     return null;
   };
@@ -555,6 +564,21 @@ function BookingFlow() {
 
   const handleBack = () => goTo(Math.max(1, step - 1));
 
+  const toggleCategory = (name: string) => {
+    setStepError(null);
+    if (categories.includes(name)) {
+      setCategories(categories.filter((c) => c !== name));
+      setServiceLimitHit(false);
+      return;
+    }
+    const next = [...categories, name];
+    if (next.length > MAX_SERVICES || joinServices(next).length > MAX_SERVICES_TEXT) {
+      setServiceLimitHit(true);
+      return;
+    }
+    setCategories(next);
+  };
+
   // ------------------------------------------------------------------ submit
   const preferredServiceDate = useMemo(() => {
     if (!preferredDay) return null;
@@ -586,10 +610,11 @@ function BookingFlow() {
       latitude: loc.latitude,
       longitude: loc.longitude,
       problemDescription: description,
-      serviceCategory: mode === 'package' ? selectedPackage?.name ?? 'Periodic Service' : category,
+      serviceCategory: mode === 'package' ? selectedPackage?.name ?? 'Periodic Service' : joinServices(categories),
       preferredServiceDate,
     };
     if (mode === 'package') body.packageCode = packageCode;
+    else body.serviceCategories = categories;
 
     setBusy('creating');
     const res = await apiFetch<CreatedRequest>('/customer/requests', {
@@ -671,7 +696,7 @@ function BookingFlow() {
             </div>
             <div className="flex items-center justify-between gap-3 py-2.5">
               <dt className="text-navy-500">Service</dt>
-              <dd className="min-w-0 truncate text-right font-medium text-navy-900">
+              <dd className="min-w-0 break-words text-right font-medium text-navy-900">
                 {created.servicePackageName || created.serviceCategory}
               </dd>
             </div>
@@ -691,7 +716,7 @@ function BookingFlow() {
               {[
                 'Verified garages near you send their quotes.',
                 'Your advisor shares the best one — you accept it.',
-                `Pay ${advancePercent}% online to confirm. The rest is paid at the garage after the service.`,
+                `Only then you pay ${advancePercent}% online to confirm. The rest is paid at the garage after the service.`,
               ].map((t, i) => (
                 <li key={t} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-electric-50 text-xs font-bold text-electric-700">
@@ -804,11 +829,18 @@ function BookingFlow() {
                   setStepError(null);
                   setShowErrors(false);
                 }}
-                className={`min-h-[44px] rounded-lg px-3 text-sm font-semibold transition ${
+                className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition ${
                   mode === key ? 'bg-white text-navy-900 shadow-card' : 'text-navy-500 hover:text-navy-800'
                 }`}
               >
                 {label}
+                {key === 'other' && categories.length > 0 && (
+                  <span className="min-w-[20px] rounded-full bg-electric-600 px-1.5 text-[11px] font-bold leading-5 text-white">
+                    <span className="sr-only">, </span>
+                    {categories.length}
+                    <span className="sr-only"> selected</span>
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -949,50 +981,88 @@ function BookingFlow() {
                 onChange={(e) => setPackageNotes(e.target.value)}
                 placeholder="e.g. Brakes squeak a little, please check."
               />
+              <p className="text-xs leading-relaxed text-navy-500">
+                Need AC, tyres or a repair too? Book them under{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('other');
+                    setStepError(null);
+                    setShowErrors(false);
+                  }}
+                  className="font-semibold text-electric-700 underline underline-offset-2"
+                >
+                  Other services
+                </button>{' '}
+                as a separate request. Garages quote for free.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              <div role="radiogroup" aria-label="Service" className="grid grid-cols-2 gap-2">
-                {OTHER_SERVICES.map(({ name, icon: Icon }) => {
-                  const selected = category === name;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => {
-                        setCategory(name);
-                        setStepError(null);
-                      }}
-                      className={`flex min-h-[56px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm font-medium leading-snug transition touch-manipulation ${
-                        selected
-                          ? 'border-electric-600 bg-electric-50 text-electric-800 ring-1 ring-electric-600'
-                          : 'border-surface-200 bg-white text-navy-700 hover:border-surface-300'
-                      }`}
-                    >
-                      <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-electric-600' : 'text-navy-400'}`} />
-                      <span className="min-w-0">{name}</span>
-                    </button>
-                  );
-                })}
+              <div>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <p id="services-label" className="text-sm font-medium text-navy-800">
+                    Pick all the services you need
+                  </p>
+                  <span
+                    aria-live="polite"
+                    className={`shrink-0 text-xs font-semibold ${categories.length ? 'text-electric-700' : 'text-navy-400'}`}
+                  >
+                    {categories.length ? `${categories.length} selected` : 'None selected'}
+                  </span>
+                </div>
+                <div role="group" aria-labelledby="services-label" className="grid grid-cols-2 gap-2">
+                  {OTHER_SERVICES.map(({ name, icon: Icon }) => {
+                    const selected = categories.includes(name);
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={selected}
+                        onClick={() => toggleCategory(name)}
+                        className={`flex min-h-[56px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm font-medium leading-snug transition touch-manipulation ${
+                          selected
+                            ? 'border-electric-600 bg-electric-50 text-electric-800 ring-1 ring-electric-600'
+                            : 'border-surface-200 bg-white text-navy-700 hover:border-surface-300'
+                        }`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-electric-600' : 'text-navy-400'}`} />
+                        <span className="min-w-0 flex-1">{name}</span>
+                        <span
+                          aria-hidden="true"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                            selected ? 'border-electric-600 bg-electric-600 text-white' : 'border-surface-300 bg-white'
+                          }`}
+                        >
+                          {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {serviceLimitHit ? (
+                  <p className="mt-2 text-sm text-amber-800" role="status">
+                    That&apos;s the most we can take in one request. Book the rest as a separate request.
+                  </p>
+                ) : (
+                  showErrors &&
+                  categories.length === 0 && <p className="mt-2 text-sm text-semantic-error">Choose at least one service.</p>
+                )}
               </div>
-              {showErrors && !category && <p className="-mt-2 text-sm text-semantic-error">Choose the service you need.</p>}
 
               <Textarea
                 id="problemDescription"
                 label="Describe the problem"
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
-                placeholder="e.g. AC is not cooling and makes a rattling noise when switched on."
+                placeholder="e.g. AC is not cooling, and the car is slow to start in the morning."
                 rows={4}
                 helperText="Warning lights, noises, when it happens — anything helps garages quote accurately."
                 error={showErrors && problem.trim().length < 5 ? 'Describe the problem in at least 5 characters.' : undefined}
                 required
               />
-              <div className="rounded-xl bg-surface-50 p-3">
-                <PaymentModelNote quoteBased />
-              </div>
+              <QuoteFirstNote percent={advancePercent} />
             </div>
           )}
         </section>
@@ -1179,7 +1249,7 @@ function BookingFlow() {
               Where is your car?
             </h2>
             <p className="mt-0.5 text-sm text-navy-500">
-              We match you with verified garages close to this pin. We&apos;re in {serviceArea.city} only for now.
+              We match you with verified garages close to this pin. We currently serve {liveCitiesLabel(liveAreas)}.
             </p>
           </div>
           <LocationPicker value={location} onChange={handleLocationChange} serviceArea={serviceArea} showErrors={showErrors} />
@@ -1243,8 +1313,17 @@ function BookingFlow() {
                   </>
                 ) : (
                   <>
-                    <div className="font-semibold text-navy-900">{category}</div>
-                    <p className="mt-0.5 whitespace-pre-wrap text-navy-600">{problem.trim()}</p>
+                    <ul className="flex flex-wrap gap-1.5" aria-label={`${categories.length} services`}>
+                      {categories.map((c) => (
+                        <li
+                          key={c}
+                          className="rounded-full border border-electric-200 bg-electric-50 px-2.5 py-1 text-xs font-semibold text-electric-800"
+                        >
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-navy-600">{problem.trim()}</p>
                   </>
                 )}
               </ReviewBlock>
@@ -1295,7 +1374,10 @@ function BookingFlow() {
                   </span>
                   <div>
                     <div className="text-sm font-semibold text-navy-900">Nothing to pay now</div>
-                    <PaymentModelNote quoteBased className="mt-0.5" />
+                    <p className="mt-0.5 text-xs leading-relaxed text-navy-500">
+                      Quotes are free. You pay only after you accept one: {advancePercent}% online to BroCo to confirm the
+                      booking, and the rest directly at the garage after the service.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1337,6 +1419,24 @@ function BookingFlow() {
         )}
       </ActionBar>
       <ActionBarSpacer />
+    </div>
+  );
+}
+
+/** Quote-based services: free quotes, and nothing is paid until the customer accepts one. */
+function QuoteFirstNote({ percent }: { percent: number }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-surface-50 p-3">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-electric-600 shadow-card">
+        <FileText className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-navy-900">Free quotes · pay only after you accept</div>
+        <p className="mt-0.5 text-xs leading-relaxed text-navy-500">
+          Verified garages near you quote for all the services you pick. Nothing is charged now. Once you accept a quote you
+          pay {percent}% online to confirm, and the rest at the garage after the service.
+        </p>
+      </div>
     </div>
   );
 }

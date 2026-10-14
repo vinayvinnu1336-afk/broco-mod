@@ -35,15 +35,20 @@ import { BrandLogo } from '@/components/catalogue/BrandLogo';
 import { CarPicker, CarSelectField, CarSelection } from '@/components/catalogue/CarPicker';
 import { PackageIncludes } from '@/components/catalogue/PackageIncludes';
 import {
+  BookingIntent,
   Manufacturer,
   ServiceArea,
   ServicePackage,
+  bookingIntentSavedThisVisit,
   catalogueApi,
+  clearBookingIntent,
   formatHours,
   loadBookingIntent,
   saveBookingIntent,
 } from '@/lib/catalogue';
+import { INVALID_MOBILE_MESSAGE, isValidIndianMobile, mobileDigits } from '@/lib/phone';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_WHATSAPP, hasSupportContact, telHref } from '@/lib/site';
+import { DEFAULT_LIVE_AREAS, liveCitiesLabel } from '@/components/location/serviceArea';
 import { PublicHeader } from './_public/PublicHeader';
 import { PublicFooter } from './_public/PublicFooter';
 import {
@@ -55,11 +60,7 @@ import {
   serviceHref,
 } from './_public/services';
 
-const DEFAULT_CITY = 'Hyderabad';
-const MOBILE_RE = /^[6-9]\d{9}$/;
-const FALLBACK_AREAS: ServiceArea[] = [
-  { city: DEFAULT_CITY, state: 'Telangana', latitude: 17.385, longitude: 78.4867, radiusKm: 40, isLive: true },
-];
+const FALLBACK_AREAS: ServiceArea[] = DEFAULT_LIVE_AREAS;
 
 /** Small promises under the headline (all true for every BroCo booking). */
 const HIGHLIGHTS = [
@@ -119,9 +120,15 @@ const FAQS = [
   },
   {
     q: 'Which cities do you serve?',
-    a: 'BroCo is live in Hyderabad. Other cities are coming soon — leave your number and we will let you know when we reach yours.',
+    a: `BroCo is live in ${liveCitiesLabel(DEFAULT_LIVE_AREAS)}. Other cities are coming soon — leave your number and we will let you know when we reach yours.`,
   },
 ];
+
+function intentFor(city: string, car: CarChoice | null): BookingIntent {
+  if (!car) return { city };
+  const { manufacturerId, manufacturerName, modelId, modelName, fuelType } = car;
+  return { city, manufacturerId, manufacturerName, modelId, modelName, fuelType };
+}
 
 function SectionHeading({ eyebrow, title, desc, id }: { eyebrow?: string; title: string; desc?: string; id?: string }) {
   return (
@@ -167,7 +174,7 @@ export default function HomePage() {
   const [areas, setAreas] = useState<ServiceArea[] | null>(null);
   const [manufacturers, setManufacturers] = useState<Manufacturer[] | null>(null);
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
-  const [city, setCity] = useState(DEFAULT_CITY);
+  const [city, setCity] = useState('');
   const [car, setCar] = useState<CarChoice | null>(null);
   const [mobile, setMobile] = useState('');
   const [errors, setErrors] = useState<{ city?: string; car?: string; mobile?: string }>({});
@@ -178,6 +185,7 @@ export default function HomePage() {
   const cardRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLElement | null>(null);
   const mobileRef = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -190,16 +198,32 @@ export default function HomePage() {
     catalogueApi.packages().then((res) => {
       if (active) setPackages(res.success && res.data ? res.data : []);
     });
-    // Remember the car from a previous visit.
-    const intent = loadBookingIntent();
-    if (intent?.modelId && intent.manufacturerId && intent.manufacturerName && intent.modelName && intent.fuelType) {
-      setCar({
-        manufacturerId: intent.manufacturerId,
-        manufacturerName: intent.manufacturerName,
-        modelId: intent.modelId,
-        modelName: intent.modelName,
-        fuelType: intent.fuelType,
-      });
+    // A load or refresh starts the card empty. Only a pick made during this visit comes back (e.g. returning
+    // from the prices page); an older one is dropped so it doesn't resurface on the other pages either.
+    const intent = bookingIntentSavedThisVisit() ? loadBookingIntent() : null;
+    if (!intent) {
+      clearBookingIntent();
+      // Hydration keeps whatever is already in the server-rendered fields. Take what the visitor entered while
+      // the page was loading, but not what the browser refilled on a reload or back.
+      const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
+      if (nav?.type === 'reload' || nav?.type === 'back_forward') {
+        if (cityRef.current) cityRef.current.value = '';
+        if (mobileRef.current) mobileRef.current.value = '';
+      } else {
+        setCity(cityRef.current?.value ?? '');
+        setMobile(mobileDigits(mobileRef.current?.value));
+      }
+    } else {
+      if (intent.city) setCity(intent.city);
+      if (intent.modelId && intent.manufacturerId && intent.manufacturerName && intent.modelName && intent.fuelType) {
+        setCar({
+          manufacturerId: intent.manufacturerId,
+          manufacturerName: intent.manufacturerName,
+          modelId: intent.modelId,
+          modelName: intent.modelName,
+          fuelType: intent.fuelType,
+        });
+      }
     }
     return () => {
       active = false;
@@ -227,22 +251,29 @@ export default function HomePage() {
     .sort((a, b) => Number(b.isLive) - Number(a.isLive))
     .map((a) => ({ value: a.city, label: a.isLive ? a.city : `${a.city} (coming soon)`, disabled: !a.isLive }));
   const liveArea = (areas ?? FALLBACK_AREAS).find((a) => a.city === city && a.isLive);
+  const liveCities = liveCitiesLabel(areas ?? FALLBACK_AREAS);
+  const liveCityNames = (areas ?? FALLBACK_AREAS).filter((a) => a.isLive).map((a) => a.city);
   const popularBrands = (manufacturers ?? []).filter((m) => m.isPopular).slice(0, 12);
   const carServiceHref = car
     ? `${CAR_SERVICE_PATH}?model=${encodeURIComponent(car.modelId)}&fuel=${encodeURIComponent(car.fuelType)}`
     : CAR_SERVICE_PATH;
 
+  // Saved as soon as it is picked, so the rest of this visit (prices, sign-up, booking) knows the car.
   const chooseCar = (sel: CarSelection) => {
-    setCar(carChoiceFrom(sel.manufacturer, sel.model, sel.fuelType));
+    const choice = carChoiceFrom(sel.manufacturer, sel.model, sel.fuelType);
+    setCar(choice);
+    saveBookingIntent(intentFor(city, choice));
     setErrors((e) => ({ ...e, car: undefined }));
   };
 
+  const chooseCity = (value: string) => {
+    setCity(value);
+    saveBookingIntent(intentFor(value, car));
+    setErrors((e) => ({ ...e, city: undefined }));
+  };
+
   const onMobileChange = (raw: string) => {
-    let digits = raw.replace(/\D/g, '');
-    // Accept pasted/autofilled numbers like "+91 98765 43210" or "098765 43210".
-    if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
-    if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
-    setMobile(digits.slice(0, 10));
+    setMobile(mobileDigits(raw));
     if (errors.mobile) setErrors((e) => ({ ...e, mobile: undefined }));
   };
 
@@ -256,14 +287,16 @@ export default function HomePage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
-    if (!liveArea) next.city = 'We are only in Hyderabad for now.';
+    if (!city) next.city = 'Select your city.';
+    else if (!liveArea) next.city = `We are only in ${liveCities} for now.`;
     if (!car) next.car = 'Select your car to see prices.';
-    if (!MOBILE_RE.test(mobile)) {
-      next.mobile = mobile ? 'Enter a valid 10-digit mobile number.' : 'Enter your mobile number.';
+    if (!isValidIndianMobile(mobile)) {
+      next.mobile = mobile ? `${INVALID_MOBILE_MESSAGE}.` : 'Enter your mobile number.';
     }
     setErrors(next);
     if (Object.keys(next).length > 0 || !car) {
-      if (next.mobile && !next.car) mobileRef.current?.focus();
+      if (next.city) cityRef.current?.focus();
+      else if (next.mobile && !next.car) mobileRef.current?.focus();
       return;
     }
 
@@ -284,14 +317,7 @@ export default function HomePage() {
       toast.info('We could not save your number', 'No problem — you can still see prices and book.');
     }
 
-    saveBookingIntent({
-      city,
-      manufacturerId: car.manufacturerId,
-      manufacturerName: car.manufacturerName,
-      modelId: car.modelId,
-      modelName: car.modelName,
-      fuelType: car.fuelType,
-    });
+    saveBookingIntent(intentFor(city, car));
     router.push(carServiceHref);
   };
 
@@ -333,14 +359,16 @@ export default function HomePage() {
               {/* Keeps the headline readable over the photo's faded left side (laptops). */}
               <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-[40%] bg-gradient-to-r from-white via-white/75 to-transparent lg:block" />
               <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-electric-700 shadow-subtle backdrop-blur sm:left-6 sm:top-4 lg:hidden">
-                <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="sr-only">Now live in </span>
+                {liveCityNames.join(' · ')}
               </span>
             </div>
 
             <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-0">
               <div className="max-w-2xl lg:max-w-[440px] xl:max-w-[560px]">
                 <p className="hidden items-center gap-1.5 rounded-full border border-electric-200 bg-white/90 px-3 py-1 text-xs font-semibold text-electric-700 shadow-subtle lg:inline-flex">
-                  <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in Hyderabad
+                  <MapPin className="h-3.5 w-3.5" aria-hidden /> Now live in {liveCities}
                 </p>
                 <h1 id="hero-title" className="text-[30px] font-extrabold leading-[1.08] tracking-tight text-navy-950 sm:text-[44px] lg:mt-3 lg:text-[40px] xl:text-[52px]">
                   Your Vehicle,
@@ -401,17 +429,28 @@ export default function HomePage() {
                   <form id="home-panel-book" role="tabpanel" aria-labelledby="home-tab-book" onSubmit={submit} noValidate className="p-4 sm:p-5">
                     <h2 className="sr-only">Check car service prices</h2>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-start md:gap-4 xl:grid-cols-[180px_minmax(0,1.3fr)_minmax(250px,1fr)_auto]">
-                      <Select
-                        label="Location"
-                        value={city}
-                        onChange={(e) => {
-                          setCity(e.target.value);
-                          setErrors((x) => ({ ...x, city: undefined }));
-                        }}
-                        options={cityOptions}
-                        error={errors.city}
-                        className="min-h-[52px] border-surface-300 font-semibold"
-                      />
+                      <div className="min-w-0">
+                        {/* The error is ours (not Select's) so it is announced like the other two. */}
+                        <Select
+                          ref={cityRef}
+                          id="home-city"
+                          label="Location"
+                          value={city}
+                          placeholder="Select city"
+                          onChange={(e) => chooseCity(e.target.value)}
+                          options={cityOptions}
+                          aria-invalid={!!errors.city}
+                          aria-describedby={errors.city ? 'home-city-error' : undefined}
+                          className={`min-h-[52px] [&>option:enabled]:font-semibold [&>option:enabled]:text-navy-900 ${
+                            errors.city ? '!border-semantic-error focus:!ring-semantic-error/20' : 'border-surface-300'
+                          } ${city ? 'font-semibold' : 'font-medium !text-navy-400'}`}
+                        />
+                        {errors.city && (
+                          <p id="home-city-error" role="alert" className="mt-1.5 text-xs font-medium text-semantic-error">
+                            {errors.city}
+                          </p>
+                        )}
+                      </div>
 
                       <CarSelectField
                         label="Car"
@@ -444,7 +483,7 @@ export default function HomePage() {
                             inputMode="numeric"
                             autoComplete="tel-national"
                             pattern="[6-9][0-9]{9}"
-                            maxLength={14}
+                            maxLength={16}
                             placeholder="10-digit number"
                             value={mobile}
                             onChange={(e) => onMobileChange(e.target.value)}
@@ -733,7 +772,7 @@ export default function HomePage() {
                 ))}
               </ul>
               <Link
-                href="/register?role=garage"
+                href="/register/garage"
                 className="relative mt-6 inline-flex min-h-[50px] w-full items-center justify-center rounded-xl bg-electric-600 px-4 text-[15px] font-semibold text-white transition hover:bg-electric-500"
               >
                 Register your garage

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using BroCoMod.Application.DTOs;
+using BroCoMod.Domain.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,21 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
         var body = await res.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>(JsonOptions);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.Data!.AccessToken);
         return client;
+    }
+
+    // Books with a vehicle this test adds, not whatever the shared demo customer's list puts first
+    // (other classes add, re-prioritise and delete vehicles on that account in parallel).
+    private static async Task<Guid> AddOwnVehicleAsync(HttpClient customer)
+    {
+        var makes = await customer.GetFromJsonAsync<ApiResponse<List<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers?search=BMW", JsonOptions);
+        var bmw = makes!.Data!.First(m => m.Name == "BMW");
+        var models = await customer.GetFromJsonAsync<ApiResponse<List<VehicleModelDto>>>($"/api/v1/vehicle-manufacturers/{bmw.Id}/models", JsonOptions);
+        var model = models!.Data!.First(m => m.Name == "3 Series");
+        var add = await customer.PostAsJsonAsync("/api/v1/customer/vehicles", new CreateCustomerVehicleRequest(
+            bmw.Id, model.Id, null, 2022, FuelType.Petrol, "Automatic", $"APIC-{Guid.NewGuid().ToString()[..6].ToUpper()}", "", 10000, "White"));
+        add.EnsureSuccessStatusCode();
+        var body = await add.Content.ReadFromJsonAsync<ApiResponse<CustomerVehicleDetailDto>>(JsonOptions);
+        return body!.Data!.Id;
     }
 
     [Fact]
@@ -91,8 +107,7 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
     public async Task NewServiceRequest_IsOwnedByAnAdvisor_AndAppearsOnTheirDashboard()
     {
         var customer = await SignedInAsync("customer@brocomod.com");
-        var vehicles = await customer.GetFromJsonAsync<ApiResponse<List<CustomerVehicleDetailDto>>>("/api/v1/customer/vehicles", JsonOptions);
-        var vehicleId = vehicles!.Data!.First().Id;
+        var vehicleId = await AddOwnVehicleAsync(customer);
 
         var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
             VehicleId: vehicleId,
@@ -121,9 +136,8 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
     {
         // Customer books
         var customer = await SignedInAsync("customer@brocomod.com");
-        var vehicles = await customer.GetFromJsonAsync<ApiResponse<List<CustomerVehicleDetailDto>>>("/api/v1/customer/vehicles", JsonOptions);
         var booking = await customer.PostAsJsonAsync("/api/v1/customer/requests", new CreateServiceBookingRequest(
-            vehicles!.Data!.First().Id, "8 Lavelle Road", null, "Hyderabad", "Telangana", "500034", "India",
+            await AddOwnVehicleAsync(customer), "8 Lavelle Road", null, "Hyderabad", "Telangana", "500034", "India",
             17.4126, 78.4482, "Clutch slipping in third gear", "Transmission & Clutch", null));
         booking.EnsureSuccessStatusCode();
         var requestId = (await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!.Id;

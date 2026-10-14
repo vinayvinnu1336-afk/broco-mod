@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminNotificationList, PagedResult } from '@/types/adminOperations';
-import { Bell, ChevronLeft, ChevronRight, RefreshCw, RotateCw, Search } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, RefreshCw, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
@@ -17,38 +16,53 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useToast } from '@/components/ui/Toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDateTime, formatRelative, humanize } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
-// Values are the API's status filter values; labels are what operators read.
+// Values are NotificationStatus names (the API filters on them); labels are what operators read.
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
   { value: 'Failed', label: 'Failed' },
   { value: 'Pending', label: 'Waiting to send' },
+  { value: 'Processing', label: 'Sending' },
   { value: 'Sent', label: 'Sent' },
+  { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '', size: '25' };
+
 export default function AdminNotificationsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading notifications..." />}>
+      <AdminNotifications />
+    </Suspense>
+  );
+}
+
+function AdminNotifications() {
   const toast = useToast();
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [notifications, setNotifications] = useState<AdminNotificationList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  // The search the current results were loaded with (paging keeps it even if the box is edited).
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
+  const latest = useRef(0);
 
-  const loadNotifications = useCallback(async (p: number, size: number, search: string, status: string) => {
+  const query = useMemo(
+    () => toQueryString({ page: urlPage, pageSize, search: f.q, status: f.status, ...dateRangeQuery(f) }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadNotifications = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    let url = `/admin/notifications?page=${p}&pageSize=${size}`;
-    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-
-    const res = await apiFetch<PagedResult<AdminNotificationList>>(url);
+    const res = await apiFetch<PagedResult<AdminNotificationList>>(`/admin/notifications${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setNotifications(res.data.items);
       setPage(res.data.page ?? res.data.pageNumber ?? 1);
@@ -63,26 +77,17 @@ export default function AdminNotificationsPage() {
   }, []);
 
   useEffect(() => {
-    loadNotifications(1, pageSize, appliedSearch, statusFilter);
-  }, [loadNotifications, pageSize, statusFilter, appliedSearch]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm === appliedSearch) {
-      loadNotifications(1, pageSize, searchTerm, statusFilter);
-    } else {
-      setAppliedSearch(searchTerm);
-    }
-  };
+    loadNotifications(query);
+  }, [loadNotifications, query]);
 
   const goToPage = (p: number) => {
-    loadNotifications(p, pageSize, appliedSearch, statusFilter);
+    filters.setPage(p);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const refresh = () => {
     setRefreshing(true);
-    loadNotifications(page, pageSize, appliedSearch, statusFilter);
+    loadNotifications(query);
   };
 
   const handleRetry = async (id: string) => {
@@ -94,13 +99,14 @@ export default function AdminNotificationsPage() {
 
     if (res.success) {
       toast.success('Notification queued to send again');
-      loadNotifications(page, pageSize, appliedSearch, statusFilter);
+      loadNotifications(query);
     } else {
       toast.error('Retry failed', res.message || 'The notification could not be re-sent.');
     }
   };
 
   const safeTotalPages = Math.max(1, totalPages);
+  const anyFilter = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
   const lastActivity = (n: AdminNotificationList) => n.lastAttemptAtUtc || n.createdAtUtc;
 
   const retryButton = (n: AdminNotificationList, fullWidth = false) =>
@@ -130,37 +136,20 @@ export default function AdminNotificationsPage() {
         }
       />
 
-      {/* Search and filters */}
-      <div className="space-y-3">
-        <form onSubmit={handleSearchSubmit} role="search" className="flex gap-2">
-          <div className="min-w-0 flex-1 sm:max-w-md">
-            <Input
-              type="search"
-              aria-label="Search notifications"
-              enterKeyHint="search"
-              placeholder="Recipient, title or type"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <Button type="submit" variant="outline" className="hidden shrink-0 sm:inline-flex">
-            Search
-          </Button>
-        </form>
-
-        <FilterChips options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by delivery status" />
-
-        <div className="flex items-center justify-between gap-3 text-xs text-navy-500">
-          <span>
-            {loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'notification' : 'notifications'}`}
-            {appliedSearch.trim() && !loading && <> matching “{appliedSearch.trim()}”</>}
-          </span>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Recipient, title or type"
+        searchLabel="Search notifications"
+        status={{ key: 'status', options: STATUS_OPTIONS, ariaLabel: 'Filter by delivery status' }}
+        fields={[{ type: 'dateRange', label: 'Created' }]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'notification' : 'notifications'}`}
+        trailing={
           <label className="flex items-center gap-2">
             Per page
             <select
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              onChange={(e) => filters.set({ size: e.target.value })}
               className="min-h-[36px] rounded-lg border border-surface-200 bg-white px-2 text-sm text-navy-900 focus:border-electric-600 focus:outline-none focus:ring-2 focus:ring-electric-600/20"
             >
               <option value={25}>25</option>
@@ -168,8 +157,8 @@ export default function AdminNotificationsPage() {
               <option value={100}>100</option>
             </select>
           </label>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <LoadingState message="Loading notifications..." />
@@ -180,8 +169,8 @@ export default function AdminNotificationsPage() {
           icon={Bell}
           title="No notifications found"
           description={
-            appliedSearch.trim() || statusFilter
-              ? 'No notifications match this search or filter.'
+            anyFilter
+              ? 'No notifications match these filters.'
               : 'Notifications appear here as the platform sends them.'
           }
         />

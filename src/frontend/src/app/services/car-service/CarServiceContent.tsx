@@ -43,7 +43,8 @@ import {
   viaAuth,
 } from '../../_public/services';
 
-const CITY = 'Hyderabad';
+/** Shown until we know the city the visitor picked on the home page. */
+const DEFAULT_CITY = 'Hyderabad';
 const QUOTE_CATEGORY = 'Periodic Service';
 
 function shortName(pkg: ServicePackage): string {
@@ -88,12 +89,14 @@ export function CarServiceContent() {
   const [offersError, setOffersError] = useState(false);
   const [selected, setSelected] = useState<string>('STANDARD');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [city, setCity] = useState(DEFAULT_CITY);
   const cardsRef = useRef<HTMLDivElement>(null);
 
   // 1. Work out the car: ?model=&fuel= first, then what the visitor picked earlier.
   useEffect(() => {
     let cancelled = false;
     const intent = loadBookingIntent();
+    if (intent?.city) setCity(intent.city);
     const modelId = initialQuery.current.model || intent?.modelId;
     const fuel = initialQuery.current.fuel || intent?.fuelType;
     if (!modelId || !fuel) {
@@ -193,7 +196,7 @@ export function CarServiceContent() {
 
   const rememberCar = (choice: CarChoice, extra: { packageCode?: string; serviceCategory?: string } = {}) => {
     saveBookingIntent({
-      city: CITY,
+      city,
       manufacturerId: choice.manufacturerId,
       manufacturerName: choice.manufacturerName,
       modelId: choice.modelId,
@@ -275,7 +278,7 @@ export function CarServiceContent() {
               <p className="mt-0.5 text-sm text-navy-500">Fixed-price periodic service for your car</p>
             </div>
             <span className="inline-flex min-h-[32px] shrink-0 items-center gap-1 rounded-full border border-electric-200 bg-electric-50 px-3 text-xs font-semibold text-electric-700">
-              <MapPin className="h-3.5 w-3.5" aria-hidden /> {CITY}
+              <MapPin className="h-3.5 w-3.5" aria-hidden /> {city}
             </span>
           </div>
           <div className="mt-4 md:max-w-md">{carField}</div>
@@ -361,7 +364,7 @@ export function CarServiceContent() {
                       ) : (
                         <>
                           <p className="text-xl font-extrabold text-navy-900">Price on request</p>
-                          <p className="mt-1 text-sm text-navy-500">Garages will quote for your {car.modelName}.</p>
+                          <p className="mt-1 text-sm text-navy-500">Free quotes for your {car.modelName}. Pay only after you accept one.</p>
                         </>
                       )}
                     </div>
@@ -598,7 +601,7 @@ function FaqSection({ advancePct }: { advancePct: number }) {
     },
     {
       q: 'Why does my car show “Price on request”?',
-      a: 'We do not have a fixed price for that car and package yet. Ask for a quote and verified garages will price it for your car. You still pay only 10% online and the rest at the garage.',
+      a: 'We do not have a fixed price for that car and package yet. Ask for a quote and verified garages will price it for your car. Quotes are free: you pay only after you accept one, 10% online and the rest at the garage.',
     },
   ];
   return (

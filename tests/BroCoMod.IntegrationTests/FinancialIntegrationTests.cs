@@ -226,6 +226,13 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         invoiceBody!.Data!.InvoiceNumber.Should().StartWith("INV-");
         invoiceBody.Data.Status.Should().Be("Paid");
         invoiceBody.Data.TotalAmount.Should().Be(expectedAdvance);
+        using (var items = JsonDocument.Parse(invoiceBody.Data.LineItemsJson))
+        {
+            var line = items.RootElement[0];
+            line.GetProperty("itemType").GetString().Should().Be("BookingAdvance");
+            line.GetProperty("serviceTotal").GetDecimal().Should().Be(expectedTotal);
+            line.GetProperty("balanceAtGarage").GetDecimal().Should().Be(expectedTotal - expectedAdvance);
+        }
 
         // Act 4: The request records the advance, no garage payout is created, and the ledger balances.
         using var scope = _factory.Services.CreateScope();
@@ -420,15 +427,32 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var mine = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
         mine!.Data.Should().Contain(c => c.Id == commission.Id);
 
+        // The garage opens a checkout, then a second one before finishing the first, and completes the first.
+        var firstCheckout = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/pay", new PayCommissionsRequest(new List<Guid> { commission.Id }, null));
+        firstCheckout.EnsureSuccessStatusCode();
+        var firstBody = await firstCheckout.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
         var pay = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/pay", new PayCommissionsRequest(new List<Guid> { commission.Id }, null));
         pay.EnsureSuccessStatusCode();
         var payBody = await pay.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions);
         payBody!.Data!.Amount.Should().Be(commission.TotalDue);
         var verifyCommission = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/verify",
-            new VerifyPaymentRequestDto(payBody.Data.PaymentId, $"pay_cpay_{Guid.NewGuid():N}", "sig_fake_valid", payBody.Data.GatewayOrderId));
+            new VerifyPaymentRequestDto(firstBody!.Data!.PaymentId, $"pay_cpay_{Guid.NewGuid():N}", "sig_fake_valid", firstBody.Data.GatewayOrderId));
         verifyCommission.EnsureSuccessStatusCode();
         var paidList = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
         paidList!.Data!.Single(c => c.Id == commission.Id).Status.Should().Be("Paid");
+
+        // Completing the second checkout too settles nothing, so it is flagged for a refund instead of vanishing.
+        var verifySecond = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/verify",
+            new VerifyPaymentRequestDto(payBody.Data.PaymentId, $"pay_cpay_{Guid.NewGuid():N}", "sig_fake_valid", payBody.Data.GatewayOrderId));
+        verifySecond.EnsureSuccessStatusCode();
+        (await db.AuditLogs.AnyAsync(a => a.Action == "GARAGE_COMMISSION_OVERPAID" && a.EntityId == payBody.Data.PaymentId.ToString()))
+            .Should().BeTrue();
+
+        // A commission payment can't go through the customer refund flow (the commission would stay Paid).
+        var adminClient = CreateAuthenticatedClient(await AuthenticateAsync("admin@brocomod.com", "Password123!"));
+        var refundCommission = await adminClient.PostAsJsonAsync($"/api/v1/admin/finance/payments/{firstBody.Data.PaymentId}/refund",
+            new RefundPaymentRequestDto(commission.TotalDue, "Should be refused"));
+        refundCommission.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         // A different garage never sees it
         var diffGarage = new Garage("Other Workshop", $"other_{Guid.NewGuid():N}@garage.com", "+91 91111 22222", "Other St", 78.45, 17.42);
@@ -497,6 +521,16 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var refundBody = await refundRes.Content.ReadFromJsonAsync<ApiResponse<PaymentDto>>(JsonOptions);
         refundBody!.Data!.Status.Should().Be("PartiallyRefunded");
         refundBody.Data.RefundedAmount.Should().Be(500m);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var ledger = await db.FinancialLedgerEntries.AsNoTracking().Where(l => l.PaymentId == paymentId).ToListAsync();
+            ledger.Should().NotContain(l => l.AccountType == "ESCROW" || l.AccountType == "CUSTOMER");
+            var bookingFee = ledger.Where(l => l.AccountType == "PLATFORM_BOOKING_FEE").ToList();
+            (bookingFee.Sum(l => l.CreditAmount) - bookingFee.Sum(l => l.DebitAmount)).Should().Be(initBody.Data.Amount - 500m);
+            ledger.Sum(l => l.DebitAmount).Should().Be(ledger.Sum(l => l.CreditAmount));
+        }
 
         // Act 3: Check Admin Payments filter
         var paymentsRes = await adminClient.GetAsync("/api/v1/admin/finance/payments?status=PartiallyRefunded");

@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Enums;
@@ -49,8 +50,8 @@ public class AdminFinanceService : IAdminFinanceService
             p.Status == PaymentStatus.Refunded);
 
         // Money customers paid. A garage paying its commission is BroCo income (counted below), not customer revenue.
-        var totalGrossRevenue = await paidPayments
-            .Where(p => p.Purpose != PaymentPurpose.GarageCommission)
+        var customerPaidPayments = paidPayments.Where(p => p.Purpose != PaymentPurpose.GarageCommission);
+        var totalGrossRevenue = await customerPaidPayments
             .Select(p => (decimal?)p.Amount)
             .SumAsync(cancellationToken) ?? 0.0m;
 
@@ -101,7 +102,8 @@ public class AdminFinanceService : IAdminFinanceService
 
         var netPlatformProfit = totalPlatformRevenue - totalPlatformFeeGst + totalPlatformMargin;
 
-        var totalPaymentsCount = await paymentsQuery.CountAsync(cancellationToken);
+        // The same rows the gross figure adds up, not abandoned checkouts or garage commission payments.
+        var totalPaymentsCount = await customerPaidPayments.CountAsync(cancellationToken);
         var totalInvoicesCount = await _context.Invoices.CountAsync(cancellationToken);
         var pendingSettlementsCount = await settlementsQuery.CountAsync(s => s.Status == SettlementStatus.Pending || s.Status == SettlementStatus.Processing, cancellationToken);
         var completedSettlementsCount = await settlementsQuery.CountAsync(s => s.Status == SettlementStatus.Completed, cancellationToken);
@@ -120,7 +122,8 @@ public class AdminFinanceService : IAdminFinanceService
             TotalPlatformMargin: totalPlatformMargin,
             TotalBookingAdvances: totalBookingAdvances,
             TotalCommissionCollected: totalCommissionCollected,
-            TotalCommissionOutstanding: totalCommissionOutstanding
+            TotalCommissionOutstanding: totalCommissionOutstanding,
+            TotalCommissionGst: totalCommissionGst
         );
     }
 
@@ -146,14 +149,38 @@ public class AdminFinanceService : IAdminFinanceService
             query = query.Where(p => p.CustomerId == filter.CustomerId.Value);
         }
 
-        if (filter.FromDate.HasValue)
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDate, filter.ToDate);
+        if (fromUtc.HasValue)
         {
-            query = query.Where(p => p.CreatedAtUtc >= filter.FromDate.Value);
+            query = query.Where(p => p.CreatedAtUtc >= fromUtc.Value);
         }
 
-        if (filter.ToDate.HasValue)
+        if (toUtc.HasValue)
         {
-            query = query.Where(p => p.CreatedAtUtc <= filter.ToDate.Value);
+            query = query.Where(p => p.CreatedAtUtc <= toUtc.Value);
+        }
+
+        var purpose = ListFilters.Enum<PaymentPurpose>(filter.Purpose, "payment purpose");
+        if (purpose.HasValue)
+        {
+            query = query.Where(p => p.Purpose == purpose.Value);
+        }
+
+        var method = ListFilters.Enum<PaymentMethod>(filter.Method, "payment method");
+        if (method.HasValue)
+        {
+            query = query.Where(p => p.PaymentMethod == method.Value);
+        }
+
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
+        {
+            query = query.Where(p =>
+                p.PaymentNumber.ToLower().Contains(search) ||
+                (p.GatewayOrderId != null && p.GatewayOrderId.ToLower().Contains(search)) ||
+                (p.GatewayPaymentId != null && p.GatewayPaymentId.ToLower().Contains(search)) ||
+                (p.Garage != null && p.Garage.Name.ToLower().Contains(search)) ||
+                _context.ServiceRequests.Any(sr => sr.Id == p.ServiceRequestId && sr.RequestNumber.ToLower().Contains(search)));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -218,14 +245,25 @@ public class AdminFinanceService : IAdminFinanceService
             query = query.Where(s => s.GarageId == filter.GarageId.Value);
         }
 
-        if (filter.FromDate.HasValue)
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDate, filter.ToDate);
+        if (fromUtc.HasValue)
         {
-            query = query.Where(s => s.CreatedAtUtc >= filter.FromDate.Value);
+            query = query.Where(s => s.CreatedAtUtc >= fromUtc.Value);
         }
 
-        if (filter.ToDate.HasValue)
+        if (toUtc.HasValue)
         {
-            query = query.Where(s => s.CreatedAtUtc <= filter.ToDate.Value);
+            query = query.Where(s => s.CreatedAtUtc <= toUtc.Value);
+        }
+
+        var search = ListFilters.Search(filter.Search);
+        if (search != null)
+        {
+            query = query.Where(s =>
+                s.SettlementNumber.ToLower().Contains(search) ||
+                (s.Garage != null && s.Garage.Name.ToLower().Contains(search)) ||
+                (s.ServiceJob != null && s.ServiceJob.JobNumber.ToLower().Contains(search)) ||
+                (s.PayoutTransactionRef != null && s.PayoutTransactionRef.ToLower().Contains(search)));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

@@ -1,5 +1,6 @@
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
+using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Entities.Identity;
 using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -35,8 +36,11 @@ public class AdvisorOperationsService : IAdvisorOperationsService
             sr.Status != ServiceRequestStatus.Cancelled, cancellationToken);
 
         var quotesAwaitingReviewCount = await requestQuery.CountAsync(sr =>
+            sr.ServicePackageId == null &&
             sr.Status == ServiceRequestStatus.QuotesReceived &&
             !sr.GarageAssignments.Any(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed), cancellationToken);
+
+        var packageBookingsToAssignCount = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId)).CountAsync(cancellationToken);
 
         var cqQuery = _context.CustomerQuotations.AsNoTracking();
         if (advisorId.HasValue)
@@ -101,9 +105,26 @@ public class AdvisorOperationsService : IAdvisorOperationsService
             customerQuotationsPendingCount,
             activeJobsCount,
             additionalWorkPendingCount,
-            recentRequests
+            recentRequests,
+            packageBookingsToAssignCount
         );
     }
+
+    /// <summary>Requests this advisor owns, plus ones nobody owns yet (a super admin with no advisor profile sees all).</summary>
+    private IQueryable<ServiceRequest> OwnedOrUnowned(Guid? advisorId) =>
+        _context.ServiceRequests.AsNoTracking()
+            .Where(sr => advisorId == null || sr.AssignedAdvisorId == null || sr.AssignedAdvisorId == advisorId.Value);
+
+    /// <summary>
+    /// Fixed-price package bookings whose advance is paid but which have no garage yet. Packages are
+    /// never sent out for quotes, so assigning a garage is the advisor's only step.
+    /// </summary>
+    private static IQueryable<ServiceRequest> PackagesAwaitingGarage(IQueryable<ServiceRequest> query) =>
+        query.Where(sr => sr.ServicePackageId != null &&
+                          sr.AdvancePaidAtUtc != null &&
+                          sr.Status != ServiceRequestStatus.Cancelled &&
+                          sr.Status != ServiceRequestStatus.Completed &&
+                          !sr.GarageAssignments.Any(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed));
 
     public async Task<AdvisorWorkQueueDto> GetAdvisorWorkQueueAsync(Guid advisorUserId, CancellationToken cancellationToken = default)
     {
@@ -113,12 +134,30 @@ public class AdvisorOperationsService : IAdvisorOperationsService
 
         var advisorId = advisor?.Id;
 
-        // 1. New Requests: unassigned or newly assigned needing quotes
+        // 0. Paid package bookings waiting for the advisor to assign a garage
+        var packageBookingsToAssign = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId))
+            .OrderByDescending(sr => sr.AdvancePaidAtUtc)
+            .Take(25)
+            .Select(sr => new AdvisorPackageBookingQueueItemDto(
+                sr.Id,
+                sr.RequestNumber,
+                sr.CustomerProfile != null ? sr.CustomerProfile.User.FullName : "Customer",
+                $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
+                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.ServicePackageName ?? "Service package",
+                sr.PackagePrice ?? 0m,
+                sr.AdvancePaidAmount,
+                sr.AdvancePaidAtUtc,
+                sr.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        // 1. New Requests: unassigned or newly assigned needing quotes (packages are never quoted)
         var newRequestsQuery = _context.ServiceRequests.AsNoTracking()
             .Include(sr => sr.CustomerProfile).ThenInclude(cp => cp.User)
             .Include(sr => sr.AssignedAdvisor).ThenInclude(a => a.User)
             .Include(sr => sr.ServiceLocation)
             .Where(sr => (sr.AssignedAdvisorId == null || (advisorId.HasValue && sr.AssignedAdvisorId == advisorId.Value)) &&
+                         sr.ServicePackageId == null &&
                          (sr.Status == ServiceRequestStatus.Submitted || sr.Status == ServiceRequestStatus.GarageMatching || sr.Status == ServiceRequestStatus.GaragesNotified) &&
                          !sr.GarageQuotes.Any());
 
@@ -155,6 +194,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
             .Include(sr => sr.AssignedAdvisor).ThenInclude(a => a.User)
             .Include(sr => sr.ServiceLocation)
             .Where(sr => (advisorId == null || sr.AssignedAdvisorId == advisorId.Value) &&
+                         sr.ServicePackageId == null &&
                          sr.Status == ServiceRequestStatus.QuotesReceived &&
                          !sr.GarageAssignments.Any(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed));
 
@@ -277,7 +317,8 @@ public class AdvisorOperationsService : IAdvisorOperationsService
             quotesToReview,
             customerQuotationsPending,
             activeJobs,
-            additionalWorkPending
+            additionalWorkPending,
+            packageBookingsToAssign
         );
     }
 }

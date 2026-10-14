@@ -174,6 +174,10 @@ npm install
 npm run dev
 ```
 
+### Google Maps
+
+Optional. Without keys, booking step 3 uses an address form and "Use my current location" fills it from OpenStreetMap. To turn on the map, place search and Google addresses, put `GOOGLE_MAPS_BROWSER_KEY` and `GOOGLE_MAPS_SERVER_KEY` in `.env` and restart the API (`docker compose up -d backend`); the website reads the browser key at runtime, so no rebuild is needed. Step-by-step guide for creating and restricting the keys: [docs/google-maps-setup.md](docs/google-maps-setup.md).
+
 ---
 
 ## Testing

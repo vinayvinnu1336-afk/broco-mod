@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminAttentionQueue, AttentionItem } from '@/types/adminOperations';
 import { AlertOctagon, AlertTriangle, CheckCircle2, Info, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem, IconTile } from '@/components/ui/ListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { formatRelative, humanize } from '@/lib/format';
+import { inDateRange, matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 
 type Level = 'high' | 'medium' | 'low';
 
@@ -56,13 +57,24 @@ const Wrap: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span className="block whitespace-normal break-words">{children}</span>
 );
 
+const FILTER_DEFAULTS = { q: '', category: '', severity: '', range: '', from: '', to: '' };
+const LEVEL_KEYS: Level[] = ['high', 'medium', 'low'];
+
 export default function AdminAttentionQueuePage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading the attention queue..." />}>
+      <AdminAttentionQueuePageInner />
+    </Suspense>
+  );
+}
+
+function AdminAttentionQueuePageInner() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
   const [data, setData] = useState<AdminAttentionQueue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [severityFilter, setSeverityFilter] = useState<string>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   const loadAttentionQueue = useCallback(async () => {
     setRefreshing(true);
@@ -83,25 +95,30 @@ export default function AdminAttentionQueuePage() {
 
   const items = useMemo(() => data?.items ?? [], [data]);
 
+  const categories = useMemo(() => Array.from(new Set(items.map((i) => i.category))), [items]);
+
+  // Search and date apply to everything; each of the other two filters counts over the rows the rest leave.
+  const searched = useMemo(
+    () =>
+      items.filter(
+        (i) =>
+          matchesSearch(f.q, i.title, i.description, i.referenceNumber, categoryLabel(i.category)) &&
+          inDateRange(i.createdAtUtc, f)
+      ),
+    [items, f]
+  );
+  const matchSeverity = useCallback((i: AttentionItem) => !f.severity || severityLevel(i.severity) === f.severity, [f.severity]);
+  const matchCategory = useCallback((i: AttentionItem) => !f.category || i.category === f.category, [f.category]);
+
+  const filteredItems = useMemo(() => searched.filter((i) => matchSeverity(i) && matchCategory(i)), [searched, matchSeverity, matchCategory]);
+
   const severityCounts = useMemo(() => {
     const counts: Record<Level, number> = { high: 0, medium: 0, low: 0 };
-    items.forEach((i) => {
+    searched.filter(matchCategory).forEach((i) => {
       counts[severityLevel(i.severity)] += 1;
     });
     return counts;
-  }, [items]);
-
-  const categories = useMemo(() => Array.from(new Set(items.map((i) => i.category))), [items]);
-
-  const filteredItems = useMemo(
-    () =>
-      items.filter((item) => {
-        if (severityFilter !== 'ALL' && severityLevel(item.severity) !== severityFilter) return false;
-        if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
-        return true;
-      }),
-    [items, severityFilter, categoryFilter]
-  );
+  }, [searched, matchCategory]);
 
   // Group by category; most severe groups first, most severe items first within a group.
   const groups = useMemo(() => {
@@ -121,21 +138,19 @@ export default function AdminAttentionQueuePage() {
       .sort((a, b) => a.topRank - b.topRank || b.items.length - a.items.length);
   }, [filteredItems]);
 
-  const severityOptions = [
-    { value: 'ALL', label: 'All', count: items.length },
-    { value: 'high', label: 'High', count: severityCounts.high },
-    { value: 'medium', label: 'Medium', count: severityCounts.medium },
-    { value: 'low', label: 'Low', count: severityCounts.low },
-  ];
+  const severityOptions = LEVEL_KEYS.map((l) => ({ value: l, label: `${LEVELS[l].label} (${severityCounts[l]})` }));
 
-  const categoryOptions = [
-    { value: 'ALL', label: 'All types' },
-    ...categories.map((c) => ({
-      value: c,
-      label: categoryLabel(c),
-      count: items.filter((i) => i.category === c).length,
-    })),
-  ];
+  const categoryOptions = useMemo(() => {
+    const pool = searched.filter(matchSeverity);
+    return [
+      { value: '', label: 'All types', count: pool.length },
+      ...categories.map((c) => ({
+        value: c,
+        label: categoryLabel(c),
+        count: pool.filter((i) => i.category === c).length,
+      })),
+    ];
+  }, [searched, matchSeverity, categories]);
 
   const total = data?.totalAttentionItemsCount ?? items.length;
 
@@ -163,12 +178,22 @@ export default function AdminAttentionQueuePage() {
       />
 
       {items.length > 0 && (
-        <div className="space-y-2">
-          <FilterChips options={severityOptions} value={severityFilter} onChange={setSeverityFilter} ariaLabel="Filter by severity" />
-          {categories.length > 1 && (
-            <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} ariaLabel="Filter by type" />
-          )}
-        </div>
+        <FilterBar
+          filters={filters}
+          searchKey="q"
+          searchPlaceholder="Title, details or reference"
+          searchLabel="Search the attention queue"
+          status={
+            categories.length > 1 || filters.isActive('category')
+              ? { key: 'category', options: categoryOptions, ariaLabel: 'Filter by type' }
+              : undefined
+          }
+          fields={[
+            { type: 'select', key: 'severity', label: 'Priority', allLabel: 'All priorities', options: severityOptions },
+            { type: 'dateRange', label: 'Raised' },
+          ]}
+          summary={`${filteredItems.length} ${filteredItems.length === 1 ? 'item' : 'items'}`}
+        />
       )}
 
       {error && data && (
@@ -192,13 +217,7 @@ export default function AdminAttentionQueuePage() {
           icon={CheckCircle2}
           title="No items match these filters"
           action={
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSeverityFilter('ALL');
-                setCategoryFilter('ALL');
-              }}
-            >
+            <Button variant="outline" onClick={() => filters.reset()}>
               Show all items
             </Button>
           }

@@ -13,7 +13,9 @@ public record CreateServiceBookingRequest(
     string ProblemDescription,
     string? ServiceCategory = "General",
     DateTime? PreferredServiceDate = null,
-    string? PackageCode = null
+    string? PackageCode = null,
+    // Several quote-based services in one request (e.g. AC + Batteries). Wins over ServiceCategory when given.
+    IReadOnlyList<string>? ServiceCategories = null
 );
 
 public record CancelServiceRequestCommand(
@@ -58,7 +60,8 @@ public record ServiceRequestDetailDto(
     decimal? AdvanceAmountDue = null,
     decimal AdvancePaidAmount = 0,
     DateTime? AdvancePaidAtUtc = null,
-    string? VehicleFuel = null
+    string? VehicleFuel = null,
+    IReadOnlyList<string>? ServiceCategories = null
 );
 
 public record CustomerServiceRequestSummaryDto(
@@ -74,7 +77,8 @@ public record CustomerServiceRequestSummaryDto(
     int QuotesCount = 0,
     string? ServicePackageName = null,
     decimal? PackagePrice = null,
-    bool IsAdvancePaid = false
+    bool IsAdvancePaid = false,
+    string? ServiceCategory = null
 );
 
 public record GarageIncomingRequestDto(
@@ -161,7 +165,10 @@ public record AdvisorServiceRequestDetailDto(
     decimal? AdvanceAmountDue = null,
     decimal AdvancePaidAmount = 0,
     DateTime? AdvancePaidAtUtc = null,
-    string? VehicleFuel = null
+    string? VehicleFuel = null,
+    string? AssignedGarageName = null,
+    Guid? ServiceJobId = null,
+    string? ServiceJobNumber = null
 );
 
 public record AdminServiceRequestSummaryDto(

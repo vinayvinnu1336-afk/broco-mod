@@ -141,7 +141,8 @@ public record FinanceOverviewDto(
     // 10% model: advances customers paid BroCo online, and commission garages paid / still owe.
     decimal TotalBookingAdvances = 0m,
     decimal TotalCommissionCollected = 0m,
-    decimal TotalCommissionOutstanding = 0m
+    decimal TotalCommissionOutstanding = 0m,
+    decimal TotalCommissionGst = 0m
 );
 
 public record PaymentFilterDto(
@@ -151,7 +152,13 @@ public record PaymentFilterDto(
     Guid? GarageId = null,
     Guid? CustomerId = null,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    // Payment number, gateway order / payment id, request number, garage or customer name
+    string? Search = null,
+    // PaymentPurpose name, e.g. BookingAdvance or GarageCommission
+    string? Purpose = null,
+    // PaymentMethod name, e.g. Upi or Card
+    string? Method = null
 );
 
 public record SettlementFilterDto(
@@ -160,7 +167,9 @@ public record SettlementFilterDto(
     DateTime? ToDate = null,
     Guid? GarageId = null,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    // Settlement number, garage name, job number or payout reference
+    string? Search = null
 );
 
 public record RefundPaymentRequestDto(

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -437,7 +438,8 @@ public class CustomerQuotationService : ICustomerQuotationService
         Guid customerId,
         CancellationToken ct = default)
     {
-        // STRICT CUSTOMER VISIBILITY: Customer can view Sent, Accepted, Rejected, and Expired quotations
+        // STRICT CUSTOMER VISIBILITY: Customer can view Sent, Accepted, Rejected, and Expired quotations.
+        // Package bookings have a fixed price, so their internal pre-accepted quotation is not listed.
         var quotations = await _context.CustomerQuotations
             .Include(cq => cq.ServiceRequest)
             .Include(cq => cq.GarageAssignment)
@@ -445,6 +447,7 @@ public class CustomerQuotationService : ICustomerQuotationService
             .Include(cq => cq.LineItems)
             .Where(cq => cq.ServiceRequest != null &&
                          cq.ServiceRequest.CustomerId == customerId &&
+                         cq.ServiceRequest.ServicePackageId == null &&
                          (cq.Status == CustomerQuotationStatus.Sent ||
                           cq.Status == CustomerQuotationStatus.Accepted ||
                           cq.Status == CustomerQuotationStatus.Rejected ||
@@ -491,10 +494,35 @@ public class CustomerQuotationService : ICustomerQuotationService
     public async Task<ApiResponse<List<CustomerQuotationSummaryDto>>> GetPlatformCustomerQuotationsAsync(
         int page = 1,
         int pageSize = 50,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        ListFilter? filter = null)
     {
-        var quotations = await _context.CustomerQuotations
-            .Include(cq => cq.ServiceRequest)
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        IQueryable<CustomerQuotation> query = _context.CustomerQuotations.Include(cq => cq.ServiceRequest);
+
+        if (filter != null)
+        {
+            var status = ListFilters.Enum<CustomerQuotationStatus>(filter.Status, "quotation status");
+            if (status.HasValue) query = query.Where(cq => cq.Status == status.Value);
+
+            var search = ListFilters.Search(filter.Search);
+            if (search != null)
+            {
+                query = query.Where(cq =>
+                    cq.QuotationNumber.ToLower().Contains(search) ||
+                    cq.ServiceRequest!.RequestNumber.ToLower().Contains(search) ||
+                    cq.ServiceRequest.VehicleLicensePlate.ToLower().Contains(search) ||
+                    cq.ServiceRequest.CustomerProfile!.User.FullName.ToLower().Contains(search));
+            }
+
+            var (fromUtc, toUtc) = ListFilters.DateRange(filter.FromDateUtc, filter.ToDateUtc);
+            if (fromUtc.HasValue) query = query.Where(cq => cq.CreatedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(cq => cq.CreatedAtUtc <= toUtc.Value);
+        }
+
+        var quotations = await query
             .OrderByDescending(cq => cq.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

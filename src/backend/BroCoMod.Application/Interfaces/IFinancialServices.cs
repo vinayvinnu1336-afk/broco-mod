@@ -122,7 +122,8 @@ public interface IFinancialLedgerService
     Task<IEnumerable<FinancialLedgerEntryDto>> GetLedgerEntriesAsync(
         Guid? accountId = null,
         string? accountType = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        LedgerFilter? filter = null);
 }
 
 public interface IAdminFinanceService

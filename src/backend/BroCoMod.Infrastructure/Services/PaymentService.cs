@@ -122,8 +122,14 @@ public class PaymentService : IPaymentService
             (quotation.ServiceRequest.CustomerId != resolvedCustomerId && quotation.ServiceRequest.CustomerId != resolvedCustomerUserId))
             throw new UnauthorizedAccessException("You are not authorized to initiate payment for this quotation.");
 
-        if (quotation.Status != CustomerQuotationStatus.Accepted && quotation.Status != CustomerQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot initiate payment for quotation with status '{quotation.Status}'. Allowed only when 'Accepted' or 'Sent'.");
+        // Quote-based services are paid only after the customer accepts the quotation (never at "Sent").
+        if (quotation.Status != CustomerQuotationStatus.Accepted)
+            throw new InvalidOperationException(quotation.Status switch
+            {
+                CustomerQuotationStatus.Sent => "Accept the quote first. You pay the booking advance only after accepting it.",
+                CustomerQuotationStatus.Draft or CustomerQuotationStatus.ReadyToSend => "This quote hasn't been sent to you yet, so it can't be paid.",
+                _ => $"This quote is {quotation.Status.ToString().ToLowerInvariant()}, so it can't be paid. Only an accepted quote can be paid."
+            });
 
         // 3. Server-authoritative payable calculation (strictly calculated on server)
         // BroCo collects only the booking advance online; the customer pays the rest at the garage.
@@ -246,6 +252,10 @@ public class PaymentService : IPaymentService
 
         if (awq.CustomerId != resolvedCustomerId && awq.CustomerId != resolvedCustomerUserId)
             throw new UnauthorizedAccessException("You are not authorized to initiate payment for this additional work quotation.");
+
+        // Paying approves the extra work, so only an open (or already approved) one can be paid.
+        if (awq.Status is CustomerQuotationStatus.Rejected or CustomerQuotationStatus.Expired or CustomerQuotationStatus.Cancelled or CustomerQuotationStatus.Draft)
+            throw new InvalidOperationException($"This additional work quote is {awq.Status.ToString().ToLowerInvariant()}, so it can't be paid.");
 
         decimal authoritativeAmount = awq.Total;
         var customer = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == resolvedCustomerUserId, cancellationToken);
@@ -518,6 +528,10 @@ public class PaymentService : IPaymentService
         if (payment.Status != PaymentStatus.Paid && payment.Status != PaymentStatus.PartiallyRefunded)
             throw new InvalidOperationException($"Cannot refund payment {payment.PaymentNumber} in status '{payment.Status}'.");
 
+        // Refunding would leave the commission marked Paid and BroCo's income overstated.
+        if (payment.Purpose == PaymentPurpose.GarageCommission)
+            throw new InvalidOperationException($"Payment {payment.PaymentNumber} is a garage commission payment and can't be refunded. Waive or adjust the commission instead.");
+
         var gateway = _gatewayFactory.GetGateway(payment.GatewayProvider);
         var refundResult = await gateway.RefundPaymentAsync(new RefundPaymentParams(
             GatewayPaymentId: payment.GatewayPaymentId ?? "",
@@ -699,11 +713,21 @@ public class PaymentService : IPaymentService
                 await _notificationService.SendInAppNotificationAsync(
                     userId: actorUserId,
                     title: "Booking advance received",
-                    message: $"We received your booking advance of ₹{payment.Amount:N2}. You'll pay the rest directly at the garage after the service.",
+                    message: payment.GarageId.HasValue
+                        ? $"We received your booking advance of ₹{payment.Amount:N2}. You'll pay the rest directly at the garage after the service."
+                        : $"We received your booking advance of ₹{payment.Amount:N2}. BroCo is assigning a garage near you. You'll pay the rest directly at the garage after the service.",
                     type: "PAYMENT_RECEIVED",
                     referenceId: payment.Id,
                     referenceType: nameof(Payment),
                     cancellationToken: cancellationToken);
+                if (!payment.GarageId.HasValue && payment.ServiceRequestId.HasValue)
+                {
+                    // Package booked online, no garage yet: the advisor who owns it assigns one now.
+                    var packageRequest = await _context.ServiceRequests.AsNoTracking()
+                        .FirstOrDefaultAsync(r => r.Id == payment.ServiceRequestId.Value, cancellationToken);
+                    if (packageRequest is { IsPackageBooking: true })
+                        await _notificationService.NotifyAdvisorOfPaidPackageBookingAsync(packageRequest, cancellationToken);
+                }
                 if (payment.GarageId.HasValue)
                 {
                     var garageUserIds = await _context.GarageUsers.AsNoTracking()

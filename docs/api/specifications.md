@@ -21,6 +21,8 @@
 | `/forgot-password` | POST | Anonymous | Any | Requests password reset OTP (timing-safe) |
 | `/reset-password` | POST | Anonymous | Any | Submits reset token and sets new password |
 
+**Phone numbers** (sign-up, profile, website enquiries) must be Indian mobiles: 10 digits starting 6-9, optionally written with `+91`, `91` or `0` and spaces, dashes or brackets. They are stored as `+91 98765 43210`; anything else gets a 400 with "Enter a valid 10-digit Indian mobile number."
+
 ### Standard Authentication Response Envelope
 ```json
 {
@@ -62,6 +64,7 @@
 |---|---|---|
 | `/dashboard` | GET | Aggregated customer statistics, recent requests, and pending quotes |
 | `/profile` | GET | Customer personal details and communication preferences |
+| `/profile` | PUT | Updates the caller's own name, mobile, address and preferred contact (`Phone`, `WhatsApp`, `SMS`, `Email`); email is read-only |
 | `/vehicles` | GET | Customer's registered vehicle inventory |
 | `/vehicles` | POST | Registers a new vehicle into the customer's garage |
 | `/vehicles/{id}` | GET | Specific customer vehicle details |

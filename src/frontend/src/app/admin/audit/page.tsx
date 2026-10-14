@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { PagedResult } from '@/types/adminOperations';
-import { History, RefreshCw, Search } from 'lucide-react';
+import { History, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Input } from '@/components/ui/Input';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -16,6 +16,54 @@ import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDateTime, humanize } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+
+// The API matches `action` as "contains", so each option is the prefix shared by a family of action codes.
+const ACTION_OPTIONS = [
+  { value: 'SERVICE_REQUEST', label: 'Service requests' },
+  { value: 'GARAGE_REQUEST', label: 'Requests sent to garages' },
+  { value: 'GARAGE_QUOTE', label: 'Garage quotes' },
+  { value: 'CUSTOMER_QUOTATION', label: 'Customer quotations' },
+  { value: 'GARAGE_ASSIGNMENT', label: 'Garage assignments' },
+  { value: 'BOOKING', label: 'Bookings' },
+  { value: 'SERVICE_JOB', label: 'Jobs (created, scheduled, closed)' },
+  { value: 'SERVICE_VEHICLE', label: 'Car received, ready, handed over' },
+  { value: 'SERVICE_WORK', label: 'Work started or completed' },
+  { value: 'ADDITIONAL_WORK', label: 'Extra work' },
+  { value: 'PAYMENT', label: 'Payments' },
+  { value: 'INVOICE', label: 'Invoices' },
+  { value: 'COMMISSION', label: 'Commission' },
+  { value: 'SETTLEMENT', label: 'Settlements' },
+  { value: 'ADVISOR_NOTE', label: 'Advisor notes' },
+  { value: 'ADMIN_GARAGE', label: 'Garage changes by admin' },
+  { value: 'ADMIN_ADVISOR', label: 'Advisor changes by admin' },
+  { value: 'ADMIN_NOTIFICATION', label: 'Notification retries' },
+];
+
+// Record types the platform writes to the audit trail (the API matches `entityName` exactly).
+const ENTITY_OPTIONS = [
+  'ServiceRequest',
+  'GarageRequest',
+  'GarageQuote',
+  'CustomerQuotation',
+  'GarageAssignment',
+  'ServiceJob',
+  'AdditionalWorkRequest',
+  'ServiceMedia',
+  'Payment',
+  'Invoice',
+  'GarageCommission',
+  'GarageSettlement',
+  'PlatformFeeConfiguration',
+  'Garage',
+  'AdvisorProfile',
+  'AdvisorRequestNote',
+  'CustomerProfile',
+  'User',
+  'Notification',
+].map((name) => ({ value: name, label: humanize(name) }));
+
+const FILTER_DEFAULTS = { q: '', action: '', entity: '', range: '', from: '', to: '', size: '25' };
 
 interface AuditLogItem {
   id: string;
@@ -29,34 +77,51 @@ interface AuditLogItem {
 }
 
 export default function AdminAuditPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-16 rounded-2xl" />}>
+      <AdminAudit />
+    </Suspense>
+  );
+}
+
+function AdminAudit() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page: urlPage } = filters;
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [actionFilter, setActionFilter] = useState('');
-  const [entityFilter, setEntityFilter] = useState('');
+  const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
 
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
   const requestId = useRef(0);
 
-  const loadLogs = useCallback(async (p: number, size: number, action: string, entity: string) => {
+  const query = useMemo(
+    () =>
+      toQueryString({
+        page: urlPage,
+        pageSize,
+        search: f.q,
+        action: f.action,
+        entityName: f.entity,
+        ...dateRangeQuery(f),
+      }),
+    [urlPage, pageSize, f]
+  );
+
+  const loadLogs = useCallback(async (qs: string) => {
     const id = ++requestId.current;
     setLoading(true);
-    let url = `/admin/audit?page=${p}&pageSize=${size}`;
-    if (action.trim()) url += `&action=${encodeURIComponent(action.trim())}`;
-    if (entity.trim()) url += `&entityName=${encodeURIComponent(entity.trim())}`;
-
-    const res = await apiFetch<PagedResult<AuditLogItem>>(url);
-    if (id !== requestId.current) return; // typing fires a request per keystroke; keep only the latest
+    const res = await apiFetch<PagedResult<AuditLogItem>>(`/admin/audit${qs}`);
+    if (id !== requestId.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       const data = res.data as PagedResult<AuditLogItem> & { page?: number };
       setLogs(data.items ?? []);
-      setPage(data.pageNumber ?? data.page ?? p);
+      setPage(data.pageNumber ?? data.page ?? 1);
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
       setLoadError(null);
@@ -68,12 +133,12 @@ export default function AdminAuditPage() {
   }, []);
 
   useEffect(() => {
-    loadLogs(1, pageSize, actionFilter, entityFilter);
-  }, [pageSize, actionFilter, entityFilter, loadLogs]);
+    loadLogs(query);
+  }, [query, loadLogs]);
 
-  const reload = () => loadLogs(page, pageSize, actionFilter, entityFilter);
+  const reload = () => loadLogs(query);
   const closeLog = useCallback(() => setSelectedLog(null), []);
-  const hasFilters = Boolean(actionFilter.trim() || entityFilter.trim());
+  const hasFilters = Object.keys(FILTER_DEFAULTS).some((k) => k !== 'size' && filters.isActive(k as keyof typeof FILTER_DEFAULTS));
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -95,24 +160,18 @@ export default function AdminAuditPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Input
-          type="search"
-          aria-label="Filter by action"
-          placeholder="Action contains, e.g. Garage"
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />}
-        />
-        <Input
-          type="search"
-          aria-label="Filter by record type"
-          placeholder="Exact record type, e.g. ServiceRequest"
-          value={entityFilter}
-          onChange={(e) => setEntityFilter(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />}
-        />
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Email, record ID or details"
+        searchLabel="Search the audit trail"
+        fields={[
+          { type: 'select', key: 'action', label: 'Action', allLabel: 'All actions', options: ACTION_OPTIONS },
+          { type: 'select', key: 'entity', label: 'Record type', allLabel: 'All record types', options: ENTITY_OPTIONS },
+          { type: 'dateRange', label: 'When' },
+        ]}
+        summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'entry' : 'entries'}`}
+      />
 
       {loading && logs.length === 0 ? (
         <div className="space-y-2" aria-hidden="true">
@@ -126,7 +185,7 @@ export default function AdminAuditPage() {
         <EmptyState
           icon={History}
           title="No entries found"
-          description={hasFilters ? 'Nothing matches these filters. The record type must match exactly, e.g. ServiceRequest or Garage.' : 'Nothing has been recorded yet.'}
+          description={hasFilters ? 'No entries match these filters.' : 'Nothing has been recorded yet.'}
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -185,14 +244,14 @@ export default function AdminAuditPage() {
                 totalPages={Math.max(1, totalPages)}
                 totalItems={totalCount}
                 pageSize={pageSize}
-                onPageChange={(p) => loadLogs(p, pageSize, actionFilter, entityFilter)}
+                onPageChange={filters.setPage}
               />
             )}
             <div className="hidden w-40 sm:block">
               <Select
                 aria-label="Rows per page"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => filters.set({ size: e.target.value })}
                 options={[
                   { value: 25, label: '25 per page' },
                   { value: 50, label: '50 per page' },

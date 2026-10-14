@@ -113,7 +113,7 @@ public class VehicleMasterAndCustomerVehiclesIntegrationTests : IClassFixture<We
         body.Should().NotBeNull();
         body!.Data.Should().Contain(f => f.Name == "Petrol");
         body.Data.Should().Contain(f => f.Name == "Diesel");
-        body.Data.Should().Contain(f => f.Name == "Electric");
+        body.Data.Should().NotContain(f => f.Name == "Electric"); // BroCo does not service electric cars
         body.Data.Should().Contain(f => f.Name == "Hybrid");
         body.Data.Should().Contain(f => f.Name == "PlugInHybrid");
     }
@@ -125,7 +125,12 @@ public class VehicleMasterAndCustomerVehiclesIntegrationTests : IClassFixture<We
     [Fact]
     public async Task CustomerVehicle01_Customer_CanAddGetUpdateSetPrimaryAndDeleteVehicle()
     {
-        var token = await AuthenticateAsync("customer@brocomod.com", "Password123!");
+        // A fresh account: other classes book with the demo customer's vehicles while this test deletes one.
+        var email = $"vehicle.crud.{Guid.NewGuid().ToString()[..8]}@brocomod.com";
+        var register = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
+            email, "Password123!", "Vehicle Crud Customer", "+91 95559 97777", AppRoles.Customer));
+        register.EnsureSuccessStatusCode();
+        var token = await AuthenticateAsync(email, "Password123!");
         var client = CreateAuthenticatedClient(token);
 
         // 1. Get BMW -> 3 Series -> 330i
@@ -373,7 +378,7 @@ public class VehicleMasterAndCustomerVehiclesIntegrationTests : IClassFixture<We
             secondCustomerEmail,
             "Password123!",
             "Second Customer",
-            "+15559998888",
+            "+91 95559 98888",
             AppRoles.Customer
         ));
         regResponse.EnsureSuccessStatusCode();

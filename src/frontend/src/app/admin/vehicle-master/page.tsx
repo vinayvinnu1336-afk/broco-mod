@@ -1,22 +1,23 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CarFront, ChevronLeft, ChevronRight, Factory, IndianRupee, Pencil, Plus, Search, Settings2 } from 'lucide-react';
+import { CarFront, ChevronLeft, ChevronRight, Factory, IndianRupee, Pencil, Plus, Settings2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
-import { SEGMENT_LABELS, catalogueApi, type CarModel, type Manufacturer } from '@/lib/catalogue';
+import { SEGMENTS, SEGMENT_LABELS, catalogueApi, type CarModel, type Manufacturer } from '@/lib/catalogue';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Input } from '@/components/ui/Input';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListItem } from '@/components/ui/ListItem';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/catalogue/BrandLogo';
 import { BrandSheet } from '@/components/admin/BrandSheet';
 import { ModelSheet } from '@/components/admin/ModelSheet';
+import { matchesSearch, useUrlFilters } from '@/lib/useUrlFilters';
 
 interface VehicleVariant {
   id: string;
@@ -37,11 +38,32 @@ type Step = 'makes' | 'models' | 'variants';
 const years = (from: number, to: number | null) => (from ? `${from}–${to || 'now'}` : '');
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+const SEGMENT_OPTIONS = SEGMENTS.map((s) => ({ value: s, label: SEGMENT_LABELS[s] ?? s }));
+
+const FILTER_DEFAULTS = { q: '', status: '', segment: '' };
+
+const matchesStatus = (status: string, isActive: boolean) =>
+  !status || (status === 'active' ? isActive : !isActive);
+
 export default function AdminVehicleMasterPage() {
+  return (
+    <Suspense fallback={<ColumnSkeleton />}>
+      <AdminVehicleMaster />
+    </Suspense>
+  );
+}
+
+function AdminVehicleMaster() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f } = filters;
+  const search = f.q;
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
 
   const [selectedManufacturer, setSelectedManufacturer] = useState<Manufacturer | null>(null);
   const [models, setModels] = useState<CarModel[]>([]);
@@ -136,12 +158,63 @@ export default function AdminVehicleMasterPage() {
     loadManufacturers();
   }, [loadManufacturers]);
 
+  // A new search starts from the brand list on phones.
+  const lastSearch = useRef(search);
+  useEffect(() => {
+    if (search !== lastSearch.current) {
+      lastSearch.current = search;
+      setMobileStep('makes');
+    }
+  }, [search]);
+
+  // The search box matches brands (name, country) and the selected brand's models (name, body type).
+  // When it matches the selected brand itself, all of that brand's models stay listed.
+  const brandMatches = useCallback((m: Manufacturer) => matchesSearch(search, m.name, m.country), [search]);
+  const selectedBrandMatches = !!selectedManufacturer && brandMatches(selectedManufacturer);
+
+  const filteredModels = useMemo(
+    () =>
+      models.filter(
+        (mod) =>
+          matchesStatus(f.status, mod.isActive) &&
+          (!f.segment || mod.segment === f.segment) &&
+          (selectedBrandMatches || matchesSearch(search, mod.name, mod.bodyType))
+      ),
+    [models, f.status, f.segment, selectedBrandMatches, search]
+  );
+
+  // Keep the variants column in step with the filtered models: never show a model the filters hide.
+  useEffect(() => {
+    if (loadingModels) return;
+    const visible = !!selectedModel && filteredModels.some((m) => m.id === selectedModel.id);
+    if (visible) return;
+    if (filteredModels.length > 0) selectModel(filteredModels[0]);
+    else if (selectedModel) {
+      variantsRequest.current++;
+      setSelectedModel(null);
+      setVariants([]);
+      setLoadingVariants(false);
+    }
+  }, [filteredModels, selectedModel, loadingModels, selectModel]);
+
   const filteredManufacturers = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const list = [...manufacturers].sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
-    if (!q) return list;
-    return list.filter((m) => m.name.toLowerCase().includes(q) || (m.country ?? '').toLowerCase().includes(q));
-  }, [manufacturers, search]);
+    return list.filter(
+      (m) =>
+        matchesStatus(f.status, m.isActive) &&
+        // Keep the selected brand when the search found some of its models.
+        (brandMatches(m) || (m.id === selectedManufacturer?.id && search.trim() !== '' && filteredModels.length > 0))
+    );
+  }, [manufacturers, f.status, brandMatches, selectedManufacturer, search, filteredModels.length]);
+
+  // Likewise for brands: when the filters hide the selected brand, open the first brand still listed.
+  useEffect(() => {
+    if (loading || loadingModels || filteredManufacturers.length === 0) return;
+    if (selectedManufacturer && filteredManufacturers.some((m) => m.id === selectedManufacturer.id)) return;
+    selectManufacturer(filteredManufacturers[0]);
+  }, [loading, loadingModels, filteredManufacturers, selectedManufacturer, selectManufacturer]);
+
+  const anyFilter = filters.isActive('q') || filters.isActive('status') || filters.isActive('segment');
 
   const nextDisplayOrder = useMemo(
     () => manufacturers.reduce((max, m) => Math.max(max, m.displayOrder || 0), 0) + 1,
@@ -187,20 +260,16 @@ export default function AdminVehicleMasterPage() {
         }
       />
 
-      <div className="md:max-w-md">
-        <Input
-          type="search"
-          enterKeyHint="search"
-          aria-label="Search brands"
-          placeholder="Search brands, e.g. Maruti"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setMobileStep('makes');
-          }}
-          leftIcon={<Search className="h-4 w-4" />}
-        />
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Brand or model, e.g. Maruti"
+        searchLabel="Search brands and models"
+        fields={[
+          { type: 'select', key: 'status', label: 'Status', allLabel: 'Active and inactive', options: STATUS_OPTIONS },
+          { type: 'select', key: 'segment', label: 'Model segment', allLabel: 'All segments', options: SEGMENT_OPTIONS },
+        ]}
+      />
 
       {loadError && manufacturers.length === 0 && !loading ? (
         <ErrorState title="Catalogue unavailable" error={loadError} onRetry={() => loadManufacturers()} />
@@ -211,7 +280,7 @@ export default function AdminVehicleMasterPage() {
             {loading ? (
               <ColumnSkeleton />
             ) : filteredManufacturers.length === 0 ? (
-              <ColumnEmpty icon={Factory} text={search ? 'No brands match your search.' : 'No brands yet. Add the first one.'} />
+              <ColumnEmpty icon={Factory} text={anyFilter ? 'No brands match these filters.' : 'No brands yet. Add the first one.'} />
             ) : (
               filteredManufacturers.map((m) => {
                 const active = selectedManufacturer?.id === m.id;
@@ -247,7 +316,7 @@ export default function AdminVehicleMasterPage() {
           <CatalogColumn
             className={columnClass('models')}
             title={selectedManufacturer ? `${selectedManufacturer.name} models` : 'Models'}
-            count={selectedManufacturer && !loadingModels ? models.length : undefined}
+            count={selectedManufacturer && !loadingModels ? filteredModels.length : undefined}
             onBack={() => setMobileStep('makes')}
             backLabel="All brands"
             headerAction={
@@ -274,8 +343,10 @@ export default function AdminVehicleMasterPage() {
               </div>
             ) : models.length === 0 ? (
               <ColumnEmpty icon={CarFront} text="No models listed for this brand yet." />
+            ) : filteredModels.length === 0 ? (
+              <ColumnEmpty icon={CarFront} text="No models match these filters." />
             ) : (
-              models.map((mod) => {
+              filteredModels.map((mod) => {
                 const active = selectedModel?.id === mod.id;
                 return (
                   <ManageRow

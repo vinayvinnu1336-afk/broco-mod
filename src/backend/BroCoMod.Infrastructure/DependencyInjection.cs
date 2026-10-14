@@ -2,6 +2,7 @@
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using BroCoMod.Infrastructure.Services;
+using BroCoMod.Infrastructure.Services.Media;
 using BroCoMod.Infrastructure.Services.PaymentGateway;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -101,11 +102,27 @@ public static class DependencyInjection
         // Service packages, booking advance, garage commission & website enquiries
         services.AddScoped<ICatalogueService, CatalogueService>();
         services.AddSingleton<IServiceAreaService, ServiceAreaService>();
-        services.AddHttpClient<IGeocodingService, GoogleGeocodingService>(c => c.Timeout = TimeSpan.FromSeconds(5));
+        // Pin -> address: Google when a server key is set, then OpenStreetMap (Geocoding:FallbackProvider).
+        // Providers are tried in registration order. Google request URLs carry the key, so they are not logged.
+        services.AddHttpClient<GoogleGeocodingService>(c => c.Timeout = TimeSpan.FromSeconds(5)).RemoveAllLoggers();
+        services.AddTransient<IGeocodingService>(sp => sp.GetRequiredService<GoogleGeocodingService>());
+        services.AddTransient<IReverseGeocodingProvider>(sp => sp.GetRequiredService<GoogleGeocodingService>());
+        services.AddSingleton(_ => new NominatimRateGate());
+        services.AddHttpClient<NominatimReverseGeocodingProvider>(c => c.Timeout = TimeSpan.FromSeconds(5));
+        services.AddTransient<IReverseGeocodingProvider>(sp => sp.GetRequiredService<NominatimReverseGeocodingProvider>());
+        services.AddSingleton<ReverseGeocodeCache>();
+        services.AddScoped<IAddressLookupService, AddressLookupService>();
         services.AddScoped<ICommissionService, CommissionService>();
+        services.AddScoped<ICommissionDuesService, CommissionService>();
         services.AddScoped<IPackageBookingService, PackageBookingService>();
         services.AddScoped<ILeadService, LeadService>();
         services.AddHostedService<CommissionReminderBackgroundService>();
+
+        // Photos and videos on service requests (docs/architecture/media.md)
+        services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
+        services.AddSingleton<IMediaStorage, LocalDiskMediaStorage>();
+        services.AddSingleton<MediaUrlSigner>();
+        services.AddScoped<IServiceMediaService, ServiceMediaService>();
 
 
         // Authorization Handlers & Seeder

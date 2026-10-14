@@ -169,9 +169,14 @@ public class AdminFinanceController : ControllerBase
     public async Task<IActionResult> GetLedgerEntries(
         [FromQuery] Guid? accountId,
         [FromQuery] string? accountType,
+        [FromQuery] string? entryType,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? fromDateUtc,
+        [FromQuery] DateTime? toDateUtc,
         CancellationToken cancellationToken)
     {
-        var entries = await _ledgerService.GetLedgerEntriesAsync(accountId, accountType, cancellationToken);
+        var filter = new LedgerFilter(accountId, accountType, entryType, search, fromDateUtc, toDateUtc);
+        var entries = await _ledgerService.GetLedgerEntriesAsync(accountId, accountType, cancellationToken, filter);
         return Ok(ApiResponse<IEnumerable<FinancialLedgerEntryDto>>.Ok(entries));
     }
 }

@@ -3,6 +3,8 @@
 
 import React, { ReactNode } from 'react';
 import { Check } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 /**
  * API status values arrive in several spellings ("GaragesNotified", "GARAGES_NOTIFIED", "Sent").
@@ -91,14 +93,88 @@ export function requestNextStep(status: string | null | undefined): string | nul
   }
 }
 
-/** Thin horizontal progress meter for the coarse request stages. */
-export function RequestProgress({ status, className = '' }: { status: string; className?: string }) {
-  const current = requestStageIndex(status);
+/**
+ * Stages of a fixed-price package booking (Basic / Standard / Premium). There is no quote step:
+ * the customer pays the advance and BroCo assigns a garage near them.
+ */
+export const PACKAGE_STAGES = ['Booked', 'Garage assigned', 'In service', 'Done'] as const;
+
+/** Index into PACKAGE_STAGES for a package booking's request status, or -1 when cancelled/unknown. */
+export function packageStageIndex(status: string | null | undefined): number {
+  switch (statusKey(status)) {
+    case '':
+    case 'CANCELLED':
+      return -1;
+    case 'CUSTOMER_ACCEPTED':
+    case 'BOOKING_CONFIRMED':
+      return 1;
+    case 'IN_PROGRESS':
+      return 2;
+    case 'COMPLETED':
+      return 3;
+    default:
+      // Every earlier status means "waiting for BroCo to assign a garage", including the
+      // quote-era statuses an older package booking may still carry.
+      return 0;
+  }
+}
+
+/** One plain sentence telling the customer what happens next for a package booking. */
+export function packageNextStep(status: string | null | undefined, advancePaid: boolean): string | null {
+  switch (packageStageIndex(status)) {
+    case 0:
+      return advancePaid
+        ? 'BroCo is assigning a garage near you.'
+        : 'Pay the 10% booking advance to confirm your booking.';
+    case 1:
+      return 'Booking confirmed. The garage will schedule your service.';
+    default:
+      return requestNextStep(status);
+  }
+}
+
+/**
+ * Status badge that speaks package language before a garage is assigned ("Advance due",
+ * "Assigning garage") and falls back to the normal status badge otherwise.
+ */
+export function RequestStatusBadge({
+  status,
+  isPackage = false,
+  advancePaid = false,
+  className = '',
+}: {
+  status: string;
+  isPackage?: boolean;
+  advancePaid?: boolean;
+  className?: string;
+}) {
+  if (isPackage && packageStageIndex(status) === 0) {
+    return (
+      <Badge variant={advancePaid ? 'blue' : 'amber'} dot pill className={`whitespace-nowrap ${className}`}>
+        {advancePaid ? 'Assigning garage' : 'Advance due'}
+      </Badge>
+    );
+  }
+  return <StatusBadge status={status} className={className} />;
+}
+
+/** Thin horizontal progress meter for the coarse request (or package booking) stages. */
+export function RequestProgress({
+  status,
+  className = '',
+  isPackage = false,
+}: {
+  status: string;
+  className?: string;
+  isPackage?: boolean;
+}) {
+  const stages: readonly string[] = isPackage ? PACKAGE_STAGES : REQUEST_STAGES;
+  const current = isPackage ? packageStageIndex(status) : requestStageIndex(status);
   if (current < 0) return null;
   return (
     <div className={className}>
       <div className="flex gap-1" aria-hidden="true">
-        {REQUEST_STAGES.map((stage, i) => (
+        {stages.map((stage, i) => (
           <span
             key={stage}
             className={`h-1.5 flex-1 rounded-full ${i <= current ? 'bg-electric-600' : 'bg-surface-200'}`}
@@ -106,14 +182,14 @@ export function RequestProgress({ status, className = '' }: { status: string; cl
         ))}
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] text-navy-400">
-        {REQUEST_STAGES.map((stage, i) => (
+        {stages.map((stage, i) => (
           <span key={stage} className={i === current ? 'font-semibold text-navy-800' : ''}>
             {stage}
           </span>
         ))}
       </div>
       <span className="sr-only">
-        Stage {current + 1} of {REQUEST_STAGES.length}: {REQUEST_STAGES[current]}
+        Stage {current + 1} of {stages.length}: {stages[current]}
       </span>
     </div>
   );

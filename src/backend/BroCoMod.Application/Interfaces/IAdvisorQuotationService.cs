@@ -11,5 +11,5 @@ public interface IAdvisorQuotationService
     Task<ApiResponse<bool>> DeleteInternalNoteAsync(Guid noteId, Guid requestingUserId, bool isAdmin, CancellationToken ct = default);
     Task<ApiResponse<GarageAssignmentDto>> AssignGarageAsync(Guid serviceRequestId, AssignGarageRequest request, Guid advisorId, string advisorName, CancellationToken ct = default);
     Task<ApiResponse<GarageAssignmentDto?>> GetActiveAssignmentAsync(Guid serviceRequestId, CancellationToken ct = default);
-    Task<ApiResponse<List<GarageAssignmentDto>>> GetAllAssignmentsAsync(int page = 1, int pageSize = 50, CancellationToken ct = default);
+    Task<ApiResponse<List<GarageAssignmentDto>>> GetAllAssignmentsAsync(int page = 1, int pageSize = 50, CancellationToken ct = default, ListFilter? filter = null);
 }

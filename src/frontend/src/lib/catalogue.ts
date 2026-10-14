@@ -75,7 +75,8 @@ export const SEGMENT_LABELS: Record<string, string> = {
   SUV: 'SUV / MUV',
   Luxury: 'Luxury',
 };
-export const FUELS = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'] as const;
+// BroCo doesn't service electric cars, so Electric is not offered anywhere.
+export const FUELS = ['Petrol', 'Diesel', 'CNG', 'Hybrid'] as const;
 
 /** Logos uploaded by admins are served by the API; bundled ones live in /public/brands. */
 export function assetUrl(url: string | null | undefined): string | null {
@@ -115,6 +116,14 @@ export interface BookingIntent {
 
 const INTENT_KEY = 'broco_booking_intent';
 
+// Module state, so it starts again at false on every full page load or refresh.
+let intentSavedThisVisit = false;
+
+/** True once something saved an intent since the page was last loaded or refreshed (client-side navigation keeps it). */
+export function bookingIntentSavedThisVisit(): boolean {
+  return intentSavedThisVisit;
+}
+
 export function loadBookingIntent(): BookingIntent | null {
   try {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(INTENT_KEY) : null;
@@ -125,6 +134,7 @@ export function loadBookingIntent(): BookingIntent | null {
 }
 
 export function saveBookingIntent(intent: BookingIntent): void {
+  intentSavedThisVisit = true;
   try {
     window.localStorage.setItem(INTENT_KEY, JSON.stringify(intent));
   } catch {

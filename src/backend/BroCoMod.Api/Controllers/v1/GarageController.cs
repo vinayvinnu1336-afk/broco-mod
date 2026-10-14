@@ -69,10 +69,15 @@ public class GarageController : ControllerBase
     public async Task<IActionResult> GetRequests(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDateUtc = null,
+        [FromQuery] DateTime? toDateUtc = null,
         CancellationToken cancellationToken = default)
     {
         var garageId = GetEffectiveGarageId();
-        var requests = await _serviceRequestService.GetGarageRequestsAsync(garageId, page, pageSize, cancellationToken);
+        var requests = await _serviceRequestService.GetGarageRequestsAsync(garageId, page, pageSize, cancellationToken,
+            new ListFilter(search, status, fromDateUtc, toDateUtc));
         return Ok(ApiResponse<PagedResult<GarageIncomingRequestDto>>.Ok(requests));
     }
 
@@ -145,6 +150,10 @@ public class GarageController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
         }
         catch (ArgumentException ex)
         {
@@ -272,10 +281,16 @@ public class GarageController : ControllerBase
 
     [HttpGet("jobs")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<ServiceJobSummaryDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetJobs([FromQuery] string? status, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetJobs(
+        [FromQuery] string? status,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? fromDateUtc,
+        [FromQuery] DateTime? toDateUtc,
+        CancellationToken cancellationToken)
     {
         var garageId = GetEffectiveGarageId();
-        var jobs = await _serviceJobService.GetGarageJobsAsync(garageId, status, cancellationToken);
+        var jobs = await _serviceJobService.GetGarageJobsAsync(garageId, status, cancellationToken,
+            new ListFilter(search, null, fromDateUtc, toDateUtc));
         return Ok(ApiResponse<IEnumerable<ServiceJobSummaryDto>>.Ok(jobs));
     }
 

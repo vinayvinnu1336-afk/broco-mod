@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
@@ -17,8 +18,11 @@ public class LeadService : ILeadService
 
     public async Task<LeadDto> CreateAsync(CreateLeadRequest request, CancellationToken ct = default)
     {
-        var digits = new string(request.MobileNumber.Where(char.IsDigit).ToArray());
-        var mobile = "+91 " + digits[^10..];
+        var national = IndianMobile.NationalNumber(request.MobileNumber)
+            ?? throw new ArgumentException(IndianMobile.InvalidMessage);
+        var mobile = IndianMobile.Normalize(national)!;
+        // Enquiries saved before numbers were normalised look like "+91 9876543210".
+        var legacyMobile = "+91 " + national;
 
         var vehicleSummary = string.Empty;
         if (request.VehicleModelId.HasValue)
@@ -32,7 +36,7 @@ public class LeadService : ILeadService
         // One open enquiry per number and car per day is enough for the call-back list.
         var since = DateTime.UtcNow.AddHours(-24);
         var duplicate = await _context.Leads.FirstOrDefaultAsync(l =>
-            l.MobileNumber == mobile && l.VehicleModelId == request.VehicleModelId && l.CreatedAtUtc > since, ct);
+            (l.MobileNumber == mobile || l.MobileNumber == legacyMobile) && l.VehicleModelId == request.VehicleModelId && l.CreatedAtUtc > since, ct);
         if (duplicate != null) return ToDto(duplicate);
 
         var lead = new Lead(mobile, request.City, request.VehicleModelId, vehicleSummary, request.FuelType, request.ServiceInterest);
@@ -41,13 +45,32 @@ public class LeadService : ILeadService
         return ToDto(lead);
     }
 
-    public async Task<PagedResult<LeadDto>> GetLeadsAsync(string? status, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PagedResult<LeadDto>> GetLeadsAsync(string? status, int page, int pageSize, CancellationToken ct = default,
+        ListFilter? filter = null, string? city = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var query = _context.Leads.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<LeadStatus>(status, true, out var parsed))
             query = query.Where(l => l.Status == parsed);
+
+        var search = ListFilters.Search(filter?.Search);
+        if (search != null)
+        {
+            var compact = ListFilters.Compact(search)!;
+            query = query.Where(l =>
+                l.MobileNumber.Replace(" ", "").Contains(compact) ||
+                l.VehicleSummary.ToLower().Contains(search) ||
+                l.City.ToLower().Contains(search) ||
+                (l.ServiceInterest != null && l.ServiceInterest.ToLower().Contains(search)));
+        }
+
+        var cityText = ListFilters.Search(city);
+        if (cityText != null) query = query.Where(l => l.City.ToLower() == cityText);
+
+        var (fromUtc, toUtc) = ListFilters.DateRange(filter?.FromDateUtc, filter?.ToDateUtc);
+        if (fromUtc.HasValue) query = query.Where(l => l.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(l => l.CreatedAtUtc <= toUtc.Value);
 
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(l => l.CreatedAtUtc)

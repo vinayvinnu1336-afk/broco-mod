@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { signIn, expectNoHorizontalOverflow, expectNothingClipped, apiContext, Role } from './helpers';
+import { test, expect, Page } from '@playwright/test';
+import { signIn, expectNoHorizontalOverflow, expectNothingClipped, apiContext, pickCar, Role } from './helpers';
 
 /**
  * Visits every static page of every portal and checks that it renders real content, does not crash,
@@ -58,20 +58,26 @@ const PAGES: Record<Role, string[]> = {
   ],
 };
 
-const PUBLIC_PAGES = ['/', '/services', '/services/car-service', '/track', '/login', '/register', '/forgot-password'];
+const PUBLIC_PAGES = ['/', '/services', '/services/car-service', '/track', '/login', '/register', '/register/garage', '/forgot-password'];
 
 const IGNORED_CONSOLE = [/Download the React DevTools/, /\[Fast Refresh\]/, /\[HMR\]/, /favicon/];
 
-/** A car with a long name, picked on the public site, must not push the booking card off a small screen. */
-async function rememberLongCarName(page: import('@playwright/test').Page) {
+/** Toyota's longest model name (with a fuel choice, so the picker asks for it). */
+async function longNamedCar() {
   const api = await apiContext();
   const makes = (await (await api.get('vehicle-manufacturers')).json()).data as { id: string; name: string }[];
   const toyota = makes.find((m) => m.name === 'Toyota')!;
-  const models = (await (await api.get(`vehicle-manufacturers/${toyota.id}/models`)).json()).data as { id: string; name: string }[];
-  const longest = models.reduce((a, b) => (b.name.length > a.name.length ? b : a));
+  const models = (await (await api.get(`vehicle-manufacturers/${toyota.id}/models`)).json()).data as { id: string; name: string; fuels: string[] }[];
+  const longest = models.filter((m) => m.fuels.length > 1).reduce((a, b) => (b.name.length > a.name.length ? b : a));
   await api.dispose();
+  return { brandId: toyota.id, brand: toyota.name, modelId: longest.id, model: longest.name, fuel: longest.fuels[0] };
+}
+
+/** A car with a long name, picked on the public site, must not push the booking card off a small screen. */
+async function rememberLongCarName(page: Page) {
+  const car = await longNamedCar();
   await page.addInitScript((intent) => localStorage.setItem('broco_booking_intent', JSON.stringify(intent)), {
-    city: 'Hyderabad', manufacturerId: toyota.id, manufacturerName: toyota.name, modelId: longest.id, modelName: longest.name, fuelType: 'Petrol',
+    city: 'Hyderabad', manufacturerId: car.brandId, manufacturerName: car.brand, modelId: car.modelId, modelName: car.model, fuelType: car.fuel,
   });
 }
 
@@ -94,6 +100,27 @@ for (const path of PUBLIC_PAGES) {
     expect(errors, `${path} console errors`).toEqual([]);
   });
 }
+
+// The home page drops a car remembered from before the load, so pick the long name by hand there.
+test('public / fits a long car name and forgets the pick on refresh', async ({ page }) => {
+  const car = await longNamedCar();
+  await page.goto('/');
+  await page.getByLabel('Location').selectOption('Hyderabad');
+  await page.getByRole('button', { name: 'Select your car' }).click();
+  await pickCar(page, car);
+  await expect(page.getByRole('button', { name: `${car.brand} ${car.model}, ${car.fuel}` })).toBeVisible();
+  await page.getByLabel('Mobile number').fill('9876543210');
+  await expectNoHorizontalOverflow(page, '/ with a long car name');
+  await expectNothingClipped(page, '/ with a long car name');
+
+  // The server-rendered card is always empty, so first wait for the page to drop the saved pick.
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('broco_booking_intent'))).toBeNull();
+  await expect(page.getByLabel('Location')).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Select your car' })).toBeVisible();
+  await expect(page.getByLabel('Mobile number')).toHaveValue('');
+  await expect(page.getByText(car.model)).toHaveCount(0);
+});
 
 for (const [role, paths] of Object.entries(PAGES) as [Role, string[]][]) {
   test.describe(`${role} portal`, () => {

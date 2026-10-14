@@ -14,13 +14,15 @@ public class AdminCatalogueController : ControllerBase
 {
     private readonly ICatalogueService _catalogue;
     private readonly ICommissionService _commissions;
+    private readonly ICommissionDuesService _dues;
     private readonly ILeadService _leads;
     private readonly ICurrentUserService _currentUser;
 
-    public AdminCatalogueController(ICatalogueService catalogue, ICommissionService commissions, ILeadService leads, ICurrentUserService currentUser)
+    public AdminCatalogueController(ICatalogueService catalogue, ICommissionService commissions, ICommissionDuesService dues, ILeadService leads, ICurrentUserService currentUser)
     {
         _catalogue = catalogue;
         _commissions = commissions;
+        _dues = dues;
         _leads = leads;
         _currentUser = currentUser;
     }
@@ -86,13 +88,32 @@ public class AdminCatalogueController : ControllerBase
 
     // ----- Garage commission dues -----
 
+    /// <summary>Commission dues with search, status (Due / Overdue / Paid / Waived; all when omitted), garage and due-date filters.</summary>
     [HttpGet("commissions")]
-    public async Task<IActionResult> GetCommissions([FromQuery] string? status, [FromQuery] Guid? garageId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        Ok(ApiResponse<PagedResult<GarageCommissionDto>>.Ok(await _commissions.GetAdminCommissionsAsync(status, garageId, page, pageSize, ct)));
+    public async Task<IActionResult> GetCommissions(
+        [FromQuery] string? status, [FromQuery] Guid? garageId, [FromQuery] string? search,
+        [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sort,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(ApiResponse<PagedResult<GarageCommissionDto>>.Ok(await _dues.GetDuesAsync(
+            new CommissionDuesQuery(search, string.IsNullOrWhiteSpace(status) ? "All" : status, garageId, dueFrom, dueTo, sort, page, pageSize), ct)));
 
     [HttpGet("commissions/overview")]
     public async Task<IActionResult> GetCommissionOverview(CancellationToken ct) =>
         Ok(ApiResponse<AdminCommissionOverviewDto>.Ok(await _commissions.GetAdminOverviewAsync(ct)));
+
+    /// <summary>Every garage with unpaid commission, most overdue first.</summary>
+    [HttpGet("commissions/garages")]
+    public async Task<IActionResult> GetGarageDues(CancellationToken ct) =>
+        Ok(ApiResponse<IReadOnlyList<GarageDuesSummaryDto>>.Ok(await _dues.GetGarageDuesAsync(ct)));
+
+    /// <summary>Reminds the garage about one due now (429 if staff already reminded it in the last hour).</summary>
+    [HttpPost("commissions/{id:guid}/remind")]
+    public async Task<IActionResult> RemindCommission(Guid id, CancellationToken ct) =>
+        CommissionReminderResponse.From(this, await _dues.SendManualReminderAsync(id, AdminId, ct));
+
+    [HttpPost("commissions/remind-overdue")]
+    public async Task<IActionResult> RemindOverdueCommissions([FromBody] RemindOverdueCommissionsRequest? request, CancellationToken ct) =>
+        Ok(CommissionReminderResponse.Bulk(await _dues.RemindOverdueAsync(request?.GarageId, AdminId, ct)));
 
     [HttpPost("commissions/{id:guid}/mark-received")]
     public async Task<IActionResult> MarkReceived(Guid id, [FromBody] MarkCommissionReceivedRequest request, CancellationToken ct) =>
@@ -115,8 +136,11 @@ public class AdminCatalogueController : ControllerBase
     // ----- Website enquiries -----
 
     [HttpGet("leads")]
-    public async Task<IActionResult> GetLeads([FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        Ok(ApiResponse<PagedResult<LeadDto>>.Ok(await _leads.GetLeadsAsync(status, page, pageSize, ct)));
+    public async Task<IActionResult> GetLeads([FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null, [FromQuery] string? city = null,
+        [FromQuery] DateTime? fromDateUtc = null, [FromQuery] DateTime? toDateUtc = null, CancellationToken ct = default) =>
+        Ok(ApiResponse<PagedResult<LeadDto>>.Ok(await _leads.GetLeadsAsync(status, page, pageSize, ct,
+            new ListFilter(search, null, fromDateUtc, toDateUtc), city)));
 
     [HttpPut("leads/{id:guid}")]
     public async Task<IActionResult> UpdateLead(Guid id, [FromBody] UpdateLeadRequest request, CancellationToken ct) =>

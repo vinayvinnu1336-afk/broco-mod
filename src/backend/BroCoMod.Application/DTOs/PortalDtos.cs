@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using BroCoMod.Application.Common;
+
 namespace BroCoMod.Application.DTOs;
 
 // ==========================================
@@ -22,6 +25,28 @@ public record CustomerProfileDto(
     string Address,
     string PreferredContactMethod
 );
+
+/// <summary>
+/// What a customer can change about themselves. Email is the login and stays read-only.
+/// A null Address or an empty PreferredContactMethod keeps the current value.
+/// </summary>
+public record UpdateCustomerProfileRequest(
+    [Required(ErrorMessage = "Enter your full name."), StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be 2 to 100 characters.")] string FullName,
+    [Required(ErrorMessage = IndianMobile.InvalidMessage), IndianMobile] string PhoneNumber,
+    [StringLength(500, ErrorMessage = "Address must be 500 characters or fewer.")] string? Address = null,
+    string? PreferredContactMethod = null
+) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if ((FullName ?? string.Empty).Trim().Length < 2)
+            yield return new ValidationResult("Name must be 2 to 100 characters.", new[] { nameof(FullName) });
+        if (!string.IsNullOrWhiteSpace(PreferredContactMethod) && ContactMethods.Normalize(PreferredContactMethod) == null)
+            yield return new ValidationResult(
+                $"Preferred contact must be one of: {string.Join(", ", ContactMethods.All)}.",
+                new[] { nameof(PreferredContactMethod) });
+    }
+}
 
 public record CustomerVehicleDto(
     Guid Id,

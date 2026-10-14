@@ -1,6 +1,7 @@
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Entities;
+using BroCoMod.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BroCoMod.Infrastructure.Services;
@@ -90,11 +91,19 @@ public class CustomerVehicleService : ICustomerVehicleService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    // BroCo doesn't service electric cars.
+    private static void EnsureServiceableFuel(FuelType fuelType)
+    {
+        if (fuelType == FuelType.Electric)
+            throw new ArgumentException("BroCo doesn't service electric vehicles yet. Please add a petrol, diesel, CNG or hybrid car.");
+    }
+
     public async Task<CustomerVehicleDetailDto> AddVehicleAsync(
         Guid customerId,
         CreateCustomerVehicleRequest request,
         CancellationToken cancellationToken = default)
     {
+        EnsureServiceableFuel(request.FuelType);
         var resolvedCustomerId = await ResolveCustomerIdAsync(customerId, cancellationToken);
 
         // 1. Validate Manufacturer

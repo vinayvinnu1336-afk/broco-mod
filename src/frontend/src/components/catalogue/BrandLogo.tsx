@@ -60,7 +60,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({ name, logoUrl, size = 40, 
         aria-hidden="true"
         loading="lazy"
         onError={() => setFailed(true)}
-        style={{ width: Math.round(size * 0.72), height: Math.round(size * 0.72) }}
+        // Wider than tall so wordmarks (BYD, Isuzu, Jaguar) get the tile's width; square marks stay at 72%.
+        style={{ width: Math.round(size * 0.86), height: Math.round(size * 0.72) }}
         className="object-contain"
       />
     </span>

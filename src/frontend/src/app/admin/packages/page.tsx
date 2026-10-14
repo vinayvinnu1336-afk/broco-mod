@@ -26,6 +26,7 @@ import {
   type ServicePackage,
 } from '@/lib/catalogue';
 import { formatINRWhole } from '@/lib/format';
+import { useUrlFilters } from '@/lib/useUrlFilters';
 import { ActionBar, ActionBarSpacer } from '@/components/ui/ActionBar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -33,6 +34,7 @@ import { Card } from '@/components/ui/Card';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { FilterChips } from '@/components/ui/FilterChips';
 import { Input } from '@/components/ui/Input';
 import { LoadingState } from '@/components/ui/LoadingState';
@@ -149,8 +151,22 @@ function PackagesAndPrices() {
 // Packages
 // =============================================================================================
 
+const PACKAGE_FILTER_DEFAULTS = { status: '' };
+
 function PackagesTab({ packages, onSaved }: { packages: ServicePackage[]; onSaved: (p: ServicePackage) => void }) {
   const [editing, setEditing] = useState<ServicePackage | null>(null);
+  const filters = useUrlFilters(PACKAGE_FILTER_DEFAULTS);
+  const status = filters.values.status;
+
+  const shown = useMemo(
+    () => packages.filter((p) => !status || (status === 'active' ? p.isActive : !p.isActive)),
+    [packages, status]
+  );
+  const statusOptions = [
+    { value: '', label: 'All', count: packages.length },
+    { value: 'active', label: 'Active', count: packages.filter((p) => p.isActive).length },
+    { value: 'inactive', label: 'Inactive', count: packages.filter((p) => !p.isActive).length },
+  ];
 
   if (packages.length === 0) {
     return <EmptyState icon={Package} title="No service packages" description="Packages are created by the server seed. None were found." />;
@@ -158,8 +174,14 @@ function PackagesTab({ packages, onSaved }: { packages: ServicePackage[]; onSave
 
   return (
     <>
+      <FilterBar filters={filters} status={{ key: 'status', options: statusOptions, ariaLabel: 'Package status' }} />
+
+      {shown.length === 0 && (
+        <EmptyState icon={Package} title="No packages found" description="No packages match these filters." />
+      )}
+
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {packages.map((p) => {
+        {shown.map((p) => {
           return (
             <Card key={p.id} className={`flex flex-col p-4 sm:p-5 ${p.isRecommended ? 'border-electric-300 ring-1 ring-electric-200' : ''}`}>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -232,10 +254,14 @@ function toCells(sheet: ModelPriceSheet): Record<string, string> {
   return cells;
 }
 
+const PRICE_FILTER_DEFAULTS = { pkg: '' };
+
 function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; initialModelId: string | null }) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
+  const priceFilters = useUrlFilters(PRICE_FILTER_DEFAULTS);
+  const pkgFilter = priceFilters.values.pkg;
 
   const [brands, setBrands] = useState<Manufacturer[]>([]);
   const [brandsError, setBrandsError] = useState<string | null>(null);
@@ -341,6 +367,7 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
     const params = new URLSearchParams();
     params.set('tab', 'prices');
     if (id) params.set('model', id);
+    if (pkgFilter) params.set('pkg', pkgFilter);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
@@ -391,6 +418,13 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
     });
     return list;
   }, [packages, sheet]);
+
+  // Columns on screen; saving still sends every package's prices.
+  const shownColumns = useMemo(() => (pkgFilter ? columns.filter((c) => c.code === pkgFilter) : columns), [columns, pkgFilter]);
+  const packageOptions = useMemo(
+    () => [{ value: '', label: 'All packages' }, ...columns.map((c) => ({ value: c.code, label: c.name }))],
+    [columns]
+  );
 
   const invalidCells = useMemo(() => {
     const bad = new Set<string>();
@@ -575,6 +609,8 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
         <>
           <FormError message={saveError} />
 
+          <FilterBar filters={priceFilters} status={{ key: 'pkg', options: packageOptions, ariaLabel: 'Show package' }} />
+
           {/* Desktop grid: fuels x packages */}
           <div className="hidden overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-card lg:block">
             <table className="w-full table-fixed text-sm">
@@ -583,7 +619,7 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
                   <th scope="col" className="w-32 px-4 py-3 text-left text-xs font-semibold text-navy-600">
                     Fuel
                   </th>
-                  {columns.map((c) => (
+                  {shownColumns.map((c) => (
                     <th key={c.code} scope="col" className="px-3 py-3 text-left text-xs font-semibold text-navy-600">
                       {c.name}
                       {!c.isActive && <span className="ml-1 font-normal text-navy-400">(inactive)</span>}
@@ -598,7 +634,7 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
                       <span className="block pt-2.5 text-sm font-semibold text-navy-900">{fuel}</span>
                       {!(sheet.fuels ?? []).includes(fuel) && <span className="text-[11px] text-amber-600">Not a listed fuel</span>}
                     </th>
-                    {columns.map((c) => (
+                    {shownColumns.map((c) => (
                       <td key={c.code} className="px-3 py-3 align-top">
                         {priceInput(fuel, c)}
                       </td>
@@ -618,7 +654,7 @@ function PricesTab({ packages, initialModelId }: { packages: ServicePackage[]; i
                   {!(sheet.fuels ?? []).includes(fuel) && <span className="ml-2 text-xs font-normal text-amber-600">Not a listed fuel</span>}
                 </h3>
                 <div className="mt-3 space-y-3">
-                  {columns.map((c) => (
+                  {shownColumns.map((c) => (
                     <div key={c.code} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start gap-3">
                       <div className="pt-3 text-sm font-medium text-navy-700">
                         {c.name}

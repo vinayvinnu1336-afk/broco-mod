@@ -50,6 +50,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { formatDateTime, formatINR, humanize } from '@/lib/format';
 import { GarageCommission } from '@/components/garage/commission';
+import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
+import type { MediaStage } from '@/types/media';
 
 /** Payment fields the API adds to the garage job detail (not yet in the shared type). */
 type GarageJob = GarageServiceJobDetailDto & {
@@ -197,6 +199,14 @@ const SUCCESS_MESSAGES: Record<string, string> = {
 function localInputToUtcIso(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+/** What a new photo most likely shows at this point of the job. */
+function mediaStageFor(status: string): MediaStage {
+  if (['BookingConfirmed', 'Scheduled', 'VehicleReceived'].includes(status)) return 'Before';
+  if (status === 'Inspection') return 'Inspection';
+  if (status === 'WorkStarted' || status === 'WorkInProgress') return 'During';
+  return 'After';
 }
 
 function Section({ title, action, children }: { title: ReactNode; action?: ReactNode; children: ReactNode }) {
@@ -678,6 +688,9 @@ export default function GarageJobDetailPage() {
             </p>
           )}
         </Section>
+
+        {/* Photos & videos */}
+        <ServiceMediaSection jobId={job.id} audience="garage" variant="section" defaultStage={mediaStageFor(status)} />
 
         {/* Additional work */}
         <Section

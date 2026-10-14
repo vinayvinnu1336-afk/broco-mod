@@ -52,6 +52,8 @@ public class GarageQuoteService : IGarageQuoteService
             throw new KeyNotFoundException($"Garage request {request.GarageRequestId} not found or not dispatched to this garage.");
         }
 
+        PackageBookingRules.EnsureQuotable(garageRequest.ServiceRequest);
+
         // 2. Generate unique human-readable quote reference BQ-XXXXXX
         var quoteNumber = await _quoteNumberGenerator.GenerateNextQuoteNumberAsync(cancellationToken);
 
@@ -111,12 +113,15 @@ public class GarageQuoteService : IGarageQuoteService
             .Include(q => q.LineItems)
             .Include(q => q.GarageRequest)
                 .ThenInclude(gr => gr.ServiceRequest)
+            .Include(q => q.ServiceRequest)
             .FirstOrDefaultAsync(q => q.Id == quoteId && q.GarageId == garageId, cancellationToken);
 
         if (quote == null)
         {
             throw new KeyNotFoundException($"Quote {quoteId} not found or does not belong to your garage.");
         }
+
+        PackageBookingRules.EnsureQuotable(quote.ServiceRequest);
 
         if (quote.Status != QuoteStatus.Draft)
         {
@@ -190,6 +195,8 @@ public class GarageQuoteService : IGarageQuoteService
         {
             throw new KeyNotFoundException($"Quote {quoteId} not found or does not belong to your garage.");
         }
+
+        PackageBookingRules.EnsureQuotable(quote.ServiceRequest);
 
         // Idempotency check: if already submitted with matching idempotency key, return submitted quote
         if (quote.Status == QuoteStatus.Submitted &&
@@ -288,12 +295,15 @@ public class GarageQuoteService : IGarageQuoteService
         var quote = await _context.GarageQuotes
             .Include(q => q.LineItems)
             .Include(q => q.Versions)
+            .Include(q => q.ServiceRequest)
             .FirstOrDefaultAsync(q => q.Id == quoteId && q.GarageId == garageId, cancellationToken);
 
         if (quote == null)
         {
             throw new KeyNotFoundException($"Quote {quoteId} not found or does not belong to your garage.");
         }
+
+        PackageBookingRules.EnsureQuotable(quote.ServiceRequest);
 
         if (quote.Status != QuoteStatus.Submitted && quote.Status != QuoteStatus.UnderReview)
         {
@@ -325,12 +335,15 @@ public class GarageQuoteService : IGarageQuoteService
         var quote = await _context.GarageQuotes
             .Include(q => q.LineItems)
             .Include(q => q.Versions)
+            .Include(q => q.ServiceRequest)
             .FirstOrDefaultAsync(q => q.Id == quoteId && q.GarageId == garageId, cancellationToken);
 
         if (quote == null)
         {
             throw new KeyNotFoundException($"Quote {quoteId} not found or does not belong to your garage.");
         }
+
+        PackageBookingRules.EnsureQuotable(quote.ServiceRequest);
 
         if (quote.Status == QuoteStatus.Withdrawn)
         {
@@ -358,9 +371,10 @@ public class GarageQuoteService : IGarageQuoteService
         string? status = null,
         CancellationToken cancellationToken = default)
     {
+        // Package bookings show up as jobs, not quotes (their fixed-price quote is recorded by BroCo on assignment).
         var query = _context.GarageQuotes
             .AsNoTracking()
-            .Where(q => q.GarageId == garageId);
+            .Where(q => q.GarageId == garageId && q.ServiceRequest.ServicePackageId == null);
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<QuoteStatus>(status, true, out var parsedStatus))
         {
@@ -412,7 +426,7 @@ public class GarageQuoteService : IGarageQuoteService
     {
         return await _context.GarageQuotes
             .AsNoTracking()
-            .Where(q => q.GarageId == garageId && q.GarageRequestId == garageRequestId)
+            .Where(q => q.GarageId == garageId && q.GarageRequestId == garageRequestId && q.ServiceRequest.ServicePackageId == null)
             .OrderByDescending(q => q.CreatedAtUtc)
             .Select(q => new GarageQuoteSummaryDto(
                 q.Id,

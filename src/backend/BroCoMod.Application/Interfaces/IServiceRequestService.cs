@@ -31,7 +31,8 @@ public interface IServiceRequestService
         Guid garageId,
         int page = 1,
         int pageSize = 10,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ListFilter? filter = null);
 
     Task<GarageIncomingRequestDetailDto> GetGarageRequestByIdAsync(
         Guid garageId,
@@ -41,7 +42,8 @@ public interface IServiceRequestService
     Task<PagedResult<AdvisorServiceRequestSummaryDto>> GetAdvisorRequestsAsync(
         int page = 1,
         int pageSize = 20,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        RequestListFilter? filter = null);
 
     Task<AdvisorServiceRequestDetailDto> GetAdvisorRequestByIdAsync(
         Guid requestId,

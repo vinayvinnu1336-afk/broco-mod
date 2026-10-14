@@ -1,4 +1,5 @@
-﻿using BroCoMod.Application.DTOs;
+﻿using BroCoMod.Application.Common;
+using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities.Identity;
@@ -66,6 +67,14 @@ public class IdentityService : IIdentityService
             throw new InvalidOperationException("Garage name is required to register a garage.");
         }
 
+        var phoneNumber = IndianMobile.Normalize(request.PhoneNumber)
+            ?? throw new InvalidOperationException(IndianMobile.InvalidMessage);
+
+        if (PasswordPolicy.Validate(request.Password) is { } passwordProblem)
+        {
+            throw new InvalidOperationException(passwordProblem);
+        }
+
         var role = await _context.Roles
             .FirstOrDefaultAsync(r => r.NormalizedName == requestedRoleName, cancellationToken)
             ?? throw new InvalidOperationException("Registration is temporarily unavailable. Please try again later.");
@@ -74,7 +83,7 @@ public class IdentityService : IIdentityService
         var user = new User(
             email: request.Email,
             fullName: request.FullName,
-            phoneNumber: request.PhoneNumber,
+            phoneNumber: phoneNumber,
             passwordHash: passwordHash,
             salt: salt);
 
@@ -102,7 +111,7 @@ public class IdentityService : IIdentityService
             var garage = new Domain.Entities.Garage(
                 name: request.GarageName!.Trim(),
                 email: request.Email.Trim(),
-                phoneNumber: request.PhoneNumber,
+                phoneNumber: phoneNumber,
                 address: request.Address?.Trim() ?? string.Empty,
                 longitude: hasLocation ? request.Longitude!.Value : 0,
                 latitude: hasLocation ? request.Latitude!.Value : 0,
@@ -517,6 +526,12 @@ public class IdentityService : IIdentityService
         string? ipAddress = null,
         CancellationToken cancellationToken = default)
     {
+        // Checked before the code is used up, so a too-short password can be corrected and resent.
+        if (PasswordPolicy.Validate(newPassword) is { } passwordProblem)
+        {
+            throw new ArgumentException(passwordProblem);
+        }
+
         var isValid = await _otpProvider.VerifyOtpAsync(email, token, "PasswordReset", cancellationToken);
         if (!isValid)
         {

@@ -5,7 +5,7 @@ import { PublicFooter } from '../../_public/PublicFooter';
 import { CarServiceContent, CarServiceSkeleton } from './CarServiceContent';
 
 export const metadata: Metadata = {
-  title: 'Car service packages in Hyderabad',
+  title: 'Car service packages in Hyderabad, Bengaluru and Mancherial',
   description:
     'Basic, Standard and Premium car service packages with a fixed price for your car. Pay 10% online to book and the rest at the garage after the service.',
 };

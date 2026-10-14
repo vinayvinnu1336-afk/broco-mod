@@ -145,8 +145,14 @@ public class NotificationService : INotificationService
             .Select(u => u.Id)
             .ToListAsync(cancellationToken);
 
-        var title = $"New Service Request: {request.RequestNumber}";
-        var body = $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}. Problem: {request.ProblemDescription}";
+        // Packages have a fixed price and are never sent to garages for quotes.
+        var title = request.IsPackageBooking
+            ? $"New package booking: {request.RequestNumber}"
+            : $"New Service Request: {request.RequestNumber}";
+        var body = request.IsPackageBooking
+            ? $"{request.ServicePackageName} for {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}{FuelSuffix(request)} at a fixed ₹{request.PackagePrice:N0}. " +
+              "Assign a nearby garage once the customer pays the 10% advance."
+            : $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel}. Services: {request.ServiceCategory}. Problem: {request.ProblemDescription}";
         var metadata = JsonSerializer.Serialize(new
         {
             request.Id,
@@ -155,7 +161,9 @@ public class NotificationService : INotificationService
             request.VehicleModel,
             request.VehicleYear,
             request.ProblemDescription,
-            request.ServiceCategory
+            request.ServiceCategory,
+            request.ServicePackageCode,
+            request.PackagePrice
         });
 
         foreach (var userId in advisorUsers)
@@ -176,12 +184,59 @@ public class NotificationService : INotificationService
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task NotifyAdvisorOfPaidPackageBookingAsync(
+        ServiceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!request.IsPackageBooking) return;
+
+        // The advisor who owns the request; if nobody owns it yet, every active advisor.
+        var advisorUsers = request.AssignedAdvisorId.HasValue
+            ? await _context.AdvisorProfiles
+                .AsNoTracking()
+                .Where(a => a.Id == request.AssignedAdvisorId.Value && a.User.IsActive)
+                .Select(a => a.UserId)
+                .ToListAsync(cancellationToken)
+            : new List<Guid>();
+
+        if (advisorUsers.Count == 0)
+        {
+            advisorUsers = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.UserRoles.Any(ur => ur.Role.Name == AppRoles.Advisor))
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        var title = $"Assign a garage: {request.RequestNumber}";
+        var body = $"The customer paid the ₹{request.AdvancePaidAmount:N0} advance for {request.ServicePackageName} on a " +
+                   $"{request.VehicleMake} {request.VehicleModel}{FuelSuffix(request)}. Pick a nearby garage to confirm the booking.";
+
+        foreach (var userId in advisorUsers)
+        {
+            _context.Notifications.Add(new Notification(
+                userId,
+                title,
+                body,
+                "PACKAGE_ADVANCE_PAID",
+                NotificationChannel.InApp,
+                request.Id,
+                "ServiceRequest"));
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string FuelSuffix(ServiceRequest request) =>
+        string.IsNullOrWhiteSpace(request.VehicleFuel) ? string.Empty : $" ({request.VehicleFuel})";
+
     public async Task NotifyGaragesOfDispatchedRequestAsync(
         ServiceRequest request,
         IReadOnlyList<GarageRequest> garageRequests,
         CancellationToken cancellationToken = default)
     {
-        if (garageRequests.Count == 0) return;
+        // Package bookings are assigned to one garage by the advisor, never sent out for quotes.
+        if (garageRequests.Count == 0 || request.IsPackageBooking) return;
 
         var garageIds = garageRequests.Select(gr => gr.GarageId).Distinct().ToList();
 
@@ -199,7 +254,7 @@ public class NotificationService : INotificationService
             if (garageRequestsByGarageId.TryGetValue(gu.GarageId, out var gr))
             {
                 var title = $"New Job Request: {request.RequestNumber}";
-                var body = $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel} ({gr.DistanceKm} KM away). Problem: {request.ProblemDescription}";
+                var body = $"Vehicle: {request.VehicleYear} {request.VehicleMake} {request.VehicleModel} ({gr.DistanceKm} KM away). Services: {request.ServiceCategory}. Problem: {request.ProblemDescription}";
                 var metadata = JsonSerializer.Serialize(new
                 {
                     GarageRequestId = gr.Id,

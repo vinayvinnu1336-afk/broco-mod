@@ -11,6 +11,7 @@ import { ListGroup, ListItem } from '@/components/ui/ListItem';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { formatDate, formatDateTime, formatINR, formatRelative, humanize } from '@/lib/format';
 
 const outlineLink =
@@ -127,7 +128,7 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
               {data.problemDescription || 'No description given.'}
             </p>
             {data.serviceCategory && (
-              <p className="mt-2 text-xs text-navy-500">Category: {humanize(data.serviceCategory)}</p>
+              <p className="mt-2 break-words text-xs text-navy-500">Services: {data.serviceCategory}</p>
             )}
           </Section>
 
@@ -307,7 +308,10 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
                 <Field label="Customer total">
                   <span className="text-base font-bold tabular-nums">{formatINR(quotation.totalAmount)}</span>
                 </Field>
-                <Field label="Platform margin">{quotation.platformMarginPercentage}%</Field>
+                {/* A rupee amount (quotes made before markup was removed); new quotes carry none. */}
+                {quotation.platformMarginPercentage > 0 && (
+                  <Field label="Advisor markup (legacy)">{formatINR(quotation.platformMarginPercentage)}</Field>
+                )}
                 <Field label="Quotation">
                   <span className="font-mono">{quotation.quotationNumber}</span> · v{quotation.currentVersionNumber}
                 </Field>
@@ -372,6 +376,9 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
               <Muted>No job yet. A job is created once the customer confirms the booking.</Muted>
             )}
           </Section>
+
+          {/* Photos & videos */}
+          <ServiceMediaSection requestId={id} audience="staff" />
 
           {/* Activity log */}
           <ListGroup title={`Activity (${data.timelineEvents.length})`}>

@@ -192,6 +192,12 @@ function LoginForm() {
                 Create an account
               </Link>
             </p>
+            <p className="mt-2 text-center text-sm text-navy-500">
+              Own a garage?{' '}
+              <Link href="/register/garage" className="font-semibold text-electric-600 hover:text-electric-700 hover:underline">
+                Register your garage
+              </Link>
+            </p>
           </div>
 
           {isDemoMode && (

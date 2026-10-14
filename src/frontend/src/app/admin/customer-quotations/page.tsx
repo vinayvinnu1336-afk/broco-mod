@@ -1,24 +1,24 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { CustomerQuotationSummaryDto } from '@/types/customerQuotation';
-import { FileText, Search } from 'lucide-react';
-import { Input } from '@/components/ui/Input';
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { ListGroup, ListItem } from '@/components/ui/ListItem';
-import { StatusBadge, statusLabel } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate, formatINR, formatINRWhole } from '@/lib/format';
+import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 
-// Client-side filter on the quotation status.
+// Values are CustomerQuotationStatus names (the API filters on them); labels are what operators read.
 const STATUS_OPTIONS = [
-  { value: 'ALL', label: 'All' },
   { value: 'ReadyToSend', label: 'Ready to send' },
   { value: 'Sent', label: 'Sent' },
   { value: 'Accepted', label: 'Accepted' },
@@ -28,19 +28,40 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '' };
+
+// The endpoint returns a plain list (no total), so paging is Previous / Next.
+const PAGE_SIZE = 50;
+
 const rowLink =
   'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
 
 export default function AdminCustomerQuotationsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading customer quotations..." />}>
+      <AdminCustomerQuotations />
+    </Suspense>
+  );
+}
+
+function AdminCustomerQuotations() {
+  const filters = useUrlFilters(FILTER_DEFAULTS);
+  const { values: f, page } = filters;
   const [quotations, setQuotations] = useState<CustomerQuotationSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const latest = useRef(0);
 
-  const loadQuotations = useCallback(async () => {
+  const query = useMemo(
+    () => toQueryString({ page, pageSize: PAGE_SIZE, search: f.q, status: f.status, ...dateRangeQuery(f) }),
+    [page, f]
+  );
+
+  const loadQuotations = useCallback(async (qs: string) => {
+    const id = ++latest.current;
     setLoading(true);
-    const res = await apiFetch<CustomerQuotationSummaryDto[]>('/admin/customer-quotations');
+    const res = await apiFetch<CustomerQuotationSummaryDto[]>(`/admin/customer-quotations${qs}`);
+    if (id !== latest.current) return; // a newer filter change is already loading
     if (res.success && res.data) {
       setQuotations(res.data);
       setError(null);
@@ -51,33 +72,17 @@ export default function AdminCustomerQuotationsPage() {
   }, []);
 
   useEffect(() => {
-    loadQuotations();
-  }, [loadQuotations]);
+    loadQuotations(query);
+  }, [loadQuotations, query]);
 
-  const counts = useMemo(() => {
-    const map: Record<string, number> = {};
-    quotations.forEach((q) => {
-      map[q.status] = (map[q.status] ?? 0) + 1;
-    });
-    return map;
-  }, [quotations]);
+  const goToPage = (p: number) => {
+    filters.setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  const filtered = quotations.filter((q) => {
-    if (statusFilter !== 'ALL' && q.status !== statusFilter) return false;
-    const term = search.toLowerCase();
-    return (
-      q.quotationNumber.toLowerCase().includes(term) ||
-      q.requestNumber.toLowerCase().includes(term) ||
-      (q.assignedGarageName ?? '').toLowerCase().includes(term) ||
-      q.status.toLowerCase().includes(term) ||
-      statusLabel(q.status).toLowerCase().includes(term)
-    );
-  });
-
-  const statusOptions = STATUS_OPTIONS.map((o) => ({
-    ...o,
-    count: o.value === 'ALL' ? quotations.length : counts[o.value] ?? 0,
-  }));
+  const hasMore = quotations.length === PAGE_SIZE;
+  const anyFilter = (Object.keys(FILTER_DEFAULTS) as (keyof typeof FILTER_DEFAULTS)[]).some((k) => filters.isActive(k));
+  const firstRow = (page - 1) * PAGE_SIZE + 1;
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -86,47 +91,55 @@ export default function AdminCustomerQuotationsPage() {
         description="Prices sent to customers after advisors pick a garage quote. Tap one to open its request."
       />
 
-      {/* Search and filters */}
-      <div className="space-y-3">
-        <div className="sm:max-w-md">
-          <Input
-            type="search"
-            aria-label="Search customer quotations"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Quotation number, request or garage"
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        {quotations.length > 0 && (
-          <FilterChips options={statusOptions} value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status" />
-        )}
-      </div>
+      <FilterBar
+        filters={filters}
+        searchKey="q"
+        searchPlaceholder="Quotation, request, customer or plate"
+        searchLabel="Search customer quotations"
+        fields={[
+          { type: 'select', key: 'status', label: 'Status', allLabel: 'All statuses', options: STATUS_OPTIONS },
+          { type: 'dateRange', label: 'Created' },
+        ]}
+        summary={
+          loading
+            ? 'Loading…'
+            : quotations.length === 0
+            ? null
+            : page > 1 || hasMore
+            ? `Showing ${firstRow}–${firstRow + quotations.length - 1}`
+            : `${quotations.length} ${quotations.length === 1 ? 'quotation' : 'quotations'}`
+        }
+      />
 
       {loading ? (
         <LoadingState message="Loading customer quotations..." />
       ) : error ? (
-        <ErrorState title="Could not load customer quotations" error={error} onRetry={loadQuotations} />
-      ) : filtered.length === 0 ? (
+        <ErrorState title="Could not load customer quotations" error={error} onRetry={() => loadQuotations(query)} />
+      ) : quotations.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No customer quotations found"
           description={
-            search || statusFilter !== 'ALL'
-              ? 'No quotations match this search or filter.'
+            page > 1
+              ? 'There are no more quotations on this page.'
+              : anyFilter
+              ? 'No quotations match these filters.'
               : 'Quotations appear here once an advisor prepares one for a customer.'
+          }
+          action={
+            page > 1 ? (
+              <Button variant="outline" onClick={() => goToPage(1)}>
+                Back to the first page
+              </Button>
+            ) : undefined
           }
         />
       ) : (
         <>
-          <p className="text-xs text-navy-500">
-            {filtered.length} {filtered.length === 1 ? 'quotation' : 'quotations'}
-          </p>
-
           {/* Phones */}
           <div className="md:hidden">
             <ListGroup>
-              {filtered.map((q) => (
+              {quotations.map((q) => (
                 <ListItem
                   key={q.id}
                   href={`/admin/requests/${q.serviceRequestId}`}
@@ -167,7 +180,7 @@ export default function AdminCustomerQuotationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((q) => (
+                {quotations.map((q) => (
                   <TableRow key={q.id}>
                     <TableCell className="whitespace-nowrap font-mono text-xs font-semibold text-navy-900">{q.quotationNumber}</TableCell>
                     <TableCell className="whitespace-nowrap font-mono text-xs text-navy-600">{q.requestNumber}</TableCell>
@@ -192,6 +205,31 @@ export default function AdminCustomerQuotationsPage() {
             </Table>
           </div>
         </>
+      )}
+
+      {/* Pagination */}
+      {!error && !loading && (page > 1 || hasMore) && (
+        <div className="flex items-center gap-3 md:justify-end">
+          <Button
+            variant="outline"
+            className="flex-1 md:flex-none"
+            disabled={page <= 1}
+            onClick={() => goToPage(page - 1)}
+            leftIcon={<ChevronLeft className="h-4 w-4" />}
+          >
+            Previous
+          </Button>
+          <span className="shrink-0 text-sm tabular-nums text-navy-500">Page {page}</span>
+          <Button
+            variant="outline"
+            className="flex-1 md:flex-none"
+            disabled={!hasMore}
+            onClick={() => goToPage(page + 1)}
+            rightIcon={<ChevronRight className="h-4 w-4" />}
+          >
+            Next
+          </Button>
+        </div>
       )}
     </div>
   );

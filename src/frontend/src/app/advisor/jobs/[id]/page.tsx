@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 
 function isPendingReview(status: string) {
   return String(status).replace(/[_\s]/g, '').toLowerCase() === 'pendingadvisorreview';
@@ -311,6 +312,9 @@ export default function AdvisorJobDetailPage() {
           <p className="mt-1 text-sm text-navy-500">No inspections recorded yet.</p>
         )}
       </Card>
+
+      {/* Photos & videos */}
+      <ServiceMediaSection jobId={id} audience="staff" />
 
       {/* Extra work history */}
       {reviewed.length > 0 && (

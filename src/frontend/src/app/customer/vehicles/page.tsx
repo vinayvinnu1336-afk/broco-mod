@@ -148,7 +148,6 @@ export default function CustomerVehiclesPage() {
       yearTo: sel.model.yearTo,
     });
     setFuelType(sel.fuelType);
-    if (sel.fuelType === 'Electric') setTransmission('Direct Drive');
     setYear((y) => (y !== '' && y >= sel.model.yearFrom && y <= maxYear ? y : ''));
     if (modelChanged) {
       setSelectedVariantId('');

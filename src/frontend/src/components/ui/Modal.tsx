@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, ReactNode } from 'react';
+import React, { useEffect, useId, useRef, useState, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export interface ModalProps {
@@ -13,10 +14,26 @@ export interface ModalProps {
   showCloseButton?: boolean;
   /** Sticky footer (action buttons). On phones it stays pinned above the home indicator. */
   footer?: ReactNode;
+  /** Pinned under the title and above the scrolling content, e.g. a back link and a search box. */
+  subheader?: ReactNode;
+  /**
+   * Keeps one height whatever the content (a near full-height sheet on phones, a fixed-height card
+   * from `sm` up), so multi-step dialogs don't jump between steps. The content scrolls inside.
+   */
+  fixedHeight?: boolean;
 }
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Open dialogs, newest last: only the top one reacts to Escape and Tab, and the page stays
+// scroll-locked until the last one closes (e.g. the car picker opened from a vehicle form).
+const openStack: symbol[] = [];
 
 /**
  * Dialog that renders as a bottom sheet on phones and a centred card from the `sm` breakpoint up.
+ * It is portalled to <body> so the backdrop covers everything, including sticky headers, wherever
+ * the dialog is used.
  */
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
@@ -27,26 +44,75 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   showCloseButton = true,
   footer,
+  subheader,
+  fixedHeight = false,
 }) => {
+  const [mounted, setMounted] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const visible = isOpen && mounted;
+
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const id = Symbol('modal');
+    const isTop = () => openStack[openStack.length - 1] === id;
+    const returnFocus = document.activeElement as HTMLElement | null;
+    openStack.push(id);
+    document.body.style.overflow = 'hidden';
+
+    const panel = panelRef.current;
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+      if (!isTop() || e.defaultPrevented) return;
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      // Keep keyboard focus inside the dialog.
+      const root = panelRef.current;
+      const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.getClientRects().length > 0);
+      if (items.length === 0) {
+        e.preventDefault();
+        root.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!root.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && (active === first || active === root)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
-
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    }
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
+      const i = openStack.indexOf(id);
+      if (i >= 0) openStack.splice(i, 1);
+      if (openStack.length === 0) document.body.style.overflow = '';
+      // Hand focus back to what opened the dialog, unless the page has already moved it somewhere.
+      const active = document.activeElement;
+      if (returnFocus?.isConnected && (!active || active === document.body)) returnFocus.focus({ preventScroll: true });
     };
-  }, [isOpen, onClose]);
+  }, [visible]);
 
-  if (!isOpen) return null;
+  if (!visible) return null;
 
   const sizeClasses: Record<string, string> = {
     sm: 'sm:max-w-md',
@@ -55,12 +121,15 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'sm:max-w-4xl',
     full: 'sm:max-w-6xl',
   };
+  const heightClasses = fixedHeight ? 'h-[92dvh] sm:h-[min(640px,calc(100dvh-3rem))]' : 'max-h-[92dvh] sm:max-h-[85vh]';
+  const hasHeader = !!title || showCloseButton;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6"
       role="dialog"
       aria-modal="true"
+      aria-labelledby={title ? titleId : undefined}
     >
       <div
         className="fixed inset-0 bg-navy-950/50 backdrop-blur-[2px] animate-fade-in"
@@ -69,18 +138,21 @@ export const Modal: React.FC<ModalProps> = ({
       />
 
       <div
-        className={`relative z-10 flex w-full ${sizeClasses[size]} max-h-[92dvh] sm:max-h-[85vh] flex-col bg-white rounded-t-3xl sm:rounded-2xl border border-surface-200 shadow-modal overflow-hidden animate-sheet-up sm:animate-pop-in`}
+        ref={panelRef}
+        tabIndex={-1}
+        data-modal-panel
+        className={`relative z-10 flex w-full ${sizeClasses[size]} ${heightClasses} flex-col bg-white rounded-t-3xl sm:rounded-2xl border border-surface-200 shadow-modal overflow-hidden outline-none animate-sheet-up sm:animate-pop-in`}
       >
         {/* Drag handle (visual affordance on phones) */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1" aria-hidden="true">
           <span className="h-1.5 w-10 rounded-full bg-surface-300" />
         </div>
 
-        {(title || showCloseButton) && (
-          <div className="flex items-start justify-between gap-3 px-5 pt-2 pb-3 sm:pt-5 sm:pb-4 border-b border-surface-200">
+        {hasHeader && (
+          <div className={`flex items-start justify-between gap-3 px-5 pt-2 pb-3 sm:px-6 sm:pt-5 sm:pb-4 ${subheader ? '' : 'border-b border-surface-200'}`}>
             <div className="min-w-0">
               {title && (
-                <h3 className="text-lg font-bold text-navy-900 leading-tight">
+                <h3 id={titleId} className="text-lg font-bold text-navy-900 leading-tight">
                   {title}
                 </h3>
               )}
@@ -103,8 +175,15 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 ${footer ? '' : 'pb-safe'}`}>
-          <div className={footer ? '' : 'pb-4 sm:pb-0'}>{children}</div>
+        {subheader && (
+          <div className={`shrink-0 border-b border-surface-200 px-5 pb-3 sm:px-6 sm:pb-4 ${hasHeader ? '' : 'pt-3 sm:pt-5'}`}>{subheader}</div>
+        )}
+
+        <div
+          data-modal-body
+          className={`flex-1 overflow-y-auto overscroll-contain px-5 pt-5 sm:px-6 ${footer ? 'pb-5' : 'pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6'}`}
+        >
+          {children}
         </div>
 
         {footer && (
@@ -113,6 +192,7 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

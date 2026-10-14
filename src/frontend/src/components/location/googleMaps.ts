@@ -1,6 +1,12 @@
 // Minimal, dependency-free loader and typed wrapper for the Google Maps JavaScript API.
 // We only use a handful of classes, so instead of pulling in @types/google.maps the surface we touch
 // is declared here and everything else stays behind `unknown`.
+//
+// The browser key comes from NEXT_PUBLIC_GOOGLE_MAPS_API_KEY when it was baked in at build time,
+// otherwise from the API at runtime (GET /config/public), so a new key needs only an API restart.
+// Address lookups (pin -> address) go through our API (GET /geo/reverse), never the browser key.
+
+import { apiFetch } from '@/lib/api';
 
 export interface LatLngLiteral {
   lat: number;
@@ -30,27 +36,10 @@ export interface GMarker {
   setMap(map: GMap | null): void;
 }
 
-export interface GAddressComponent {
-  long_name: string;
-  short_name: string;
-  types: string[];
-}
-
-export interface GGeocoderResult {
-  formatted_address: string;
-  address_components: GAddressComponent[];
-  types: string[];
-}
-
-export interface GGeocoder {
-  geocode(request: { location: LatLngLiteral; region?: string }): Promise<{ results: GGeocoderResult[] }>;
-}
-
 /** The parts of `google.maps` this app uses. */
 export interface GoogleMapsApi {
   Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap;
   Marker: new (options: Record<string, unknown>) => GMarker;
-  Geocoder: new () => GGeocoder;
   Circle?: new (options: Record<string, unknown>) => unknown;
   places?: {
     // Places API (New) web component.
@@ -69,105 +58,132 @@ export interface GoogleMapsApi {
 
 type MapsWindow = Window & { google?: { maps?: GoogleMapsApi } } & Record<string, unknown>;
 
-export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+/** Runtime settings from GET /config/public. */
+export interface PublicSiteConfig {
+  googleMapsBrowserKey: string;
+  /** "Google", "OpenStreetMap" or "None". */
+  addressLookupProvider: string;
+}
 
+const BUILD_TIME_KEY = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
+
+// undefined = not fetched yet; null = the API could not tell us (old API, offline): treat as "no key".
+let siteConfig: PublicSiteConfig | null | undefined;
+let siteConfigPromise: Promise<PublicSiteConfig | null> | null = null;
+let mapsFailed = false;
+const failureListeners = new Set<() => void>();
+
+/** Fetches the runtime settings once per page load (later calls share the same answer). */
+export function loadPublicConfig(): Promise<PublicSiteConfig | null> {
+  if (siteConfig !== undefined) return Promise.resolve(siteConfig);
+  if (!siteConfigPromise) {
+    siteConfigPromise = apiFetch<PublicSiteConfig>('/config/public').then((res) => {
+      siteConfig = res.success && res.data ? res.data : null;
+      return siteConfig;
+    });
+  }
+  return siteConfigPromise;
+}
+
+/** Settings already fetched, or undefined while still unknown. */
+export function peekPublicConfig(): PublicSiteConfig | null | undefined {
+  return siteConfig;
+}
+
+/**
+ * The browser key if it is known right now: '' = no usable key (none configured, or Google refused it),
+ * undefined = still asking the API.
+ */
+export function peekGoogleMapsKey(): string | undefined {
+  if (mapsFailed) return '';
+  if (BUILD_TIME_KEY) return BUILD_TIME_KEY;
+  if (siteConfig === undefined) return undefined;
+  return siteConfig?.googleMapsBrowserKey?.trim() || '';
+}
+
+export async function resolveGoogleMapsKey(): Promise<string> {
+  const known = peekGoogleMapsKey();
+  if (known !== undefined) return known;
+  await loadPublicConfig();
+  return peekGoogleMapsKey() ?? '';
+}
+
+/** True only when a key is already known (no network wait). */
 export function hasGoogleMapsKey(): boolean {
-  return GOOGLE_MAPS_API_KEY.trim().length > 0;
+  return !!peekGoogleMapsKey();
+}
+
+/**
+ * Called when Google rejects the key after the script loaded (gm_authFailure: wrong key, referrer
+ * not allowed, billing off) or the script cannot load. From then on this page uses the no-map form.
+ */
+export function onGoogleMapsFailure(listener: () => void): () => void {
+  failureListeners.add(listener);
+  return () => {
+    failureListeners.delete(listener);
+  };
+}
+
+function markMapsFailed(reason: string) {
+  if (!mapsFailed) {
+    // For whoever is setting up the keys; customers only see the no-map form.
+    console.warn(`Google Maps is unavailable (${reason}). See docs/google-maps-setup.md.`);
+  }
+  mapsFailed = true;
+  failureListeners.forEach((l) => l());
 }
 
 let loadPromise: Promise<GoogleMapsApi> | null = null;
 const CALLBACK = '__brocoGoogleMapsReady';
 
-/** Loads the Maps JS API (maps + places + geocoding) once per page. */
+/** Loads the Maps JS API (maps + places) once per page. */
 export function loadGoogleMaps(): Promise<GoogleMapsApi> {
   if (typeof window === 'undefined') return Promise.reject(new Error('Google Maps can only load in the browser.'));
   const w = window as unknown as MapsWindow;
-  if (w.google?.maps?.Map && w.google.maps.Geocoder) return Promise.resolve(w.google.maps);
+  if (mapsFailed) return Promise.reject(new Error('The map is not available right now.'));
+  if (w.google?.maps?.Map) return Promise.resolve(w.google.maps);
   if (loadPromise) return loadPromise;
-  if (!hasGoogleMapsKey()) return Promise.reject(new Error('Google Maps key is not configured.'));
 
-  loadPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
-    w[CALLBACK] = async () => {
-      try {
-        const maps = w.google?.maps;
-        if (!maps) throw new Error('Google Maps did not initialise.');
-        // With loading=async the individual libraries are fetched on demand.
-        if (maps.importLibrary) {
-          await Promise.all([
-            maps.importLibrary('maps'),
-            maps.importLibrary('marker'),
-            maps.importLibrary('places'),
-            maps.importLibrary('geocoding'),
-          ]);
+  loadPromise = resolveGoogleMapsKey().then(
+    (key) =>
+      new Promise<GoogleMapsApi>((resolve, reject) => {
+        if (!key) {
+          loadPromise = null;
+          reject(new Error('Google Maps key is not configured.'));
+          return;
         }
-        resolve(w.google!.maps!);
-      } catch (err) {
-        loadPromise = null;
-        reject(err instanceof Error ? err : new Error('Google Maps failed to load.'));
-      }
-    };
-    const script = document.createElement('script');
-    script.src =
-      'https://maps.googleapis.com/maps/api/js' +
-      `?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}` +
-      `&libraries=places&region=IN&loading=async&callback=${CALLBACK}`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      loadPromise = null;
-      script.remove();
-      reject(new Error('Could not load Google Maps. Check your connection and try again.'));
-    };
-    document.head.appendChild(script);
-  });
+        // Google calls this global when it refuses the key (the map would show "Oops! Something went wrong").
+        w.gm_authFailure = () => markMapsFailed('the browser key was refused');
+        w[CALLBACK] = async () => {
+          try {
+            const maps = w.google?.maps;
+            if (!maps) throw new Error('Google Maps did not initialise.');
+            // With loading=async the individual libraries are fetched on demand.
+            if (maps.importLibrary) {
+              await Promise.all([maps.importLibrary('maps'), maps.importLibrary('marker'), maps.importLibrary('places')]);
+            }
+            resolve(w.google!.maps!);
+          } catch (err) {
+            loadPromise = null;
+            markMapsFailed('the libraries did not load');
+            reject(err instanceof Error ? err : new Error('Google Maps failed to load.'));
+          }
+        };
+        const script = document.createElement('script');
+        script.src =
+          'https://maps.googleapis.com/maps/api/js' +
+          `?key=${encodeURIComponent(key)}` +
+          `&libraries=places&region=IN&language=en&loading=async&callback=${CALLBACK}`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+          loadPromise = null;
+          script.remove();
+          markMapsFailed('the script did not load');
+          reject(new Error('Could not load Google Maps.'));
+        };
+        document.head.appendChild(script);
+      })
+  );
   return loadPromise;
-}
-
-/** Address parts we fill from a reverse-geocoding result. */
-export interface GeocodedAddress {
-  street: string;
-  area: string;
-  city: string;
-  state: string;
-  pincode: string;
-  formattedAddress: string;
-}
-
-function component(components: GAddressComponent[], ...types: string[]): string {
-  for (const type of types) {
-    const match = components.find((c) => c.types.includes(type));
-    if (match) return match.long_name;
-  }
-  return '';
-}
-
-/** Picks the most specific result and turns its components into our address fields. */
-export function parseGeocoderResults(results: GGeocoderResult[]): GeocodedAddress | null {
-  if (!results.length) return null;
-  const best =
-    results.find((r) => r.types.includes('street_address') || r.types.includes('premise')) ??
-    results.find((r) => r.address_components.some((c) => c.types.includes('postal_code'))) ??
-    results[0];
-  const comps = best.address_components;
-  // Pincode may only be on a broader result; look across all of them.
-  const pincode =
-    component(comps, 'postal_code') ||
-    results.map((r) => component(r.address_components, 'postal_code')).find(Boolean) ||
-    '';
-  const street = [component(comps, 'street_number'), component(comps, 'route')].filter(Boolean).join(' ');
-  const area = [
-    component(comps, 'sublocality_level_2', 'neighborhood'),
-    component(comps, 'sublocality_level_1', 'sublocality'),
-  ]
-    .filter(Boolean)
-    .filter((v, i, arr) => arr.indexOf(v) === i)
-    .join(', ');
-  return {
-    street,
-    area: area || component(comps, 'locality'),
-    city: component(comps, 'locality', 'administrative_area_level_3', 'administrative_area_level_2'),
-    state: component(comps, 'administrative_area_level_1'),
-    pincode,
-    formattedAddress: best.formatted_address,
-  };
 }
