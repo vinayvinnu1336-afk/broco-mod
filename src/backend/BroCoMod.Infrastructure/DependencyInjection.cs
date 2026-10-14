@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace BroCoMod.Infrastructure;
@@ -85,6 +86,17 @@ public static class DependencyInjection
         // Milestone 10: Financial & Payment Foundation Services
         services.AddScoped<DevelopmentFakePaymentGateway>();
         services.AddScoped<IPaymentGateway, DevelopmentFakePaymentGateway>();
+        // Razorpay (docs/razorpay-setup.md). Both gateways are registered; Payment:Provider picks the one for
+        // new payments and older rows keep theirs. The Authorization header carries the key secret, so it is
+        // redacted from HttpClient logs. Missing keys stop the API at startup instead of at the first payment.
+        services.AddHttpClient<RazorpayPaymentGateway>(c =>
+        {
+            c.BaseAddress = new Uri(RazorpayPaymentGateway.BaseUrl);
+            c.Timeout = TimeSpan.FromSeconds(20);
+        }).RedactLoggedHeaders(new[] { "Authorization" });
+        services.AddScoped<IPaymentGateway>(sp => sp.GetRequiredService<RazorpayPaymentGateway>());
+        services.AddOptions<RazorpayOptions>().Configure<IConfiguration>(RazorpayOptions.Bind).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<RazorpayOptions>, RazorpayOptionsValidator>();
         services.AddScoped<IPaymentGatewayFactory, PaymentGatewayFactory>();
 
         services.AddScoped<FinancialNumberGenerators>();

@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { startCheckout } from '@/lib/payments/checkout';
+import type { InitiatedPayment } from '@/lib/payments/checkout';
 import {
   CustomerFacingQuotationDto,
   BookingConfirmationDto,
@@ -46,9 +48,6 @@ interface PaymentResult {
   customerQuotationId?: string | null;
   amount?: number;
 }
-
-// The development gateway has no checkout page; it is confirmed straight away. Only used when the API says so.
-const DEV_GATEWAY = 'DevelopmentFake';
 
 const REJECTION_CATEGORIES = [
   { key: 'PRICE_TOO_HIGH', label: 'The price is too high' },
@@ -159,36 +158,21 @@ export default function CustomerQuotationDetailPage() {
     setPaymentError(null);
 
     const idempotencyKey = `PAY-${quote.id}-${Date.now()}`;
-    const res = await apiFetch<PaymentResult>(`/customer/quotes/${quote.id}/pay`, {
+    const res = await apiFetch<InitiatedPayment>(`/customer/quotes/${quote.id}/pay`, {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
     if (res.success && res.data) {
       if (typeof res.data.amount === 'number') setInitiatedAmount(res.data.amount);
-      if (res.data.gatewayProvider === DEV_GATEWAY) {
-        const verifyRes = await apiFetch<PaymentResult>('/customer/payments/verify', {
-          method: 'POST',
-          body: JSON.stringify({
-            paymentId: res.data.paymentId,
-            gatewayPaymentId: `pay_direct_${Date.now()}`,
-            gatewaySignature: 'sig_fake_valid',
-            gatewayOrderId: res.data.gatewayOrderId,
-          }),
-        });
-
-        if (verifyRes.success && verifyRes.data) {
-          setPaymentComplete(verifyRes.data);
-        } else {
-          setPaymentError(verifyRes.message || 'We could not confirm the payment. Please try again.');
-        }
-      } else if (res.data.checkoutUrl) {
-        // Real payment provider: continue on its secure checkout page.
-        window.location.href = res.data.checkoutUrl;
-        return;
-      } else {
-        setPaymentError('Online payment is not available right now. Please try again later.');
+      const result = await startCheckout(res.data, '/customer/payments/verify');
+      if (result.kind === 'redirect') return; // continuing on the provider's checkout page
+      if (result.kind === 'paid') {
+        setPaymentComplete(result.payment);
+      } else if (result.kind === 'failed') {
+        setPaymentError(result.message);
       }
+      // dismissed: the checkout was closed; the quote stays accepted and "Pay" is still offered.
     } else {
       setPaymentError(res.message || 'Payment initiation failed. Please try again.');
     }

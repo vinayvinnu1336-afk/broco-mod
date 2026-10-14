@@ -178,6 +178,7 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             Currency: currency,
             CustomerEmail: payer?.Email ?? "garage@example.com",
             CustomerName: payer?.FullName ?? "Garage",
+            CustomerPhone: payer?.PhoneNumber,
             Description: $"BroCo commission: {reference}"), ct);
 
         var payment = new Payment(

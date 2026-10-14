@@ -1,34 +1,20 @@
 // Booking advance (10%) checkout, shared by the booking flow and the request detail page.
 import { apiFetch } from '@/lib/api';
+import { startCheckout } from '@/lib/payments/checkout';
+import type { InitiatedPayment, VerifiedPayment } from '@/lib/payments/checkout';
+
+export { DEV_GATEWAY } from '@/lib/payments/checkout';
+export type { VerifiedPayment } from '@/lib/payments/checkout';
 
 /** InitiatePaymentResponseDto */
-export interface InitiatePaymentResponse {
-  paymentId: string;
-  paymentNumber?: string;
-  amount: number;
-  currency?: string;
-  gatewayProvider: string;
-  gatewayOrderId?: string | null;
-  checkoutUrl?: string | null;
-}
-
-export interface VerifiedPayment {
-  id?: string;
-  paymentId?: string;
-  paymentNumber?: string;
-  amount?: number;
-  status?: string;
-  gatewayPaymentId?: string;
-  paidAtUtc?: string | null;
-}
+export type InitiatePaymentResponse = InitiatedPayment;
 
 export type AdvanceResult =
   | { kind: 'paid'; amount: number; payment: VerifiedPayment; paymentId: string }
   | { kind: 'redirect'; amount: number }
+  /** The customer closed the checkout; the booking is saved and still waits for its advance. */
+  | { kind: 'dismissed'; amount: number }
   | { kind: 'failed'; message: string; amount?: number };
-
-// The development gateway has no checkout page; it is confirmed straight away. Only used when the API says so.
-export const DEV_GATEWAY = 'DevelopmentFake';
 
 /** Default share paid online to BroCo to confirm a booking; the server's numbers win once known. */
 export const ADVANCE_PERCENT = 10;
@@ -39,13 +25,9 @@ export function advanceFor(total: number, percent = ADVANCE_PERCENT): number {
   return Math.min(total, Math.max(1, Math.round((total * percent) / 100)));
 }
 
-function randomId(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 /**
- * Starts the advance checkout for a service request. With the development gateway it verifies
- * immediately; with a real provider it redirects the browser to the provider's checkout page.
+ * Starts the advance checkout for a service request: the development gateway confirms it immediately,
+ * Razorpay opens its payment sheet in the page, a hosted provider redirects the browser.
  */
 export async function payBookingAdvance(requestId: string): Promise<AdvanceResult> {
   const idempotencyKey = `ADV-${requestId}-${Date.now()}`;
@@ -58,29 +40,17 @@ export async function payBookingAdvance(requestId: string): Promise<AdvanceResul
     return { kind: 'failed', message: res.message || 'We could not start the payment. Please try again.' };
   }
   const init = res.data;
-
-  if (init.gatewayProvider === DEV_GATEWAY) {
-    const verify = await apiFetch<VerifiedPayment>('/customer/payments/verify', {
-      method: 'POST',
-      body: JSON.stringify({
-        paymentId: init.paymentId,
-        gatewayPaymentId: `pay_dev_${randomId()}`,
-        gatewaySignature: 'sig_fake_valid',
-        gatewayOrderId: init.gatewayOrderId,
-      }),
-    });
-    if (verify.success) {
-      return { kind: 'paid', amount: init.amount, payment: verify.data ?? {}, paymentId: init.paymentId };
-    }
-    return { kind: 'failed', amount: init.amount, message: verify.message || 'We could not confirm the payment. Please try again.' };
+  const result = await startCheckout(init, '/customer/payments/verify');
+  switch (result.kind) {
+    case 'paid':
+      return { kind: 'paid', amount: init.amount, payment: result.payment, paymentId: init.paymentId };
+    case 'redirect':
+      return { kind: 'redirect', amount: init.amount };
+    case 'dismissed':
+      return { kind: 'dismissed', amount: init.amount };
+    default:
+      return { kind: 'failed', amount: init.amount, message: result.message };
   }
-
-  if (init.checkoutUrl) {
-    // Real payment provider: continue on its secure checkout page.
-    window.location.href = init.checkoutUrl;
-    return { kind: 'redirect', amount: init.amount };
-  }
-  return { kind: 'failed', amount: init.amount, message: 'Online payment is not available right now. Please try again later.' };
 }
 
 /** "Booking advance (10%)" for the BookingAdvance payment purpose; null for anything else. */

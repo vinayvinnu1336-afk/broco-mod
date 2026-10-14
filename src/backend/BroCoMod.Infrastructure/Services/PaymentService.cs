@@ -154,6 +154,7 @@ public class PaymentService : IPaymentService
             Currency: quotation.Currency,
             CustomerEmail: customerEmail,
             CustomerName: customerName,
+            CustomerPhone: customer?.PhoneNumber,
             Description: $"Booking advance for quotation {quotation.QuotationNumber}"
         ), cancellationToken);
 
@@ -271,6 +272,7 @@ public class PaymentService : IPaymentService
             Currency: awq.Currency,
             CustomerEmail: customerEmail,
             CustomerName: customerName,
+            CustomerPhone: customer?.PhoneNumber,
             Description: $"Payment for Additional Work {awq.QuotationNumber}"
         ), cancellationToken);
 
@@ -476,6 +478,12 @@ public class PaymentService : IPaymentService
                 cancellationToken: cancellationToken
             );
         }
+        else if (webhookResult.Status == "attempt_failed")
+        {
+            // One attempt failed but the gateway order is still open (Razorpay lets the customer retry in
+            // the same checkout), so the payment stays pending until it is paid or a new one is started.
+            _logger.LogInformation("Webhook: an attempt to pay {PaymentNumber} failed: {Reason}", payment.PaymentNumber, webhookResult.ErrorMessage);
+        }
 
         return true;
     }
@@ -653,6 +661,7 @@ public class PaymentService : IPaymentService
             Currency: "INR",
             CustomerEmail: customer?.Email ?? "customer@example.com",
             CustomerName: customer?.FullName ?? "Customer",
+            CustomerPhone: customer?.PhoneNumber,
             Description: $"Booking advance for {request.ServicePackageName} ({request.RequestNumber})"), cancellationToken);
 
         var assignedGarageId = await _context.GarageAssignments.AsNoTracking()

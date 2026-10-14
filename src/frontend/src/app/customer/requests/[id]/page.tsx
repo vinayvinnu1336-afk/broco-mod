@@ -153,9 +153,10 @@ export default function CustomerRequestDetailPage() {
     if (result.kind === 'paid') {
       toast.success('Booking confirmed', `${formatINRWhole(result.amount)} advance received. BroCo is assigning a verified garage near you.`);
       loadData();
-    } else {
+    } else if (result.kind === 'failed') {
       toast.error('Payment not completed', result.message);
     }
+    // dismissed: the checkout was closed; the advance is still due and "Pay now" stays on the page.
   }
 
   if (loading && !request) {

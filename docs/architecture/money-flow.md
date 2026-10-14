@@ -48,6 +48,9 @@ The old full-payment, escrow and garage-payout records (`GarageSettlement`) are 
 ## Settings (`appsettings.json` / `.env`)
 | Setting | Default | `.env` |
 |---|---|---|
+| `Payment:Provider` | `DevelopmentFake` (demo: paid without money; refused outside Development unless `Payment:AllowFakeGateway`) | `PAYMENT_PROVIDER` = `Razorpay` for real payments |
+| `Razorpay:KeyId` / `Razorpay:KeySecret` | empty (API refuses to start when the provider is Razorpay) | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` ([razorpay-setup.md](../razorpay-setup.md)) |
+| `Razorpay:WebhookSecret` | empty (webhooks ignored; checkout verification still confirms payments) | `RAZORPAY_WEBHOOK_SECRET` |
 | `Booking:AdvancePercentage` | 10 | `BOOKING_ADVANCE_PERCENT` |
 | `Commission:DueHours` | 24 | `COMMISSION_DUE_HOURS` |
 | `Commission:ReminderIntervalHours` | 12 | `COMMISSION_REMINDER_HOURS` |

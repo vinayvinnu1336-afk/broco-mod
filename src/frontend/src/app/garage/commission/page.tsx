@@ -173,9 +173,10 @@ function GarageCommissionContent() {
       toast.success('Payment received', `${formatINR(result.amount)} paid to BroCo. Thank you!`);
       setSelected(null);
       await load();
-    } else {
+    } else if (result.status === 'failed') {
       toast.error('Payment failed', result.message);
     }
+    // dismissed: the checkout was closed, the dues stay as they are and "Pay now" is still there.
     setPaying(null);
   }
 

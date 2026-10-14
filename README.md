@@ -178,6 +178,10 @@ npm run dev
 
 Optional. Without keys, booking step 3 uses an address form and "Use my current location" fills it from OpenStreetMap. To turn on the map, place search and Google addresses, put `GOOGLE_MAPS_BROWSER_KEY` and `GOOGLE_MAPS_SERVER_KEY` in `.env` and restart the API (`docker compose up -d backend`); the website reads the browser key at runtime, so no rebuild is needed. Step-by-step guide for creating and restricting the keys: [docs/google-maps-setup.md](docs/google-maps-setup.md).
 
+### Payments
+
+Online payments (the customer's 10% booking advance and the garage commission) go through Razorpay, which opens its own payment sheet on the page. Put `PAYMENT_PROVIDER=Razorpay`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and (for the second confirmation on a public server) `RAZORPAY_WEBHOOK_SECRET` in `.env`, then restart the API (`docker compose up -d backend`); the website learns the active provider from `GET /api/v1/config/public`, so no rebuild is needed. Test-mode keys (`rzp_test_...`) move no real money and work with Razorpay's test cards and UPI ids. Without keys the app uses the `DevelopmentFake` gateway, which marks payments paid without any money moving (Development only, or `ALLOW_FAKE_PAYMENTS=true` for a demo server). Step-by-step owner guide: [docs/razorpay-setup.md](docs/razorpay-setup.md).
+
 ---
 
 ## Testing

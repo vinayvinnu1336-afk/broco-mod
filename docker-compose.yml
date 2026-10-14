@@ -96,7 +96,12 @@ services:
       RateLimiting__ApiPermitPerMinute: ${API_RATE_LIMIT_PER_MINUTE:-300}
       BootstrapAdmin__Email: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BootstrapAdmin__Password: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      # Payments (docs/razorpay-setup.md). Keys are read at startup: `docker compose up -d backend` after a change.
+      Payment__Provider: ${PAYMENT_PROVIDER:-DevelopmentFake}
       Payment__AllowFakeGateway: ${ALLOW_FAKE_PAYMENTS:-false}
+      Razorpay__KeyId: ${RAZORPAY_KEY_ID:-}
+      Razorpay__KeySecret: ${RAZORPAY_KEY_SECRET:-}
+      Razorpay__WebhookSecret: ${RAZORPAY_WEBHOOK_SECRET:-}
       EnableDemoSeeding: ${ENABLE_DEMO_SEEDING:-false}
       Booking__AdvancePercentage: ${BOOKING_ADVANCE_PERCENT:-10}
       Commission__DueHours: ${COMMISSION_DUE_HOURS:-24}
