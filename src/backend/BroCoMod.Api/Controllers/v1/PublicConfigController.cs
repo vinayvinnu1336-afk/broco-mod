@@ -1,6 +1,7 @@
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Services;
+using BroCoMod.Infrastructure.Services.PaymentGateway;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,5 +29,7 @@ public class PublicConfigController : ControllerBase
     public IActionResult GetPublic() =>
         Ok(ApiResponse<PublicConfigDto>.Ok(new PublicConfigDto(
             GoogleMapsBrowserKey: GeocodingSettings.BrowserKey(_configuration) ?? string.Empty,
-            AddressLookupProvider: _addresses.ActiveProvider ?? GeocodingSettings.None)));
+            AddressLookupProvider: _addresses.ActiveProvider ?? GeocodingSettings.None,
+            PaymentProvider: PaymentSettings.Provider(_configuration),
+            RazorpayKeyId: PaymentSettings.IsRazorpay(_configuration) ? PaymentSettings.RazorpayKeyId(_configuration) ?? string.Empty : string.Empty)));
 }

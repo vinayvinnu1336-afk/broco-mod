@@ -63,6 +63,10 @@ export interface PublicSiteConfig {
   googleMapsBrowserKey: string;
   /** "Google", "OpenStreetMap" or "None". */
   addressLookupProvider: string;
+  /** "DevelopmentFake" or "Razorpay" (older APIs omit it). */
+  paymentProvider?: string;
+  /** Razorpay key id (public), "" unless Razorpay is active. */
+  razorpayKeyId?: string;
 }
 
 const BUILD_TIME_KEY = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();

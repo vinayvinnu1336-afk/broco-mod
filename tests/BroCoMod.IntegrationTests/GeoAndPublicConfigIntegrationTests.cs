@@ -183,6 +183,19 @@ public class GeoAndPublicConfigIntegrationTests : IClassFixture<GeoTestFactory>
     }
 
     [Fact]
+    public async Task PublicConfig_ReportsThePaymentProvider_AndNoRazorpayKeyWhenTheFakeGatewayIsActive()
+    {
+        // Tests run on the development gateway; the website must learn that from this endpoint, and the
+        // Razorpay key id is only handed out when Razorpay is the active provider.
+        var raw = await _factory.CreateClient().GetStringAsync("/api/v1/config/public");
+        var body = JsonSerializer.Deserialize<ApiResponse<PublicConfigDto>>(raw, JsonOptions);
+
+        body!.Data!.PaymentProvider.Should().Be("DevelopmentFake");
+        body.Data.RazorpayKeyId.Should().BeEmpty();
+        raw.Should().Contain("\"paymentProvider\"").And.NotContain("KeySecret").And.NotContain("WebhookSecret");
+    }
+
+    [Fact]
     public async Task Booking_WhosePincodeDoesNotMatchThePin_IsRejected_WhenGoogleChecksIt()
     {
         var anon = _factory.CreateClient();

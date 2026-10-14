@@ -7,7 +7,8 @@ public record CreatePaymentOrderParams(
     string CustomerEmail,
     string CustomerName,
     string Description,
-    Dictionary<string, string>? Metadata = null
+    Dictionary<string, string>? Metadata = null,
+    string? CustomerPhone = null
 );
 
 public record PaymentOrderResult(

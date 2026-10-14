@@ -659,7 +659,12 @@ function BookingFlow() {
       return;
     }
     setBusy(null);
-    toast.error('Payment not completed', `${result.message} Your booking ${req.requestNumber} is saved — pay the advance from the booking page.`);
+    if (result.kind === 'dismissed') {
+      // The customer closed the checkout: the booking is saved and waits for its advance.
+      toast.info('Payment not completed', `Your booking ${req.requestNumber} is saved. Pay the advance whenever you're ready.`);
+    } else {
+      toast.error('Payment not completed', `${result.message} Your booking ${req.requestNumber} is saved — pay the advance from the booking page.`);
+    }
     router.push(`/customer/requests/${req.id}`);
   };
 

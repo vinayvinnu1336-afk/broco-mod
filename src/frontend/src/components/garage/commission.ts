@@ -1,4 +1,6 @@
 import { apiFetch } from '@/lib/api';
+import { startCheckout } from '@/lib/payments/checkout';
+import type { InitiatedPayment } from '@/lib/payments/checkout';
 
 /** GET /garage/commission item (GarageCommissionDto). */
 export interface GarageCommission {
@@ -39,32 +41,23 @@ export interface GarageCommissionSummary {
   newJobsBlocked: boolean;
 }
 
-interface InitiatePaymentResult {
-  paymentId: string;
-  paymentNumber?: string;
-  amount: number;
-  gatewayProvider: string;
-  gatewayOrderId?: string | null;
-  checkoutUrl?: string | null;
-}
-
-const DEV_GATEWAY = 'DevelopmentFake';
-
 /** Fired on window after a commission payment so the banner and other widgets refresh. */
 export const COMMISSION_UPDATED_EVENT = 'broco:commission-updated';
 
 export type PayCommissionResult =
   | { status: 'paid'; amount: number }
   | { status: 'redirected' }
+  /** The garage closed the checkout; the dues are unchanged. */
+  | { status: 'dismissed' }
   | { status: 'failed'; message: string };
 
 /**
- * Starts one online payment for the given dues (null = every outstanding due). With the development
- * gateway the payment is verified straight away; a real gateway continues on its checkout page.
+ * Starts one online payment for the given dues (null = every outstanding due): the development gateway
+ * verifies it straight away, Razorpay opens its sheet in the page, a hosted gateway redirects.
  */
 export async function payCommissions(commissionIds: string[] | null): Promise<PayCommissionResult> {
   const idempotencyKey = `COMM-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const res = await apiFetch<InitiatePaymentResult>('/garage/commission/pay', {
+  const res = await apiFetch<InitiatedPayment>('/garage/commission/pay', {
     method: 'POST',
     body: JSON.stringify({ commissionIds, idempotencyKey }),
   });
@@ -73,28 +66,18 @@ export async function payCommissions(commissionIds: string[] | null): Promise<Pa
   }
 
   const payment = res.data;
-  if (payment.gatewayProvider === DEV_GATEWAY) {
-    const verify = await apiFetch('/garage/commission/verify', {
-      method: 'POST',
-      body: JSON.stringify({
-        paymentId: payment.paymentId,
-        gatewayPaymentId: `pay_dev_${Math.random().toString(36).slice(2, 12)}`,
-        gatewaySignature: 'sig_fake_valid',
-        gatewayOrderId: payment.gatewayOrderId,
-      }),
-    });
-    if (!verify.success) {
-      return { status: 'failed', message: verify.message || 'We could not confirm the payment. Please try again.' };
-    }
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMMISSION_UPDATED_EVENT));
-    return { status: 'paid', amount: Number(payment.amount) || 0 };
+  const result = await startCheckout(payment, '/garage/commission/verify');
+  switch (result.kind) {
+    case 'paid':
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMMISSION_UPDATED_EVENT));
+      return { status: 'paid', amount: Number(payment.amount) || 0 };
+    case 'redirect':
+      return { status: 'redirected' };
+    case 'dismissed':
+      return { status: 'dismissed' };
+    default:
+      return { status: 'failed', message: result.message };
   }
-
-  if (payment.checkoutUrl) {
-    window.location.href = payment.checkoutUrl;
-    return { status: 'redirected' };
-  }
-  return { status: 'failed', message: 'Online payment is not available right now. Please try again later.' };
 }
 
 function spanLabel(ms: number): string {

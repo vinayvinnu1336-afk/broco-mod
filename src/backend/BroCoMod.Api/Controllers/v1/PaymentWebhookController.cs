@@ -2,12 +2,14 @@ using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace BroCoMod.Api.Controllers.v1;
 
 [ApiController]
 [Route("api/v1/payments/webhook")]
 [AllowAnonymous]
+[DisableRateLimiting] // Gateways retry in bursts; signatures, not rate limits, protect this route.
 public class PaymentWebhookController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
