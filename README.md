@@ -215,7 +215,15 @@ npx playwright test e2e/journey.spec.ts   # booking → quote → payment → jo
 
 ## Deployment
 
-See [docs/deployment/vps-hostinger.md](docs/deployment/vps-hostinger.md) for a single-VPS production setup (Docker Compose, HTTPS, backups) and [docs/design/mobile-ui-guidelines.md](docs/design/mobile-ui-guidelines.md) for the UI rules.
+- **One command on a Hostinger VPS (KVM 1, 4 GB)** - owner's guide: [docs/deployment/hostinger-kvm1.md](docs/deployment/hostinger-kvm1.md).
+  Images are built by GitHub Actions ([release-images.yml](.github/workflows/release-images.yml) on every push to `main`, pushed to
+  `ghcr.io/vinayvinnu1336-afk/broco-mod-{backend,frontend,nginx}`); the server only pulls them.
+  `scripts/deploy/setup-server.sh` installs Docker, swap, firewall, generated secrets, HTTPS and backups;
+  `scripts/deploy/update.sh` and `status.sh` handle day two.
+- **Manual reference** (any plan, build on the server or pull images): [docs/deployment/vps-hostinger.md](docs/deployment/vps-hostinger.md).
+- UI rules: [docs/design/mobile-ui-guidelines.md](docs/design/mobile-ui-guidelines.md).
+
+Releases come from `main` (`develop` → `main` merge); CI tests run on both branches.
 
 ---
 

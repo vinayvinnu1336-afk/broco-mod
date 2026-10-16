@@ -161,7 +161,7 @@ services:
     build:
       context: ./docker/nginx
       dockerfile: Dockerfile
-    image: broco-mod-nginx:latest
+    image: ${NGINX_IMAGE:-broco-mod-nginx:latest}
     container_name: broco-mod-nginx
     restart: unless-stopped
     depends_on:
