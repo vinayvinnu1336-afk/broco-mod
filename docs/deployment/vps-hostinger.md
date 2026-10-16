@@ -4,10 +4,20 @@ This runs the whole platform (PostgreSQL + PostGIS, Redis, API, Next.js, Nginx) 
 
 | Plan | Use |
 |---|---|
-| KVM 1 (1 vCPU, 4 GB) | Demo / pilot. Add swap and build images in CI, not on the server. |
-| KVM 2 (2 vCPU, 8 GB) | Recommended for launch. |
+| KVM 1 (1 vCPU, 4 GB) | Demo / pilot. Images are built by GitHub Actions and pulled, never built on the server. |
+| KVM 2 (2 vCPU, 8 GB) | Recommended for launch. Same setup, more headroom. |
+
+> **Non-technical owner, or KVM 1?** Use the one-command setup instead of this page:
+> [hostinger-kvm1.md](hostinger-kvm1.md). It installs everything below (Docker, swap, firewall,
+> `.env` with generated secrets, prebuilt images from GHCR, HTTPS, backup + renewal cron) with
+> `scripts/deploy/setup-server.sh`, and updates with `scripts/deploy/update.sh`. This page stays as the
+> manual reference for engineers.
 
 Only Nginx (ports 80/443) is reachable from the internet. Everything else sits on a private Docker network.
+
+Releases come from the `main` branch: merging `develop` into `main` runs
+`.github/workflows/release-images.yml`, which pushes `ghcr.io/vinayvinnu1336-afk/broco-mod-backend`,
+`-frontend` and `-nginx` (tags `latest` + short SHA).
 
 ## 1. Prepare the server (once)
 
@@ -38,15 +48,25 @@ nano .env                 # fill DOMAIN, PUBLIC_ORIGIN, secrets, BOOTSTRAP_ADMIN
 
 ## 3. Start
 
+Preferred (any plan, required on KVM 1 - building Next.js on a 4 GB server runs out of memory): use the
+images built by the "Release images" workflow. Uncomment the three `*_IMAGE` lines at the end of `.env`
+(they already point at `ghcr.io/vinayvinnu1336-afk/broco-mod-*:latest`), make the GHCR packages public
+or `docker login ghcr.io` with a `read:packages` token, then:
+
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d --no-build
 docker compose ps          # all services healthy
 curl -s http://localhost/healthz/live
 ```
 
-Log in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, then delete those two lines from `.env` and run `docker compose up -d` again.
+Building on the server (KVM 2 or bigger, `*_IMAGE` lines commented out):
 
-On KVM 1, build the images in GitHub Actions (or on your PC), push them to a registry, set `BACKEND_IMAGE` / `FRONTEND_IMAGE` in `.env`, and use `docker compose pull && docker compose up -d` instead of `--build`. Building Next.js on a 4 GB server can run out of memory.
+```bash
+docker compose up -d --build
+```
+
+Log in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, then delete those two lines from `.env` and run `docker compose up -d` again.
 
 ## 4. HTTPS (Let's Encrypt)
 
@@ -56,7 +76,7 @@ docker compose --profile tls run --rm certbot certonly --webroot -w /var/www/cer
 docker compose restart nginx   # picks up the certificate and switches to HTTPS automatically
 ```
 
-Renewal (cron, twice a day):
+Renewal (cron, twice a day; `setup-server.sh` installs this and the backup job in `/etc/cron.d/broco-mod`):
 
 ```
 0 3,15 * * * cd /opt/broco-mod && docker compose --profile tls run --rm certbot renew --quiet && docker compose exec nginx nginx -s reload
@@ -76,9 +96,18 @@ Copy `backups/` off the server regularly (Hostinger backup add-on, rclone to Goo
 
 ## 6. Updating
 
+With prebuilt images (migrations run automatically on API start, guarded by a database lock):
+
+```bash
+bash /opt/broco-mod/scripts/deploy/update.sh    # git pull, compose pull, up -d --no-build, image prune
+bash /opt/broco-mod/scripts/deploy/status.sh    # containers, health, HTTPS expiry, memory, disk, last backup
+```
+
+Building on the server instead:
+
 ```bash
 cd /opt/broco-mod && git pull
-docker compose up -d --build     # migrations run automatically, guarded by a database lock
+docker compose up -d --build
 ```
 
 ## What protects the server

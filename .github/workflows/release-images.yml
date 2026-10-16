@@ -1,0 +1,169 @@
+# Builds the three production images and pushes them to GitHub Container Registry (GHCR), so a
+# small VPS (Hostinger KVM 1: 1 vCPU / 4 GB) only has to `docker compose pull`, never build.
+#
+#   ghcr.io/<owner>/broco-mod-backend   (docker/backend/Dockerfile,  context .)
+#   ghcr.io/<owner>/broco-mod-frontend  (docker/frontend/Dockerfile, context src/frontend)
+#   ghcr.io/<owner>/broco-mod-nginx     (docker/nginx/Dockerfile,    context docker/nginx)
+#
+# Each image is tagged `latest` and with the short commit SHA. Runs on every push to `main`
+# (develop -> main merge = release) and on demand from Actions -> "Release images" -> Run workflow.
+#
+# The frontend bakes the support contact into the build. Set them once under
+# Settings -> Secrets and variables -> Actions -> Variables: SUPPORT_PHONE, SUPPORT_EMAIL,
+# SUPPORT_WHATSAPP (all optional; empty = hidden on the site).
+#
+# After the first run, make the three packages public (GitHub -> your profile -> Packages ->
+# package -> Package settings -> Change visibility) or give the server a token with read:packages.
+# See docs/deployment/hostinger-kvm1.md.
+
+name: Release images
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  backend:
+    name: Backend image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image name and tags
+        id: meta
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-backend" >> "$GITHUB_OUTPUT"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Summary
+        run: echo "Pushed ${{ steps.meta.outputs.image }}:latest and :${{ steps.meta.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    name: Frontend image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image name and tags
+        id: meta
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-frontend" >> "$GITHUB_OUTPUT"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend
+          file: docker/frontend/Dockerfile
+          push: true
+          # Same build args as docker-compose.yml. Demo mode is always off in released images;
+          # support contact comes from repository variables (Settings -> Secrets and variables -> Actions).
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api/v1
+            NEXT_PUBLIC_DEMO_MODE=false
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+            NEXT_PUBLIC_SUPPORT_PHONE=${{ vars.SUPPORT_PHONE }}
+            NEXT_PUBLIC_SUPPORT_EMAIL=${{ vars.SUPPORT_EMAIL }}
+            NEXT_PUBLIC_SUPPORT_WHATSAPP=${{ vars.SUPPORT_WHATSAPP }}
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Summary
+        run: echo "Pushed ${{ steps.meta.outputs.image }}:latest and :${{ steps.meta.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+
+  nginx:
+    name: Nginx image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image name and tags
+        id: meta
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}-nginx" >> "$GITHUB_OUTPUT"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/nginx
+          file: docker/nginx/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,mode=max,scope=nginx
+
+      - name: Summary
+        run: echo "Pushed ${{ steps.meta.outputs.image }}:latest and :${{ steps.meta.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
