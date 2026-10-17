@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, telHref } from '@/lib/site';
+import { LEGAL_LINKS } from '@/content/legal/business';
 import { BrandMark } from './PublicHeader';
 
 const columns: { title: string; links: { href: string; label: string }[] }[] = [
@@ -30,13 +31,14 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
       { href: '/#garages', label: 'Why partner with BroCo' },
     ],
   },
+  { title: 'Legal', links: LEGAL_LINKS },
 ];
 
 export function PublicFooter() {
   return (
-    <footer className="pb-safe border-t border-navy-900 bg-navy-950 text-sm text-surface-400">
+    <footer className="pb-safe print:hidden border-t border-navy-900 bg-navy-950 text-sm text-surface-400">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
           <div>
             <BrandMark dark tagline />
             <p className="mt-3 max-w-xs text-sm leading-relaxed">

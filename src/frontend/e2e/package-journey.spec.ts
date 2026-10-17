@@ -110,6 +110,7 @@ test('1. visitor checks prices, signs up and books the Standard package', async 
   await page.getByLabel(/^Email/).fill(state.email);
   await page.getByLabel(/^Mobile number/).fill(`+91 ${state.mobile}`);
   await page.getByLabel(/^Password/).fill(state.password);
+  await page.getByLabel(/^I agree to the Terms/).check();
   await page.getByRole('button', { name: /Create account/ }).click();
 
   // Booking (one page): the package and the car are carried over.

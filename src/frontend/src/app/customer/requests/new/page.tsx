@@ -1396,6 +1396,24 @@ function BookingFlow() {
               .
             </Alert>
           )}
+
+          {/* The Cancellation & Refund Policy requires the charge to be shown before the booking is confirmed. */}
+          <p className="px-1 text-xs leading-relaxed text-navy-500">
+            By booking you agree to our{' '}
+            <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-electric-700 underline underline-offset-2">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link href="/refund-policy" target="_blank" rel="noopener noreferrer" className="font-medium text-electric-700 underline underline-offset-2">
+              Cancellation &amp; Refund Policy
+            </Link>
+            .{' '}
+            {needsPickup === true
+              ? 'A cancellation charge of up to 10% of the agreed service cost may apply, as pick-up & drop is arranged.'
+              : needsPickup === false
+              ? 'A cancellation charge of up to 7% of the agreed service cost may apply, as you visit the garage.'
+              : 'Cancellation charges of up to 7% (you visit the garage) or 10% (pick-up & drop) of the agreed service cost may apply.'}
+          </p>
         </section>
       </div>
 

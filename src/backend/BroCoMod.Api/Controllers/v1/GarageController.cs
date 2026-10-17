@@ -64,6 +64,36 @@ public class GarageController : ControllerBase
         return Ok(ApiResponse<GarageProfileDto>.Ok(profile));
     }
 
+    /// <summary>Owners and managers edit their garage's listing; staff can only view it.</summary>
+    [HttpPut("profile")]
+    [Authorize(Roles = $"{AppRoles.GarageOwner},{AppRoles.GarageManager}")]
+    [ProducesResponseType(typeof(ApiResponse<GarageProfileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateGarageProfileRequest request, CancellationToken cancellationToken)
+    {
+        var garageId = GetEffectiveGarageId();
+        try
+        {
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var profile = await _garagePortalService.UpdateProfileAsync(garageId, GetEffectiveUserId(), request, ipAddress, cancellationToken);
+            return Ok(ApiResponse<GarageProfileDto>.Ok(profile, "Garage profile updated."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ApiResponse<object>.Fail(ex.Message));
+        }
+    }
+
     [HttpGet("requests")]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<GarageIncomingRequestDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRequests(

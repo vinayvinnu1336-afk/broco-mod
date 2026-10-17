@@ -62,6 +62,22 @@ public class Garage : BaseEntity
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
+    /// <summary>The garage's own edit of its listing. Values arrive validated and normalised.</summary>
+    public void UpdateProfile(string name, string email, string phoneNumber, string address)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Garage name is required.", nameof(name));
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Garage email is required.", nameof(email));
+
+        Name = name.Trim();
+        Email = email.Trim();
+        PhoneNumber = (phoneNumber ?? string.Empty).Trim();
+        Address = (address ?? string.Empty).Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     public void UpdateLocation(double longitude, double latitude)
     {
         Location = new Point(longitude, latitude) { SRID = 4326 };

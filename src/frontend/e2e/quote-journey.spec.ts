@@ -68,6 +68,7 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
   await page.getByLabel(/^Email/).fill(state.email);
   await page.getByLabel(/^Mobile number/).fill('+91 90000 65432');
   await page.getByLabel(/^Password/).fill(state.password);
+  await page.getByLabel(/^I agree to the Terms/).check();
   await page.getByRole('button', { name: /Create account/ }).click();
   await expect(page).toHaveURL(/\/customer\/dashboard/);
   await checkLayout(page, 'new customer dashboard');
