@@ -90,7 +90,7 @@ public class AdminOperationsIntegrationTests : IClassFixture<WebApplicationFacto
         // Book a request owned by this test. The newest request in the shared database can belong to another
         // class that has not written its creation audit row yet.
         var email = $"admin_detail_{Guid.NewGuid():N}@brocomod.com";
-        var register = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Detail Customer", "+91 98765 43210"));
+        var register = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Detail Customer", TestMobiles.New()));
         register.EnsureSuccessStatusCode();
         var customer = CreateAuthenticatedClient(await LoginAsync(email, "Password123!"));
 
@@ -376,7 +376,7 @@ public class AdminOperationsIntegrationTests : IClassFixture<WebApplicationFacto
             custEmail,
             "Password123!",
             "Unauth Test Customer",
-            "+91 91234 56789"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var custToken = await LoginAsync(custEmail, "Password123!");

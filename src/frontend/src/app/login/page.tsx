@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import { BroCoLogo } from '@/components/brand/BroCoLogo';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,9 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 import { Wrench, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Alert } from '@/components/ui/Alert';
 import { homePathForRoles } from '@/components/auth/ProtectedRoute';
 import { isDemoMode } from '@/lib/demo';
+import { INVALID_MOBILE_MESSAGE, isValidIndianMobile, toIndianMobile } from '@/lib/phone';
 
 /** Only allow same-origin relative paths so `?redirect=` can't send users to another site. */
 function safeRedirect(value: string | null): string {
@@ -31,8 +33,20 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirect = safeRedirect(searchParams.get('redirect') ?? searchParams.get('next'));
   const expired = searchParams.get('expired') === 'true';
+  // Mobile number is the usual way in. Staff accounts may have no mobile, and password reset is by email,
+  // so email stays one tap away; the choice lives in the URL so a refresh keeps it.
+  const withEmail = searchParams.get('with') === 'email';
+  const switchHref = (() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (withEmail) params.delete('with');
+    else params.set('with', 'email');
+    const query = params.toString();
+    return query ? `/login?${query}` : '/login';
+  })();
 
   const { login, quickLogin, user } = useAuth();
+  const [mobile, setMobile] = useState('');
+  const [mobileError, setMobileError] = useState<string | undefined>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +54,16 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [demoRole, setDemoRole] = useState<string | null>(null);
+  const mobileRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const switched = useRef(false);
+
+  // After switching between mobile and email, put the cursor in the new field (not on first load).
+  useEffect(() => {
+    if (!switched.current) return;
+    setError(null);
+    (withEmail ? emailRef : mobileRef).current?.focus();
+  }, [withEmail]);
 
   // `login()` only reports success; the user (and their roles) arrives through the auth context.
   useEffect(() => {
@@ -51,19 +75,31 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password) {
-      setError('Enter your email and password.');
+    if (withEmail ? !email.trim() || !password : !mobile || !password) {
+      setError(withEmail ? 'Enter your email and password.' : 'Enter your mobile number and password.');
+      return;
+    }
+    if (!withEmail && !isValidIndianMobile(mobile)) {
+      setMobileError(INVALID_MOBILE_MESSAGE);
+      mobileRef.current?.focus();
       return;
     }
 
     setSubmitting(true);
     try {
-      const res = await login(email.trim(), password);
+      const res = await login(withEmail ? email.trim() : { mobileNumber: toIndianMobile(mobile) }, password);
       if (!res.success) {
         const rawErr = res.error || '';
         const lower = rawErr.toLowerCase();
-        if (lower.includes('invalid') || lower.includes('credentials') || lower.includes('password')) {
-          setError('That email and password don’t match. Check them and try again.');
+        if (lower.includes('more than one account')) {
+          // An older number shared by several accounts: the API says to use email instead.
+          setError(rawErr);
+        } else if (lower.includes('invalid') || lower.includes('credentials') || lower.includes('password')) {
+          setError(
+            withEmail
+              ? 'That email and password don’t match. Check them and try again.'
+              : 'That mobile number and password don’t match. Check them and try again.'
+          );
         } else if (lower.includes('network') || lower.includes('failed to fetch')) {
           setError('We can’t reach the server. Check your internet connection and try again.');
         } else if (rawErr && rawErr.length < 100 && !rawErr.includes('Exception')) {
@@ -109,7 +145,9 @@ function LoginForm() {
         <div className="w-full max-w-md">
           <div className="rounded-3xl border border-surface-200 bg-white p-5 shadow-elevated sm:p-8">
             <h1 className="text-2xl font-extrabold tracking-tight text-navy-900">Welcome back</h1>
-            <p className="mt-1 text-sm text-navy-500">Sign in to book a service or check on your car.</p>
+            <p className="mt-1 text-sm text-navy-500">
+              {withEmail ? 'Sign in with your email and password.' : 'Sign in with your mobile number and password.'}
+            </p>
 
             <div className="mt-5 space-y-3">
               {expired && !error && (
@@ -123,20 +161,51 @@ function LoginForm() {
             </div>
 
             <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-              <Input
-                id="email"
-                label="Email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <div>
+                {withEmail ? (
+                  <Input
+                    ref={emailRef}
+                    id="email"
+                    name="email"
+                    label="Email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                ) : (
+                  <PhoneInput
+                    ref={mobileRef}
+                    id="mobileNumber"
+                    name="mobileNumber"
+                    label="Mobile number"
+                    value={mobile}
+                    onChange={(digits) => {
+                      setMobile(digits);
+                      setMobileError(undefined);
+                    }}
+                    error={mobileError}
+                    required
+                  />
+                )}
+                <Link
+                  href={switchHref}
+                  replace
+                  scroll={false}
+                  onClick={() => {
+                    switched.current = true;
+                  }}
+                  className="mt-1 inline-flex min-h-[36px] items-center text-sm font-semibold text-electric-600 hover:text-electric-700 hover:underline"
+                >
+                  {withEmail ? 'Sign in with mobile number instead' : 'Sign in with email instead'}
+                </Link>
+              </div>
 
               <div>
                 <Input
@@ -163,7 +232,7 @@ function LoginForm() {
                 />
                 <div className="mt-1 flex justify-end">
                   <Link
-                    href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+                    href={withEmail && email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
                     className="inline-flex min-h-[36px] items-center text-sm font-semibold text-electric-600 hover:text-electric-700 hover:underline"
                   >
                     Forgot password?

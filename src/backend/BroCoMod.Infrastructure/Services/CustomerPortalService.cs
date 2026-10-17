@@ -132,7 +132,17 @@ public class CustomerPortalService : ICustomerPortalService
 
         var changed = new List<string>();
         if (fullName != profile.User.FullName) changed.Add("name");
-        if (phone != profile.User.PhoneNumber) changed.Add("mobile");
+        if (phone != profile.User.PhoneNumber)
+        {
+            // Compared as numbers: re-saving an old "9876543210" in the stored format is not a new mobile.
+            var nationalNumber = IndianMobile.NationalNumber(phone)!;
+            if (nationalNumber != IndianMobile.NationalNumber(profile.User.PhoneNumber)
+                && await _context.Users.IsMobileTakenAsync(nationalNumber, new[] { profile.UserId }, cancellationToken))
+            {
+                throw new ArgumentException(IndianMobile.AlreadyRegisteredMessage);
+            }
+            changed.Add("mobile");
+        }
         if (address != profile.Address) changed.Add("address");
         if (contact != profile.PreferredContactMethod) changed.Add("preferred contact");
 

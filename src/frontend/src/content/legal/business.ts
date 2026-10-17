@@ -9,9 +9,9 @@ const OWNER_EMAIL = 'support@brocomob.com';
  * Support phone, email and WhatsApp come from NEXT_PUBLIC_SUPPORT_* (see src/lib/site.ts) when set.
  */
 export const BUSINESS = {
-  legalName: 'BRO Co Mobility Solutions',
+  legalName: 'BroCo Mobility Solutions',
   /** Shown after the name on /contact. */
-  businessType: 'Proprietorship',
+  businessType: '',
   website: 'https://brocomob.com',
 
   supportEmail: SUPPORT_EMAIL || OWNER_EMAIL,

@@ -29,7 +29,7 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
     {
         var email = $"hardening_{Guid.NewGuid():N}@brocomod.com";
         var response = await client.PostAsJsonAsync("/api/v1/auth/register",
-            new RegisterRequest(email, "Password123!", "Hardening Customer", "+91 90000 11111"));
+            new RegisterRequest(email, "Password123!", "Hardening Customer", TestMobiles.New()));
         response.EnsureSuccessStatusCode();
         return email;
     }
@@ -134,7 +134,7 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
-            $"escalate_{Guid.NewGuid():N}@brocomod.com", "Password123!", "Escalation Attempt", "+91 90000 22222", Role: role));
+            $"escalate_{Guid.NewGuid():N}@brocomod.com", "Password123!", "Escalation Attempt", TestMobiles.New(), Role: role));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -152,7 +152,7 @@ public class HardeningIntegrationTests : IClassFixture<WebApplicationFactory<Pro
 
         var email = $"newgarage_{Guid.NewGuid():N}@brocomod.com";
         var response = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
-            email, "Password123!", "New Garage Owner", "+91 90000 33333",
+            email, "Password123!", "New Garage Owner", TestMobiles.New(),
             Role: "GARAGE_OWNER", GarageName: "Brand New Motors", Address: "1 Test Road, Hyderabad",
             GarageId: existingGarageId, Latitude: 17.40, Longitude: 78.45));
 

@@ -87,7 +87,7 @@ public class ServiceMediaIntegrationTests : IClassFixture<MediaTestFactory>
     {
         var anon = _factory.CreateClient();
         var email = $"media_{Guid.NewGuid():N}@brocomod.com";
-        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Media Customer", "+91 90000 77777")))
+        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Media Customer", TestMobiles.New())))
             .EnsureSuccessStatusCode();
         return await SignedInAsync(email);
     }

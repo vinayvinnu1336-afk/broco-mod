@@ -11,7 +11,7 @@ import { BusinessValue } from '../_public/legalText';
 export const metadata: Metadata = {
   title: 'Contact us',
   description:
-    'Contact BRO Co Mobility Solutions (BroCo): customer support phone, WhatsApp and email, business address, Grievance Officer, and the cities we serve: Hyderabad, Bengaluru and Mancherial.',
+    'Contact BroCo Mobility Solutions (BroCo): customer support phone, WhatsApp and email, business address, Grievance Officer, and the cities we serve: Hyderabad, Bengaluru and Mancherial.',
 };
 
 /** 919876543210 -> +91 98765 43210 */

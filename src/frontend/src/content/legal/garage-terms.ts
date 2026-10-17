@@ -1,4 +1,4 @@
-import { LegalDoc, note, p, section } from './types';
+import { LegalDoc, p, section } from './types';
 
 /** Owner-supplied Garage Partner Terms & Conditions. Edit wording here only. */
 export const garageTerms: LegalDoc = {
@@ -189,10 +189,7 @@ export const garageTerms: LegalDoc = {
           { label: 'Email', value: '{{supportEmail}}' },
           { label: 'Phone', value: '{{supportPhone}}' },
         ],
-      },
-      note(
-        '**LEGAL REVIEW NOTICE:** This is a business-ready starting draft and should be reviewed by an Indian lawyer before signing with garage partners, especially commission, exclusivity/non-circumvention, warranty, liability, termination and dispute provisions.'
-      )
+      }
     ),
   ],
 };
