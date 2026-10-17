@@ -10,7 +10,7 @@ export const privacyPolicy: LegalDoc = {
     section(
       1,
       'Introduction',
-      p('BRO Co Mobility Solutions respects the privacy of customers and website visitors.'),
+      p('BroCo Mobility Solutions respects the privacy of customers and website visitors.'),
       p(
         'This Privacy Policy explains how we collect, use, store, share and protect personal information when customers visit our website, make a booking, communicate with us or use our vehicle-service coordination services.'
       ),

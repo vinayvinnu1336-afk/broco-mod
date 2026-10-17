@@ -54,7 +54,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
             custEmail,
             "Password123!",
             "Service Execution Customer",
-            "+91 98888 77777"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var custToken = await AuthenticateAsync(custEmail, "Password123!");
@@ -439,7 +439,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
             custBEmail,
             "Password123!",
             "Customer B",
-            "+91 99999 11111"));
+            TestMobiles.New()));
         var custBToken = await AuthenticateAsync(custBEmail, "Password123!");
         var customerBClient = CreateAuthenticatedClient(custBToken);
 

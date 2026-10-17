@@ -47,7 +47,7 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
     {
         var email = $"multi_svc_{Guid.NewGuid():N}@brocomod.com";
         (await _client.PostAsJsonAsync("/api/v1/auth/register",
-            new RegisterRequest(email, Password, "Multi Service Customer", "+91 96666 44444"))).EnsureSuccessStatusCode();
+            new RegisterRequest(email, Password, "Multi Service Customer", TestMobiles.New()))).EnsureSuccessStatusCode();
         var customer = await SignInAsync(email);
 
         var makes = await customer.GetFromJsonAsync<ApiResponse<IReadOnlyList<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);

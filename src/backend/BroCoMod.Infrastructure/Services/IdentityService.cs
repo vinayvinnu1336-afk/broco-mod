@@ -75,6 +75,12 @@ public class IdentityService : IIdentityService
             throw new InvalidOperationException(passwordProblem);
         }
 
+        // The mobile number is how people sign in, so it must lead to exactly one active account.
+        if (await _context.Users.IsMobileTakenAsync(IndianMobile.NationalNumber(phoneNumber)!, cancellationToken: cancellationToken))
+        {
+            throw new InvalidOperationException(IndianMobile.AlreadyRegisteredMessage);
+        }
+
         var role = await _context.Roles
             .FirstOrDefaultAsync(r => r.NormalizedName == requestedRoleName, cancellationToken)
             ?? throw new InvalidOperationException("Registration is temporarily unavailable. Please try again later.");
@@ -174,27 +180,72 @@ public class IdentityService : IIdentityService
         string? ipAddress = null,
         CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
-        var user = await _context.Users
+        var byMobile = !string.IsNullOrWhiteSpace(request.MobileNumber);
+        if (!byMobile && string.IsNullOrWhiteSpace(request.Email))
+        {
+            throw new UnauthorizedAccessException("Enter your mobile number or email, and your password.");
+        }
+
+        // Same wording whether the account is missing or the password is wrong, so neither reveals who is registered.
+        var invalidCredentials = byMobile ? "Invalid mobile number or password." : "Invalid email or password.";
+
+        var users = _context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r.RolePermissions)
                         .ThenInclude(rp => rp.Permission)
             .Include(u => u.CustomerProfile)
             .Include(u => u.GarageUser)
-            .Include(u => u.AdvisorProfile)
-            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
+            .Include(u => u.AdvisorProfile);
+
+        User? user;
+        if (byMobile)
+        {
+            var nationalNumber = IndianMobile.NationalNumber(request.MobileNumber);
+            var matches = nationalNumber == null
+                ? new List<User>()
+                : await users.FindByMobileAsync(nationalNumber, cancellationToken);
+            var active = matches.Where(u => u.IsActive).ToList();
+
+            if (active.Count > 1)
+            {
+                // Older accounts can share a number. Never guess which one is meant; point to email sign-in.
+                // Only someone who knows one of the passwords is told why, so the message cannot be used to
+                // find out which numbers are registered. No account is charged a failed attempt: it is unknown
+                // which one was being tried, and the rate limit still applies.
+                var knowsAPassword = active.Any(u =>
+                    !u.IsLockedOut() && _passwordHasher.VerifyPassword(request.Password, u.PasswordHash, u.Salt));
+
+                await _auditService.LogAsync(
+                    action: AuditActions.LoginFailed,
+                    details: $"Mobile sign-in refused: number ending {nationalNumber![^4..]} is shared by {active.Count} active accounts",
+                    ipAddress: ipAddress,
+                    cancellationToken: cancellationToken);
+
+                throw new UnauthorizedAccessException(knowsAPassword ? IndianMobile.SharedByAccountsMessage : invalidCredentials);
+            }
+
+            user = active.Count == 1 ? active[0] : matches.FirstOrDefault();
+        }
+        else
+        {
+            var normalizedEmail = request.Email!.Trim().ToUpperInvariant();
+            user = await users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
+        }
 
         if (user == null)
         {
+            var mobileTail = IndianMobile.NationalNumber(request.MobileNumber) is { } n ? n[^4..] : null;
             await _auditService.LogAsync(
                 action: AuditActions.LoginFailed,
-                userEmail: request.Email,
-                details: "User not found",
+                userEmail: byMobile ? null : request.Email,
+                details: byMobile
+                    ? $"User not found for mobile {(mobileTail != null ? $"ending {mobileTail}" : "(not a valid Indian mobile)")}"
+                    : "User not found",
                 ipAddress: ipAddress,
                 cancellationToken: cancellationToken);
 
-            throw new UnauthorizedAccessException("Invalid email or password.");
+            throw new UnauthorizedAccessException(invalidCredentials);
         }
 
         if (!user.IsActive)
@@ -233,11 +284,11 @@ public class IdentityService : IIdentityService
                 action: AuditActions.LoginFailed,
                 userId: user.Id,
                 userEmail: user.Email,
-                details: $"Invalid password. Failed attempts: {user.FailedLoginAttempts}",
+                details: $"Invalid password. Failed attempts: {user.FailedLoginAttempts}{(byMobile ? " (mobile sign-in)" : string.Empty)}",
                 ipAddress: ipAddress,
                 cancellationToken: cancellationToken);
 
-            throw new UnauthorizedAccessException("Invalid email or password.");
+            throw new UnauthorizedAccessException(invalidCredentials);
         }
 
         user.RecordSuccessfulLogin();
@@ -278,7 +329,7 @@ public class IdentityService : IIdentityService
             action: AuditActions.Login,
             userId: user.Id,
             userEmail: user.Email,
-            details: $"Successful login for roles: {string.Join(", ", roles)}",
+            details: $"Successful {(byMobile ? "mobile " : string.Empty)}login for roles: {string.Join(", ", roles)}",
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);
 

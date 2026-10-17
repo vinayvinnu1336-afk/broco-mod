@@ -9,6 +9,14 @@ public static class IndianMobile
 {
     public const string InvalidMessage = "Enter a valid 10-digit Indian mobile number.";
 
+    /// <summary>A mobile number signs in to one account, so a second active account may not reuse it.</summary>
+    public const string AlreadyRegisteredMessage =
+        "This mobile number is already registered. Sign in instead, or use a different number.";
+
+    /// <summary>Legacy data can have several active accounts on one number; mobile sign-in refuses to guess.</summary>
+    public const string SharedByAccountsMessage =
+        "This mobile number is linked to more than one account. Sign in with your email instead.";
+
     /// <summary>
     /// The 10-digit national number, or null when the input is not an Indian mobile. Accepts an optional
     /// +91 / 91 / 0 prefix and spaces, dashes or brackets between the digits.

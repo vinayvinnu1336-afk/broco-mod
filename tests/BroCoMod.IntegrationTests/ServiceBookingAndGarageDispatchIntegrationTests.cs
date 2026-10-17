@@ -54,7 +54,7 @@ public class ServiceBookingAndGarageDispatchIntegrationTests : IClassFixture<Web
             email,
             "Password123!",
             "Test Customer",
-            "+91 98765 43210"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var token = await AuthenticateAsync(email, "Password123!");

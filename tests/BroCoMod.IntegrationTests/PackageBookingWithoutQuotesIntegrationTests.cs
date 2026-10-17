@@ -53,7 +53,7 @@ public class PackageBookingWithoutQuotesIntegrationTests : IClassFixture<WebAppl
     {
         var anon = _factory.CreateClient();
         var email = $"noquote_{Guid.NewGuid():N}@brocomod.com";
-        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "No Quote Customer", "+91 90000 66666")))
+        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "No Quote Customer", TestMobiles.New())))
             .EnsureSuccessStatusCode();
         var customer = await SignedInAsync(email);
 

@@ -200,7 +200,7 @@ public class GeoAndPublicConfigIntegrationTests : IClassFixture<GeoTestFactory>
     {
         var anon = _factory.CreateClient();
         var email = $"geo_{Guid.NewGuid():N}@brocomod.com";
-        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Geo Customer", "+91 90000 66666")))
+        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Geo Customer", TestMobiles.New())))
             .EnsureSuccessStatusCode();
         var customer = await SignInAsync(_factory, email);
 

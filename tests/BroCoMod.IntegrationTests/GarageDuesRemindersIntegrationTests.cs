@@ -291,7 +291,7 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
     {
         var anon = _factory.CreateClient();
         var email = $"dues_cust_{Guid.NewGuid():N}@brocomod.com";
-        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, Password, "Dues Test Customer", "+91 90000 77777")))
+        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, Password, "Dues Test Customer", TestMobiles.New())))
             .EnsureSuccessStatusCode();
         return await SignedInAsync(email);
     }

@@ -128,7 +128,7 @@ public class VehicleMasterAndCustomerVehiclesIntegrationTests : IClassFixture<We
         // A fresh account: other classes book with the demo customer's vehicles while this test deletes one.
         var email = $"vehicle.crud.{Guid.NewGuid().ToString()[..8]}@brocomod.com";
         var register = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
-            email, "Password123!", "Vehicle Crud Customer", "+91 95559 97777", AppRoles.Customer));
+            email, "Password123!", "Vehicle Crud Customer", TestMobiles.New(), AppRoles.Customer));
         register.EnsureSuccessStatusCode();
         var token = await AuthenticateAsync(email, "Password123!");
         var client = CreateAuthenticatedClient(token);
@@ -378,7 +378,7 @@ public class VehicleMasterAndCustomerVehiclesIntegrationTests : IClassFixture<We
             secondCustomerEmail,
             "Password123!",
             "Second Customer",
-            "+91 95559 98888",
+            TestMobiles.New(),
             AppRoles.Customer
         ));
         regResponse.EnsureSuccessStatusCode();

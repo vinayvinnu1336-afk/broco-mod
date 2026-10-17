@@ -10,7 +10,7 @@ export const customerTerms: LegalDoc = {
     section(
       1,
       'Introduction',
-      p('Welcome to BRO Co Mobility Solutions (“BRO Co”, “we”, “our” or “us”).'),
+      p('Welcome to BroCo Mobility Solutions (“BRO Co”, “we”, “our” or “us”).'),
       p(
         'BRO Co provides a vehicle-service coordination platform that connects customers with selected garage partners for vehicle inspection, servicing, maintenance and repair-related services.'
       ),
