@@ -112,8 +112,43 @@ public record GarageProfileDto(
     double Longitude,
     double Latitude,
     bool IsActive,
-    IReadOnlyList<GarageUserDto> TeamMembers
+    IReadOnlyList<GarageUserDto> TeamMembers,
+    // Read-only for the garage: only admins verify, suspend or reactivate a garage.
+    string Status = "",
+    bool IsVerified = false,
+    DateTime? UpdatedAtUtc = null
 );
+
+/// <summary>
+/// What a garage owner or manager can change about their garage. Leave Latitude and Longitude null to keep the
+/// current workshop pin; a new pin must be inside a live service area. YourFullName (optional) renames the
+/// signed-in user, as shown in the team list.
+/// </summary>
+public record UpdateGarageProfileRequest(
+    [Required(ErrorMessage = "Enter the garage name."), StringLength(120, ErrorMessage = "Garage name must be 2 to 120 characters.")] string Name,
+    [Required(ErrorMessage = IndianMobile.InvalidMessage), IndianMobile] string PhoneNumber,
+    [Required(ErrorMessage = "Enter the garage email."), EmailAddress(ErrorMessage = "Enter a valid email address."), StringLength(200, ErrorMessage = "Email must be 200 characters or fewer.")] string Email,
+    [Required(ErrorMessage = "Enter the workshop address."), StringLength(500, ErrorMessage = "Address must be 500 characters or fewer.")] string Address,
+    double? Latitude = null,
+    double? Longitude = null,
+    [StringLength(100, ErrorMessage = "Your name must be 2 to 100 characters.")] string? YourFullName = null
+) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if ((Name ?? string.Empty).Trim().Length < 2)
+            yield return new ValidationResult("Garage name must be 2 to 120 characters.", new[] { nameof(Name) });
+        if ((Address ?? string.Empty).Trim().Length < 5)
+            yield return new ValidationResult("Enter the workshop address.", new[] { nameof(Address) });
+        if (Latitude.HasValue != Longitude.HasValue)
+            yield return new ValidationResult("Send both latitude and longitude for the workshop pin.", new[] { nameof(Latitude) });
+        else if (Latitude is { } lat && Longitude is { } lng &&
+                 (lat is < -90 or > 90 || lng is < -180 or > 180 || (lat == 0 && lng == 0)))
+            yield return new ValidationResult("The workshop pin is not a valid location.", new[] { nameof(Latitude) });
+        if (YourFullName != null && YourFullName.Trim().Length < 2)
+            yield return new ValidationResult("Your name must be 2 to 100 characters.", new[] { nameof(YourFullName) });
+    }
+}
 
 public record GarageUserDto(
     Guid UserId,

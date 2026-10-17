@@ -9,6 +9,7 @@ import { LogOut, MoreHorizontal, Plus, Sparkles, ChevronRight } from 'lucide-rea
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
 import { isDemoMode } from '@/lib/demo';
+import { LEGAL_LINKS } from '@/content/legal/business';
 
 export interface NavItem {
   label: string;
@@ -186,46 +187,49 @@ export function PortalLayout({
       <div className="mx-auto flex w-full max-w-7xl gap-6 px-4 pt-4 sm:px-6 md:pt-6 lg:px-8">
         {/* ===== Desktop sidebar ===== */}
         <aside className="hidden w-60 shrink-0 md:block lg:w-64">
-          <nav className="sticky top-24 space-y-4 rounded-2xl border border-surface-200 bg-white p-3 shadow-card" aria-label={`${portalName} navigation`}>
-            {sections.map((section, idx) => (
-              <div key={section.title ?? idx} className="space-y-0.5">
-                {section.title && (
-                  <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-navy-400">{section.title}</div>
-                )}
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = item.href === activeHref;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={active ? 'page' : undefined}
-                      className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                        active
-                          ? 'bg-electric-600 text-white shadow-sm shadow-electric-600/20'
-                          : 'text-navy-700 hover:bg-surface-100 hover:text-navy-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-navy-400'}`} />
-                        {item.label}
-                      </span>
-                      {renderBadge(item.badge, active)}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-            {primaryAction && (
-              <Link
-                href={primaryAction.href}
-                className="flex items-center justify-center gap-2 rounded-xl bg-navy-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
-              >
-                {primaryAction.icon ? <primaryAction.icon className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {primaryAction.label}
-              </Link>
-            )}
-          </nav>
+          <div className="sticky top-24 space-y-3">
+            <nav className="space-y-4 rounded-2xl border border-surface-200 bg-white p-3 shadow-card" aria-label={`${portalName} navigation`}>
+              {sections.map((section, idx) => (
+                <div key={section.title ?? idx} className="space-y-0.5">
+                  {section.title && (
+                    <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-navy-400">{section.title}</div>
+                  )}
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.href === activeHref;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                          active
+                            ? 'bg-electric-600 text-white shadow-sm shadow-electric-600/20'
+                            : 'text-navy-700 hover:bg-surface-100 hover:text-navy-900'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-navy-400'}`} />
+                          {item.label}
+                        </span>
+                        {renderBadge(item.badge, active)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+              {primaryAction && (
+                <Link
+                  href={primaryAction.href}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-navy-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+                >
+                  {primaryAction.icon ? <primaryAction.icon className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {primaryAction.label}
+                </Link>
+              )}
+            </nav>
+            <LegalLinks className="px-3" />
+          </div>
         </aside>
 
         {/* ===== Content ===== */}
@@ -345,9 +349,23 @@ export function PortalLayout({
             >
               <LogOut className="h-4 w-4" /> Sign out
             </button>
+            <LegalLinks className="justify-center text-center" onNavigate={() => setAccountOpen(false)} />
           </div>
         )}
       </Modal>
     </div>
+  );
+}
+
+/** Small policy links (sidebar on desktop, account sheet on phones). */
+function LegalLinks({ className = '', onNavigate }: { className?: string; onNavigate?: () => void }) {
+  return (
+    <nav aria-label="Legal" className={`flex flex-wrap gap-x-3 gap-y-1 text-xs text-navy-400 ${className}`}>
+      {LEGAL_LINKS.map((l) => (
+        <Link key={l.href} href={l.href} onClick={onNavigate} className="py-1 transition hover:text-navy-700 hover:underline">
+          {l.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

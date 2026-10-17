@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { forwardRef, useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Wrench } from 'lucide-react';
 import { BroCoLogo } from '@/components/brand/BroCoLogo';
@@ -90,3 +90,59 @@ export function NewPasswordInput({ value, onChange }: { value: string; onChange:
     />
   );
 }
+
+export const CONSENT_REQUIRED = 'Please tick the box to agree before you continue.';
+
+/** A policy link inside the consent label. Opens in a new tab so the half-filled form isn't lost. */
+export function PolicyLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-semibold text-electric-700 underline decoration-electric-200 underline-offset-2 hover:decoration-electric-600"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Required "I agree to ..." checkbox. Not a native `required` field, so the inline error below shows
+ * instead of the browser bubble; the form checks `checked` before submitting.
+ */
+export const LegalConsent = forwardRef<
+  HTMLInputElement,
+  { id: string; checked: boolean; onChange: (checked: boolean) => void; error?: string; children: React.ReactNode }
+>(function LegalConsent({ id, checked, onChange, error, children }, ref) {
+  const errorId = `${id}-error`;
+  return (
+    <div>
+      <div
+        className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
+          error ? 'border-red-300 bg-red-50/60' : 'border-surface-200 bg-surface-50'
+        }`}
+      >
+        <input
+          ref={ref}
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-required="true"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-surface-300 text-electric-600 focus:ring-2 focus:ring-electric-500 focus:ring-offset-1"
+        />
+        <label htmlFor={id} className="cursor-pointer text-sm leading-relaxed text-navy-700">
+          {children}
+        </label>
+      </div>
+      {error && (
+        <p id={errorId} className="mt-1.5 text-xs font-medium text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+});

@@ -70,7 +70,7 @@ export function PublicHeader() {
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname?.startsWith(href.replace(/#.*$/, '')) && !href.includes('#'));
 
   return (
-    <header className="pt-safe sticky top-0 z-40 bg-navy-950/95 text-white shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
+    <header className="pt-safe sticky top-0 z-40 print:hidden bg-navy-950/95 text-white shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-[72px] lg:px-8">
         {/* No tagline here: the hero headline already says it. */}
         <BrandMark dark />

@@ -11,7 +11,15 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Alert } from '@/components/ui/Alert';
 import { INVALID_MOBILE_MESSAGE, isValidIndianMobile, toIndianMobile } from '@/lib/phone';
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT } from '@/lib/password';
-import { NewPasswordInput, SignupShell, safeRedirect, signupErrorMessage } from './_components/signup';
+import {
+  CONSENT_REQUIRED,
+  LegalConsent,
+  NewPasswordInput,
+  PolicyLink,
+  SignupShell,
+  safeRedirect,
+  signupErrorMessage,
+} from './_components/signup';
 
 /** Car owner sign-up. Garages register on /register/garage. */
 export function CustomerSignup() {
@@ -26,6 +34,9 @@ export function CustomerSignup() {
   const [phoneError, setPhoneError] = useState<string | undefined>();
   const phoneRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [consentError, setConsentError] = useState<string | undefined>();
+  const consentRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,6 +55,11 @@ export function CustomerSignup() {
     }
     if (password.length < PASSWORD_MIN_LENGTH) {
       setError(PASSWORD_TOO_SHORT);
+      return;
+    }
+    if (!agreed) {
+      setConsentError(CONSENT_REQUIRED);
+      consentRef.current?.focus();
       return;
     }
 
@@ -132,6 +148,21 @@ export function CustomerSignup() {
           />
 
           <NewPasswordInput value={password} onChange={setPassword} />
+
+          <LegalConsent
+            ref={consentRef}
+            id="acceptTerms"
+            checked={agreed}
+            onChange={(v) => {
+              setAgreed(v);
+              if (v) setConsentError(undefined);
+            }}
+            error={consentError}
+          >
+            I agree to the <PolicyLink href="/terms">Terms &amp; Conditions</PolicyLink>,{' '}
+            <PolicyLink href="/refund-policy">Cancellation &amp; Refund Policy</PolicyLink> and{' '}
+            <PolicyLink href="/privacy">Privacy Policy</PolicyLink>
+          </LegalConsent>
 
           <Button
             type="submit"
