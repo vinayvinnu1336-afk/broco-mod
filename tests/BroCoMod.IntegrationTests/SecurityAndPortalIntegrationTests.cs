@@ -94,7 +94,7 @@ public class SecurityAndPortalIntegrationTests : IClassFixture<WebApplicationFac
             Email: uniqueEmail,
             Password: "Password123!",
             FullName: "Temporary Disabled User",
-            PhoneNumber: "+91 95551 23999",
+            PhoneNumber: TestMobiles.New(),
             Role: AppRoles.Customer
         ));
         regResponse.EnsureSuccessStatusCode();
@@ -227,7 +227,7 @@ public class SecurityAndPortalIntegrationTests : IClassFixture<WebApplicationFac
             Email: email,
             Password: password,
             FullName: "Short Password User",
-            PhoneNumber: "+91 95551 23998",
+            PhoneNumber: TestMobiles.New(),
             Role: role,
             GarageName: role == AppRoles.GarageOwner ? "Six Char Motors" : null,
             Address: role == AppRoles.GarageOwner ? "MG Road, Bengaluru 560001" : null);

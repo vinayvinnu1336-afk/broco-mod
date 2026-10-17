@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, BadgeIndianRupee, Car, Check, ChevronRight, HandCoins, MapPin, Smartphone, Store } from 'lucide-react';
+import { ArrowRight, Car, Check, ChevronRight, HandCoins, MapPin, Smartphone, Store } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,7 +24,6 @@ import {
 const BENEFITS = [
   { icon: MapPin, title: 'Jobs near your workshop', desc: 'Service requests from car owners within 10 km' },
   { icon: HandCoins, title: 'Get paid at handover', desc: 'Customers pay you directly when they collect the car' },
-  { icon: BadgeIndianRupee, title: 'Simple 10% commission', desc: 'Plus GST, only on jobs you complete through BroCo' },
   { icon: Smartphone, title: 'Free garage dashboard', desc: 'Quotes, jobs and payments on your phone' },
 ];
 

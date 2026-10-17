@@ -54,7 +54,7 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             custEmail,
             "Password123!",
             "Decision Test Customer",
-            "+91 97777 66666"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var custToken = await AuthenticateAsync(custEmail, "Password123!");
@@ -410,7 +410,7 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             custBEmail,
             "Password123!",
             "Customer Intruder B",
-            "+91 95555 44444"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
         var custBToken = await AuthenticateAsync(custBEmail, "Password123!");
         var custBClient = CreateAuthenticatedClient(custBToken);

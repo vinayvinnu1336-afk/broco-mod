@@ -54,7 +54,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
             custEmail,
             "Password123!",
             "Advisor Workflow Customer",
-            "+91 98888 77777"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var custToken = await AuthenticateAsync(custEmail, "Password123!");
@@ -380,7 +380,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         // Customer B registers
         var custBEmail = $"intruder_{Guid.NewGuid():N}@brocomod.com";
         await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
-            custBEmail, "Password123!", "Intruder Customer", "+91 91111 22222"));
+            custBEmail, "Password123!", "Intruder Customer", TestMobiles.New()));
         var custBToken = await AuthenticateAsync(custBEmail, "Password123!");
         var custBClient = CreateAuthenticatedClient(custBToken);
 

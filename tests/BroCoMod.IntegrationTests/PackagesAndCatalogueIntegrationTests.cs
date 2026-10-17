@@ -52,7 +52,7 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
     {
         var anon = _factory.CreateClient();
         var email = $"pkg_{Guid.NewGuid():N}@brocomod.com";
-        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Package Customer", "+91 90000 77777")))
+        (await anon.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(email, "Password123!", "Package Customer", TestMobiles.New())))
             .EnsureSuccessStatusCode();
         var customer = await SignedInAsync(email);
         var (makeId, modelId) = await SwiftAsync(customer);

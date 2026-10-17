@@ -10,7 +10,8 @@ interface AuthContextType {
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  /** Sign in with a mobile number (`{ mobileNumber }`) or an email (a plain string, or `{ email }`). */
+  login: (identifier: LoginIdentifier, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (payload: {
     email: string;
     password: string;
@@ -29,6 +30,8 @@ interface AuthContextType {
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
 }
+
+export type LoginIdentifier = string | { email: string } | { mobileNumber: string };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -63,12 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('broco_user', JSON.stringify(auth.user));
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: LoginIdentifier, password: string) => {
     setIsLoading(true);
     try {
+      const who = typeof identifier === 'string' ? { email: identifier } : identifier;
       const res = await apiFetch<AuthResponse>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ ...who, password }),
       });
 
       if (res.success && res.data) {

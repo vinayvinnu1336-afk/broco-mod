@@ -37,12 +37,15 @@ const ADVANCE = Math.round(QUOTE_TOTAL * 0.1);
 const state: {
   email: string;
   password: string;
+  mobile: string;
   requestNumber?: string;
   requestId?: string;
   quoteUrl?: string;
 } = {
   email: uniqueEmail('quote'),
   password: 'Quote!2026x',
+  // Each run signs up a new account, and a mobile number may belong to only one.
+  mobile: `8${String(Date.now()).slice(-9)}`,
 };
 
 /** The last button with this name: on job screens that is the one in the bottom action bar. */
@@ -66,7 +69,7 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
   await page.goto('/register');
   await page.getByLabel(/^Full name/).fill('Quote Customer');
   await page.getByLabel(/^Email/).fill(state.email);
-  await page.getByLabel(/^Mobile number/).fill('+91 90000 65432');
+  await page.getByLabel(/^Mobile number/).fill(`+91 ${state.mobile}`);
   await page.getByLabel(/^Password/).fill(state.password);
   await page.getByLabel(/^I agree to the Terms/).check();
   await page.getByRole('button', { name: /Create account/ }).click();

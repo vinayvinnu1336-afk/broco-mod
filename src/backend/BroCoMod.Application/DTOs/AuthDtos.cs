@@ -17,9 +17,15 @@ public record RegisterRequest(
     double? Longitude = null
 );
 
+/// <summary>
+/// Sign in with a password and either an Indian mobile number (the main way) or an email (staff accounts
+/// may have no mobile). Exactly one of <see cref="Email"/> and <see cref="MobileNumber"/> should be set;
+/// when both are, the mobile number is used.
+/// </summary>
 public record LoginRequest(
-    string Email,
-    string Password
+    string? Email,
+    string Password,
+    string? MobileNumber = null
 );
 
 public record AuthResponse(

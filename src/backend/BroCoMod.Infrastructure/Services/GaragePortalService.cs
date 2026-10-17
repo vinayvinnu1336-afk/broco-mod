@@ -209,7 +209,22 @@ public class GaragePortalService : IGaragePortalService
         var changed = new List<string>();
         var nameChanged = name != garage.Name;
         if (nameChanged) changed.Add("name");
-        if (phone != garage.PhoneNumber) changed.Add("phone");
+        if (phone != garage.PhoneNumber)
+        {
+            // The garage's number may be the owner's or a teammate's own mobile, but not another account's:
+            // customers and other garages sign in with theirs.
+            var nationalNumber = IndianMobile.NationalNumber(phone)!;
+            if (nationalNumber != IndianMobile.NationalNumber(garage.PhoneNumber))
+            {
+                var memberIds = await _context.GarageUsers
+                    .Where(gu => gu.GarageId == garageId)
+                    .Select(gu => gu.UserId)
+                    .ToListAsync(cancellationToken);
+                if (await _context.Users.IsMobileTakenAsync(nationalNumber, memberIds, cancellationToken))
+                    throw new ArgumentException(IndianMobile.AlreadyRegisteredMessage);
+            }
+            changed.Add("phone");
+        }
         if (!string.Equals(email, garage.Email, StringComparison.Ordinal)) changed.Add("email");
         if (address != garage.Address) changed.Add("address");
         if (locationChanged) changed.Add("workshop location");

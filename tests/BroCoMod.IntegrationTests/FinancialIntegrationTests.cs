@@ -56,7 +56,7 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
             custEmail,
             "Password123!",
             "Finance Workflow Customer",
-            "+91 96666 55555"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var custToken = await AuthenticateAsync(custEmail, "Password123!");
@@ -379,7 +379,7 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         // Register Customer B
         var custEmailB = $"isolated_cust_{Guid.NewGuid():N}@brocomod.com";
         await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest(
-            custEmailB, "Password123!", "Isolated Customer", "+91 95555 44444"));
+            custEmailB, "Password123!", "Isolated Customer", TestMobiles.New()));
         var custTokenB = await AuthenticateAsync(custEmailB, "Password123!");
         var clientB = CreateAuthenticatedClient(custTokenB);
 

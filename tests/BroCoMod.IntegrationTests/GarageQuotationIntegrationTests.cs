@@ -56,7 +56,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             email,
             "Password123!",
             "Quote Test Customer",
-            "+91 99999 88888"));
+            TestMobiles.New()));
         regResponse.EnsureSuccessStatusCode();
 
         var token = await AuthenticateAsync(email, "Password123!");

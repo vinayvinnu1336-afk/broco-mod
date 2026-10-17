@@ -765,7 +765,7 @@ export default function HomePage() {
                 Grow with BroCo
               </h2>
               <ul className="relative mt-4 space-y-2.5 text-sm text-white/85">
-                {['Bookings from car owners near you', 'Customer pays you directly at handover', 'Simple 10% commission per job', 'Free garage dashboard on your phone'].map((t) => (
+                {['Bookings from car owners near you', 'Customer pays you directly at handover', 'Free garage dashboard on your phone'].map((t) => (
                   <li key={t} className="flex items-start gap-2">
                     <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" aria-hidden /> {t}
                   </li>
