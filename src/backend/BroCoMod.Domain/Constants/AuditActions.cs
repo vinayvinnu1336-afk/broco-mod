@@ -19,6 +19,7 @@ public static class AuditActions
     public const string QuoteCreated = "QUOTE_CREATED";
     public const string QuoteUpdated = "QUOTE_UPDATED";
     public const string GarageAssigned = "GARAGE_ASSIGNED";
+    public const string GarageProfileUpdated = "GARAGE_PROFILE_UPDATED";
     public const string CustomerQuoteSent = "CUSTOMER_QUOTE_SENT";
     public const string CustomerQuoteAccepted = "CUSTOMER_QUOTE_ACCEPTED";
     public const string CustomerQuoteRejected = "CUSTOMER_QUOTE_REJECTED";

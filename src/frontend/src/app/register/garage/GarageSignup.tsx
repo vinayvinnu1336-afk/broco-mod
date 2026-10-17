@@ -12,7 +12,14 @@ import { Alert } from '@/components/ui/Alert';
 import { INVALID_MOBILE_MESSAGE, isValidIndianMobile, toIndianMobile } from '@/lib/phone';
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT } from '@/lib/password';
 import { liveCitiesLabel } from '@/components/location/serviceArea';
-import { NewPasswordInput, SignupShell, signupErrorMessage } from '../_components/signup';
+import {
+  CONSENT_REQUIRED,
+  LegalConsent,
+  NewPasswordInput,
+  PolicyLink,
+  SignupShell,
+  signupErrorMessage,
+} from '../_components/signup';
 
 const BENEFITS = [
   { icon: MapPin, title: 'Jobs near your workshop', desc: 'Service requests from car owners within 10 km' },
@@ -37,6 +44,9 @@ export function GarageSignup() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [consentError, setConsentError] = useState<string | undefined>();
+  const consentRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,6 +89,11 @@ export function GarageSignup() {
     }
     if (!garageName.trim() || !address.trim()) {
       setError('Please add your garage name and address.');
+      return;
+    }
+    if (!agreed) {
+      setConsentError(CONSENT_REQUIRED);
+      consentRef.current?.focus();
       return;
     }
 
@@ -260,6 +275,20 @@ export function GarageSignup() {
               <p className="text-xs leading-relaxed text-navy-500">
                 Your garage goes live after our team verifies it.
               </p>
+
+              <LegalConsent
+                ref={consentRef}
+                id="acceptPartnerTerms"
+                checked={agreed}
+                onChange={(v) => {
+                  setAgreed(v);
+                  if (v) setConsentError(undefined);
+                }}
+                error={consentError}
+              >
+                I agree to the <PolicyLink href="/garage-terms">Garage Partner Terms &amp; Conditions</PolicyLink> and the{' '}
+                <PolicyLink href="/privacy">Privacy Policy</PolicyLink>
+              </LegalConsent>
 
               <Button
                 type="submit"
