@@ -90,8 +90,6 @@ export interface Commission {
   balanceCollectedByGarage: number;
   commissionPercentage: number;
   commissionAmount: number;
-  taxPercentage?: number;
-  taxAmount: number;
   totalDue: number;
   status: string;
   dueAtUtc: string;

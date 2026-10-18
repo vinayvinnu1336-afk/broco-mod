@@ -17,10 +17,8 @@ export interface GarageQuoteLineItemDto {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
   itemSubtotal: number;
-  lineTax: number;
   lineTotal: number;
   sortOrder: number;
 }
@@ -34,7 +32,6 @@ export interface QuoteComparisonItemDto {
   distanceKm: number;
   subtotal: number;
   discountAmount: number;
-  taxAmount: number;
   grandTotal: number;
   estimatedDurationHours: number;
   estimatedDurationDays: number;
@@ -114,7 +111,6 @@ export interface CustomerQuotationLineItemInputDto {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
   sortOrder: number;
 }
@@ -142,7 +138,6 @@ export interface CustomerQuotationLineItemDto {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
   lineTotal: number;
   sortOrder: number;
@@ -153,7 +148,6 @@ export interface CustomerQuotationVersionDto {
   versionNumber: number;
   customerSubtotal: number;
   customerDiscount: number;
-  customerTax: number;
   customerTotal: number;
   validUntilUtc: string;
   advisorRemarks?: string;
@@ -174,7 +168,6 @@ export interface CustomerQuotationDto {
   currency: string;
   customerSubtotal: number;
   customerDiscount: number;
-  customerTax: number;
   customerTotal: number;
   validUntilUtc: string;
   status: CustomerQuotationStatus;
@@ -212,7 +205,6 @@ export interface CustomerFacingLineItemDto {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
   lineTotal: number;
   sortOrder: number;
@@ -227,7 +219,6 @@ export interface CustomerFacingQuotationDto {
   currency: string;
   customerSubtotal: number;
   customerDiscount: number;
-  customerTax: number;
   customerTotal: number;
   validUntilUtc: string;
   status: string;

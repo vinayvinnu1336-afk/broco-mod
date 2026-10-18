@@ -108,14 +108,13 @@ public class DatabaseSeeder
         await SeedVehicleMasterAsync();
         await new CatalogueSeeder(_context, _cache, _logger).SeedAsync();
 
-        // 4b. Seed Default Platform Fee Policy (10% standard fee, 18% GST)
+        // 4b. Seed Default Platform Fee Policy (10% standard fee)
         if (!await _context.PlatformFeeConfigurations.AnyAsync())
         {
             var feePolicy = new PlatformFeeConfiguration(
                 name: "Standard Automotive Commission",
                 feePercentage: 10.0m,
                 fixedFee: 0.0m,
-                taxPercentage: 18.0m,
                 isActive: true,
                 effectiveFromUtc: DateTime.UtcNow.AddYears(-1)
             );

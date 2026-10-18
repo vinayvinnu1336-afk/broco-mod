@@ -61,7 +61,7 @@ sequenceDiagram
     API->>Customer: 8. Customer receives sanitized quotation (zero garage internal costs)
     Customer->>API: 9. Accepts quotation & pays 10% booking advance online
     API->>Garage: 10. Job confirmed; customer pays the rest at the garage
-    Garage->>API: 11. Hands car over; pays BroCo 10% commission + GST
+    Garage->>API: 11. Hands car over; pays BroCo 10% commission
 ```
 
 ---

@@ -136,9 +136,9 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "OEM front brake pads and discs replacement",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Brake system overhaul labour", 1, 1200m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "Front Brake Discs Pair (OEM)", 1, 4500m, 18m, 500m, 2),
-                new(QuoteLineType.Part, "Front Brake Pads", 1, 2500m, 18m, 0m, 3)
+                new(QuoteLineType.Labour, "Brake system overhaul labour", 1, 1200m, 0m, 1),
+                new(QuoteLineType.Part, "Front Brake Discs Pair (OEM)", 1, 4500m, 500m, 2),
+                new(QuoteLineType.Part, "Front Brake Pads", 1, 2500m, 0m, 3)
             });
 
         var response = await garageClient.PostAsJsonAsync("/api/v1/garage/quotes/draft", request);
@@ -155,14 +155,49 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
         quote.LineItems.Should().HaveCount(3);
 
         // Server totals check:
-        // Item 1: Gross 1200, Disc 0, Subtotal 1200, Tax (18%) 216, LineTotal 1416
-        // Item 2: Gross 4500, Disc 500, Subtotal 4000, Tax (18%) 720, LineTotal 4720
-        // Item 3: Gross 2500, Disc 0, Subtotal 2500, Tax (18%) 450, LineTotal 2950
-        // Header: Subtotal = 8200, Disc = 500, Tax = 1386, Total = 9086
+        // Item 1: Gross 1200, Disc 0, LineTotal 1200
+        // Item 2: Gross 4500, Disc 500, LineTotal 4000
+        // Item 3: Gross 2500, Disc 0, LineTotal 2500
+        // Header: Subtotal = 8200, Disc = 500, Total = 7700 (no tax)
         quote.Subtotal.Should().Be(8200.00m);
         quote.DiscountAmount.Should().Be(500.00m);
-        quote.TaxAmount.Should().Be(1386.00m);
-        quote.TotalAmount.Should().Be(9086.00m);
+        quote.TotalAmount.Should().Be(7700.00m);
+        quote.LineItems.Select(li => li.LineTotal).Should().BeEquivalentTo(new[] { 1200m, 4000m, 2500m });
+    }
+
+    [Fact]
+    public async Task GarageQuote_HasNoTax_AndIgnoresAnyTaxRateSentByOlderClients()
+    {
+        var (_, garageRequestId) = await CreateDispatchedServiceRequestAsync();
+        var garageClient = CreateAuthenticatedClient(await AuthenticateAsync("garage.owner@centralmetro.com", "Password123!"));
+
+        // An older client may still send a per-line tax rate; it must be ignored.
+        var response = await garageClient.PostAsJsonAsync("/api/v1/garage/quotes/draft", new
+        {
+            garageRequestId,
+            currency = "INR",
+            validUntil = DateTime.UtcNow.AddDays(7),
+            lineItems = new[]
+            {
+                new { lineType = "Labour", description = "AC service labour", quantity = 1m, unitPrice = 1500m, taxRate = 18m, discountAmount = 0m, sortOrder = 1 },
+                new { lineType = "Part", description = "AC gas", quantity = 2m, unitPrice = 900m, taxRate = 28m, discountAmount = 100m, sortOrder = 2 }
+            }
+        });
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.Created, raw);
+        raw.Should().NotContainAny(new[] { "tax", "Tax", "gst", "GST" }, "quotes carry no tax at all");
+
+        var quote = JsonSerializer.Deserialize<ApiResponse<GarageQuoteDetailDto>>(raw, JsonOptions)!.Data!;
+        quote.Subtotal.Should().Be(3300m);
+        quote.DiscountAmount.Should().Be(100m);
+        quote.TotalAmount.Should().Be(3200m, "total = sum of quantity x price minus discount");
+        quote.LineItems.Select(li => li.LineTotal).Should().BeEquivalentTo(new[] { 1500m, 1700m });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var stored = await db.GarageQuotes.AsNoTracking().Include(q => q.LineItems).FirstAsync(q => q.Id == quote.Id);
+        stored.TaxAmount.Should().Be(0m);
+        stored.LineItems.Should().OnlyContain(li => li.TaxRate == 0m && li.LineTax == 0m);
     }
 
     // ==========================================
@@ -183,7 +218,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Initial assessment",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Inspection", 1, 500m, 18m, 0m)
+                new(QuoteLineType.Labour, "Inspection", 1, 500m, 0m)
             }));
         createResponse.EnsureSuccessStatusCode();
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
@@ -198,8 +233,8 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Updated diagnosis including wheel alignment",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Inspection & Calibration", 1, 800m, 18m, 0m, 1),
-                new(QuoteLineType.Service, "Computerized Wheel Alignment", 1, 1000m, 18m, 100m, 2)
+                new(QuoteLineType.Labour, "Inspection & Calibration", 1, 800m, 0m, 1),
+                new(QuoteLineType.Service, "Computerized Wheel Alignment", 1, 1000m, 100m, 2)
             }));
         var updateContent = await updateResponse.Content.ReadAsStringAsync();
         updateResponse.IsSuccessStatusCode.Should().BeTrue(because: updateContent);
@@ -211,11 +246,10 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
         updatedQuote.EstimatedCompletionDays.Should().Be(2);
         updatedQuote.LineItems.Should().HaveCount(2);
 
-        // Subtotal = 1800, Disc = 100, Taxable = 1700, Tax = 306, Total = 2006
+        // Subtotal = 1800, Disc = 100, Total = 1700 (no tax)
         updatedQuote.Subtotal.Should().Be(1800.00m);
         updatedQuote.DiscountAmount.Should().Be(100.00m);
-        updatedQuote.TaxAmount.Should().Be(306.00m);
-        updatedQuote.TotalAmount.Should().Be(2006.00m);
+        updatedQuote.TotalAmount.Should().Be(1700.00m);
     }
 
     // ==========================================
@@ -236,7 +270,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Complete suspension repair",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "Strut Assembly", 2, 3500m, 18m, 200m)
+                new(QuoteLineType.Part, "Strut Assembly", 2, 3500m, 200m)
             }));
         createResponse.EnsureSuccessStatusCode();
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
@@ -286,7 +320,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Full brake servicing",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Brake service", 1, 1500m, 18m, 0m)
+                new(QuoteLineType.Labour, "Brake service", 1, 1500m, 0m)
             }));
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
         var quoteId = createBody!.Data!.Id;
@@ -369,7 +403,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Confidential garage 1 rate",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Labour", 1, 1000m, 18m, 0m)
+                new(QuoteLineType.Labour, "Labour", 1, 1000m, 0m)
             }));
         createResponse.EnsureSuccessStatusCode();
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
@@ -434,7 +468,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Version 1 proposal",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "V1 Labour", 1, 1000m, 18m, 0m)
+                new(QuoteLineType.Labour, "V1 Labour", 1, 1000m, 0m)
             }));
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
         var quoteId = createBody!.Data!.Id;
@@ -458,8 +492,8 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             GarageRemarks: "Version 2 with premium parts",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "V2 Labour", 1, 1200m, 18m, 0m),
-                new(QuoteLineType.Part, "Premium Pads", 1, 3000m, 18m, 0m)
+                new(QuoteLineType.Labour, "V2 Labour", 1, 1200m, 0m),
+                new(QuoteLineType.Part, "Premium Pads", 1, 3000m, 0m)
             }));
         updateResponse.EnsureSuccessStatusCode();
 
@@ -487,7 +521,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             ValidUntil: DateTime.UtcNow.AddDays(7),
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "Battery", 1, 4000m, 18m, 0m)
+                new(QuoteLineType.Part, "Battery", 1, 4000m, 0m)
             }));
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
         var quoteId = createBody!.Data!.Id;
@@ -518,7 +552,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             ValidUntil: DateTime.UtcNow.AddDays(7),
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Tune-up", 1, 1000m, 18m, 0m)
+                new(QuoteLineType.Labour, "Tune-up", 1, 1000m, 0m)
             }));
         var createBody = await createResponse.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions);
         var quoteId = createBody!.Data!.Id;
@@ -556,7 +590,7 @@ public class GarageQuotationIntegrationTests : IClassFixture<WebApplicationFacto
             ValidUntil: DateTime.UtcNow.AddDays(7),
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Labour, "Admin Audit Test Labour", 1, 500m, 18m, 0m)
+                new(QuoteLineType.Labour, "Admin Audit Test Labour", 1, 500m, 0m)
             }));
 
         var adminToken = await AuthenticateAsync("admin@brocomod.com", "Password123!");

@@ -180,8 +180,8 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
             GarageRemarks: "AC gas refill and new battery.",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "AC gas refill", 1, 1800m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "Battery 35Ah", 1, 4200m, 18m, 0m, 2),
+                new(QuoteLineType.Part, "AC gas refill", 1, 1800m, 0m, 1),
+                new(QuoteLineType.Part, "Battery 35Ah", 1, 4200m, 0m, 2),
             }));
         draft.EnsureSuccessStatusCode();
         var garageQuoteId = (await draft.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions))!.Data!.Id;
@@ -198,8 +198,8 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "AC gas refill", 1, 1800m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "Battery 35Ah", 1, 4200m, 18m, 0m, 2),
+                new(QuoteLineType.Part, "AC gas refill", 1, 1800m, 0m, 1),
+                new(QuoteLineType.Part, "Battery 35Ah", 1, 4200m, 0m, 2),
             }));
         cq.EnsureSuccessStatusCode();
         var quotationId = (await cq.Content.ReadFromJsonAsync<ApiResponse<CustomerQuotationDto>>(JsonOptions))!.Data!.Id;

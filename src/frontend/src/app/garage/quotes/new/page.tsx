@@ -107,7 +107,6 @@ function NewQuoteForm() {
         description: item.description.trim(),
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
-        taxRate: Number(item.taxRate) || 0,
         discountAmount: Number(item.discountAmount) || 0,
         sortOrder: index + 1,
       })),
@@ -194,7 +193,7 @@ function NewQuoteForm() {
             onRemove={removeLineItem}
             disabled={busy}
           />
-          <TotalsSummary subtotal={totals.subtotal} discount={totals.discount} tax={totals.tax} total={totals.total} />
+          <TotalsSummary subtotal={totals.subtotal} discount={totals.discount} total={totals.total} />
         </section>
 
         <section className="space-y-3">

@@ -186,7 +186,7 @@ function GarageCommissionContent() {
     <div>
       <PageHeader
         title="BroCo commission"
-        description="What you owe BroCo for cars you've handed back: 10% of the service value plus 18% GST on it."
+        description="What you owe BroCo for cars you've handed back: 10% of the service value."
       />
 
       {loading ? (
@@ -231,7 +231,7 @@ function GarageCommissionContent() {
             <StatCard
               label="Paid this month"
               value={kpiAmount(summary?.paidThisMonth ?? 0)}
-              hint="Commission + GST"
+              hint="Commission paid"
               icon={CheckCircle2}
               tone="green"
               className="col-span-2 lg:col-span-1"
@@ -294,8 +294,7 @@ function GarageCommissionContent() {
                       meta={
                         <>
                           <span className="block">
-                            Service {formatINRWhole(c.serviceValue)} · {formatINRWhole(c.commissionAmount)} +{' '}
-                            {formatINRWhole(c.taxAmount)} GST
+                            Service {formatINRWhole(c.serviceValue)} · Commission ({pctLabel(c.commissionPercentage)})
                           </span>
                           <span className={`mt-0.5 block whitespace-nowrap ${timingClass}`}>
                             {c.status === 'Paid' && c.paidAtUtc ? `Paid ${formatDate(c.paidAtUtc)}` : timing.text}
@@ -319,7 +318,7 @@ function GarageCommissionContent() {
             <h2 className="text-base font-semibold text-navy-900">How it’s calculated</h2>
             <p className="mt-1">
               The customer pays 10% to BroCo when booking and the rest to you at handover. When you hand the car
-              back, BroCo bills you 10% of the full service value plus 18% GST. Pay within 24 hours; after 3 days
+              back, BroCo bills you 10% of the full service value. Pay within 24 hours; after 3 days
               you stop getting new jobs.
             </p>
             <div className="mt-3 rounded-xl bg-surface-50 p-3">
@@ -328,8 +327,7 @@ function GarageCommissionContent() {
                 <Row label="Customer paid BroCo online (10%)" value="₹500" />
                 <Row label="Customer paid you at the garage" value="₹4,500" />
                 <Row label="Commission (10% of ₹5,000)" value="₹500" />
-                <Row label="GST on commission (18%)" value="₹90" />
-                <Row label="You pay BroCo" value="₹590" strong />
+                <Row label="You pay BroCo" value="₹500" strong />
               </dl>
             </div>
           </section>
@@ -342,7 +340,7 @@ function GarageCommissionContent() {
             summary={
               <div className="min-w-0">
                 <div className="truncate text-xs text-navy-500">
-                  {outstandingCount} job{outstandingCount === 1 ? '' : 's'} · incl. GST
+                  {outstandingCount} job{outstandingCount === 1 ? '' : 's'} · commission
                 </div>
                 <div className="text-base font-bold tabular-nums text-navy-900">{formatINR(outstandingAmount)}</div>
               </div>
@@ -408,11 +406,10 @@ function GarageCommissionContent() {
               <Row label="Advance BroCo collected online" value={formatINR(selected.advanceCollectedByPlatform)} muted />
               <Row label="Balance you collected" value={formatINR(selected.balanceCollectedByGarage)} muted />
               <Row
-                label={`Commission (${pctLabel(selected.commissionPercentage)} of service value)`}
-                value={formatINR(selected.commissionAmount)}
+                label={`Commission (${pctLabel(selected.commissionPercentage)})`}
+                value={formatINR(selected.totalDue)}
+                strong
               />
-              <Row label={`GST on commission (${pctLabel(selected.taxPercentage)})`} value={formatINR(selected.taxAmount)} />
-              <Row label={selected.status === 'Paid' ? 'Total paid' : 'Total to pay'} value={formatINR(selected.totalDue)} strong />
             </dl>
 
             {selected.paymentReference && (

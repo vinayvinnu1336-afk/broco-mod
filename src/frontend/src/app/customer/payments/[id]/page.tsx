@@ -147,7 +147,7 @@ export default function CustomerPaymentDetailPage() {
         >
           <IconTile icon={Receipt} tone="green" />
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold text-navy-900">{advancePurposeLabel(payment.purpose) ? 'View receipt' : 'View tax invoice'}</div>
+            <div className="text-[15px] font-semibold text-navy-900">{advancePurposeLabel(payment.purpose) ? 'View receipt' : 'View invoice'}</div>
             <div className="truncate font-mono text-xs text-navy-500">{invoice.invoiceNumber}</div>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-surface-400" aria-hidden="true" />

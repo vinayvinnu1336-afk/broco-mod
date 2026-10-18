@@ -7,7 +7,6 @@ public record CustomerQuotationLineItemInputDto(
     string Description,
     decimal Quantity,
     decimal UnitPrice,
-    decimal TaxRate,
     decimal DiscountAmount,
     int SortOrder
 );
@@ -35,7 +34,6 @@ public record CustomerQuotationLineItemDto(
     string Description,
     decimal Quantity,
     decimal UnitPrice,
-    decimal TaxRate,
     decimal DiscountAmount,
     decimal LineTotal,
     int SortOrder
@@ -46,7 +44,6 @@ public record CustomerQuotationVersionDto(
     int VersionNumber,
     decimal CustomerSubtotal,
     decimal CustomerDiscount,
-    decimal CustomerTax,
     decimal CustomerTotal,
     DateTime ValidUntilUtc,
     string? AdvisorRemarks,
@@ -69,7 +66,6 @@ public record CustomerQuotationDto(
     string Currency,
     decimal CustomerSubtotal,
     decimal CustomerDiscount,
-    decimal CustomerTax,
     decimal CustomerTotal,
     DateTime ValidUntilUtc,
     string Status,
@@ -115,7 +111,6 @@ public record CustomerFacingQuotationDto(
     string Currency,
     decimal CustomerSubtotal,
     decimal CustomerDiscount,
-    decimal CustomerTax,
     decimal CustomerTotal,
     DateTime ValidUntilUtc,
     string Status,
@@ -132,7 +127,6 @@ public record CustomerFacingLineItemDto(
     string Description,
     decimal Quantity,
     decimal UnitPrice,
-    decimal TaxRate,
     decimal DiscountAmount,
     decimal LineTotal,
     int SortOrder

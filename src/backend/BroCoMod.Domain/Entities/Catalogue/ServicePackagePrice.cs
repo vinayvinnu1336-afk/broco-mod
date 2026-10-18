@@ -5,7 +5,7 @@ using BroCoMod.Domain.Enums;
 namespace BroCoMod.Domain.Entities.Catalogue;
 
 /// <summary>
-/// Customer price (GST inclusive) of a service package for one car model and fuel type.
+/// Customer price of a service package for one car model and fuel type.
 /// </summary>
 public class ServicePackagePrice : BaseEntity
 {

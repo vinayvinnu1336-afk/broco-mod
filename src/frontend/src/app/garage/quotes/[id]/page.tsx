@@ -88,7 +88,6 @@ export default function GarageQuoteDetailPage() {
         description: li.description,
         quantity: li.quantity,
         unitPrice: li.unitPrice,
-        taxRate: li.taxRate,
         discountAmount: li.discountAmount,
       }))
     );
@@ -122,7 +121,6 @@ export default function GarageQuoteDetailPage() {
         description: item.description.trim(),
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
-        taxRate: Number(item.taxRate) || 0,
         discountAmount: Number(item.discountAmount) || 0,
         sortOrder: index + 1,
       })),
@@ -353,14 +351,12 @@ export default function GarageQuoteDetailPage() {
             <TotalsSummary
               subtotal={editTotals.subtotal}
               discount={editTotals.discount}
-              tax={editTotals.tax}
               total={editTotals.total}
             />
           ) : (
             <TotalsSummary
               subtotal={quote.subtotal}
               discount={quote.discountAmount}
-              tax={quote.taxAmount}
               total={quote.totalAmount}
             />
           )}
@@ -392,8 +388,7 @@ export default function GarageQuoteDetailPage() {
                     </div>
                   </div>
                   <div className="mt-1 text-xs text-navy-500">
-                    Subtotal {formatINR(ver.subtotal)} · Discounts {formatINR(ver.discountAmount)} · GST{' '}
-                    {formatINR(ver.taxAmount)}
+                    Subtotal {formatINR(ver.subtotal)} · Discounts {formatINR(ver.discountAmount)}
                   </div>
                   {ver.garageRemarks && (
                     <p className="mt-1 text-sm text-navy-600 break-words">“{ver.garageRemarks}”</p>

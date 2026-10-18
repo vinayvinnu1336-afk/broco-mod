@@ -54,7 +54,7 @@ To ensure complete non-repudiation and prevent historical tampering:
 - Whenever a quotation is marked `ReadyToSend` or revised, a `CustomerQuotationVersion` snapshot is created.
 - The snapshot records:
   - Version number
-  - Financial figures (`CustomerSubtotal`, `CustomerDiscount`, `CustomerTax`, `CustomerTotal`)
+  - Financial figures (`CustomerSubtotal`, `CustomerDiscount`, `CustomerTotal`)
   - Scope summary and remarks
   - Serialized JSON of all line items as approved at that moment
   - Created by user ID and timestamp

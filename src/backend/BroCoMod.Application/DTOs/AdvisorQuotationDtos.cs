@@ -29,7 +29,6 @@ public record QuoteComparisonItemDto(
     double DistanceKm,
     decimal Subtotal,
     decimal DiscountAmount,
-    decimal TaxAmount,
     decimal GrandTotal,
     int EstimatedDurationHours,
     int EstimatedDurationDays,

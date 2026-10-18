@@ -4,7 +4,7 @@ using BroCoMod.Domain.Enums;
 namespace BroCoMod.Domain.Entities;
 
 /// <summary>
-/// Settlement record calculating the net payout owed to a workshop after deducting platform commission and taxes.
+/// Settlement record calculating the net payout owed to a workshop after deducting platform commission.
 /// </summary>
 public class GarageSettlement : BaseEntity
 {
@@ -40,7 +40,6 @@ public class GarageSettlement : BaseEntity
         decimal grossAmount,
         decimal platformFeePercentage,
         decimal platformFeeFixed,
-        decimal taxPercentageOnFee,
         string currency = "INR")
     {
         if (string.IsNullOrWhiteSpace(settlementNumber))
@@ -66,9 +65,8 @@ public class GarageSettlement : BaseEntity
         // Calculate fee snapshot
         var percentageFee = Math.Round(GrossAmount * (PlatformFeePercentage / 100m), 2, MidpointRounding.AwayFromZero);
         PlatformFeeAmount = percentageFee + PlatformFeeFixed;
-        var taxRate = Math.Max(0m, taxPercentageOnFee);
-        TaxOnPlatformFee = Math.Round(PlatformFeeAmount * (taxRate / 100m), 2, MidpointRounding.AwayFromZero);
-        TotalPlatformFee = PlatformFeeAmount + TaxOnPlatformFee;
+        TaxOnPlatformFee = 0m; // legacy column; no tax is charged on the fee
+        TotalPlatformFee = PlatformFeeAmount;
         NetPayableToGarage = Math.Max(0m, GrossAmount - TotalPlatformFee);
         Status = SettlementStatus.Pending;
     }

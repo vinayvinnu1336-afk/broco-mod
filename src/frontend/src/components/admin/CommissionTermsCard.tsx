@@ -10,16 +10,14 @@ import { useToast } from '@/components/ui/Toast';
 
 interface CommissionTerms {
   commissionPercentage: number;
-  gstPercentage: number;
   bookingAdvancePercentage: number;
 }
 
-/** Garage commission % and GST %, editable by the super admin. Applies to jobs handed over from now on. */
+/** Garage commission %, editable by the super admin. Applies to jobs handed over from now on. */
 export function CommissionTermsCard() {
   const toast = useToast();
   const [terms, setTerms] = useState<CommissionTerms | null>(null);
   const [commission, setCommission] = useState('');
-  const [gst, setGst] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +26,6 @@ export function CommissionTermsCard() {
       if (res.success && res.data) {
         setTerms(res.data);
         setCommission(String(res.data.commissionPercentage));
-        setGst(String(res.data.gstPercentage));
       } else {
         setError(res.message || 'Could not load commission terms.');
       }
@@ -36,19 +33,17 @@ export function CommissionTermsCard() {
   }, []);
 
   const c = Number(commission);
-  const g = Number(gst);
-  const valid = commission !== '' && gst !== '' && c >= 0 && c <= 50 && g >= 0 && g <= 28;
-  const changed = terms && (c !== terms.commissionPercentage || g !== terms.gstPercentage);
+  const valid = commission !== '' && c >= 0 && c <= 50;
+  const changed = terms && c !== terms.commissionPercentage;
   const example = 5000;
   const exampleCommission = (example * (valid ? c : 0)) / 100;
-  const exampleGst = (exampleCommission * (valid ? g : 0)) / 100;
 
   const save = async () => {
     if (!valid) return;
     setSaving(true);
     const res = await apiFetch<CommissionTerms>('/admin/settings/commission', {
       method: 'PUT',
-      body: JSON.stringify({ commissionPercentage: c, gstPercentage: g }),
+      body: JSON.stringify({ commissionPercentage: c }),
     });
     setSaving(false);
     if (res.success && res.data) {
@@ -78,7 +73,7 @@ export function CommissionTermsCard() {
         <p className="mt-4 rounded-lg bg-semantic-errorBg px-3 py-2 text-sm text-semantic-error">{error}</p>
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 sm:max-w-xs">
             <Input
               label="Commission %"
               type="number"
@@ -90,23 +85,12 @@ export function CommissionTermsCard() {
               onChange={(e) => setCommission(e.target.value)}
               disabled={!terms}
             />
-            <Input
-              label="GST on commission %"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={28}
-              step="0.5"
-              value={gst}
-              onChange={(e) => setGst(e.target.value)}
-              disabled={!terms}
-            />
           </div>
           <p className="mt-3 text-sm text-surface-500">
-            Example: a {formatINRWhole(example)} service → garage pays {formatINRWhole(exampleCommission)} + {formatINRWhole(exampleGst)} GST ={' '}
-            <span className="font-semibold text-navy-900">{formatINRWhole(exampleCommission + exampleGst)}</span>
+            Example: a {formatINRWhole(example)} service → garage pays{' '}
+            <span className="font-semibold text-navy-900">{formatINRWhole(exampleCommission)}</span>
           </p>
-          {!valid && terms && <p className="mt-1 text-sm text-semantic-error">Commission must be 0–50% and GST 0–28%.</p>}
+          {!valid && terms && <p className="mt-1 text-sm text-semantic-error">Commission must be 0–50%.</p>}
           <div className="mt-4 flex justify-end">
             <Button onClick={save} disabled={!valid || !changed || saving} isLoading={saving}>
               Save

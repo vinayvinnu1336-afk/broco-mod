@@ -113,7 +113,6 @@ export interface AdminReceivedQuote {
   garageId: string;
   garageName: string;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   currency: string;

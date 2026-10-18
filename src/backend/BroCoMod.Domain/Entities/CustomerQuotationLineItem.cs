@@ -14,7 +14,8 @@ public class CustomerQuotationLineItem : BaseEntity
     public string Description { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; } = 1.0m;
     public decimal UnitPrice { get; private set; } = 0.0m;
-    public decimal TaxRate { get; private set; } = 18.0m; // Default standard GST
+    // Legacy column; quotations carry no tax, so it holds 0.
+    public decimal TaxRate { get; private set; }
     public decimal DiscountAmount { get; private set; } = 0.0m;
     public decimal LineTotal { get; private set; } = 0.0m;
     public int SortOrder { get; private set; } = 0;
@@ -30,7 +31,6 @@ public class CustomerQuotationLineItem : BaseEntity
         string description,
         decimal quantity,
         decimal unitPrice,
-        decimal taxRate = 18.0m,
         decimal discountAmount = 0.0m,
         int sortOrder = 0)
     {
@@ -50,7 +50,6 @@ public class CustomerQuotationLineItem : BaseEntity
         Description = description.Trim();
         Quantity = quantity;
         UnitPrice = unitPrice;
-        TaxRate = Math.Max(0m, taxRate);
         DiscountAmount = discountAmount;
         SortOrder = sortOrder;
 
@@ -62,7 +61,6 @@ public class CustomerQuotationLineItem : BaseEntity
         string description,
         decimal quantity,
         decimal unitPrice,
-        decimal taxRate,
         decimal discountAmount,
         int sortOrder)
     {
@@ -79,7 +77,6 @@ public class CustomerQuotationLineItem : BaseEntity
         Description = description.Trim();
         Quantity = quantity;
         UnitPrice = unitPrice;
-        TaxRate = Math.Max(0m, taxRate);
         DiscountAmount = discountAmount;
         SortOrder = sortOrder;
         UpdatedAtUtc = DateTime.UtcNow;
@@ -89,6 +86,7 @@ public class CustomerQuotationLineItem : BaseEntity
 
     public void RecalculateLineTotal()
     {
+        TaxRate = 0m;
         var rawTotal = (Quantity * UnitPrice) - DiscountAmount;
         LineTotal = Math.Max(0m, decimal.Round(rawTotal, 2, MidpointRounding.AwayFromZero));
     }

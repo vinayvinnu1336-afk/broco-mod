@@ -462,7 +462,6 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
                   <TableHead>Job</TableHead>
                   <TableHead className="text-right">
                     Amount
-                    <span className="block text-[10px] font-medium normal-case tracking-normal">incl. GST</span>
                   </TableHead>
                   <TableHead>Due</TableHead>
                   <TableHead>Reminders</TableHead>
@@ -565,7 +564,7 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-base font-bold tabular-nums text-navy-900">{formatINR(c.totalDue)}</div>
-                          <div className="text-[11px] text-navy-400">incl. GST</div>
+                          <div className="text-[11px] text-navy-400">Commission</div>
                         </div>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">

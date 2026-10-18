@@ -123,8 +123,8 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
             GarageRemarks: "Brake service estimate",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "Front Brake Pads", 1, 3000m, 18m, 0m, 1),
-                new(QuoteLineType.Labour, "Installation", 1, 1000m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "Front Brake Pads", 1, 3000m, 0m, 1),
+                new(QuoteLineType.Labour, "Installation", 1, 1000m, 0m, 2)
             }
         ));
         draftResponse.EnsureSuccessStatusCode();
@@ -153,8 +153,8 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
                 Currency: "INR",
                 LineItems: new List<CustomerQuotationLineItemInputDto>
                 {
-                    new(QuoteLineType.Part, "Front Brake Pads OEM", 1, 3000m, 18m, 0m, 1),
-                    new(QuoteLineType.Labour, "Installation & Inspection", 1, 1000m, 18m, 0m, 2)
+                    new(QuoteLineType.Part, "Front Brake Pads OEM", 1, 3000m, 0m, 1),
+                    new(QuoteLineType.Labour, "Installation & Inspection", 1, 1000m, 0m, 2)
                 }
             ));
         cqDraftResponse.EnsureSuccessStatusCode();

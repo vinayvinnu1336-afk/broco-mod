@@ -125,9 +125,9 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
             GarageRemarks: "Full synthetic oil and filter replacement.",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 3500m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 600m, 18m, 0m, 2),
-                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1000m, 18m, 0m, 3)
+                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 3500m, 0m, 1),
+                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 600m, 0m, 2),
+                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1000m, 0m, 3)
             }
         );
 
@@ -156,9 +156,9 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 3500m, 18m, 0m, 1),
-                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 600m, 18m, 0m, 2),
-                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1000m, 18m, 0m, 3)
+                new(QuoteLineType.Part, "Synthetic 5W-40 Engine Oil 4L", 1, 3500m, 0m, 1),
+                new(QuoteLineType.Part, "OEM Oil Filter Element", 1, 600m, 0m, 2),
+                new(QuoteLineType.Labour, "Periodic Maintenance Labour", 1, 1000m, 0m, 3)
             }
         );
 
@@ -412,12 +412,15 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         var job = await db.ServiceJobs.AsNoTracking().FirstAsync(j => j.CustomerQuotationId == customerQuotationId);
         var commission = await scope.ServiceProvider.GetRequiredService<ICommissionService>().CreateForJobAsync(job.Id);
 
-        // 10% of the service value + 18% GST on it; the advance is netted off what the garage collected.
+        // 10% of the service value and nothing added on top; the advance is netted off what the garage collected.
         commission!.GarageId.Should().Be(garageId);
         commission.ServiceValue.Should().Be(total);
         commission.CommissionAmount.Should().Be(Math.Round(total * 0.10m, 2, MidpointRounding.AwayFromZero));
-        commission.TaxAmount.Should().Be(Math.Round(commission.CommissionAmount * 0.18m, 2, MidpointRounding.AwayFromZero));
-        commission.TotalDue.Should().Be(commission.CommissionAmount + commission.TaxAmount);
+        commission.TotalDue.Should().Be(commission.CommissionAmount);
+        var stored = await db.GarageCommissions.AsNoTracking().FirstAsync(c => c.Id == commission.Id);
+        stored.TaxAmount.Should().Be(0m);
+        stored.TaxPercentage.Should().Be(0m);
+        stored.TotalDue.Should().Be(Math.Round(total * 0.10m, 2, MidpointRounding.AwayFromZero));
         commission.BalanceCollectedByGarage.Should().Be(total - commission.AdvanceCollectedByPlatform);
         commission.Status.Should().Be("Due");
 
@@ -440,6 +443,12 @@ public class FinancialIntegrationTests : IClassFixture<WebApplicationFactory<Pro
         verifyCommission.EnsureSuccessStatusCode();
         var paidList = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
         paidList!.Data!.Single(c => c.Id == commission.Id).Status.Should().Be("Paid");
+        // Commission ledger: Dr PLATFORM_CASH / Cr PLATFORM_COMMISSION for the full amount, nothing else.
+        var ledger = await db.FinancialLedgerEntries.AsNoTracking()
+            .Where(e => e.TransactionReference == $"TXN-{commission.CommissionNumber}").ToListAsync();
+        ledger.Select(e => e.AccountType).Should().BeEquivalentTo(new[] { "PLATFORM_CASH", "PLATFORM_COMMISSION" });
+        ledger.Sum(e => e.DebitAmount).Should().Be(commission.TotalDue);
+        ledger.Sum(e => e.CreditAmount).Should().Be(commission.TotalDue);
 
         // Completing the second checkout too settles nothing, so it is flagged for a refund instead of vanishing.
         var verifySecond = await garageClient.PostAsJsonAsync("/api/v1/garage/commission/verify",

@@ -32,7 +32,7 @@ export function CommissionSummaryCard({ portal = 'admin', title = 'Garage commis
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-navy-900">{title}</h2>
-          <p className="truncate text-xs text-navy-500">Commission + GST garages owe BroCo after each job</p>
+          <p className="truncate text-xs text-navy-500">Commission garages owe BroCo after each job</p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-surface-400" aria-hidden="true" />
       </div>
