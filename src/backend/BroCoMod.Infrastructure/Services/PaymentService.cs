@@ -764,7 +764,7 @@ public class PaymentService : IPaymentService
                 await _notificationService.SendInAppNotificationAsync(
                     userId: actorUserId,
                     title: "Payment Received",
-                    message: $"We received your payment {payment.PaymentNumber} for ₹{payment.Amount:N2}. Your tax invoice is ready.",
+                    message: $"We received your payment {payment.PaymentNumber} for ₹{payment.Amount:N2}. Your invoice is ready.",
                     type: "PAYMENT_RECEIVED",
                     referenceId: payment.Id,
                     referenceType: nameof(Payment),

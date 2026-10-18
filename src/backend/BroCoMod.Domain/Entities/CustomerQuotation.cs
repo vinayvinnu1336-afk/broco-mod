@@ -5,7 +5,7 @@ namespace BroCoMod.Domain.Entities;
 
 /// <summary>
 /// Sanitized, customer-facing commercial quotation curated by a Technical Advisor.
-/// Contains strictly customer-visible line items, pricing, discounts, and taxes.
+/// Contains strictly customer-visible line items, pricing and discounts.
 /// CRITICAL: Internal garage wholesale prices, cost breakdowns, and advisor notes are strictly omitted.
 /// </summary>
 public class CustomerQuotation : BaseEntity
@@ -140,31 +140,16 @@ public class CustomerQuotation : BaseEntity
     public void RecalculateTotals()
     {
         decimal subtotal = 0.0m;
-        decimal tax = 0.0m;
 
         foreach (var item in LineItems)
         {
             item.RecalculateLineTotal();
             subtotal += item.LineTotal;
-            if (item.TaxRate > 0)
-            {
-                var itemTax = (item.LineTotal * item.TaxRate) / 100m;
-                tax += itemTax;
-            }
         }
 
         CustomerSubtotal = decimal.Round(subtotal, 2, MidpointRounding.AwayFromZero);
-        var taxableAfterDiscount = Math.Max(0m, CustomerSubtotal - CustomerDiscount);
-        
-        // If tax was calculated per line item, scale tax if overall discount applied
-        if (CustomerSubtotal > 0 && CustomerDiscount > 0)
-        {
-            var discountRatio = taxableAfterDiscount / CustomerSubtotal;
-            tax *= discountRatio;
-        }
-
-        CustomerTax = decimal.Round(tax, 2, MidpointRounding.AwayFromZero);
-        CustomerTotal = decimal.Round(taxableAfterDiscount + CustomerTax, 2, MidpointRounding.AwayFromZero);
+        CustomerTax = 0m; // legacy column; quotations carry no tax
+        CustomerTotal = Math.Max(0m, CustomerSubtotal - CustomerDiscount);
         CustomerFacingPrice = CustomerTotal;
         UpdatedAtUtc = DateTime.UtcNow;
     }

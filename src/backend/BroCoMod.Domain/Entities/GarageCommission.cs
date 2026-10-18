@@ -6,7 +6,7 @@ namespace BroCoMod.Domain.Entities;
 /// <summary>
 /// Commission a garage owes BroCo once a job is handed over. The customer pays the garage
 /// directly for the service (minus the booking advance BroCo already collected); the garage
-/// then pays BroCo its commission plus GST.
+/// then pays BroCo its commission.
 /// </summary>
 public class GarageCommission : BaseEntity
 {
@@ -21,6 +21,7 @@ public class GarageCommission : BaseEntity
     public decimal BalanceCollectedByGarage { get; private set; }
     public decimal CommissionPercentage { get; private set; }
     public decimal CommissionAmount { get; private set; }
+    // Legacy columns kept so old rows stay readable; no tax is charged, so new rows hold 0.
     public decimal TaxPercentage { get; private set; }
     public decimal TaxAmount { get; private set; }
     public decimal TotalDue { get; private set; }
@@ -51,7 +52,6 @@ public class GarageCommission : BaseEntity
         decimal serviceValue,
         decimal advanceCollectedByPlatform,
         decimal commissionPercentage,
-        decimal taxPercentage,
         DateTime dueAtUtc,
         string currency = "INR")
     {
@@ -70,9 +70,9 @@ public class GarageCommission : BaseEntity
         BalanceCollectedByGarage = Math.Max(0m, ServiceValue - AdvanceCollectedByPlatform);
         CommissionPercentage = commissionPercentage;
         CommissionAmount = decimal.Round(ServiceValue * commissionPercentage / 100m, 2, MidpointRounding.AwayFromZero);
-        TaxPercentage = taxPercentage;
-        TaxAmount = decimal.Round(CommissionAmount * taxPercentage / 100m, 2, MidpointRounding.AwayFromZero);
-        TotalDue = CommissionAmount + TaxAmount;
+        TaxPercentage = 0m;
+        TaxAmount = 0m;
+        TotalDue = CommissionAmount;
         DueAtUtc = DateTime.SpecifyKind(dueAtUtc, DateTimeKind.Utc);
         Status = TotalDue > 0 ? GarageCommissionStatus.Due : GarageCommissionStatus.Paid;
         if (Status == GarageCommissionStatus.Paid) PaidAtUtc = DateTime.UtcNow;

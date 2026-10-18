@@ -11,7 +11,8 @@ public class PlatformFeeConfiguration : BaseEntity
     public string Name { get; private set; } = string.Empty;
     public decimal FeePercentage { get; private set; }
     public decimal FixedFee { get; private set; }
-    public decimal TaxPercentage { get; private set; } = 18.0m; // Default GST on service commission
+    // Legacy column; no tax is charged, so it always holds 0.
+    public decimal TaxPercentage { get; private set; }
     public bool IsActive { get; private set; } = true;
     public DateTime EffectiveFromUtc { get; private set; } = DateTime.UtcNow;
     public DateTime? EffectiveToUtc { get; private set; }
@@ -22,7 +23,6 @@ public class PlatformFeeConfiguration : BaseEntity
         string name,
         decimal feePercentage,
         decimal fixedFee = 0.0m,
-        decimal taxPercentage = 18.0m,
         bool isActive = true,
         DateTime? effectiveFromUtc = null,
         DateTime? effectiveToUtc = null)
@@ -33,7 +33,7 @@ public class PlatformFeeConfiguration : BaseEntity
         Name = name.Trim();
         FeePercentage = Math.Max(0m, feePercentage);
         FixedFee = Math.Max(0m, fixedFee);
-        TaxPercentage = Math.Max(0m, taxPercentage);
+        TaxPercentage = 0m;
         IsActive = isActive;
         EffectiveFromUtc = effectiveFromUtc ?? DateTime.UtcNow;
         EffectiveToUtc = effectiveToUtc;
@@ -45,10 +45,10 @@ public class PlatformFeeConfiguration : BaseEntity
         EffectiveToUtc = DateTime.UtcNow;
     }
 
-    public void UpdateTerms(decimal feePercentage, decimal fixedFee, decimal taxPercentage)
+    public void UpdateTerms(decimal feePercentage, decimal fixedFee)
     {
         FeePercentage = Math.Max(0m, feePercentage);
         FixedFee = Math.Max(0m, fixedFee);
-        TaxPercentage = Math.Max(0m, taxPercentage);
+        TaxPercentage = 0m;
     }
 }

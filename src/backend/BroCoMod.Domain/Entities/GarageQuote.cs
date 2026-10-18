@@ -125,7 +125,6 @@ public class GarageQuote : BaseEntity
         string description,
         decimal quantity,
         decimal unitPrice,
-        decimal taxRate = 0m,
         decimal discountAmount = 0m,
         int sortOrder = 0)
     {
@@ -137,7 +136,6 @@ public class GarageQuote : BaseEntity
             description,
             quantity,
             unitPrice,
-            taxRate,
             discountAmount,
             sortOrder);
 
@@ -160,23 +158,18 @@ public class GarageQuote : BaseEntity
     {
         decimal grossSum = 0m;
         decimal discountSum = 0m;
-        decimal taxSum = 0m;
 
         foreach (var item in LineItems)
         {
             var gross = Math.Round(item.Quantity * item.UnitPrice, 2);
             grossSum += gross;
             discountSum += item.DiscountAmount;
-
-            var taxable = gross - item.DiscountAmount;
-            var tax = Math.Round(taxable * (item.TaxRate / 100m), 2);
-            taxSum += tax;
         }
 
         Subtotal = grossSum;
         DiscountAmount = discountSum;
-        TaxAmount = taxSum;
-        TotalAmount = Math.Round(grossSum - discountSum + taxSum, 2);
+        TaxAmount = 0m; // legacy column; quotes carry no tax
+        TotalAmount = Math.Round(grossSum - discountSum, 2);
     }
 
     public void UpdateDraft(
@@ -252,10 +245,8 @@ public class GarageQuote : BaseEntity
             li.Description,
             li.Quantity,
             li.UnitPrice,
-            li.TaxRate,
             li.DiscountAmount,
             li.ItemSubtotal,
-            li.LineTax,
             li.LineTotal,
             li.SortOrder
         }).ToList();
@@ -264,7 +255,6 @@ public class GarageQuote : BaseEntity
             garageQuoteId: Id,
             versionNumber: VersionNumber,
             subtotal: Subtotal,
-            taxAmount: TaxAmount,
             discountAmount: DiscountAmount,
             totalAmount: TotalAmount,
             estimatedCompletionDays: EstimatedCompletionDays,

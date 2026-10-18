@@ -4,7 +4,7 @@ using BroCoMod.Domain.Enums;
 namespace BroCoMod.Domain.Entities;
 
 /// <summary>
-/// Immutable, server-authoritative tax invoice generated for successful customer payments.
+/// Immutable, server-authoritative invoice generated for successful customer payments.
 /// Invoices represent finalized legal accounting documents. Changes require credit notes or voiding.
 /// </summary>
 public class Invoice : BaseEntity
@@ -19,6 +19,7 @@ public class Invoice : BaseEntity
     public InvoiceStatus Status { get; private set; } = InvoiceStatus.Draft;
     public decimal Subtotal { get; private set; }
     public decimal DiscountAmount { get; private set; }
+    // Legacy column; BroCo charges no tax, so it holds 0.
     public decimal TaxAmount { get; private set; }
     public decimal TotalAmount { get; private set; }
     public string Currency { get; private set; } = "INR";
@@ -47,7 +48,6 @@ public class Invoice : BaseEntity
         Guid? garageId,
         decimal subtotal,
         decimal discountAmount,
-        decimal taxAmount,
         decimal totalAmount,
         string billingName,
         string billingEmail,
@@ -75,7 +75,7 @@ public class Invoice : BaseEntity
         GarageId = garageId == Guid.Empty ? null : garageId;
         Subtotal = Math.Max(0m, subtotal);
         DiscountAmount = Math.Max(0m, discountAmount);
-        TaxAmount = Math.Max(0m, taxAmount);
+        TaxAmount = 0m;
         TotalAmount = Math.Max(0m, totalAmount);
         BillingName = billingName.Trim();
         BillingEmail = billingEmail.Trim();

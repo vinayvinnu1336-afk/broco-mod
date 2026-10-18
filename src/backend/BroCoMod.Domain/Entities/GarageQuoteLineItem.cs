@@ -14,6 +14,7 @@ public class GarageQuoteLineItem : BaseEntity
     public string Description { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; }
     public decimal UnitPrice { get; private set; }
+    // Legacy columns (TaxRate, LineTax); quotes carry no tax, so they hold 0.
     public decimal TaxRate { get; private set; }
     public decimal DiscountAmount { get; private set; }
     public decimal ItemSubtotal { get; private set; }
@@ -32,7 +33,6 @@ public class GarageQuoteLineItem : BaseEntity
         string description,
         decimal quantity,
         decimal unitPrice,
-        decimal taxRate = 0m,
         decimal discountAmount = 0m,
         int sortOrder = 0)
     {
@@ -40,7 +40,6 @@ public class GarageQuoteLineItem : BaseEntity
         if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description is required.", nameof(description));
         if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
         if (unitPrice < 0) throw new ArgumentOutOfRangeException(nameof(unitPrice), "UnitPrice cannot be negative.");
-        if (taxRate < 0) throw new ArgumentOutOfRangeException(nameof(taxRate), "TaxRate cannot be negative.");
         if (discountAmount < 0) throw new ArgumentOutOfRangeException(nameof(discountAmount), "DiscountAmount cannot be negative.");
 
         var grossAmount = quantity * unitPrice;
@@ -54,7 +53,6 @@ public class GarageQuoteLineItem : BaseEntity
         Description = description.Trim();
         Quantity = Math.Round(quantity, 2);
         UnitPrice = Math.Round(unitPrice, 2);
-        TaxRate = Math.Round(taxRate, 2);
         DiscountAmount = Math.Round(discountAmount, 2);
         SortOrder = sortOrder;
 
@@ -66,14 +64,12 @@ public class GarageQuoteLineItem : BaseEntity
         string description,
         decimal quantity,
         decimal unitPrice,
-        decimal taxRate,
         decimal discountAmount,
         int sortOrder)
     {
         if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description is required.", nameof(description));
         if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
         if (unitPrice < 0) throw new ArgumentOutOfRangeException(nameof(unitPrice), "UnitPrice cannot be negative.");
-        if (taxRate < 0) throw new ArgumentOutOfRangeException(nameof(taxRate), "TaxRate cannot be negative.");
         if (discountAmount < 0) throw new ArgumentOutOfRangeException(nameof(discountAmount), "DiscountAmount cannot be negative.");
 
         var grossAmount = quantity * unitPrice;
@@ -86,7 +82,6 @@ public class GarageQuoteLineItem : BaseEntity
         Description = description.Trim();
         Quantity = Math.Round(quantity, 2);
         UnitPrice = Math.Round(unitPrice, 2);
-        TaxRate = Math.Round(taxRate, 2);
         DiscountAmount = Math.Round(discountAmount, 2);
         SortOrder = sortOrder;
         UpdatedAtUtc = DateTime.UtcNow;
@@ -97,7 +92,8 @@ public class GarageQuoteLineItem : BaseEntity
     private void CalculateLineTotal()
     {
         ItemSubtotal = Math.Round((Quantity * UnitPrice) - DiscountAmount, 2);
-        LineTax = Math.Round(ItemSubtotal * (TaxRate / 100m), 2);
-        LineTotal = Math.Round(ItemSubtotal + LineTax, 2);
+        TaxRate = 0m;
+        LineTax = 0m;
+        LineTotal = ItemSubtotal;
     }
 }

@@ -26,12 +26,12 @@ test.describe.configure({ mode: 'serial' });
 const CAR = { brand: 'Maruti Suzuki', model: 'Swift', fuel: 'Petrol' };
 const SERVICE = 'AC Service & Repair';
 const GARAGE = 'Central Metro Motors';
-// Garage quote: two lines at 18% GST.
+// Garage quote: two lines, no tax (total = sum of the lines).
 const ITEMS = [
   { type: 'Part', description: 'AC gas refill (R134a)', price: 1800 },
   { type: 'Labour', description: 'AC service and leak test', price: 1200 },
 ];
-const QUOTE_TOTAL = paise(ITEMS.reduce((sum, i) => sum + i.price, 0) * 1.18);
+const QUOTE_TOTAL = paise(ITEMS.reduce((sum, i) => sum + i.price, 0));
 const ADVANCE = Math.round(QUOTE_TOTAL * 0.1);
 
 const state: {
@@ -130,7 +130,7 @@ test('2. garage sends a quote', async ({ browser }) => {
     if (i > 0) await page.getByRole('button', { name: 'Add item' }).click();
     await page.getByRole('radiogroup', { name: `Item ${i + 1} type` }).getByRole('radio', { name: item.type }).click();
     await page.getByLabel(/^Description/).nth(i).fill(item.description);
-    await page.getByLabel(/^Unit price/).nth(i).fill(String(item.price));
+    await page.getByLabel(/^Price/).nth(i).fill(String(item.price));
   }
   await expect(page.getByText(inr(QUOTE_TOTAL, 2)).first()).toBeVisible();
   await checkLayout(page, 'garage quote builder');

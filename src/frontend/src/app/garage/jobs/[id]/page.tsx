@@ -581,8 +581,7 @@ export default function GarageJobDetailPage() {
                       }`}
                     >
                       <span>
-                        BroCo commission <strong className="tabular-nums">{formatINR(commission.totalDue)}</strong> (incl.
-                        GST) is {commission.isOverdue ? 'overdue' : 'now due'} — pay from Commission.
+                        BroCo commission <strong className="tabular-nums">{formatINR(commission.totalDue)}</strong> is {commission.isOverdue ? 'overdue' : 'now due'} — pay from Commission.
                       </span>
                       <Link
                         href="/garage/commission"

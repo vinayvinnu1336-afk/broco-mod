@@ -30,7 +30,6 @@ public class CustomerQuotationVersion : BaseEntity
         int versionNumber,
         decimal customerSubtotal,
         decimal customerDiscount,
-        decimal customerTax,
         decimal customerTotal,
         DateTime validUntilUtc,
         string? advisorRemarks,
@@ -49,7 +48,7 @@ public class CustomerQuotationVersion : BaseEntity
         VersionNumber = versionNumber;
         CustomerSubtotal = customerSubtotal;
         CustomerDiscount = customerDiscount;
-        CustomerTax = customerTax;
+        CustomerTax = 0m; // legacy column; quotations carry no tax
         CustomerTotal = customerTotal;
         ValidUntilUtc = DateTime.SpecifyKind(validUntilUtc, DateTimeKind.Utc);
         AdvisorRemarks = advisorRemarks?.Trim();

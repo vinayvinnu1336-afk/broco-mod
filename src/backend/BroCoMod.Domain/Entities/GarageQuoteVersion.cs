@@ -31,7 +31,6 @@ public class GarageQuoteVersion : BaseEntity
         Guid garageQuoteId,
         int versionNumber,
         decimal subtotal,
-        decimal taxAmount,
         decimal discountAmount,
         decimal totalAmount,
         int? estimatedCompletionDays,
@@ -48,7 +47,7 @@ public class GarageQuoteVersion : BaseEntity
         GarageQuoteId = garageQuoteId;
         VersionNumber = versionNumber;
         Subtotal = Math.Round(subtotal, 2);
-        TaxAmount = Math.Round(taxAmount, 2);
+        TaxAmount = 0m; // legacy column; quotes carry no tax
         DiscountAmount = Math.Round(discountAmount, 2);
         TotalAmount = Math.Round(totalAmount, 2);
         EstimatedCompletionDays = estimatedCompletionDays;

@@ -175,7 +175,7 @@ export default function AdminCommissionsPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Commissions"
-        description="Garages owe BroCo a commission plus GST on each job's service value after handing the car back. Chase unpaid dues and record payments."
+        description="Garages owe BroCo a commission on each job's service value after handing the car back. Chase unpaid dues and record payments."
       />
 
       <GarageDuesBoard portal="admin" onSelect={open} reloadToken={reloadToken} />

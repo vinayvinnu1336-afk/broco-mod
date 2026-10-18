@@ -154,7 +154,7 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
         var garage = await SignedInAsync("garage.owner@centralmetro.com");
         var draft = await garage.PostAsJsonAsync("/api/v1/garage/quotes/draft", new CreateGarageQuoteRequest(
             garageRequestId, "INR", 4, 1, DateTime.UtcNow.AddDays(7), "Clutch plate replacement",
-            new List<CreateQuoteLineItemRequest> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 18m, 0m, 1) }));
+            new List<CreateQuoteLineItemRequest> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 0m, 1) }));
         draft.EnsureSuccessStatusCode();
         var quoteId = (await draft.Content.ReadFromJsonAsync<ApiResponse<GarageQuoteDetailDto>>(JsonOptions))!.Data!.Id;
         (await garage.PostAsJsonAsync($"/api/v1/garage/quotes/{quoteId}/submit", new SubmitGarageQuoteCommand())).EnsureSuccessStatusCode();
@@ -165,7 +165,7 @@ public class ApiContractIntegrationTests : IClassFixture<WebApplicationFactory<P
             new AssignGarageRequest(garageId, quoteId, "Only quote"))).EnsureSuccessStatusCode();
         var cq = await advisor.PostAsJsonAsync($"/api/v1/advisor/requests/{requestId}/customer-quotation", new CreateCustomerQuotationRequest(
             "Clutch replacement", null, DateTime.UtcNow.AddDays(5), 0m, "INR",
-            new List<CustomerQuotationLineItemInputDto> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 18m, 0m, 1) }));
+            new List<CustomerQuotationLineItemInputDto> { new(BroCoMod.Domain.Enums.QuoteLineType.Part, "Clutch kit", 1, 6500m, 0m, 1) }));
         cq.EnsureSuccessStatusCode();
         var cqId = (await cq.Content.ReadFromJsonAsync<ApiResponse<CustomerQuotationDto>>(JsonOptions))!.Data!.Id;
         (await advisor.PostAsJsonAsync($"/api/v1/advisor/customer-quotations/{cqId}/send", new { })).EnsureSuccessStatusCode();

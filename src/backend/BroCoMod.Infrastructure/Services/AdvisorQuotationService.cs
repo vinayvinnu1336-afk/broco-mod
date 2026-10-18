@@ -95,7 +95,6 @@ public class AdvisorQuotationService : IAdvisorQuotationService
                 distance,
                 q.Subtotal,
                 q.DiscountAmount,
-                q.TaxAmount,
                 q.TotalAmount,
                 q.EstimatedCompletionHours ?? 0,
                 q.EstimatedCompletionDays ?? 0,
@@ -110,10 +109,8 @@ public class AdvisorQuotationService : IAdvisorQuotationService
                     li.Description,
                     li.Quantity,
                     li.UnitPrice,
-                    li.TaxRate,
                     li.DiscountAmount,
                     li.ItemSubtotal,
-                    li.LineTax,
                     li.LineTotal,
                     li.SortOrder
                 )).ToList()

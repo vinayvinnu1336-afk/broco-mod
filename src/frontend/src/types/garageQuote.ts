@@ -5,7 +5,6 @@ export interface CreateQuoteLineItemRequest {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate?: number;
   discountAmount?: number;
   sortOrder?: number;
 }
@@ -43,10 +42,8 @@ export interface GarageQuoteLineItemDto {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
   itemSubtotal: number;
-  lineTax: number;
   lineTotal: number;
   sortOrder: number;
 }
@@ -55,7 +52,6 @@ export interface GarageQuoteVersionSummaryDto {
   id: string;
   versionNumber: number;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   estimatedCompletionDays?: number | null;
@@ -93,7 +89,6 @@ export interface GarageQuoteDetailDto {
   status: string;
   currency: string;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   estimatedCompletionHours?: number | null;
@@ -137,7 +132,6 @@ export interface AdvisorGarageQuoteDetailDto {
   vehicleSummary: string;
   problemSummary: string;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   currency: string;
@@ -175,7 +169,6 @@ export interface AdminGarageQuoteDetailDto {
   garageAddress: string;
   vehicleSummary: string;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   currency: string;

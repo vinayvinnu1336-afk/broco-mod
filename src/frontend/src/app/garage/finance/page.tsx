@@ -20,7 +20,7 @@ import { formatDate, formatINR, formatINRShort, formatINRWhole } from '@/lib/for
 
 /**
  * The API's GarageSettlementDto (backend) uses different field names from the shared frontend type
- * (taxOnPlatformFee / settledAtUtc / payoutTransactionRef / jobNumber). Read both so the page works
+ * (settledAtUtc / payoutTransactionRef / jobNumber). Read both so the page works
  * either way; see report.
  */
 type SettlementRow = Partial<GarageSettlementDto> & {
@@ -34,7 +34,6 @@ type SettlementRow = Partial<GarageSettlementDto> & {
   createdAtUtc: string;
   jobNumber?: string | null;
   platformFeePercentage?: number | null;
-  taxOnPlatformFee?: number | null;
   settledAtUtc?: string | null;
   payoutTransactionRef?: string | null;
 };
@@ -42,21 +41,12 @@ type SettlementRow = Partial<GarageSettlementDto> & {
 const DUE_STATUSES = ['Pending', 'Processing'];
 const PAID_STATUSES = ['Completed'];
 
-function feeGst(s: SettlementRow) {
-  return Number(s.taxOnPlatformFee ?? s.platformFeeGstAmount ?? s.totalPlatformFee - s.platformFeeAmount) || 0;
-}
-
 function feeRate(s: SettlementRow) {
   const rate = s.platformFeePercentage ?? s.platformFeeRatePercent;
   if (rate != null && Number(rate) > 0) return Number(rate);
   return s.grossAmount ? (s.platformFeeAmount / s.grossAmount) * 100 : 0;
 }
 
-function gstRate(s: SettlementRow) {
-  const rate = s.platformFeeGstRatePercent;
-  if (rate != null && Number(rate) > 0) return Number(rate);
-  return s.platformFeeAmount ? (feeGst(s) / s.platformFeeAmount) * 100 : 0;
-}
 
 function pct(value: number) {
   return `${Number.isInteger(Math.round(value * 10) / 10) ? Math.round(value) : value.toFixed(1)}%`;
@@ -162,7 +152,7 @@ function GarageFinance() {
     <div>
       <PageHeader
         title="Past payouts"
-        description="What you earn on each finished job, after the BroCo platform fee and GST on that fee."
+        description="What you earn on each finished job, after the BroCo platform fee."
       />
 
       <div className="space-y-5 sm:space-y-6">
@@ -200,7 +190,7 @@ function GarageFinance() {
               />
               <StatCard label="Gross (quote totals)" value={formatINRShort(totals.gross)} hint="All jobs" icon={Banknote} tone="blue" />
               <StatCard
-                label="Platform fee + GST"
+                label="Platform fee"
                 value={formatINRShort(totals.fees)}
                 hint="Deducted from gross"
                 icon={Percent}
@@ -217,11 +207,10 @@ function GarageFinance() {
               <span className="font-medium text-navy-800">Gross</span> is your accepted quote total for the job.
             </li>
             <li>
-              <span className="font-medium text-navy-800">Platform fee</span> is a percentage of gross, and{' '}
-              <span className="font-medium text-navy-800">GST</span> is charged on that fee.
+              <span className="font-medium text-navy-800">Platform fee</span> is a percentage of gross.
             </li>
             <li>
-              <span className="font-medium text-navy-800">Net payable</span> = gross − platform fee − GST on fee.
+              <span className="font-medium text-navy-800">Net payable</span> = gross − platform fee.
             </li>
           </ul>
         </div>
@@ -292,10 +281,6 @@ function GarageFinance() {
                         <dt>Platform fee ({pct(feeRate(s))})</dt>
                         <dd className="tabular-nums">− {formatINR(s.platformFeeAmount)}</dd>
                       </div>
-                      <div className="flex justify-between gap-3 text-navy-600">
-                        <dt>GST on fee ({pct(gstRate(s))})</dt>
-                        <dd className="tabular-nums">− {formatINR(feeGst(s))}</dd>
-                      </div>
                       <div className="flex items-baseline justify-between gap-3 border-t border-surface-200 pt-2">
                         <dt className="font-semibold text-navy-900">Net payable</dt>
                         <dd className="text-base font-bold tabular-nums text-navy-900">{formatINR(s.netPayableToGarage)}</dd>
@@ -322,7 +307,6 @@ function GarageFinance() {
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Gross</TableHead>
                     <TableHead className="text-right">Platform fee</TableHead>
-                    <TableHead className="text-right">GST on fee</TableHead>
                     <TableHead className="text-right">Net payable</TableHead>
                     <TableHead className="text-right">Paid on</TableHead>
                   </TableRow>
@@ -344,10 +328,6 @@ function GarageFinance() {
                         <TableCell className="text-right tabular-nums text-navy-500">
                           − {formatINRWhole(s.platformFeeAmount)}
                           <div className="text-xs text-navy-400">{pct(feeRate(s))}</div>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-navy-500">
-                          − {formatINRWhole(feeGst(s))}
-                          <div className="text-xs text-navy-400">{pct(gstRate(s))}</div>
                         </TableCell>
                         <TableCell className="text-right font-semibold tabular-nums text-navy-900">
                           {formatINR(s.netPayableToGarage)}

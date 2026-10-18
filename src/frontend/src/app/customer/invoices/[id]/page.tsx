@@ -71,7 +71,7 @@ export default function CustomerInvoiceDetailPage() {
   const items = parseInvoiceLineItems(invoice);
   // BroCo's 10% booking advance: the receipt covers only that; the rest is paid at the garage.
   const advance = bookingAdvanceLine(items);
-  const docTitle = advance ? 'Booking advance receipt' : 'Tax invoice';
+  const docTitle = advance ? 'Booking advance receipt' : 'Invoice';
   const isPaid = invoice.status === 'Paid' && Boolean(invoice.paidAtUtc);
 
   return (
@@ -145,7 +145,6 @@ export default function CustomerInvoiceDetailPage() {
           {advance?.serviceTotal != null && <DetailRow label="Service total">{money(advance.serviceTotal)}</DetailRow>}
           {!advance && <DetailRow label="Subtotal">{money(invoice.subtotal)}</DetailRow>}
           {invoice.discountAmount > 0 && <DetailRow label="Discount">−{money(invoice.discountAmount)}</DetailRow>}
-          {invoice.taxAmount > 0 && <DetailRow label="GST">{money(invoice.taxAmount)}</DetailRow>}
           <div className="flex items-center justify-between gap-4 py-3">
             <dt className="text-base font-semibold text-navy-900">{advance ? 'Advance paid to BroCo' : 'Total'}</dt>
             <dd className="text-lg font-bold tabular-nums text-navy-900">{money(invoice.totalAmount)}</dd>

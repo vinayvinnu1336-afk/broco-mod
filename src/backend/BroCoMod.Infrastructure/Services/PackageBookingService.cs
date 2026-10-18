@@ -156,7 +156,7 @@ public class PackageBookingService : IPackageBookingService
             quotation = new CustomerQuotation(request.Id, assignment.Id, garage.Id, advisorUserId, quotationNumber,
                 description, "Fixed-price package booked online.", DateTime.UtcNow.AddDays(7));
             _context.CustomerQuotations.Add(quotation);
-            var line = new CustomerQuotationLineItem(quotation.Id, QuoteLineType.Service, description, 1, price, taxRate: 0m);
+            var line = new CustomerQuotationLineItem(quotation.Id, QuoteLineType.Service, description, 1, price);
             _context.CustomerQuotationLineItems.Add(line);
             quotation.RecalculateTotals();
             quotation.Send(advisorUserId);

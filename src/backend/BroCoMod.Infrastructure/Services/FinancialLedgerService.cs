@@ -116,23 +116,7 @@ public class FinancialLedgerService : IFinancialLedgerService
             settlementId: settlement.Id
         ));
 
-        // 3. Platform Tax Liability (GST)
-        if (settlement.TaxOnPlatformFee > 0.0m)
-        {
-            entries.Add(new FinancialLedgerEntry(
-                transactionReference: txRef,
-                entryType: LedgerEntryType.PlatformFee,
-                debitAmount: settlement.TaxOnPlatformFee,
-                creditAmount: 0.0m,
-                accountType: "PLATFORM_TAX_LIABILITY",
-                description: $"GST on commission for settlement {settlement.SettlementNumber}",
-                currency: settlement.Currency,
-                paymentId: settlement.PaymentId,
-                settlementId: settlement.Id
-            ));
-        }
-
-        // 4. Platform margin: what the customer paid above the garage's own quote (advisor markup)
+        // 3. Platform margin: what the customer paid above the garage's own quote (advisor markup)
         var releaseAmount = Math.Max(escrowReleaseAmount, settlement.GrossAmount);
         var platformMargin = releaseAmount - settlement.GrossAmount;
         if (platformMargin > 0.0m)
@@ -150,7 +134,7 @@ public class FinancialLedgerService : IFinancialLedgerService
             ));
         }
 
-        // 5. Balancing Escrow Credit (the full customer payment leaves escrow)
+        // 4. Balancing Escrow Credit (the full customer payment leaves escrow)
         entries.Add(new FinancialLedgerEntry(
             transactionReference: txRef,
             entryType: LedgerEntryType.GaragePayable,

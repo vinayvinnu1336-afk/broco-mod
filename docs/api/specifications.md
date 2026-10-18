@@ -96,7 +96,7 @@
 | `/quotes` | GET | Paginated list of quotes belonging to authenticated workshop (supports status filter) |
 | `/quotes/draft` | POST | Creates a draft quote for a dispatched garage request |
 | `/quotes/{id}` | GET | Detailed quote with line items and immutable revision history |
-| `/quotes/{id}` | PUT | Updates a draft quote (server recalculates all totals, discounts, taxes) |
+| `/quotes/{id}` | PUT | Updates a draft quote (server recalculates all totals and discounts) |
 | `/quotes/{id}/submit` | POST | Submits quote to advisors; creates immutable version snapshot (`v1`, etc.) |
 | `/quotes/{id}/revision` | POST | Creates a new draft revision (`v{n+1}`) from an existing quote |
 | `/quotes/{id}/withdraw` | POST | Withdraws a draft or submitted quote |

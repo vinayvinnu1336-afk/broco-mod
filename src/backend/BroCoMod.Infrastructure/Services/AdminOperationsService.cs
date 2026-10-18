@@ -254,7 +254,6 @@ public class AdminOperationsService : IAdminOperationsService
                 q.GarageId,
                 q.Garage.Name,
                 q.Subtotal,
-                q.TaxAmount,
                 q.DiscountAmount,
                 q.TotalAmount,
                 q.Currency,

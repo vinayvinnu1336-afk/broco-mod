@@ -71,7 +71,7 @@ export default function GarageDashboardPage() {
   }
 
   async function loadCommission() {
-    // BroCo commission owed on handed-over jobs (10% of service value + GST).
+    // BroCo commission owed on handed-over jobs (10% of service value).
     const res = await apiFetch<GarageCommissionSummary>('/garage/commission/summary');
     if (res.success && res.data) setCommission(res.data);
   }

@@ -21,7 +21,7 @@ flowchart TD
 ## 2. Multi-Garage Quotation Comparison
 The advisor workbench provides aggregated comparative metrics across all submitted quotes for an authorized service request:
 
-- **Pricing Totals:** Subtotal, discount, statutory tax (GST), and grand total.
+- **Pricing Totals:** Subtotal, discount and grand total (no tax).
 - **Turnaround Feasibility:** Estimated completion hours and days.
 - **Geographic Distance:** Accurate distance in kilometers between customer pickup location and partner garage calculated via PostGIS ST_Distance.
 - **Scope Breakdown:** Detailed inspection of workshop line items categorized into Labour, Parts (OEM/Aftermarket), and Mandatory Services.

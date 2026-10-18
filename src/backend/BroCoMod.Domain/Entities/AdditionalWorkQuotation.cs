@@ -15,6 +15,7 @@ public class AdditionalWorkQuotation : BaseEntity
     public Guid CustomerId { get; private set; }
     public Guid GarageId { get; private set; }
     public decimal Subtotal { get; private set; }
+    // Legacy column; no tax is charged, so it holds 0.
     public decimal Tax { get; private set; }
     public decimal Total { get; private set; }
     public string Currency { get; private set; } = "INR";
@@ -37,7 +38,6 @@ public class AdditionalWorkQuotation : BaseEntity
         Guid customerId,
         Guid garageId,
         decimal subtotal,
-        decimal tax,
         decimal total,
         string description,
         string currency = "INR")
@@ -61,7 +61,7 @@ public class AdditionalWorkQuotation : BaseEntity
         CustomerId = customerId;
         GarageId = garageId;
         Subtotal = Math.Max(0m, subtotal);
-        Tax = Math.Max(0m, tax);
+        Tax = 0m;
         Total = total;
         Description = description?.Trim() ?? string.Empty;
         Currency = string.IsNullOrWhiteSpace(currency) ? "INR" : currency.Trim().ToUpperInvariant();

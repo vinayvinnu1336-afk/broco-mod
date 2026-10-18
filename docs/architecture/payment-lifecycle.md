@@ -29,7 +29,7 @@ verify            Signature validation via HMAC-SHA256
    - Idempotency guard: checks if already marked Paid
    - Verifies gateway signature: HMAC-SHA256(orderId + "|" + paymentId, secret)
    - Transitions Payment to Status = Paid
-   - Generates Tax Invoice (InvoiceService)
+   - Generates Invoice (InvoiceService)
    - Creates Workshop Settlement in Escrow (SettlementService)
    - Records Double-Entry Ledger Transactions (FinancialLedgerService)
    - Dispatches In-App & Push Notifications to Customer and Garage

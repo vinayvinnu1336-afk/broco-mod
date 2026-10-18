@@ -88,8 +88,6 @@ interface SettlementRow {
   fee: number;
   feeRate?: number;
   feeFixed?: number;
-  gst: number;
-  gstRate?: number;
   totalFee: number;
   net: number;
   status: string;
@@ -100,7 +98,6 @@ interface SettlementRow {
 
 function toSettlementRow(r: Raw): SettlementRow {
   const fee = pickNumber(r, 'platformFeeAmount') ?? 0;
-  const gst = pickNumber(r, 'taxOnPlatformFee', 'platformFeeGstAmount') ?? 0;
   return {
     id: pickString(r, 'id') ?? '',
     number: pickString(r, 'settlementNumber') ?? '—',
@@ -110,9 +107,7 @@ function toSettlementRow(r: Raw): SettlementRow {
     fee,
     feeRate: pickNumber(r, 'platformFeePercentage', 'platformFeeRatePercent'),
     feeFixed: pickNumber(r, 'platformFeeFixed'),
-    gst,
-    gstRate: pickNumber(r, 'platformFeeGstRatePercent'),
-    totalFee: pickNumber(r, 'totalPlatformFee') ?? fee + gst,
+    totalFee: pickNumber(r, 'totalPlatformFee') ?? fee,
     net: pickNumber(r, 'netPayableToGarage') ?? 0,
     status: pickString(r, 'status') ?? 'Pending',
     payoutRef: pickString(r, 'payoutTransactionRef', 'payoutReference'),
@@ -160,12 +155,13 @@ const ACCOUNT_LABELS: Record<string, string> = {
   PLATFORM_CASH: 'BroCo cash',
   PLATFORM_BOOKING_FEE: 'Booking advances',
   PLATFORM_COMMISSION: 'Garage commission',
-  GST_PAYABLE: 'GST payable',
+  // Account keys only found on old ledger rows.
+  GST_PAYABLE: 'Legacy adjustment',
   ESCROW: 'Held in escrow',
   CUSTOMER: 'Customer',
   GARAGE_PAYABLE: 'Payable to garage',
   PLATFORM_REVENUE: 'Platform fee',
-  PLATFORM_TAX_LIABILITY: 'GST on platform fee',
+  PLATFORM_TAX_LIABILITY: 'Legacy adjustment',
   PLATFORM_MARGIN: 'Advisor margin',
 };
 
@@ -403,7 +399,6 @@ function AdminFinance() {
     paymentsCount: pickNumber(overview, 'totalPaymentsCount'),
     advances: pickNumber(overview, 'totalBookingAdvances'),
     commission: pickNumber(overview, 'totalCommissionCollected'),
-    commissionGst: pickNumber(overview, 'totalCommissionGst'),
     advisorMargin: pickNumber(overview, 'totalPlatformMargin', 'totalAdvisorMargin'),
     payable: pickNumber(overview, 'totalGarageSettlements', 'totalGaragePayouts'),
     pendingCount: pickNumber(overview, 'pendingSettlementsCount'),
@@ -466,10 +461,10 @@ function AdminFinance() {
           {kpi.commission !== undefined && (
             <StatCard
               label="Commission received"
-              value={formatINRShort(kpi.commission - (kpi.commissionGst ?? 0))}
+              value={formatINRShort(kpi.commission)}
               icon={Banknote}
               tone="green"
-              hint={kpi.commissionGst ? `From garages · ${formatINRShort(kpi.commissionGst)} GST excluded` : 'From garages, ex GST'}
+              hint="From garages"
             />
           )}
           {/* Only from before the 10% model: markup and garage payouts are no longer created. */}
@@ -491,7 +486,7 @@ function AdminFinance() {
         </div>
       )}
 
-      {/* Garage commission dues (10% + GST owed by garages after each job) */}
+      {/* Garage commission dues (10% owed by garages after each job) */}
       <CommissionSummaryCard />
 
       {/* Section switch */}
@@ -563,7 +558,6 @@ function AdminFinance() {
                       <TableHead>Garage</TableHead>
                       <TableHead className="text-right">Garage quote</TableHead>
                       <TableHead className="text-right">Platform fee</TableHead>
-                      <TableHead className="text-right">GST on fee</TableHead>
                       <TableHead className="text-right">Net payout</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">
@@ -583,7 +577,6 @@ function AdminFinance() {
                         <TableCell className="font-medium text-navy-900">{s.garageName}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatINR(s.gross)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatINR(s.fee)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatINR(s.gst)}</TableCell>
                         <TableCell className="text-right font-semibold tabular-nums text-navy-900">{formatINR(s.net)}</TableCell>
                         <TableCell>
                           <StatusBadge status={s.status} />
@@ -615,7 +608,7 @@ function AdminFinance() {
                       leading={<IconTile icon={Building2} tone={isPayable(s) ? 'amber' : 'green'} />}
                       title={s.garageName}
                       subtitle={s.number}
-                      meta={`Quote ${formatINRWhole(s.gross)} · Fee ${formatINRWhole(s.fee)} · GST ${formatINRWhole(s.gst)}`}
+                      meta={`Quote ${formatINRWhole(s.gross)} · Fee ${formatINRWhole(s.fee)}`}
                       trailing={
                         <div className="flex flex-col items-end gap-1">
                           <span className="text-sm font-semibold tabular-nums text-navy-900">{formatINRWhole(s.net)}</span>
@@ -802,10 +795,6 @@ function AdminFinance() {
                 <BreakdownRow
                   label={`Platform fee${feeRateLabel(selectedSettlement)}`}
                   value={`− ${formatINR(selectedSettlement.fee)}`}
-                />
-                <BreakdownRow
-                  label={`GST on fee${selectedSettlement.gstRate !== undefined ? ` (${selectedSettlement.gstRate}%)` : ''}`}
-                  value={`− ${formatINR(selectedSettlement.gst)}`}
                 />
                 <div className="border-t border-surface-200 pt-2.5">
                   <BreakdownRow label="Net payout to garage" value={formatINR(selectedSettlement.net)} strong />

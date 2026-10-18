@@ -303,7 +303,7 @@ CREATE SEQUENCE IF NOT EXISTS "GarageQuoteNumberSeq" START WITH 100001 INCREMENT
 | `Version` | `INTEGER` | `NOT NULL DEFAULT 1` | Current active revision number |
 | `Subtotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Sum of all line item totals (Server calculated) |
 | `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applied quotation discount |
-| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applicable tax/GST amount (Server calculated) |
+| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Legacy; always 0 (no tax is charged) |
 | `GrandTotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Final quote amount (Server calculated) |
 | `EstimatedDurationHours` | `INTEGER` | `NOT NULL` | Estimated turnaround time |
 | `ValidUntil` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Quote expiration deadline |
@@ -336,7 +336,7 @@ Stores immutable historical snapshots of quotes created upon each submission.
 | `Version` | `INTEGER` | `NOT NULL` | Snapshot revision number (`1, 2, ...`) |
 | `Subtotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot subtotal |
 | `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot discount |
-| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot tax |
+| `TaxAmount` | `NUMERIC(18,2)` | `NOT NULL` | Legacy; always 0 |
 | `GrandTotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot grand total |
 | `EstimatedDurationHours` | `INTEGER` | `NOT NULL` | Snapshot duration |
 | `Notes` | `VARCHAR(2000)` | `NULL` | Snapshot notes |
@@ -408,7 +408,7 @@ The curated commercial quotation presented to the customer.
 | `Currency` | `VARCHAR(10)` | `NOT NULL DEFAULT 'INR'` | Currency code |
 | `CustomerSubtotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Retail line items subtotal |
 | `CustomerDiscount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Promotional platform discount |
-| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Applicable statutory GST |
+| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Legacy; always 0 (no tax is charged) |
 | `CustomerTotal` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Final payable total |
 | `ValidUntilUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Customer acceptance expiry date |
 | `Status` | `INTEGER` | `NOT NULL, INDEX` | Enum: Draft(1), ReadyToSend(2), Sent(3), Accepted(4), Rejected(5), Expired(6), Cancelled(7) |
@@ -434,7 +434,7 @@ Individual commercial items approved for customer invoicing.
 | `Description` | `VARCHAR(500)` | `NOT NULL` | Scope or item description |
 | `Quantity` | `NUMERIC(18,2)` | `NOT NULL` | Units or billable hours |
 | `UnitPrice` | `NUMERIC(18,2)` | `NOT NULL` | Customer unit retail rate |
-| `TaxRate` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 18.00` | GST tax rate percentage |
+| `TaxRate` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Legacy; always 0 |
 | `DiscountAmount` | `NUMERIC(18,2)` | `NOT NULL DEFAULT 0.00` | Line item discount |
 | `LineTotal` | `NUMERIC(18,2)` | `NOT NULL` | Line total: `(Quantity * UnitPrice) - DiscountAmount` |
 | `SortOrder` | `INTEGER` | `NOT NULL DEFAULT 0` | Display sorting |
@@ -449,7 +449,7 @@ Immutable historical snapshot preserving financial and line item states upon `Re
 | `VersionNumber` | `INTEGER` | `NOT NULL` | Snapshot revision (`1, 2, ...`) |
 | `CustomerSubtotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot subtotal |
 | `CustomerDiscount` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot discount |
-| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot tax |
+| `CustomerTax` | `NUMERIC(18,2)` | `NOT NULL` | Legacy; always 0 |
 | `CustomerTotal` | `NUMERIC(18,2)` | `NOT NULL` | Snapshot total |
 | `ValidUntilUtc` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL` | Snapshot expiry |
 | `ScopeSummary` | `VARCHAR(1000)` | `NULL` | Snapshot scope |

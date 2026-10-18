@@ -25,8 +25,7 @@ test.describe.configure({ mode: 'serial' });
 
 const CAR = { brand: 'Hyundai', model: 'i20', fuel: 'Petrol' };
 const GARAGE = 'Central Metro Motors';
-const COMMISSION_RATE = 0.1; // 10% of the service value…
-const GST_RATE = 0.18; // …plus 18% GST on the commission
+const COMMISSION_RATE = 0.1; // 10% of the service value, nothing added on top
 
 const state: {
   mobile: string;
@@ -49,8 +48,7 @@ const state: {
 
 const commission = () => {
   const amount = paise(state.price! * COMMISSION_RATE);
-  const gst = paise(amount * GST_RATE);
-  return { amount, gst, total: paise(amount + gst) };
+  return { amount, total: amount };
 };
 
 /** "+91 98765 43210", as the admin enquiries list shows a number. */
@@ -260,9 +258,7 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   await expect(valueOf(sheet, 'Service value')).toHaveText(inr(state.price!, 2));
   await expect(valueOf(sheet, 'Advance BroCo collected online')).toHaveText(inr(state.advance!, 2));
   await expect(valueOf(sheet, 'Balance you collected')).toHaveText(inr(state.atGarage!, 2));
-  await expect(valueOf(sheet, 'Commission (10% of service value)')).toHaveText(inr(due.amount, 2));
-  await expect(valueOf(sheet, 'GST on commission (18%)')).toHaveText(inr(due.gst, 2));
-  await expect(valueOf(sheet, 'Total to pay')).toHaveText(inr(due.total, 2));
+  await expect(valueOf(sheet, 'Commission (10%)')).toHaveText(inr(due.total, 2));
   await checkLayout(page, 'garage commission sheet');
   await confirmSheet(page, `Pay ${inr(due.total, 2)}`);
   await expect(page.getByRole('status').filter({ hasText: 'Payment received' })).toBeVisible();
@@ -271,7 +267,7 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   await page.getByRole('tab', { name: /^Paid/ }).click();
   await page.getByRole('button', { name: new RegExp(state.jobNumber) }).click();
   await expect(sheet.getByText('Paid', { exact: true })).toBeVisible();
-  await expect(valueOf(sheet, 'Total paid')).toHaveText(inr(due.total, 2));
+  await expect(valueOf(sheet, 'Commission (10%)')).toHaveText(inr(due.total, 2));
 
   // Back on the job: close it; the commission is shown as paid.
   await sheet.getByRole('link', { name: `Open job ${state.jobNumber}` }).click();
@@ -289,7 +285,7 @@ test('4. admin sees the paid commission and the website enquiry', async ({ brows
   await signIn(page, 'admin');
   const due = commission();
 
-  // Commission: paid, 10% + 18% GST of the package price.
+  // Commission: paid, 10% of the package price.
   await page.goto('/admin/commissions');
   await page.getByRole('tab', { name: /^Paid/ }).click();
   await page.getByRole('button', { name: new RegExp(state.jobNumber!) }).click();
@@ -297,9 +293,7 @@ test('4. admin sees the paid commission and the website enquiry', async ({ brows
   await expect(sheet.getByText('Paid', { exact: true })).toBeVisible();
   await expect(valueOf(sheet, 'Request')).toHaveText(state.requestNumber!);
   await expect(valueOf(sheet, 'Service value')).toHaveText(inr(state.price!, 2));
-  await expect(valueOf(sheet, 'Commission (10%)')).toHaveText(inr(due.amount, 2));
-  await expect(valueOf(sheet, 'GST on commission (18%)')).toHaveText(inr(due.gst, 2));
-  await expect(valueOf(sheet, 'Total due from garage')).toHaveText(inr(due.total, 2));
+  await expect(valueOf(sheet, 'Commission (10%)')).toHaveText(inr(due.total, 2));
   await checkLayout(page, 'admin commission sheet');
   await sheet.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(sheet).toBeHidden();

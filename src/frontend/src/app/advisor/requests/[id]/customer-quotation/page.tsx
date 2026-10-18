@@ -44,7 +44,7 @@ function lineTypeName(value: unknown): QuoteLineType {
   return match ?? 'Service';
 }
 
-/** Garage price per unit after the garage's own discount, before tax. */
+/** Garage price per unit after the garage's own discount. */
 function garageUnitNet(li: GarageQuoteLineItemDto): number {
   const qty = li.quantity || 0;
   if (qty <= 0) return li.unitPrice || 0;
@@ -65,7 +65,7 @@ interface BuilderLine {
   item: CustomerQuotationLineItemInputDto;
 }
 
-/** Copies the garage's lines 1:1 (same price, discount and tax), so the customer total equals the garage quote. */
+/** Copies the garage's lines 1:1 (same price and discount), so the customer total equals the garage quote. */
 function linesFromGarageQuote(garageLines: GarageQuoteLineItemDto[]): BuilderLine[] {
   return garageLines.map((li, idx) => ({
     key: nextKey(),
@@ -75,7 +75,6 @@ function linesFromGarageQuote(garageLines: GarageQuoteLineItemDto[]): BuilderLin
       description: li.description,
       quantity: li.quantity,
       unitPrice: li.unitPrice,
-      taxRate: li.taxRate ?? 0,
       discountAmount: li.discountAmount ?? 0,
       sortOrder: li.sortOrder || idx + 1,
     },
@@ -214,7 +213,6 @@ export default function CustomerQuotationBuilderPage() {
             description: li.description,
             quantity: li.quantity,
             unitPrice: li.unitPrice,
-            taxRate: li.taxRate,
             discountAmount: li.discountAmount,
             sortOrder: li.sortOrder || idx + 1,
           },
@@ -235,7 +233,6 @@ export default function CustomerQuotationBuilderPage() {
             description: '',
             quantity: 1,
             unitPrice: 0,
-            taxRate: 18,
             discountAmount: 0,
             sortOrder: 1,
           },
@@ -255,15 +252,9 @@ export default function CustomerQuotationBuilderPage() {
     }
   }, [requestId, loadData]);
 
-  // Live calculations (same maths as before)
+  // Live calculations (same maths as the server): lines are quantity × price minus discount.
   const calculatedSubtotal = lineItems.reduce((sum, item) => sum + lineNet(item), 0);
-  const taxableAfterDiscount = Math.max(0, calculatedSubtotal - customerDiscount);
-  const discountRatio = calculatedSubtotal > 0 ? taxableAfterDiscount / calculatedSubtotal : 1;
-  const calculatedTax = lineItems.reduce((sum, item) => {
-    const rawTax = (lineNet(item) * (item.taxRate || 0)) / 100;
-    return sum + rawTax * discountRatio;
-  }, 0);
-  const calculatedTotal = taxableAfterDiscount + calculatedTax;
+  const calculatedTotal = Math.max(0, calculatedSubtotal - customerDiscount);
 
   // BroCo doesn't add a markup: the customer total must equal the selected garage quote.
   const totalDifference = garageQuoteTotal !== null ? calculatedTotal - garageQuoteTotal : null;
@@ -294,7 +285,6 @@ export default function CustomerQuotationBuilderPage() {
           description: '',
           quantity: 1,
           unitPrice: 0,
-          taxRate: 18,
           discountAmount: 0,
           sortOrder: prev.length + 1,
         },
@@ -634,8 +624,6 @@ export default function CustomerQuotationBuilderPage() {
         {lines.map((line, idx) => {
           const item = line.item;
           const net = lineNet(item);
-          const tax = (net * (item.taxRate || 0)) / 100;
-          const total = net + tax;
           const cost = line.garageUnitCost !== null ? line.garageUnitCost * (item.quantity || 0) : null;
           const difference = cost !== null ? net - cost : null;
           const differs = difference !== null && Math.abs(difference) > 0.005;
@@ -690,7 +678,7 @@ export default function CustomerQuotationBuilderPage() {
                     onChange={(e) => updateLineItem(line.key, 'quantity', parseFloat(e.target.value) || 0)}
                   />
                 </div>
-                <div className="col-span-1 md:col-span-2">
+                <div className="col-span-2 md:col-span-4">
                   <Input
                     id={`${idBase}-price`}
                     label="Customer price (₹)"
@@ -703,21 +691,9 @@ export default function CustomerQuotationBuilderPage() {
                     helperText={line.garageUnitCost !== null ? `Garage: ${formatINR(line.garageUnitCost)} each` : undefined}
                   />
                 </div>
-                <div className="col-span-1 md:col-span-2">
-                  <Input
-                    id={`${idBase}-tax`}
-                    label="Tax (%)"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    value={item.taxRate}
-                    disabled={!editable}
-                    onChange={(e) => updateLineItem(line.key, 'taxRate', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
               </div>
 
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-surface-50 p-3 sm:grid-cols-4">
+              <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 rounded-xl bg-surface-50 p-3">
                 <div>
                   <dt className="text-xs text-navy-500">Garage price</dt>
                   <dd className="text-sm font-medium tabular-nums text-navy-900">
@@ -725,8 +701,8 @@ export default function CustomerQuotationBuilderPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-navy-500">Customer price</dt>
-                  <dd className="text-sm font-medium tabular-nums text-navy-900">{formatINR(net)}</dd>
+                  <dt className="text-xs text-navy-500">Line total</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-navy-900">{formatINR(net)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-navy-500">Vs garage price</dt>
@@ -741,10 +717,6 @@ export default function CustomerQuotationBuilderPage() {
                       ? `${difference > 0 ? '+' : '−'}${formatINR(Math.abs(difference))}`
                       : 'Same'}
                   </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-navy-500">Line total incl. tax</dt>
-                  <dd className="text-sm font-semibold tabular-nums text-navy-900">{formatINR(total)}</dd>
                 </div>
               </dl>
             </Card>
@@ -780,7 +752,6 @@ export default function CustomerQuotationBuilderPage() {
           <dl className="space-y-2">
             <SummaryRow label="Subtotal" value={formatINR(calculatedSubtotal)} />
             {customerDiscount > 0 && <SummaryRow label="Discount" value={`− ${formatINR(customerDiscount)}`} tone="red" />}
-            <SummaryRow label="Tax (GST)" value={formatINR(calculatedTax)} />
             <SummaryRow label="Customer pays" value={formatINR(calculatedTotal)} strong />
           </dl>
         </div>

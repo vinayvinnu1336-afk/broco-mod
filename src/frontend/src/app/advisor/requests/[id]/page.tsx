@@ -689,8 +689,9 @@ export default function AdvisorRequestQuotationReviewPage() {
                       {formatINR(q.grandTotal)}
                     </div>
                     <div className="text-xs text-navy-500">
-                      {formatINR(q.subtotal)} + {formatINR(q.taxAmount)} tax
-                      {q.discountAmount > 0 && <> · {formatINR(q.discountAmount)} off</>}
+                      {q.discountAmount > 0
+                        ? `${formatINR(q.subtotal)} · ${formatINR(q.discountAmount)} off`
+                        : 'Garage total'}
                     </div>
                   </div>
 
@@ -737,7 +738,7 @@ export default function AdvisorRequestQuotationReviewPage() {
                           </div>
                           <div className="mt-0.5 text-xs text-navy-500">
                             {humanize(li.lineType)} · {li.quantity} × {formatINR(li.unitPrice)}
-                            {li.discountAmount > 0 && <> · {formatINR(li.discountAmount)} off</>} · {li.taxRate}% tax
+                            {li.discountAmount > 0 && <> · {formatINR(li.discountAmount)} off</>}
                           </div>
                         </li>
                       ))}

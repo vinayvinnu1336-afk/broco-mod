@@ -62,7 +62,6 @@ public record InvoiceDto(
     string Status,
     decimal Subtotal,
     decimal DiscountAmount,
-    decimal TaxAmount,
     decimal TotalAmount,
     string Currency,
     string BillingName,
@@ -88,7 +87,6 @@ public record GarageSettlementDto(
     decimal PlatformFeePercentage,
     decimal PlatformFeeFixed,
     decimal PlatformFeeAmount,
-    decimal TaxOnPlatformFee,
     decimal TotalPlatformFee,
     decimal NetPayableToGarage,
     string Currency,
@@ -120,7 +118,6 @@ public record PlatformFeeConfigDto(
     string Name,
     decimal FeePercentage,
     decimal FixedFee,
-    decimal TaxPercentage,
     bool IsActive,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc
@@ -136,13 +133,11 @@ public record FinanceOverviewDto(
     int TotalInvoicesCount,
     int PendingSettlementsCount,
     int CompletedSettlementsCount,
-    decimal TotalPlatformFeeGst = 0m,
     decimal TotalPlatformMargin = 0m,
     // 10% model: advances customers paid BroCo online, and commission garages paid / still owe.
     decimal TotalBookingAdvances = 0m,
     decimal TotalCommissionCollected = 0m,
-    decimal TotalCommissionOutstanding = 0m,
-    decimal TotalCommissionGst = 0m
+    decimal TotalCommissionOutstanding = 0m
 );
 
 public record PaymentFilterDto(

@@ -80,7 +80,7 @@ public class CustomerDecisionUnitTests
             DateTime.UtcNow.AddDays(3)
         );
 
-        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Labour, "Inspection", 1, 500m, 18m, 0m, 1);
+        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Labour, "Inspection", 1, 500m, 0m, 1);
         quote.LineItems.Add(item);
         quote.MarkReadyToSend(Guid.NewGuid());
         quote.Send(Guid.NewGuid());
@@ -135,7 +135,7 @@ public class CustomerDecisionUnitTests
             DateTime.UtcNow.AddSeconds(1)
         );
 
-        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Labour, "Inspection", 1, 500m, 18m, 0m, 1);
+        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Labour, "Inspection", 1, 500m, 0m, 1);
         quote.LineItems.Add(item);
         quote.MarkReadyToSend(Guid.NewGuid());
         quote.Send(Guid.NewGuid());
@@ -164,7 +164,7 @@ public class CustomerDecisionUnitTests
             DateTime.UtcNow.AddDays(5)
         );
 
-        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Service, "Oil Change", 1, 1000m, 18m, 0m, 1);
+        var item = new CustomerQuotationLineItem(quote.Id, QuoteLineType.Service, "Oil Change", 1, 1000m, 0m, 1);
         quote.LineItems.Add(item);
         quote.MarkReadyToSend(Guid.NewGuid());
         quote.Send(Guid.NewGuid());

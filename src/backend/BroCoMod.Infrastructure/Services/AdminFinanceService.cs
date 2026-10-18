@@ -69,18 +69,13 @@ public class AdminFinanceService : IAdminFinanceService
             .Select(s => (decimal?)s.NetPayableToGarage)
             .SumAsync(cancellationToken) ?? 0.0m;
 
-        // GST collected on the platform fee is owed to the government, not earned.
-        var totalPlatformFeeGst = await activeSettlements
-            .Select(s => (decimal?)s.TaxOnPlatformFee)
-            .SumAsync(cancellationToken) ?? 0.0m;
-
         // Advisor margin: what customers paid above the garage's own quote.
         var totalPlatformMargin = await activeSettlements
             .Where(s => s.Payment != null)
             .Select(s => (decimal?)(s.Payment!.Amount - s.GrossAmount))
             .SumAsync(cancellationToken) ?? 0.0m;
 
-        // 10% model: the booking advance belongs to BroCo (net of refunds); paid commission is BroCo income plus GST on it.
+        // 10% model: the booking advance belongs to BroCo (net of refunds); paid commission is BroCo income.
         var totalBookingAdvances = await paidPayments
             .Where(p => p.Purpose == PaymentPurpose.BookingAdvance)
             .Select(p => (decimal?)(p.Amount - p.RefundedAmount))
@@ -89,18 +84,14 @@ public class AdminFinanceService : IAdminFinanceService
         var totalCommissionCollected = await paidCommissions
             .Select(c => (decimal?)c.TotalDue)
             .SumAsync(cancellationToken) ?? 0.0m;
-        var totalCommissionGst = await paidCommissions
-            .Select(c => (decimal?)c.TaxAmount)
-            .SumAsync(cancellationToken) ?? 0.0m;
         var totalCommissionOutstanding = await commissionsQuery
             .Where(c => c.Status == GarageCommissionStatus.Due)
             .Select(c => (decimal?)c.TotalDue)
             .SumAsync(cancellationToken) ?? 0.0m;
 
         totalPlatformRevenue += totalBookingAdvances + totalCommissionCollected;
-        totalPlatformFeeGst += totalCommissionGst;
 
-        var netPlatformProfit = totalPlatformRevenue - totalPlatformFeeGst + totalPlatformMargin;
+        var netPlatformProfit = totalPlatformRevenue + totalPlatformMargin;
 
         // The same rows the gross figure adds up, not abandoned checkouts or garage commission payments.
         var totalPaymentsCount = await customerPaidPayments.CountAsync(cancellationToken);
@@ -118,12 +109,10 @@ public class AdminFinanceService : IAdminFinanceService
             TotalInvoicesCount: totalInvoicesCount,
             PendingSettlementsCount: pendingSettlementsCount,
             CompletedSettlementsCount: completedSettlementsCount,
-            TotalPlatformFeeGst: totalPlatformFeeGst,
             TotalPlatformMargin: totalPlatformMargin,
             TotalBookingAdvances: totalBookingAdvances,
             TotalCommissionCollected: totalCommissionCollected,
-            TotalCommissionOutstanding: totalCommissionOutstanding,
-            TotalCommissionGst: totalCommissionGst
+            TotalCommissionOutstanding: totalCommissionOutstanding
         );
     }
 
@@ -288,7 +277,6 @@ public class AdminFinanceService : IAdminFinanceService
                 s.PlatformFeePercentage,
                 s.PlatformFeeFixed,
                 s.PlatformFeeAmount,
-                s.TaxOnPlatformFee,
                 s.TotalPlatformFee,
                 s.NetPayableToGarage,
                 s.Currency,
