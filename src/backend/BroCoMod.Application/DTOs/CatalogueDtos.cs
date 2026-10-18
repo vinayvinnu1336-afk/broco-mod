@@ -165,8 +165,6 @@ public record GarageCommissionDto(
     decimal BalanceCollectedByGarage,
     decimal CommissionPercentage,
     decimal CommissionAmount,
-    decimal TaxPercentage,
-    decimal TaxAmount,
     decimal TotalDue,
     string Status,
     DateTime DueAtUtc,
@@ -313,11 +311,9 @@ public record PackageGarageCandidateDto(
 /// <summary>What BroCo charges garages per completed job, and the advance customers pay online.</summary>
 public record CommissionTermsDto(
     decimal CommissionPercentage,
-    decimal GstPercentage,
     decimal BookingAdvancePercentage
 );
 
 public record UpdateCommissionTermsRequest(
-    [Range(0, 50)] decimal CommissionPercentage,
-    [Range(0, 28)] decimal GstPercentage
+    [Range(0, 50)] decimal CommissionPercentage
 );

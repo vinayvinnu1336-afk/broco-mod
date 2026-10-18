@@ -129,7 +129,6 @@ public record AdminReceivedQuoteDto(
     Guid GarageId,
     string GarageName,
     decimal Subtotal,
-    decimal TaxAmount,
     decimal DiscountAmount,
     decimal TotalAmount,
     string Currency,

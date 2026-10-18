@@ -90,7 +90,6 @@ public class InvoiceService : IInvoiceService
         // 4. Calculate items & financials
         decimal subtotal = 0m;
         decimal discount = 0m;
-        decimal tax = 0m;
         decimal total = payment.Amount;
         decimal? balanceAtGarage = null;
         var lineItemList = new List<object>();
@@ -123,7 +122,6 @@ public class InvoiceService : IInvoiceService
             var quote = payment.CustomerQuotation;
             subtotal = quote.CustomerSubtotal;
             discount = quote.CustomerDiscount;
-            tax = quote.CustomerTax;
 
             foreach (var item in quote.LineItems)
             {
@@ -141,7 +139,6 @@ public class InvoiceService : IInvoiceService
         {
             var awq = payment.AdditionalWorkQuotation;
             subtotal = awq.Subtotal;
-            tax = awq.Tax;
             discount = 0m;
 
             lineItemList.Add(new
@@ -176,7 +173,6 @@ public class InvoiceService : IInvoiceService
             garageId: payment.GarageId,
             subtotal: subtotal,
             discountAmount: discount,
-            taxAmount: tax,
             totalAmount: total,
             billingName: customerName,
             billingEmail: customerEmail,
@@ -206,10 +202,10 @@ public class InvoiceService : IInvoiceService
         var isAdvance = payment.Purpose == PaymentPurpose.BookingAdvance;
         await _notificationService.SendInAppNotificationAsync(
             userId: customerUserId,
-            title: isAdvance ? "Booking advance receipt" : "Tax Invoice Issued",
+            title: isAdvance ? "Booking advance receipt" : "Invoice issued",
             message: isAdvance
                 ? $"Receipt {invoice.InvoiceNumber} for your ₹{invoice.TotalAmount:N0} booking advance is ready. The balance of ₹{balanceAtGarage ?? 0m:N0} is paid at the garage."
-                : $"Your tax invoice {invoice.InvoiceNumber} for payment {payment.PaymentNumber} ({invoice.TotalAmount} {invoice.Currency}) is available.",
+                : $"Your invoice {invoice.InvoiceNumber} for payment {payment.PaymentNumber} ({invoice.TotalAmount} {invoice.Currency}) is available.",
             type: "INVOICE_ISSUED",
             referenceId: invoice.Id,
             referenceType: nameof(Invoice),
@@ -332,7 +328,6 @@ public class InvoiceService : IInvoiceService
         Status: i.Status.ToString(),
         Subtotal: i.Subtotal,
         DiscountAmount: i.DiscountAmount,
-        TaxAmount: i.TaxAmount,
         TotalAmount: i.TotalAmount,
         Currency: i.Currency,
         BillingName: i.BillingName,

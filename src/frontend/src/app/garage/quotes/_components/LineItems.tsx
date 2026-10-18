@@ -14,7 +14,6 @@ export interface LocalLineItem {
   description: string;
   quantity: number;
   unitPrice: number;
-  taxRate: number;
   discountAmount: number;
 }
 
@@ -32,7 +31,6 @@ export function newLineItem(): LocalLineItem {
     description: '',
     quantity: 1,
     unitPrice: 0,
-    taxRate: 18,
     discountAmount: 0,
   };
 }
@@ -40,26 +38,21 @@ export function newLineItem(): LocalLineItem {
 export interface LineCalc {
   gross: number;
   discount: number;
-  taxable: number;
-  tax: number;
   lineTotal: number;
 }
 
 export function calcLine(item: LocalLineItem): LineCalc {
   const gross = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
   const discount = Number(item.discountAmount) || 0;
-  const taxable = Math.max(0, gross - discount);
-  const tax = taxable * ((Number(item.taxRate) || 0) / 100);
-  const lineTotal = taxable + tax;
-  return { gross, discount, taxable, tax, lineTotal };
+  const lineTotal = Math.max(0, gross - discount);
+  return { gross, discount, lineTotal };
 }
 
 export function calcTotals(items: LocalLineItem[]) {
   const calcs = items.map(calcLine);
   const subtotal = calcs.reduce((acc, c) => acc + c.gross, 0);
   const discount = calcs.reduce((acc, c) => acc + c.discount, 0);
-  const tax = calcs.reduce((acc, c) => acc + c.tax, 0);
-  return { calcs, subtotal, discount, tax, total: subtotal - discount + tax };
+  return { calcs, subtotal, discount, total: subtotal - discount };
 }
 
 const numberInputProps = {
@@ -132,7 +125,7 @@ export function LineItemsEditor({ items, onChange, onAdd, onRemove, disabled }: 
                 disabled={disabled}
               />
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-3 gap-3">
                 <Input
                   {...numberInputProps}
                   id={`${key}-qty`}
@@ -146,22 +139,11 @@ export function LineItemsEditor({ items, onChange, onAdd, onRemove, disabled }: 
                 <Input
                   {...numberInputProps}
                   id={`${key}-price`}
-                  label="Unit price (₹)"
+                  label="Price (₹)"
                   min="0"
                   step="10"
                   value={item.unitPrice}
                   onChange={(e) => onChange(item.id, { unitPrice: Number(e.target.value) || 0 })}
-                  disabled={disabled}
-                />
-                <Input
-                  {...numberInputProps}
-                  id={`${key}-tax`}
-                  label="GST %"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={item.taxRate}
-                  onChange={(e) => onChange(item.id, { taxRate: Number(e.target.value) || 0 })}
                   disabled={disabled}
                 />
                 <Input
@@ -178,8 +160,7 @@ export function LineItemsEditor({ items, onChange, onAdd, onRemove, disabled }: 
 
               <div className="flex items-baseline justify-between gap-3 border-t border-surface-200 pt-3">
                 <span className="text-xs text-navy-500">
-                  {calc.tax > 0 ? `Incl. ${formatINR(calc.tax)} GST` : 'No GST'}
-                  {calc.discount > 0 ? ` · ${formatINR(calc.discount)} off` : ''}
+                  {calc.discount > 0 ? `Item total · ${formatINR(calc.discount)} off` : 'Item total'}
                 </span>
                 <span className="text-base font-semibold tabular-nums text-navy-900">{formatINR(calc.lineTotal)}</span>
               </div>
@@ -215,7 +196,6 @@ export function LineItemsList({ items }: { items: GarageQuoteLineItemDto[] }) {
             <div className="text-[15px] font-semibold leading-snug text-navy-900 break-words">{item.description}</div>
             <div className="mt-0.5 text-xs text-navy-500">
               {item.lineType} · {item.quantity} × {formatINR(item.unitPrice)}
-              {item.taxRate ? ` · GST ${item.taxRate}%` : ''}
               {item.discountAmount > 0 ? ` · ${formatINR(item.discountAmount)} off` : ''}
             </div>
           </div>
@@ -226,16 +206,14 @@ export function LineItemsList({ items }: { items: GarageQuoteLineItemDto[] }) {
   );
 }
 
-/** Subtotal / discount / GST / total block. */
+/** Subtotal / discount / total block. */
 export function TotalsSummary({
   subtotal,
   discount,
-  tax,
   total,
 }: {
   subtotal: number;
   discount: number;
-  tax: number;
   total: number;
 }) {
   return (
@@ -247,10 +225,6 @@ export function TotalsSummary({
       <div className="flex justify-between text-navy-600">
         <dt>Discounts</dt>
         <dd className="tabular-nums">{discount > 0 ? `− ${formatINR(discount)}` : formatINR(0)}</dd>
-      </div>
-      <div className="flex justify-between text-navy-600">
-        <dt>GST</dt>
-        <dd className="tabular-nums">{formatINR(tax)}</dd>
       </div>
       <div className="flex items-baseline justify-between border-t border-surface-200 pt-2">
         <dt className="font-semibold text-navy-900">Quote total</dt>

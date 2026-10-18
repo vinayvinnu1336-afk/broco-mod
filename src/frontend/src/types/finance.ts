@@ -67,7 +67,6 @@ export interface InvoiceDto {
   status: InvoiceStatus;
   subtotal: number;
   discountAmount: number;
-  taxAmount: number;
   totalAmount: number;
   currency: string;
   billingName: string;
@@ -105,8 +104,6 @@ export interface GarageSettlementDto {
   grossAmount: number;
   platformFeeRatePercent: number;
   platformFeeAmount: number;
-  platformFeeGstRatePercent: number;
-  platformFeeGstAmount: number;
   totalPlatformFee: number;
   netPayableToGarage: number;
   currency: string;
@@ -128,14 +125,12 @@ export interface FinanceOverviewDto {
   totalInvoicesCount: number;
   pendingSettlementsCount: number;
   completedSettlementsCount: number;
-  totalPlatformFeeGst: number;
   totalPlatformMargin: number;
   /** 10% advances customers paid BroCo online, net of refunds. */
   totalBookingAdvances: number;
-  /** Commission garages paid BroCo, including GST. */
+  /** Commission garages paid BroCo. */
   totalCommissionCollected: number;
   totalCommissionOutstanding: number;
-  totalCommissionGst: number;
 }
 
 export interface FinancialLedgerEntryDto {

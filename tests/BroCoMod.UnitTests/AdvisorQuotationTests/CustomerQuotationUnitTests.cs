@@ -52,7 +52,7 @@ public class CustomerQuotationUnitTests
     }
 
     [Fact]
-    public void RecalculateTotals_CalculatesSubtotalTaxDiscountAndTotal_Accurately()
+    public void RecalculateTotals_CalculatesSubtotalDiscountAndTotal_WithoutTax()
     {
         // Arrange
         var quote = new CustomerQuotation(
@@ -67,26 +67,24 @@ public class CustomerQuotationUnitTests
             customerDiscount: 100m
         );
 
-        // Line 1: Part (2 x 1500 = 3000, 18% tax, 100 discount on line = 2900 line total before quote-level discount)
+        // Line 1: Part (2 x 1500 = 3000, 100 discount on line = 2900 line total before quote-level discount)
         var item1 = new CustomerQuotationLineItem(
             customerQuotationId: quote.Id,
             lineType: QuoteLineType.Part,
             description: "Front Brake Pads OEM",
             quantity: 2,
             unitPrice: 1500m,
-            taxRate: 18m,
             discountAmount: 100m,
             sortOrder: 1
         );
 
-        // Line 2: Labour (1 x 800 = 800, 18% tax, 0 discount = 800 line total)
+        // Line 2: Labour (1 x 800 = 800, 0 discount = 800 line total)
         var item2 = new CustomerQuotationLineItem(
             customerQuotationId: quote.Id,
             lineType: QuoteLineType.Labour,
             description: "Brake Pad Installation Labour",
             quantity: 1,
             unitPrice: 800m,
-            taxRate: 18m,
             discountAmount: 0m,
             sortOrder: 2
         );
@@ -107,12 +105,9 @@ public class CustomerQuotationUnitTests
         quote.CustomerSubtotal.Should().Be(3700.00m);
         quote.CustomerDiscount.Should().Be(100.00m);
 
-        // Taxable after quote-level discount = 3700 - 100 = 3600
-        // Line taxes = (2900 * 0.18) + (800 * 0.18) = 522 + 144 = 666
-        // Scaled tax = 666 * (3600 / 3700) = 648.00
-        quote.CustomerTax.Should().Be(648.00m);
-        // Total = 3600 + 648.00 = 4248.00
-        quote.CustomerTotal.Should().Be(4248.00m);
+        // No tax: Total = 3700 - 100 = 3600.00
+        quote.CustomerTax.Should().Be(0m);
+        quote.CustomerTotal.Should().Be(3600.00m);
     }
 
     [Fact]
@@ -136,7 +131,7 @@ public class CustomerQuotationUnitTests
         var quote = new CustomerQuotation(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), advisorId,
             "CQ-100004", "Engine Service", null, DateTime.UtcNow.AddDays(3));
-        quote.LineItems.Add(new CustomerQuotationLineItem(quote.Id, QuoteLineType.Service, "Synthetic Oil Change", 1, 3500m, 18m, 0m));
+        quote.LineItems.Add(new CustomerQuotationLineItem(quote.Id, QuoteLineType.Service, "Synthetic Oil Change", 1, 3500m, 0m));
 
         // Act
         quote.MarkReadyToSend(advisorId);
@@ -144,8 +139,8 @@ public class CustomerQuotationUnitTests
         // Assert
         quote.Status.Should().Be(CustomerQuotationStatus.ReadyToSend);
         quote.CustomerSubtotal.Should().Be(3500.00m);
-        quote.CustomerTax.Should().Be(630.00m);
-        quote.CustomerTotal.Should().Be(4130.00m);
+        quote.CustomerTax.Should().Be(0m);
+        quote.CustomerTotal.Should().Be(3500.00m);
         quote.AdvisorId.Should().Be(advisorId);
     }
 
@@ -157,7 +152,7 @@ public class CustomerQuotationUnitTests
         var quote = new CustomerQuotation(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), advisorId,
             "CQ-100005", "Air Filter", null, DateTime.UtcNow.AddDays(3));
-        quote.LineItems.Add(new CustomerQuotationLineItem(quote.Id, QuoteLineType.Part, "Cabin Air Filter", 1, 900m, 18m));
+        quote.LineItems.Add(new CustomerQuotationLineItem(quote.Id, QuoteLineType.Part, "Cabin Air Filter", 1, 900m));
         quote.MarkReadyToSend(advisorId);
 
         // Act

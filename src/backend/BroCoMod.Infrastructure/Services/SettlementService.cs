@@ -105,7 +105,6 @@ public class SettlementService : ISettlementService
 
         decimal feePercentage = feeConfig?.FeePercentage ?? 10.0m;
         decimal fixedFee = feeConfig?.FixedFee ?? 0.0m;
-        decimal taxPercentage = feeConfig?.TaxPercentage ?? 18.0m;
 
         // 5. Generate settlement number and instantiate
         var settlementNumber = await _numberGenerator.NextSettlementNumberAsync(cancellationToken);
@@ -118,7 +117,6 @@ public class SettlementService : ISettlementService
             grossAmount: garageQuotedAmount,
             platformFeePercentage: feePercentage,
             platformFeeFixed: fixedFee,
-            taxPercentageOnFee: taxPercentage,
             currency: payment.Currency
         );
 
@@ -284,7 +282,6 @@ public class SettlementService : ISettlementService
         PlatformFeePercentage: s.PlatformFeePercentage,
         PlatformFeeFixed: s.PlatformFeeFixed,
         PlatformFeeAmount: s.PlatformFeeAmount,
-        TaxOnPlatformFee: s.TaxOnPlatformFee,
         TotalPlatformFee: s.TotalPlatformFee,
         NetPayableToGarage: s.NetPayableToGarage,
         Currency: s.Currency,

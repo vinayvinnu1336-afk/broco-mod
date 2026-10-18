@@ -148,7 +148,6 @@ export default function AdvisorQuoteDetailPage() {
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Unit price</TableHead>
                 <TableHead className="text-right">Discount</TableHead>
-                <TableHead className="text-right">GST</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -164,7 +163,6 @@ export default function AdvisorQuoteDetailPage() {
                   <TableCell className="text-right tabular-nums">
                     {item.discountAmount > 0 ? `− ${money(item.discountAmount)}` : '—'}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{item.taxRate}%</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">{money(item.lineTotal)}</TableCell>
                 </TableRow>
               ))}
@@ -181,7 +179,7 @@ export default function AdvisorQuoteDetailPage() {
               </div>
               <div className="mt-0.5 text-xs text-navy-500">
                 {humanize(String(item.lineType))} · {item.quantity} × {money(item.unitPrice)}
-                {item.discountAmount > 0 && <> · {money(item.discountAmount)} off</>} · {item.taxRate}% GST
+                {item.discountAmount > 0 && <> · {money(item.discountAmount)} off</>}
               </div>
             </li>
           ))}
@@ -199,10 +197,6 @@ export default function AdvisorQuoteDetailPage() {
                 <dd className="tabular-nums text-navy-900">− {money(quote.discountAmount)}</dd>
               </div>
             )}
-            <div className="flex justify-between gap-3 text-sm">
-              <dt className="text-navy-500">GST</dt>
-              <dd className="tabular-nums text-navy-900">{money(quote.taxAmount)}</dd>
-            </div>
             <div className="flex justify-between gap-3 border-t border-surface-200 pt-2">
               <dt className="text-sm font-semibold text-navy-900">Garage total</dt>
               <dd className="text-lg font-bold tabular-nums text-navy-900">{money(quote.totalAmount)}</dd>
@@ -242,7 +236,7 @@ export default function AdvisorQuoteDetailPage() {
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-navy-900">Version {ver.versionNumber}</div>
                   <div className="text-xs text-navy-500">
-                    {formatDateTime(ver.submittedAtUtc)} · {money(ver.subtotal)} + {money(ver.taxAmount)} GST
+                    {formatDateTime(ver.submittedAtUtc)} · {money(ver.subtotal)}
                     {ver.discountAmount > 0 && <> · {money(ver.discountAmount)} off</>}
                   </div>
                 </div>

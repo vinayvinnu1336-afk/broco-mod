@@ -9,7 +9,7 @@ export default function AdvisorGarageDuesPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Garage dues"
-        description="Commission plus GST garages still owe BroCo after handing cars back. Remind garages that are late; admins record payments."
+        description="Commission garages still owe BroCo after handing cars back. Remind garages that are late; admins record payments."
       />
       <GarageDuesBoard portal="advisor" />
     </div>

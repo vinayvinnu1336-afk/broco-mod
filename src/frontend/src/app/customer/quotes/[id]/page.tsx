@@ -387,10 +387,9 @@ export default function CustomerQuotationDetailPage() {
         <div className="mt-0.5 text-3xl font-bold tracking-tight tabular-nums text-navy-900">
           {money(quote.customerTotal)}
         </div>
-        <p className="mt-1 text-xs text-navy-500">
-          Includes {money(quote.customerTax)} tax
-          {quote.customerDiscount > 0 && ` and a ${money(quote.customerDiscount)} discount`}
-        </p>
+        {quote.customerDiscount > 0 && (
+          <p className="mt-1 text-xs text-navy-500">Includes a {money(quote.customerDiscount)} discount</p>
+        )}
         {isAccepted && (
           <PriceSplit
             className="mt-3"
@@ -489,7 +488,6 @@ export default function CustomerQuotationDetailPage() {
                 <span className="text-emerald-700">−{money(quote.customerDiscount)}</span>
               </DetailRow>
             )}
-            <DetailRow label="Tax">{money(quote.customerTax)}</DetailRow>
             <div className="flex items-center justify-between gap-4 py-3">
               <dt className="text-base font-semibold text-navy-900">Total</dt>
               <dd className="text-lg font-bold tabular-nums text-navy-900">{money(quote.customerTotal)}</dd>

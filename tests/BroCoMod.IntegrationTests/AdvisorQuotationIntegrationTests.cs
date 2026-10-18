@@ -125,8 +125,8 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
             GarageRemarks: "OEM Clutch assembly kit replacement required.",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "OEM Clutch Plate Kit", 1, 4500m, 18m, 200m, 1),
-                new(QuoteLineType.Labour, "Transmission removal & clutch installation labour", 1, 1500m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "OEM Clutch Plate Kit", 1, 4500m, 200m, 1),
+                new(QuoteLineType.Labour, "Transmission removal & clutch installation labour", 1, 1500m, 0m, 2)
             }
         );
 
@@ -277,8 +277,8 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "OEM Clutch Kit with Bearing", 1, 4500m, 18m, 200m, 1),
-                new(QuoteLineType.Labour, "Clutch Fitting Labour", 1, 1500m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "OEM Clutch Kit with Bearing", 1, 4500m, 200m, 1),
+                new(QuoteLineType.Labour, "Clutch Fitting Labour", 1, 1500m, 0m, 2)
             }
         );
 
@@ -295,11 +295,9 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         cqDraftBody.Data.QuotationNumber.Should().StartWith("CQ-");
 
         // Same items as the garage quote (no markup): Subtotal = (4500 - 200) + 1500 = 5800
-        // Tax = 5800 * 0.18 = 1044
-        // Total = 6844, exactly the garage quote total
+        // No tax: Total = 5800, exactly the garage quote total
         cqDraftBody.Data.CustomerSubtotal.Should().Be(5800.00m);
-        cqDraftBody.Data.CustomerTax.Should().Be(1044.00m);
-        cqDraftBody.Data.CustomerTotal.Should().Be(6844.00m);
+        cqDraftBody.Data.CustomerTotal.Should().Be(5800.00m);
 
         // 2. Customer Visibility Verification: In Draft status, customer cannot see quotation
         var customerClient = CreateAuthenticatedClient(customerToken);
@@ -339,7 +337,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
         var custQuoteDetail = await custQuoteDetailAfterSend.Content.ReadFromJsonAsync<ApiResponse<CustomerFacingQuotationDto>>(JsonOptions);
         custQuoteDetail!.Data.Should().NotBeNull();
         custQuoteDetail.Data!.Status.Should().Be("Sent");
-        custQuoteDetail.Data.CustomerTotal.Should().Be(6844.00m);
+        custQuoteDetail.Data.CustomerTotal.Should().Be(5800.00m);
         custQuoteDetail.Data.ScopeSummary.Should().Be("Complete clutch replacement and flywheel inspection");
     }
 
@@ -366,7 +364,7 @@ public class AdvisorQuotationIntegrationTests : IClassFixture<WebApplicationFact
                 Currency: "INR",
                 LineItems: new List<CustomerQuotationLineItemInputDto>
                 {
-                    new(QuoteLineType.Labour, "Inspection", 1, 1000m, 18m, 0m, 1)
+                    new(QuoteLineType.Labour, "Inspection", 1, 1000m, 0m, 1)
                 }
             )
         );

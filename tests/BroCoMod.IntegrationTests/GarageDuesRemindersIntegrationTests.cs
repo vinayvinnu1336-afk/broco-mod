@@ -52,7 +52,7 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
             due.GarageName.Should().Be(garage.Name);
             due.GaragePhone.Should().Be(garage.Phone);
             due.JobNumber.Should().StartWith("JOB-");
-            due.TotalDue.Should().Be(590m, "10% of ₹5,000 plus 18% GST");
+            due.TotalDue.Should().Be(500m, "10% of ₹5,000");
             due.IsOverdue.Should().BeFalse();
             due.DaysOverdue.Should().Be(0);
             due.GarageBlocked.Should().BeFalse();
@@ -69,7 +69,7 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
 
             var garages = await advisor.GetFromJsonAsync<ApiResponse<List<GarageDuesSummaryDto>>>("/api/v1/advisor/commissions/garages", JsonOptions);
             var summary = garages!.Data!.Should().ContainSingle(g => g.GarageId == garage.GarageId).Subject;
-            summary.OutstandingAmount.Should().Be(590m);
+            summary.OutstandingAmount.Should().Be(500m);
             summary.OutstandingCount.Should().Be(1);
             summary.OverdueCount.Should().Be(0);
 
@@ -246,7 +246,7 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
     }
 
     /// <summary>
-    /// Bills the garage ₹590 (10% of ₹5,000 + 18% GST) the way handover does, including the first notice.
+    /// Bills the garage ₹500 (10% of ₹5,000) the way handover does, including the first notice.
     /// A commission needs a real job, so a fresh customer's package booking is assigned and its job is used.
     /// </summary>
     private async Task<Guid> BillGarageAsync(Guid garageId, DateTime dueAtUtc)
@@ -254,7 +254,7 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
         var (jobId, requestId) = await CreateJobAsync();
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var commission = new GarageCommission($"COM-T{Guid.NewGuid():N}"[..20], garageId, jobId, requestId, 5000m, 500m, 10m, 18m, dueAtUtc);
+        var commission = new GarageCommission($"COM-T{Guid.NewGuid():N}"[..20], garageId, jobId, requestId, 5000m, 500m, 10m, dueAtUtc);
         commission.RecordReminder(DateTime.UtcNow);
         db.GarageCommissions.Add(commission);
         await db.SaveChangesAsync();

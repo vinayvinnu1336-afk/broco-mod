@@ -23,8 +23,7 @@ public class InvoiceAndSettlementUnitTests
             garageId: garageId,
             subtotal: 10000m,
             discountAmount: 1000m,
-            taxAmount: 1620m,
-            totalAmount: 10620m,
+            totalAmount: 9000m,
             billingName: "Rohit Sharma",
             billingEmail: "rohit@example.com",
             billingAddress: "Mumbai, Maharashtra",
@@ -39,8 +38,8 @@ public class InvoiceAndSettlementUnitTests
         invoice.GarageId.Should().Be(garageId);
         invoice.Subtotal.Should().Be(10000m);
         invoice.DiscountAmount.Should().Be(1000m);
-        invoice.TaxAmount.Should().Be(1620m);
-        invoice.TotalAmount.Should().Be(10620m);
+        invoice.TaxAmount.Should().Be(0m);
+        invoice.TotalAmount.Should().Be(9000m);
         invoice.BillingName.Should().Be("Rohit Sharma");
         invoice.BillingEmail.Should().Be("rohit@example.com");
         invoice.Status.Should().Be(InvoiceStatus.Issued);
@@ -93,11 +92,10 @@ public class InvoiceAndSettlementUnitTests
     [Fact]
     public void GarageSettlement_CalculatesAuthoritativeNetPayable_Correctly()
     {
-        // Arrange: Gross = 20,000 INR, Fee% = 10%, Fixed = 500 INR, Tax% = 18% (GST)
+        // Arrange: Gross = 20,000 INR, Fee% = 10%, Fixed = 500 INR
         var gross = 20000m;
         var feePercent = 10m;
         var feeFixed = 500m;
-        var taxPercent = 18m;
 
         // Act
         var settlement = new GarageSettlement(
@@ -108,21 +106,18 @@ public class InvoiceAndSettlementUnitTests
             grossAmount: gross,
             platformFeePercentage: feePercent,
             platformFeeFixed: feeFixed,
-            taxPercentageOnFee: taxPercent,
             currency: "INR"
         );
 
         // Expected:
         // Percentage fee: 20000 * 0.10 = 2000
-        // Total platform fee before tax: 2000 + 500 = 2500
-        // Tax on fee (18% GST): 2500 * 0.18 = 450
-        // Total platform fee: 2500 + 450 = 2950
-        // Net payable to workshop: 20000 - 2950 = 17050
+        // Total platform fee: 2000 + 500 = 2500 (no tax on top)
+        // Net payable to workshop: 20000 - 2500 = 17500
         settlement.GrossAmount.Should().Be(20000m);
         settlement.PlatformFeeAmount.Should().Be(2500m);
-        settlement.TaxOnPlatformFee.Should().Be(450m);
-        settlement.TotalPlatformFee.Should().Be(2950m);
-        settlement.NetPayableToGarage.Should().Be(17050m);
+        settlement.TaxOnPlatformFee.Should().Be(0m);
+        settlement.TotalPlatformFee.Should().Be(2500m);
+        settlement.NetPayableToGarage.Should().Be(17500m);
         settlement.Status.Should().Be(SettlementStatus.Pending);
     }
 
@@ -137,8 +132,7 @@ public class InvoiceAndSettlementUnitTests
             paymentId: Guid.NewGuid(),
             grossAmount: 10000m,
             platformFeePercentage: 10m,
-            platformFeeFixed: 0m,
-            taxPercentageOnFee: 18m
+            platformFeeFixed: 0m
         );
 
         // Act 1: Processing
@@ -164,8 +158,7 @@ public class InvoiceAndSettlementUnitTests
             paymentId: Guid.NewGuid(),
             grossAmount: 5000m,
             platformFeePercentage: 10m,
-            platformFeeFixed: 0m,
-            taxPercentageOnFee: 18m
+            platformFeeFixed: 0m
         );
         settlement.MarkCompleted("TXN-12345");
 
@@ -190,13 +183,12 @@ public class InvoiceAndSettlementUnitTests
             customerId: Guid.NewGuid(),
             garageId: Guid.NewGuid(),
             subtotal: 3000m,
-            tax: 540m,
-            total: 3540m,
+            total: 3000m,
             description: "Discovered worn serpentine belt during engine inspection."
         );
 
         awq.Status.Should().Be(CustomerQuotationStatus.Sent);
-        awq.Total.Should().Be(3540m);
+        awq.Total.Should().Be(3000m);
 
         // Act: Accept
         awq.Accept();
@@ -213,8 +205,7 @@ public class InvoiceAndSettlementUnitTests
             garageId: Guid.NewGuid(),
             subtotal: 5000m,
             discountAmount: 0m,
-            taxAmount: 900m,
-            totalAmount: 5900m,
+            totalAmount: 5000m,
             billingName: "Customer Name",
             billingEmail: "cust@example.com",
             billingAddress: null,

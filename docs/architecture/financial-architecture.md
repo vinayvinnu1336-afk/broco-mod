@@ -9,7 +9,7 @@ The core design philosophy is:
 - **Provider Agnostic**: All payment gateway interactions are abstracted behind the `IPaymentGateway` interface and `PaymentGatewayFactory`.
 - **Decimal Precision**: All currency and financial arithmetic strictly utilizes 128-bit `decimal` (`decimal(18, 2)` in PostgreSQL) to prevent floating-point rounding errors.
 - **Strict Immutability**: Accepted customer quotations, issued invoices, and financial ledger entries are immutable and append-only.
-- **Escrow Settlement Flow**: Customer funds are received into an escrow state; garage settlements and tax invoices are automatically created upon successful payment verification.
+- **Escrow Settlement Flow**: Customer funds are received into an escrow state; garage settlements and invoices are automatically created upon successful payment verification.
 
 ---
 
@@ -38,9 +38,9 @@ The core design philosophy is:
 +─────────────────────────────────+        +───────────────────────────────────+       +─────────────────────────────────+
 |         INVOICE DOMAIN          |        |        SETTLEMENT DOMAIN          |       |         LEDGER DOMAIN           |
 |                                 |        |                                   |       |                                 |
-|  • Sequential Tax Invoice       |        |  • Platform Fee (10%)             |       |  • Double-Entry Style Entries   |
-|  • Line Items Snapshot (JSON)   |        |  • GST on Commission (18%)        |       |  • Escrow Account Tracking      |
-|  • Subtotal + GST Calculation   |        |  • Net Workshop Payable           |       |  • Compensating Adjustments     |
+|  • Sequential Invoice           |        |  • Platform Fee (10%)             |       |  • Double-Entry Style Entries   |
+|  • Line Items Snapshot (JSON)   |        |  • No tax added                   |       |  • Escrow Account Tracking      |
+|  • Subtotal − Discount = Total   |        |  • Net Workshop Payable           |       |  • Compensating Adjustments     |
 |  • Audit & Legal Compliance     |        |  • Bank/IMPS Payout Tracking      |       |  • Append-Only Audit Trail      |
 +─────────────────────────────────+        +───────────────────────────────────+       +─────────────────────────────────+
 ```
@@ -74,7 +74,7 @@ The core design philosophy is:
 - `InvoiceNumber` (`INV-YYYYMMDD-XXXXX` from sequence `InvoiceNumberSeq`)
 - `PaymentId` (Unique 1:1 foreign key with Payment)
 - `CustomerId`, `GarageId`, `ServiceJobId`, `CustomerQuotationId`
-- `SubTotal`, `TaxRatePercent`, `TaxAmount`, `TotalAmount`
+- `SubTotal`, `DiscountAmount`, `TotalAmount` (legacy `TaxAmount` is always 0)
 - `Currency` (`INR`)
 - `Status` (`InvoiceStatus`: `Draft`, `Issued`, `Paid`, `Void`)
 - `IssuedAtUtc`, `PaidAtUtc`
@@ -103,7 +103,7 @@ The core design philosophy is:
 - `Id` (UUID, Primary Key)
 - `EntryNumber` (`LED-YYYYMMDD-XXXXX`)
 - `EntryType` (`LedgerEntryType`: `PaymentCaptured`, `PlatformFeeDeducted`, `GstOnPlatformFee`, `GaragePayout`, `RefundDebit`, `Adjustment`)
-- `AccountType` (`ESCROW`, `CUSTOMER`, `PLATFORM_REVENUE`, `GARAGE_PAYABLE`, `TAX_GST`)
+- `AccountType` (`ESCROW`, `CUSTOMER`, `PLATFORM_REVENUE`, `GARAGE_PAYABLE`)
 - `Amount` (`decimal(18, 2)`)
 - `Currency` (`INR`)
 - `Direction` (`Credit`, `Debit`)

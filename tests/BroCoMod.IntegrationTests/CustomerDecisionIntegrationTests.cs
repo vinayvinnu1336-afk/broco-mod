@@ -123,8 +123,8 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             GarageRemarks: "OEM Brake Pad replacement & disc skimming.",
             LineItems: new List<CreateQuoteLineItemRequest>
             {
-                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3200m, 18m, 0m, 1),
-                new(QuoteLineType.Labour, "Front Brake Pad Installation & Rotor Skimming", 1, 1200m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3200m, 0m, 1),
+                new(QuoteLineType.Labour, "Front Brake Pad Installation & Rotor Skimming", 1, 1200m, 0m, 2)
             }
         );
 
@@ -153,8 +153,8 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
             Currency: "INR",
             LineItems: new List<CustomerQuotationLineItemInputDto>
             {
-                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3200m, 18m, 0m, 1),
-                new(QuoteLineType.Labour, "Brake Service & Disc Resurfacing", 1, 1200m, 18m, 0m, 2)
+                new(QuoteLineType.Part, "Front Brake Pad Set OEM", 1, 3200m, 0m, 1),
+                new(QuoteLineType.Labour, "Brake Service & Disc Resurfacing", 1, 1200m, 0m, 2)
             }
         );
 

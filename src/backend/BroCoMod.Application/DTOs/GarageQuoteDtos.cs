@@ -7,7 +7,6 @@ public record CreateQuoteLineItemRequest(
     string Description,
     decimal Quantity,
     decimal UnitPrice,
-    decimal TaxRate = 0m,
     decimal DiscountAmount = 0m,
     int SortOrder = 0
 );
@@ -45,10 +44,8 @@ public record GarageQuoteLineItemDto(
     string Description,
     decimal Quantity,
     decimal UnitPrice,
-    decimal TaxRate,
     decimal DiscountAmount,
     decimal ItemSubtotal,
-    decimal LineTax,
     decimal LineTotal,
     int SortOrder
 );
@@ -57,7 +54,6 @@ public record GarageQuoteVersionSummaryDto(
     Guid Id,
     int VersionNumber,
     decimal Subtotal,
-    decimal TaxAmount,
     decimal DiscountAmount,
     decimal TotalAmount,
     int? EstimatedCompletionDays,
@@ -95,7 +91,6 @@ public record GarageQuoteDetailDto(
     string Status,
     string Currency,
     decimal Subtotal,
-    decimal TaxAmount,
     decimal DiscountAmount,
     decimal TotalAmount,
     int? EstimatedCompletionHours,
@@ -139,7 +134,6 @@ public record AdvisorGarageQuoteDetailDto(
     string VehicleSummary,
     string ProblemSummary,
     decimal Subtotal,
-    decimal TaxAmount,
     decimal DiscountAmount,
     decimal TotalAmount,
     string Currency,
@@ -177,7 +171,6 @@ public record AdminGarageQuoteDetailDto(
     string GarageAddress,
     string VehicleSummary,
     decimal Subtotal,
-    decimal TaxAmount,
     decimal DiscountAmount,
     decimal TotalAmount,
     string Currency,

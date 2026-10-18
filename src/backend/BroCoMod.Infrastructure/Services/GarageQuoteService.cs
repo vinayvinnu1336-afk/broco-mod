@@ -81,7 +81,6 @@ public class GarageQuoteService : IGarageQuoteService
                     description: item.Description,
                     quantity: item.Quantity,
                     unitPrice: item.UnitPrice,
-                    taxRate: item.TaxRate,
                     discountAmount: item.DiscountAmount,
                     sortOrder: item.SortOrder != 0 ? item.SortOrder : ++order);
             }
@@ -149,7 +148,6 @@ public class GarageQuoteService : IGarageQuoteService
                     description: item.Description,
                     quantity: item.Quantity,
                     unitPrice: item.UnitPrice,
-                    taxRate: item.TaxRate,
                     discountAmount: item.DiscountAmount,
                     sortOrder: item.SortOrder != 0 ? item.SortOrder : ++order);
             }
@@ -520,7 +518,6 @@ public class GarageQuoteService : IGarageQuoteService
             quote.ServiceRequest != null ? $"{quote.ServiceRequest.VehicleMake} {quote.ServiceRequest.VehicleModel}" : "",
             quote.ServiceRequest?.ProblemDescription ?? "",
             quote.Subtotal,
-            quote.TaxAmount,
             quote.DiscountAmount,
             quote.TotalAmount,
             quote.Currency,
@@ -598,7 +595,6 @@ public class GarageQuoteService : IGarageQuoteService
             quote.Garage?.Address ?? "",
             quote.ServiceRequest != null ? $"{quote.ServiceRequest.VehicleMake} {quote.ServiceRequest.VehicleModel}" : "",
             quote.Subtotal,
-            quote.TaxAmount,
             quote.DiscountAmount,
             quote.TotalAmount,
             quote.Currency,
@@ -650,7 +646,6 @@ public class GarageQuoteService : IGarageQuoteService
             quote.Status.ToString(),
             quote.Currency,
             quote.Subtotal,
-            quote.TaxAmount,
             quote.DiscountAmount,
             quote.TotalAmount,
             quote.EstimatedCompletionHours,
@@ -673,10 +668,8 @@ public class GarageQuoteService : IGarageQuoteService
             item.Description,
             item.Quantity,
             item.UnitPrice,
-            item.TaxRate,
             item.DiscountAmount,
             item.ItemSubtotal,
-            item.LineTax,
             item.LineTotal,
             item.SortOrder);
     }
@@ -698,7 +691,6 @@ public class GarageQuoteService : IGarageQuoteService
             version.Id,
             version.VersionNumber,
             version.Subtotal,
-            version.TaxAmount,
             version.DiscountAmount,
             version.TotalAmount,
             version.EstimatedCompletionDays,

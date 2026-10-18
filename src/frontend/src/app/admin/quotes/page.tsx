@@ -328,8 +328,7 @@ function AdminGarageQuotes() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-navy-900">{item.description}</p>
                         <p className="mt-0.5 text-xs text-navy-500">
-                          {humanize(String(item.lineType))} · {item.quantity} × {formatINR(item.unitPrice, selectedQuote.currency)} · GST{' '}
-                          {item.taxRate}%
+                          {humanize(String(item.lineType))} · {item.quantity} × {formatINR(item.unitPrice, selectedQuote.currency)}
                           {item.discountAmount > 0 && (
                             <span className="text-emerald-700"> · −{formatINR(item.discountAmount, selectedQuote.currency)}</span>
                           )}
@@ -347,10 +346,6 @@ function AdminGarageQuotes() {
                 <div className="flex justify-between text-navy-600">
                   <dt>Subtotal</dt>
                   <dd className="tabular-nums">{formatINR(selectedQuote.subtotal, selectedQuote.currency)}</dd>
-                </div>
-                <div className="flex justify-between text-navy-600">
-                  <dt>GST</dt>
-                  <dd className="tabular-nums">{formatINR(selectedQuote.taxAmount, selectedQuote.currency)}</dd>
                 </div>
                 {selectedQuote.discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-700">

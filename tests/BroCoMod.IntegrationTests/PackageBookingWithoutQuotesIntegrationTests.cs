@@ -372,7 +372,7 @@ public class PackageBookingWithoutQuotesIntegrationTests : IClassFixture<WebAppl
 
         var draft = await garage.PostAsJsonAsync("/api/v1/garage/quotes/draft", new CreateGarageQuoteRequest(
             garageRequestId, ValidUntil: DateTime.UtcNow.AddDays(7),
-            LineItems: new List<CreateQuoteLineItemRequest> { new(QuoteLineType.Labour, "Clutch plate replacement", 1, 3800m, 18m) }));
+            LineItems: new List<CreateQuoteLineItemRequest> { new(QuoteLineType.Labour, "Clutch plate replacement", 1, 3800m) }));
         draft.StatusCode.Should().Be(HttpStatusCode.Created, await draft.Content.ReadAsStringAsync());
 
         await CancelAsync(customer, request.Id);

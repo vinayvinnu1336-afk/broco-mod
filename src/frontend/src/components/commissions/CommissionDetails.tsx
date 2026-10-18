@@ -72,12 +72,7 @@ export function CommissionDetails({ commission: c }: { commission: GarageDue }) 
           <DetailRow label="Service value" value={formatINR(c.serviceValue)} />
           <DetailRow label="Advance collected by BroCo" value={formatINR(c.advanceCollectedByPlatform)} />
           <DetailRow label="Balance collected by garage" value={formatINR(c.balanceCollectedByGarage)} />
-          <DetailRow label={`Commission (${Number(c.commissionPercentage)}%)`} value={formatINR(c.commissionAmount)} />
-          <DetailRow
-            label={`GST on commission${c.taxPercentage != null ? ` (${Number(c.taxPercentage)}%)` : ''}`}
-            value={formatINR(c.taxAmount)}
-          />
-          <DetailRow label="Total due from garage" value={formatINR(c.totalDue)} strong />
+          <DetailRow label={`Commission (${Number(c.commissionPercentage)}%)`} value={formatINR(c.totalDue)} strong />
         </div>
       </section>
 

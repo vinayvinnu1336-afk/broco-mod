@@ -40,7 +40,7 @@ The quotation state machine is governed by `QuoteStatus`:
 
 ## 3. Server-Authoritative Financial Calculations
 
-Client applications provide line items with unit prices, quantities, and optional discounts. To guarantee financial integrity and prevent tampering, **all line item totals, quote subtotal, tax amounts, and grand total are strictly calculated and enforced on the server**.
+Client applications provide line items with unit prices, quantities, and optional discounts. To guarantee financial integrity and prevent tampering, **all line item totals, quote subtotal, and grand total are strictly calculated and enforced on the server**.
 
 ### Line Item Calculation
 $$\text{LineTotal} = (\text{Quantity} \times \text{UnitPrice}) - \text{DiscountAmount}$$
@@ -51,12 +51,8 @@ $$\text{LineTotal} = (\text{Quantity} \times \text{UnitPrice}) - \text{DiscountA
    $$\text{Subtotal} = \sum \text{LineTotal}_i$$
 2. **Discount**: Commercial discount applied to the quote:
    $$\text{TotalDiscount} = \text{QuoteDiscount}$$
-3. **Taxable Amount**:
-   $$\text{TaxableAmount} = \max(0, \text{Subtotal} - \text{Discount})$$
-4. **GST / Tax**:
-   $$\text{TaxAmount} = \text{TaxableAmount} \times \frac{\text{TaxRate}}{100}$$
-5. **Grand Total**:
-   $$\text{GrandTotal} = \text{TaxableAmount} + \text{TaxAmount}$$
+3. **Grand Total** (no tax is added):
+   $$\text{GrandTotal} = \max(0, \text{Subtotal} - \text{Discount})$$
 
 ---
 

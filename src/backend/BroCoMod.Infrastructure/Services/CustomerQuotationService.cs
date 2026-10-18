@@ -125,7 +125,6 @@ public class CustomerQuotationService : ICustomerQuotationService
                 itemInput.Description,
                 itemInput.Quantity,
                 itemInput.UnitPrice,
-                itemInput.TaxRate,
                 itemInput.DiscountAmount,
                 itemInput.SortOrder
             );
@@ -258,7 +257,6 @@ public class CustomerQuotationService : ICustomerQuotationService
                 itemInput.Description,
                 itemInput.Quantity,
                 itemInput.UnitPrice,
-                itemInput.TaxRate,
                 itemInput.DiscountAmount,
                 itemInput.SortOrder
             );
@@ -555,7 +553,6 @@ public class CustomerQuotationService : ICustomerQuotationService
             li.Description,
             li.Quantity,
             li.UnitPrice,
-            li.TaxRate,
             li.DiscountAmount,
             li.LineTotal,
             li.SortOrder
@@ -566,7 +563,6 @@ public class CustomerQuotationService : ICustomerQuotationService
             quotation.VersionNumber,
             quotation.CustomerSubtotal,
             quotation.CustomerDiscount,
-            quotation.CustomerTax,
             quotation.CustomerTotal,
             quotation.ValidUntilUtc,
             quotation.AdvisorRemarks,
@@ -596,7 +592,6 @@ public class CustomerQuotationService : ICustomerQuotationService
             quotation.Currency,
             quotation.CustomerSubtotal,
             quotation.CustomerDiscount,
-            quotation.CustomerTax,
             quotation.CustomerTotal,
             quotation.ValidUntilUtc,
             quotation.Status.ToString(),
@@ -613,7 +608,6 @@ public class CustomerQuotationService : ICustomerQuotationService
                 li.Description,
                 li.Quantity,
                 li.UnitPrice,
-                li.TaxRate,
                 li.DiscountAmount,
                 li.LineTotal,
                 li.SortOrder
@@ -623,7 +617,6 @@ public class CustomerQuotationService : ICustomerQuotationService
                 v.VersionNumber,
                 v.CustomerSubtotal,
                 v.CustomerDiscount,
-                v.CustomerTax,
                 v.CustomerTotal,
                 v.ValidUntilUtc,
                 v.AdvisorRemarks,
@@ -650,7 +643,6 @@ public class CustomerQuotationService : ICustomerQuotationService
             quotation.Currency,
             quotation.CustomerSubtotal,
             quotation.CustomerDiscount,
-            quotation.CustomerTax,
             quotation.CustomerTotal,
             quotation.ValidUntilUtc,
             quotation.Status.ToString(),
@@ -661,7 +653,6 @@ public class CustomerQuotationService : ICustomerQuotationService
                 li.Description,
                 li.Quantity,
                 li.UnitPrice,
-                li.TaxRate,
                 li.DiscountAmount,
                 li.LineTotal,
                 li.SortOrder

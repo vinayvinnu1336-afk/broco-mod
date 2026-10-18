@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace BroCoMod.Infrastructure.Services;
 
 /// <summary>
-/// After a garage hands a car back it owes BroCo a commission (platform fee % of the service value + GST).
+/// After a garage hands a car back it owes BroCo a commission (platform fee % of the service value).
 /// Garages pay online from their portal (or an admin records an offline transfer); unpaid dues trigger
 /// reminders and, once long overdue, stop the garage from receiving new jobs.
 /// </summary>
@@ -80,7 +80,6 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             .OrderByDescending(f => f.EffectiveFromUtc)
             .FirstOrDefaultAsync(ct);
         var feePercentage = fee?.FeePercentage ?? 10m;
-        var taxPercentage = fee?.TaxPercentage ?? 18m;
 
         var commission = new GarageCommission(
             await NextCommissionNumberAsync(ct),
@@ -90,7 +89,6 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             serviceValue,
             advance,
             feePercentage,
-            taxPercentage,
             DateTime.UtcNow.AddHours(_dueHours),
             job.CustomerQuotation?.Currency ?? "INR");
 
@@ -353,7 +351,7 @@ public class CommissionService : ICommissionService, ICommissionDuesService
     public async Task<CommissionTermsDto> GetTermsAsync(CancellationToken ct = default)
     {
         var fee = await ActiveFeeAsync(ct);
-        return new CommissionTermsDto(fee?.FeePercentage ?? 10m, fee?.TaxPercentage ?? 18m, _advancePercentage);
+        return new CommissionTermsDto(fee?.FeePercentage ?? 10m, _advancePercentage);
     }
 
     /// <summary>Applies to commissions created from now on; existing dues keep the rate they were billed at.</summary>
@@ -362,12 +360,12 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         var fee = await ActiveFeeAsync(ct, tracked: true);
         if (fee == null)
         {
-            fee = new PlatformFeeConfiguration("Standard Automotive Commission", request.CommissionPercentage, 0m, request.GstPercentage, true, DateTime.UtcNow);
+            fee = new PlatformFeeConfiguration("Standard Automotive Commission", request.CommissionPercentage, 0m, true, DateTime.UtcNow);
             _context.PlatformFeeConfigurations.Add(fee);
         }
         else
         {
-            fee.UpdateTerms(request.CommissionPercentage, fee.FixedFee, request.GstPercentage);
+            fee.UpdateTerms(request.CommissionPercentage, fee.FixedFee);
         }
         await _context.SaveChangesAsync(ct);
         await _audit.LogAsync(
@@ -375,7 +373,7 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             userId: adminUserId,
             entityName: nameof(PlatformFeeConfiguration),
             entityId: fee.Id.ToString(),
-            details: $"Garage commission set to {request.CommissionPercentage}% + {request.GstPercentage}% GST.",
+            details: $"Garage commission set to {request.CommissionPercentage}%.",
             cancellationToken: ct);
         return await GetTermsAsync(ct);
     }
@@ -772,25 +770,12 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             transactionReference: txRef,
             entryType: LedgerEntryType.Commission,
             debitAmount: 0m,
-            creditAmount: commission.CommissionAmount,
+            creditAmount: commission.TotalDue,
             accountType: "PLATFORM_COMMISSION",
             description: $"Commission revenue {commission.CommissionNumber}",
             currency: commission.Currency,
             accountId: commission.GarageId,
             paymentId: paymentId));
-        if (commission.TaxAmount > 0)
-        {
-            _context.FinancialLedgerEntries.Add(new FinancialLedgerEntry(
-                transactionReference: txRef,
-                entryType: LedgerEntryType.Commission,
-                debitAmount: 0m,
-                creditAmount: commission.TaxAmount,
-                accountType: "GST_PAYABLE",
-                description: $"GST on commission {commission.CommissionNumber}",
-                currency: commission.Currency,
-                accountId: commission.GarageId,
-                paymentId: paymentId));
-        }
     }
 
     private IQueryable<GarageCommission> Query() => _context.GarageCommissions.AsNoTracking()
@@ -820,8 +805,6 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         c.BalanceCollectedByGarage,
         c.CommissionPercentage,
         c.CommissionAmount,
-        c.TaxPercentage,
-        c.TaxAmount,
         c.TotalDue,
         c.Status.ToString(),
         c.DueAtUtc,

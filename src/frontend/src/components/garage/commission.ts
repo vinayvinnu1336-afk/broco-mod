@@ -16,8 +16,6 @@ export interface GarageCommission {
   balanceCollectedByGarage: number;
   commissionPercentage: number;
   commissionAmount: number;
-  taxPercentage: number;
-  taxAmount: number;
   totalDue: number;
   status: 'Due' | 'Paid' | 'Waived' | string;
   dueAtUtc: string;
