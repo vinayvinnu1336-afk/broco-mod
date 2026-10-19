@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -109,17 +110,48 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<bool>.Ok(true, "Logged out successfully."));
     }
 
+    /// <summary>Same answer whether or not an account exists, so the form cannot be used to find who is registered.</summary>
+    public const string MobileResetSentMessage =
+        "If this mobile number belongs to a BroCo account, we've sent a 6-digit code by WhatsApp or SMS. " +
+        "If the number is linked to more than one account, reset your password with your email instead.";
+
+    public const string EmailResetSentMessage = "If an account exists with this email, a reset code has been sent.";
+
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
 
-        // The reset code is delivered by email/SMS only. Returning it here would let anyone reset any account.
-        await _identityService.RequestPasswordResetAsync(request.Email, ipAddress, cancellationToken);
+        try
+        {
+            // The reset code is delivered by WhatsApp / SMS / email only. Returning it here would let anyone reset any account.
+            if (!string.IsNullOrWhiteSpace(request.MobileNumber))
+            {
+                if (!IndianMobile.IsValid(request.MobileNumber))
+                {
+                    return BadRequest(ApiResponse<object>.Fail(IndianMobile.InvalidMessage));
+                }
+                await _identityService.RequestPasswordResetByMobileAsync(request.MobileNumber, ipAddress, cancellationToken);
+                return Ok(ApiResponse<object>.Ok(null!, MobileResetSentMessage));
+            }
 
-        return Ok(ApiResponse<object>.Ok(null!, "If an account exists with this email, a reset code has been sent."));
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(ApiResponse<object>.Fail("Enter your mobile number or email."));
+            }
+
+            await _identityService.RequestPasswordResetAsync(request.Email, ipAddress, cancellationToken);
+            return Ok(ApiResponse<object>.Ok(null!, EmailResetSentMessage));
+        }
+        catch (TooManyRequestsException ex)
+        {
+            Response.Headers.RetryAfter = ((int)Math.Ceiling(ex.RetryAfter.TotalSeconds)).ToString();
+            return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse<object>.Fail(ex.Message, new List<string> { "rate_limited" }));
+        }
     }
 
     [HttpPost("reset-password")]
@@ -129,6 +161,21 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        if (!string.IsNullOrWhiteSpace(request.MobileNumber))
+        {
+            var code = string.IsNullOrWhiteSpace(request.Code) ? request.Token : request.Code;
+            var reset = await _identityService.ResetPasswordByMobileAsync(request.MobileNumber, code ?? string.Empty, request.NewPassword, ipAddress, cancellationToken);
+            return reset
+                ? Ok(ApiResponse<bool>.Ok(true, "Password has been successfully reset."))
+                : BadRequest(ApiResponse<object>.Fail("That code is wrong or has expired. Check it, or request a new one."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
+        {
+            return BadRequest(ApiResponse<object>.Fail("Invalid reset code or email."));
+        }
+
         var success = await _identityService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword, ipAddress, cancellationToken);
 
         if (!success)

@@ -1,21 +1,27 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { BroCoLogo } from '@/components/brand/BroCoLogo';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Wrench, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2, MailCheck } from 'lucide-react';
+import { Wrench, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2, MailCheck, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { apiFetch } from '@/lib/api';
+import { formatIndianMobile, INVALID_MOBILE_MESSAGE, isValidIndianMobile, toIndianMobile } from '@/lib/phone';
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT } from '@/lib/password';
 
 type Step = 'request' | 'reset' | 'done';
+// Mobile first, like sign-in: the code goes by WhatsApp or SMS. Email stays one tap away.
+type Method = 'mobile' | 'email';
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
-function friendlyError(raw: string | undefined, fallback: string): string {
+function friendlyError(raw: string | undefined, fallback: string, errors?: string[]): string {
+  // The API says how long to wait ("Too many codes requested. Please wait 12 minutes ...").
+  if (errors?.includes('rate_limited') && raw) return raw;
   const lower = (raw || '').toLowerCase();
   if (lower.includes('failed to fetch') || lower.includes('network')) {
     return 'We can’t reach the server. Check your internet connection and try again.';
@@ -30,7 +36,13 @@ function ForgotPasswordForm() {
   const searchParams = useSearchParams();
 
   const [step, setStep] = useState<Step>('request');
+  const [method, setMethod] = useState<Method>(searchParams.get('email') ? 'email' : 'mobile');
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
+  const [mobile, setMobile] = useState('');
+  const [mobileError, setMobileError] = useState<string | undefined>();
+  const mobileRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const switched = useRef(false);
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,6 +51,23 @@ function ForgotPasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [resent, setResent] = useState(false);
+
+  // After switching between mobile and email, put the cursor in the new field (not on first load).
+  useEffect(() => {
+    if (!switched.current) return;
+    (method === 'email' ? emailRef : mobileRef).current?.focus();
+  }, [method]);
+
+  const switchMethod = (next: Method) => {
+    switched.current = true;
+    setMethod(next);
+    setStep('request');
+    setCode('');
+    setError(null);
+    setMobileError(undefined);
+    setResent(false);
+    setCooldown(0);
+  };
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -49,10 +78,10 @@ function ForgotPasswordForm() {
   const sendCode = async (): Promise<boolean> => {
     const res = await apiFetch<unknown>('/auth/forgot-password', {
       method: 'POST',
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify(method === 'mobile' ? { mobileNumber: toIndianMobile(mobile) } : { email: email.trim() }),
     });
     if (!res.success) {
-      setError(friendlyError(res.message, 'We couldn’t send a code right now. Please try again.'));
+      setError(friendlyError(res.message, 'We couldn’t send a code right now. Please try again.', res.errors));
       return false;
     }
     setCooldown(RESEND_COOLDOWN_SECONDS);
@@ -62,7 +91,13 @@ function ForgotPasswordForm() {
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) {
+    if (method === 'mobile') {
+      if (!isValidIndianMobile(mobile)) {
+        setMobileError(INVALID_MOBILE_MESSAGE);
+        mobileRef.current?.focus();
+        return;
+      }
+    } else if (!email.trim()) {
       setError('Enter the email you signed up with.');
       return;
     }
@@ -93,7 +128,7 @@ function ForgotPasswordForm() {
     setError(null);
 
     if (!/^\d{6}$/.test(code)) {
-      setError('Enter the 6-digit code from the email.');
+      setError(method === 'mobile' ? 'Enter the 6-digit code we sent to your phone.' : 'Enter the 6-digit code from the email.');
       return;
     }
     if (newPassword.length < PASSWORD_MIN_LENGTH) {
@@ -109,10 +144,14 @@ function ForgotPasswordForm() {
     try {
       const res = await apiFetch<boolean>('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), token: code, newPassword }),
+        body: JSON.stringify(
+          method === 'mobile'
+            ? { mobileNumber: toIndianMobile(mobile), code, newPassword }
+            : { email: email.trim(), token: code, newPassword }
+        ),
       });
       if (!res.success) {
-        setError(friendlyError(res.message, 'That code is wrong or has expired. Check it, or request a new one.'));
+        setError(friendlyError(res.message, 'That code is wrong or has expired. Check it, or request a new one.', res.errors));
         return;
       }
       setStep('done');
@@ -150,7 +189,9 @@ function ForgotPasswordForm() {
               <>
                 <h1 className="text-2xl font-extrabold tracking-tight text-navy-900">Reset your password</h1>
                 <p className="mt-1 text-sm text-navy-500">
-                  Enter the email you signed up with and we&apos;ll send you a 6-digit code.
+                  {method === 'mobile'
+                    ? 'Enter your mobile number and we’ll send a 6-digit code by WhatsApp or SMS.'
+                    : 'Enter the email you signed up with and we’ll send you a 6-digit code.'}
                 </p>
 
                 {error && (
@@ -159,21 +200,47 @@ function ForgotPasswordForm() {
                   </Alert>
                 )}
 
-                <form className="mt-5 space-y-4" onSubmit={handleRequest}>
-                  <Input
-                    id="email"
-                    label="Email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                <form className="mt-5 space-y-4" onSubmit={handleRequest} noValidate={method === 'mobile'}>
+                  <div>
+                    {method === 'mobile' ? (
+                      <PhoneInput
+                        ref={mobileRef}
+                        id="mobileNumber"
+                        name="mobileNumber"
+                        label="Mobile number"
+                        value={mobile}
+                        onChange={(digits) => {
+                          setMobile(digits);
+                          setMobileError(undefined);
+                        }}
+                        error={mobileError}
+                        required
+                      />
+                    ) : (
+                      <Input
+                        ref={emailRef}
+                        id="email"
+                        label="Email"
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => switchMethod(method === 'mobile' ? 'email' : 'mobile')}
+                      className="mt-1 inline-flex min-h-[36px] items-center text-sm font-semibold text-electric-600 hover:text-electric-700 hover:underline"
+                    >
+                      {method === 'mobile' ? 'Use email instead' : 'Use mobile number instead'}
+                    </button>
+                  </div>
                   <Button
                     type="submit"
                     size="lg"
@@ -190,13 +257,22 @@ function ForgotPasswordForm() {
             {step === 'reset' && (
               <>
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-electric-50 text-electric-600">
-                  <MailCheck className="h-5 w-5" />
+                  {method === 'mobile' ? <MessageSquareText className="h-5 w-5" /> : <MailCheck className="h-5 w-5" />}
                 </span>
-                <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-navy-900">Check your email</h1>
-                <p className="mt-1 text-sm leading-relaxed text-navy-500">
-                  If an account exists for <span className="break-all font-medium text-navy-800">{email.trim()}</span>,
-                  we&apos;ve sent a 6-digit code. It expires in 10 minutes.
-                </p>
+                <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-navy-900">
+                  {method === 'mobile' ? 'Check your phone' : 'Check your email'}
+                </h1>
+                {method === 'mobile' ? (
+                  <p className="mt-1 text-sm leading-relaxed text-navy-500">
+                    If <span className="whitespace-nowrap font-medium text-navy-800">{formatIndianMobile(mobile)}</span> belongs
+                    to a BroCo account, we&apos;ve sent a 6-digit code by WhatsApp or SMS. It expires in 10 minutes.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm leading-relaxed text-navy-500">
+                    If an account exists for <span className="break-all font-medium text-navy-800">{email.trim()}</span>,
+                    we&apos;ve sent a 6-digit code. It expires in 10 minutes.
+                  </p>
+                )}
 
                 <div className="mt-4 space-y-3">
                   {resent && !error && <Alert type="success">We&apos;ve sent a new code.</Alert>}
@@ -269,9 +345,22 @@ function ForgotPasswordForm() {
                     }}
                     className="min-h-[44px] font-medium text-navy-500 hover:text-navy-800"
                   >
-                    Use a different email
+                    {method === 'mobile' ? 'Use a different number' : 'Use a different email'}
                   </button>
                 </div>
+
+                {method === 'mobile' && (
+                  <p className="mt-3 border-t border-surface-200 pt-4 text-center text-sm text-navy-500">
+                    No code, or your number is shared by more than one account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMethod('email')}
+                      className="inline-flex min-h-[36px] items-center font-semibold text-electric-600 hover:text-electric-700 hover:underline"
+                    >
+                      Reset with email instead
+                    </button>
+                  </p>
+                )}
               </>
             )}
 

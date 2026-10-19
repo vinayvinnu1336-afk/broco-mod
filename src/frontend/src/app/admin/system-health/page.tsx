@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatDateTime } from '@/lib/format';
+import { IntegrationsSection } from './IntegrationsSection';
 
 // The API returns { status, latencyMs, error } per component (plus version / notes / activeJobsCount);
 // the older boolean fields from `SystemHealth` are still read when present.
@@ -117,7 +118,7 @@ export default function AdminSystemHealthPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="System health"
-        description="Live check of the database, map search, cache and background jobs."
+        description="Live check of the database, map search, cache, background jobs and integrations."
         actions={
           <Button variant="outline" onClick={loadHealth} isLoading={refreshing} leftIcon={<RefreshCw className="h-4 w-4" />}>
             Check again
@@ -192,6 +193,8 @@ export default function AdminSystemHealthPage() {
               trailing={workers?.status ? <StatusBadge status={workers.status} /> : undefined}
             />
           </ListGroup>
+
+          <IntegrationsSection />
 
           {loadError && (
             <p role="alert" className="px-1 text-sm text-red-600">

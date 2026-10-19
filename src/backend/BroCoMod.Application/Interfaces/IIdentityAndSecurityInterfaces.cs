@@ -12,6 +12,9 @@ public interface IIdentityService
     Task<bool> LogoutAsync(Guid userId, string? refreshToken = null, string? ipAddress = null, CancellationToken cancellationToken = default);
     Task<string> RequestPasswordResetAsync(string email, string? ipAddress = null, CancellationToken cancellationToken = default);
     Task<bool> ResetPasswordAsync(string email, string token, string newPassword, string? ipAddress = null, CancellationToken cancellationToken = default);
+    /// <summary>Sends a reset code to the mobile by WhatsApp / SMS when exactly one active account uses it. Never reveals whether one does.</summary>
+    Task RequestPasswordResetByMobileAsync(string mobileNumber, string? ipAddress = null, CancellationToken cancellationToken = default);
+    Task<bool> ResetPasswordByMobileAsync(string mobileNumber, string code, string newPassword, string? ipAddress = null, CancellationToken cancellationToken = default);
     Task<UserDto> GetCurrentUserProfileAsync(Guid userId, CancellationToken cancellationToken = default);
     Task SetUserActiveStatusAsync(Guid userId, bool isActive, Guid adminUserId, string? ipAddress = null, CancellationToken cancellationToken = default);
 }
