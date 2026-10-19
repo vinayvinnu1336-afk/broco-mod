@@ -294,7 +294,9 @@ public record AdminAdvisorListDto(
     int ActiveAssignedRequestsCount,
     int TotalQuotesReviewedCount,
     int ActiveJobsOverseeingCount,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    string PhoneNumber = "",
+    int MaxAssignedRequests = 25
 );
 
 public record ActivateAdvisorRequest();

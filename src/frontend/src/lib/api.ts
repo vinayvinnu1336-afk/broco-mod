@@ -61,6 +61,8 @@ export async function apiFetch<T>(
         success: false,
         message: data?.message || `Request failed with status ${response.status}`,
         errors: data?.errors || [response.statusText],
+        // Some errors carry details the UI acts on (e.g. the existing account behind a conflict).
+        ...(data?.data != null ? { data: data.data } : {}),
       };
     }
 

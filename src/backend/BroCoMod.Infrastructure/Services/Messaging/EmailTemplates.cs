@@ -150,6 +150,29 @@ public static class EmailTemplates
             button: Link(siteUrl, "/", "Open BroCo"),
             footnote: null);
 
+    /// <summary>
+    /// Welcome email for an advisor account created by an administrator, with the sign-in mobile and first password.
+    /// Sent straight to the email sender (never stored as a notification) because it carries the password.
+    /// </summary>
+    public static RenderedEmail AdvisorWelcome(string fullName, string loginMobile, string email, string password, string? siteUrl)
+    {
+        var signIn = Link(siteUrl, "/login", "Sign in to BroCo");
+        return Render(
+            subject: "Your BroCo advisor account is ready",
+            preheader: "Sign in with your mobile number and the password in this email.",
+            heading: "Welcome to BroCo",
+            greeting: $"Hi {FirstName(fullName)},",
+            paragraphs: new[]
+            {
+                "An administrator has created your BroCo advisor account. Sign in with your mobile number and the password below.",
+                signIn is { } link ? $"Sign in at {link.Url}" : string.Empty,
+            },
+            code: null,
+            rows: Rows(("Mobile number", loginMobile), ("Email", email), ("Password", password)),
+            button: signIn,
+            footnote: "Keep this password safe and do not share it with anyone. You can change it any time with \"Forgot password\" on the sign-in page.");
+    }
+
     private static string FirstName(string fullName) => fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
 
     private static IReadOnlyList<(string Label, string Value)> Rows(params (string Label, string? Value)[] rows) =>
