@@ -3,6 +3,7 @@ using BroCoMod.Application.Interfaces;
 using BroCoMod.Infrastructure.Persistence;
 using BroCoMod.Infrastructure.Services;
 using BroCoMod.Infrastructure.Services.Media;
+using BroCoMod.Infrastructure.Services.Messaging;
 using BroCoMod.Infrastructure.Services.PaymentGateway;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -62,6 +63,20 @@ public static class DependencyInjection
         services.AddScoped<INotificationProvider, SmsNotificationProvider>();
         services.AddScoped<INotificationProvider, WhatsAppNotificationProvider>();
         services.AddScoped<INotificationService, NotificationService>();
+
+        // Email (ZeptoMail), SMS (Gupshup, DLT) and WhatsApp (Gupshup): docs/integrations-setup.md. Each sender
+        // reads its keys on every send and reports "not configured" while they are empty. Headers carrying a
+        // token are redacted from HttpClient logs; the SMS password travels in the POST body, which is never logged.
+        services.AddHttpClient<IEmailSender, ZeptoMailEmailSender>(c => c.Timeout = TimeSpan.FromSeconds(15))
+            .RedactLoggedHeaders(new[] { "Authorization" });
+        services.AddHttpClient<ISmsSender, GupshupSmsSender>(c => c.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient<IWhatsAppSender, GupshupWhatsAppSender>(c => c.Timeout = TimeSpan.FromSeconds(15))
+            .RedactLoggedHeaders(new[] { "apikey" });
+        services.AddScoped<IOtpDelivery, OtpDeliveryService>();
+        services.AddScoped<OtpRequestLimiter>();
+        services.AddSingleton<ExternalNotificationQueue>();
+        services.AddHostedService<ExternalNotificationWorker>();
+        services.AddScoped<IIntegrationsService, IntegrationsService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
 
         // Garage Quotation Workflow Services

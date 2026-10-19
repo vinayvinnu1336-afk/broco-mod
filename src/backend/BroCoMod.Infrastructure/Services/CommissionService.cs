@@ -710,7 +710,8 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             : $"{Inr(commission.TotalDue)} for job {jobNumber} ({commission.CommissionNumber}) is {(overdue ? "overdue" : "due")}. Pay now from Garage portal → Commission" +
               BlockWarning();
 
-        return await NotifyGarageUsersAsync(commission.GarageId, title, message, commission.Id, commission.CommissionNumber, ct);
+        return await NotifyGarageUsersAsync(commission.GarageId, title, message, commission.Id, commission.CommissionNumber, ct,
+            ReminderData(commission.TotalDue, jobNumber, commission.CommissionNumber, overdue, commission.DueAtUtc));
     }
 
     /// <summary>One reminder covering several overdue dues of the same garage.</summary>
@@ -719,14 +720,28 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         var numbers = string.Join(", ", dues.Take(3).Select(d => d.CommissionNumber)) + (dues.Count > 3 ? ", …" : string.Empty);
         var message = $"{dues.Count} BroCo commission dues totalling {Inr(dues.Sum(d => d.TotalDue))} are overdue ({numbers}). " +
                       "Pay now from Garage portal → Commission" + BlockWarning();
-        return NotifyGarageUsersAsync(dues[0].GarageId, "Overdue: please pay your BroCo commission", message, dues[0].Id, numbers, ct);
+        var firstJob = dues[0].ServiceJob?.JobNumber ?? dues[0].CommissionNumber;
+        return NotifyGarageUsersAsync(dues[0].GarageId, "Overdue: please pay your BroCo commission", message, dues[0].Id, numbers, ct,
+            ReminderData(dues.Sum(d => d.TotalDue), dues.Count == 1 ? firstJob : $"{firstJob} +{dues.Count - 1} more", numbers, true, dues.Min(d => d.DueAtUtc)));
     }
 
     private string BlockWarning() =>
         _blockAfterOverdueDays > 0 ? $" — garages with dues older than {_blockAfterOverdueDays} days stop receiving new jobs." : ".";
 
     /// <summary>In-app plus every configured SMS / email / WhatsApp provider, to each active user of the garage.</summary>
-    private async Task<int> NotifyGarageUsersAsync(Guid garageId, string title, string message, Guid commissionId, string label, CancellationToken ct)
+    /// <summary>Values for the commission email and the DLT "commission reminder" SMS (SmsTemplates.CommissionReminder).</summary>
+    private static IReadOnlyDictionary<string, string> ReminderData(decimal amount, string jobNumber, string commissionNumber, bool overdue, DateTime dueAtUtc) =>
+        new Dictionary<string, string>
+        {
+            ["amount"] = amount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("en-IN")),
+            ["jobNumber"] = jobNumber,
+            ["commissionNumber"] = commissionNumber,
+            ["state"] = overdue ? "overdue" : "due",
+            ["dueText"] = IstText(dueAtUtc),
+        };
+
+    private async Task<int> NotifyGarageUsersAsync(Guid garageId, string title, string message, Guid commissionId, string label, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? data = null)
     {
         var userIds = await _context.GarageUsers.AsNoTracking()
             .Where(gu => gu.GarageId == garageId && gu.User.IsActive)
@@ -742,7 +757,7 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             {
                 try
                 {
-                    await provider.SendAsync(new NotificationMessage(userId, title, message, "COMMISSION_DUE", provider.Channel, commissionId, nameof(GarageCommission)), ct);
+                    await provider.SendAsync(new NotificationMessage(userId, title, message, "COMMISSION_DUE", provider.Channel, commissionId, nameof(GarageCommission), Data: data), ct);
                 }
                 catch (Exception ex)
                 {

@@ -184,6 +184,10 @@ Online payments (the customer's 10% booking advance and the garage commission) g
 
 ---
 
+### Email, SMS and WhatsApp
+
+Password reset (by mobile number or email), booking confirmations, quotation and payment messages and garage commission reminders go out by email (Zoho ZeptoMail), SMS (Gupshup, DLT-registered templates) and optionally WhatsApp (Gupshup; codes go by WhatsApp first and fall back to SMS). Each channel is off until its keys are in `.env`; in-app notifications always work. On the server, `sudo bash scripts/deploy/set-keys.sh` asks for every key (Maps, Razorpay, email, SMS, WhatsApp), backs up and edits `.env`, and restarts the API; Admin → System health → Integrations shows what is configured and has test buttons. Owner guide with the exact DLT template texts: [docs/integrations-setup.md](docs/integrations-setup.md).
+
 ## Testing
 
 ```bash

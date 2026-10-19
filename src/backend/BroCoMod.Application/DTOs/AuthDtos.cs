@@ -57,14 +57,19 @@ public record RevokeTokenRequest(
     string RefreshToken
 );
 
+/// <summary>Either a mobile number (code by WhatsApp / SMS) or an email (code by email).</summary>
 public record ForgotPasswordRequest(
-    string Email
+    string? Email = null,
+    string? MobileNumber = null
 );
 
+/// <summary>Email + Token (the emailed code), or MobileNumber + Code (the code sent to the phone).</summary>
 public record ResetPasswordRequest(
-    string Email,
-    string Token,
-    [MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.TooShortMessage)] string NewPassword
+    string? Email,
+    string? Token,
+    [MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.TooShortMessage)] string NewPassword,
+    string? MobileNumber = null,
+    string? Code = null
 );
 
 public record ApiResponse<T>(

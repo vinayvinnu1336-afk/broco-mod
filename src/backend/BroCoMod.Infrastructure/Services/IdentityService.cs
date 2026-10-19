@@ -5,6 +5,7 @@ using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities.Identity;
 using NotificationChannel = BroCoMod.Domain.Enums.NotificationChannel;
 using Microsoft.EntityFrameworkCore;
+using BroCoMod.Infrastructure.Services.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace BroCoMod.Infrastructure.Services;
@@ -18,6 +19,10 @@ public class IdentityService : IIdentityService
     private readonly IAuditService _auditService;
     private readonly IEnumerable<INotificationProvider> _notificationProviders;
     private readonly ILogger<IdentityService> _logger;
+    private readonly IOtpDelivery? _otpDelivery;
+    private readonly OtpRequestLimiter? _otpLimiter;
+
+    private const string PasswordResetPurpose = "PasswordReset";
 
     public IdentityService(
         IApplicationDbContext context,
@@ -26,9 +31,13 @@ public class IdentityService : IIdentityService
         IOtpProvider otpProvider,
         IAuditService auditService,
         ILogger<IdentityService> logger,
-        IEnumerable<INotificationProvider>? notificationProviders = null)
+        IEnumerable<INotificationProvider>? notificationProviders = null,
+        IOtpDelivery? otpDelivery = null,
+        OtpRequestLimiter? otpLimiter = null)
     {
         _notificationProviders = notificationProviders ?? Array.Empty<INotificationProvider>();
+        _otpDelivery = otpDelivery;
+        _otpLimiter = otpLimiter;
         _context = context;
         this._passwordHasher = _passwordHasher;
         _tokenService = tokenService;
@@ -536,6 +545,13 @@ public class IdentityService : IIdentityService
         CancellationToken cancellationToken = default)
     {
         var normalizedEmail = email.Trim().ToUpperInvariant();
+
+        // Counted before the lookup, so the limit behaves the same for unknown addresses.
+        if (_otpLimiter != null)
+        {
+            await _otpLimiter.AcquireAsync(PasswordResetPurpose, $"email:{normalizedEmail}", ipAddress, cancellationToken);
+        }
+
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
 
@@ -545,18 +561,31 @@ public class IdentityService : IIdentityService
             return string.Empty;
         }
 
-        var otp = await _otpProvider.GenerateOtpAsync(user.Email, "PasswordReset", cancellationToken);
+        var otp = await _otpProvider.GenerateOtpAsync(user.Email, PasswordResetPurpose, cancellationToken);
 
-        // Deliver the code out-of-band. It is never returned to the HTTP caller.
+        // Deliver the code by email (the address the user typed). It is never returned to the HTTP caller.
         var message = new NotificationMessage(
             UserId: user.Id,
             Title: "Your BroCo password reset code",
             Message: $"Your password reset code is {otp}. It expires in 10 minutes. If you did not request this, ignore this message.",
-            Type: "PASSWORD_RESET",
-            Channel: NotificationChannel.Email);
-        foreach (var provider in _notificationProviders.Where(p => p.Channel is NotificationChannel.Email or NotificationChannel.Sms))
+            Type: EmailTemplates.PasswordResetType,
+            Channel: NotificationChannel.Email,
+            Data: new Dictionary<string, string> { ["code"] = otp });
+        var delivered = false;
+        foreach (var provider in _notificationProviders.Where(p => p.Channel == NotificationChannel.Email))
         {
-            await provider.SendAsync(message with { Channel = provider.Channel }, cancellationToken);
+            try
+            {
+                delivered |= await provider.SendAsync(message, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Could not email a password reset code to user {UserId}", user.Id);
+            }
+        }
+        if (!delivered)
+        {
+            _logger.LogWarning("Password reset code for user {UserId} was not emailed (email not set up or refused). See docs/integrations-setup.md.", user.Id);
         }
 
         await _auditService.LogAsync(
@@ -583,7 +612,7 @@ public class IdentityService : IIdentityService
             throw new ArgumentException(passwordProblem);
         }
 
-        var isValid = await _otpProvider.VerifyOtpAsync(email, token, "PasswordReset", cancellationToken);
+        var isValid = await _otpProvider.VerifyOtpAsync(email, token, PasswordResetPurpose, cancellationToken);
         if (!isValid)
         {
             return false;
@@ -618,6 +647,118 @@ public class IdentityService : IIdentityService
             userId: user.Id,
             userEmail: user.Email,
             details: "Password reset completed successfully",
+            ipAddress: ipAddress,
+            cancellationToken: cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>The OTP store key for a mobile, kept apart from email destinations.</summary>
+    public static string MobileOtpDestination(string nationalNumber) => $"mobile:{nationalNumber}";
+
+    public async Task RequestPasswordResetByMobileAsync(
+        string mobileNumber,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var nationalNumber = IndianMobile.NationalNumber(mobileNumber)
+            ?? throw new ArgumentException(IndianMobile.InvalidMessage);
+
+        // Counted for every number, registered or not, so the limit reveals nothing and caps the SMS bill.
+        if (_otpLimiter != null)
+        {
+            await _otpLimiter.AcquireAsync(PasswordResetPurpose, MobileOtpDestination(nationalNumber), ipAddress, cancellationToken);
+        }
+
+        var active = (await _context.Users.AsNoTracking().FindByMobileAsync(nationalNumber, cancellationToken))
+            .Where(u => u.IsActive)
+            .ToList();
+
+        if (active.Count != 1)
+        {
+            // No account, or older accounts sharing the number: send nothing (never guess which account is meant).
+            // The caller gets the same answer either way; its wording points shared numbers to email reset.
+            await _auditService.LogAsync(
+                action: AuditActions.PasswordResetRequested,
+                details: active.Count == 0
+                    ? $"Password reset by mobile ending {nationalNumber[^4..]}: no active account, nothing sent"
+                    : $"Password reset by mobile ending {nationalNumber[^4..]}: shared by {active.Count} active accounts, nothing sent",
+                ipAddress: ipAddress,
+                cancellationToken: cancellationToken);
+            return;
+        }
+
+        var user = active[0];
+        var otp = await _otpProvider.GenerateOtpAsync(MobileOtpDestination(nationalNumber), PasswordResetPurpose, cancellationToken);
+
+        string delivery;
+        if (_otpDelivery == null)
+        {
+            delivery = "no provider";
+        }
+        else
+        {
+            var result = await _otpDelivery.SendOtpAsync(nationalNumber, otp, cancellationToken);
+            delivery = result.Delivered ? result.Channel?.ToString() ?? "sent" : result.Attempts.Count == 0 ? "no provider" : "failed";
+        }
+        if (delivery is "no provider" or "failed")
+        {
+            _logger.LogWarning("Password reset code for user {UserId} could not be sent by WhatsApp or SMS ({Delivery}). See docs/integrations-setup.md.", user.Id, delivery);
+        }
+
+        await _auditService.LogAsync(
+            action: AuditActions.PasswordResetRequested,
+            userId: user.Id,
+            userEmail: user.Email,
+            details: $"Password reset code requested by mobile (delivery: {delivery})",
+            ipAddress: ipAddress,
+            cancellationToken: cancellationToken);
+    }
+
+    public async Task<bool> ResetPasswordByMobileAsync(
+        string mobileNumber,
+        string code,
+        string newPassword,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Checked before the code is used up, so a too-short password can be corrected and resent.
+        if (PasswordPolicy.Validate(newPassword) is { } passwordProblem)
+        {
+            throw new ArgumentException(passwordProblem);
+        }
+
+        var nationalNumber = IndianMobile.NationalNumber(mobileNumber);
+        if (nationalNumber == null || string.IsNullOrWhiteSpace(code)) return false;
+
+        // Wrong guesses count against the code (5 at most) inside the OTP store.
+        if (!await _otpProvider.VerifyOtpAsync(MobileOtpDestination(nationalNumber), code, PasswordResetPurpose, cancellationToken))
+        {
+            return false;
+        }
+
+        var active = (await _context.Users.FindByMobileAsync(nationalNumber, cancellationToken)).Where(u => u.IsActive).ToList();
+        if (active.Count != 1) return false;
+        var user = active[0];
+
+        var newHash = _passwordHasher.HashPassword(newPassword, out var newSalt);
+        user.UpdatePassword(newHash, newSalt);
+
+        var activeTokens = await _context.RefreshTokens
+            .Where(rt => rt.UserId == user.Id && rt.RevokedAtUtc == null)
+            .ToListAsync(cancellationToken);
+        foreach (var t in activeTokens)
+        {
+            t.Revoke("Password reset performed");
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            action: AuditActions.PasswordResetCompleted,
+            userId: user.Id,
+            userEmail: user.Email,
+            details: "Password reset completed with a code sent to the mobile",
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);
 
