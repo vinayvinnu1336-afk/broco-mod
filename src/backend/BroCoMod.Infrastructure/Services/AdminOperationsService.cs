@@ -710,11 +710,15 @@ public class AdminOperationsService : IAdminOperationsService
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.Trim().ToLower();
+            // Mobiles are stored as "+91 98765 43210"; match typed digits with the spaces removed.
+            var digits = new string(search.Where(char.IsAsciiDigit).ToArray());
+            var phoneSearch = digits.Length >= 4 ? digits : null;
             filteredQuery = filteredQuery.Where(a =>
                 a.User.FullName.ToLower().Contains(search) ||
                 a.User.Email.ToLower().Contains(search) ||
                 a.EmployeeCode.ToLower().Contains(search) ||
-                a.Specialization.ToLower().Contains(search));
+                a.Specialization.ToLower().Contains(search) ||
+                (phoneSearch != null && a.User.PhoneNumber.Replace(" ", "").Contains(phoneSearch)));
         }
 
         var totalCount = await filteredQuery.CountAsync(cancellationToken);
@@ -734,7 +738,9 @@ public class AdminOperationsService : IAdminOperationsService
                 _context.ServiceRequests.Count(sr => sr.AssignedAdvisorId == a.Id && sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled),
                 _context.AdvisorRequestNotes.Count(n => n.AdvisorId == a.Id),
                 _context.ServiceJobs.Count(j => j.ServiceRequest.AssignedAdvisorId == a.Id && j.Status != ServiceJobStatus.Closed && j.Status != ServiceJobStatus.Cancelled),
-                a.CreatedAtUtc
+                a.CreatedAtUtc,
+                a.User.PhoneNumber,
+                a.MaxAssignedRequests
             ))
             .ToListAsync(cancellationToken);
 

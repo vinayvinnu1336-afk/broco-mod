@@ -27,11 +27,36 @@ step "Updating the code in $APP_DIR"
 if [[ -z "$BRANCH" ]]; then
     BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 fi
+# setup-server.sh / this script chmod +x the shell scripts; without this git sees every one as modified
+# and refuses to pull.
+git config core.fileMode false
+pull_latest() { git fetch --quiet origin && git pull --quiet --ff-only origin "$BRANCH"; }
 before="$(git rev-parse --short HEAD)"
-if git fetch --quiet origin && git pull --quiet --ff-only origin "$BRANCH"; then
+if pull_latest; then
     printf '    %s -> %s (%s)\n' "$before" "$(git rev-parse --short HEAD)" "$BRANCH"
 else
-    printf '    [warning] git pull failed (local edits or no network). Continuing with the current code.\n' >&2
+    # Tracked files that differ from the last commit. Only our own shell scripts are put back; anything
+    # else (and untracked files such as .env) is left alone.
+    mapfile -t changed < <(git diff --name-only HEAD -- 2>/dev/null || true)
+    others=()
+    for f in "${changed[@]}"; do
+        [[ "$f" == scripts/* || "$f" == docker/scripts/* ]] || others+=("$f")
+    done
+    if (( ${#changed[@]} > 0 && ${#others[@]} == 0 )); then
+        printf '    [warning] git pull failed; restoring locally changed scripts: %s\n' "${changed[*]}" >&2
+        git checkout HEAD -- "${changed[@]}"
+        if pull_latest; then
+            printf '    %s -> %s (%s)\n' "$before" "$(git rev-parse --short HEAD)" "$BRANCH"
+        else
+            printf '    [warning] git pull failed again. Continuing with the current code. Run: git -C %s status\n' "$APP_DIR" >&2
+        fi
+    elif (( ${#others[@]} > 0 )); then
+        printf '    [warning] git pull failed: these files were changed on the server and were NOT touched:\n' >&2
+        printf '        %s\n' "${others[@]}" >&2
+        printf '    Commit, move or discard them yourself (git -C %s status), then run this again. Continuing with the current code.\n' "$APP_DIR" >&2
+    else
+        printf '    [warning] git pull failed (no network, or the branch has diverged). Continuing with the current code.\n' >&2
+    fi
 fi
 chmod +x docker/scripts/*.sh scripts/deploy/*.sh 2>/dev/null || true
 

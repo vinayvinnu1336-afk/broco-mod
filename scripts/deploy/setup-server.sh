@@ -224,6 +224,8 @@ clone_or_update_repo() {
     step "Getting the BroCo code into $APP_DIR (branch: $BRANCH)"
     git config --global --add safe.directory "$APP_DIR" >/dev/null 2>&1 || true
     if [[ -d "$APP_DIR/.git" ]]; then
+        # The chmod +x below must not make git see the scripts as modified (that blocks later pulls).
+        git -C "$APP_DIR" config core.fileMode false
         if git -C "$APP_DIR" fetch --quiet origin </dev/null \
            && git -C "$APP_DIR" checkout --quiet "$BRANCH" 2>/dev/null \
            && git -C "$APP_DIR" pull --quiet --ff-only origin "$BRANCH" </dev/null; then
@@ -235,6 +237,7 @@ clone_or_update_repo() {
         [[ -e "$APP_DIR" ]] && die "$APP_DIR exists but is not a git checkout. Move it away and re-run."
         git clone --quiet --branch "$BRANCH" "$REPO_URL" "$APP_DIR" </dev/null \
             || die "Could not clone $REPO_URL (branch $BRANCH). Is the repository public and does the branch exist?"
+        git -C "$APP_DIR" config core.fileMode false
         ok "Cloned $(git -C "$APP_DIR" rev-parse --short HEAD)"
     fi
     chmod +x "$APP_DIR"/docker/scripts/*.sh "$APP_DIR"/scripts/deploy/*.sh 2>/dev/null || true
