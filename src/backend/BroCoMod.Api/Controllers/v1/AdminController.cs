@@ -273,6 +273,84 @@ public class AdminController : ControllerBase
         return Ok(ApiResponse<PagedResult<AdminAdvisorListDto>>.Ok(advisors));
     }
 
+    /// <summary>
+    /// Creates an advisor account. A 409 with error code EXISTING_CUSTOMER_ACCOUNT (and the account in Data)
+    /// means the email or mobile belongs to a customer account, which can be promoted instead.
+    /// </summary>
+    [HttpPost("advisors")]
+    [ProducesResponseType(typeof(ApiResponse<CreatedAdvisorDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<ExistingCustomerAccountDto>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateAdvisor(
+        [FromBody] CreateAdvisorRequest request,
+        [FromServices] IAdminAdvisorAccountService advisorAccounts,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var created = await advisorAccounts.CreateAdvisorAsync(request, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            // The temporary password is only in this response; make sure nothing caches it.
+            Response.Headers.CacheControl = "no-store";
+            return StatusCode(StatusCodes.Status201Created, ApiResponse<CreatedAdvisorDto>.Ok(created, "Advisor account created."));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    /// <summary>Turns an existing customer account (by email or mobile) into an advisor. Safe to repeat.</summary>
+    [HttpPost("advisors/promote")]
+    [ProducesResponseType(typeof(ApiResponse<PromotedAdvisorDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PromoteToAdvisor(
+        [FromBody] PromoteToAdvisorRequest request,
+        [FromServices] IAdminAdvisorAccountService advisorAccounts,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var promoted = await advisorAccounts.PromoteToAdvisorAsync(request, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            return Ok(ApiResponse<PromotedAdvisorDto>.Ok(promoted,
+                promoted.AlreadyAdvisor ? "This account is already an advisor." : "Account changed to advisor."));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    [HttpPut("advisors/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<AdminAdvisorListDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateAdvisor(
+        Guid id,
+        [FromBody] UpdateAdvisorRequest request,
+        [FromServices] IAdminAdvisorAccountService advisorAccounts,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var advisor = await advisorAccounts.UpdateAdvisorAsync(id, request, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            return Ok(ApiResponse<AdminAdvisorListDto>.Ok(advisor, "Advisor updated."));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    // The error code goes first in Errors so the admin UI can tell an existing customer account from other conflicts.
+    private ObjectResult AdvisorAccountError(AdvisorAccountException ex) =>
+        StatusCode(ex.StatusCode, ex.ExistingCustomer is { } existing
+            ? (object)new ApiResponse<ExistingCustomerAccountDto>(false, ex.Message, existing, new[] { ex.Code, ex.Message })
+            : new ApiResponse<object>(false, ex.Message, null, new[] { ex.Code, ex.Message }));
+
     [HttpPost("advisors/{id:guid}/activate")]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]

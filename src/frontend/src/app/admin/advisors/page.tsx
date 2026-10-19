@@ -3,7 +3,9 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AdminAdvisorList, PagedResult } from '@/types/adminOperations';
-import { RefreshCw, UserCheck } from 'lucide-react';
+import { Pencil, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
+import { AddAdvisorSheet, EditAdvisorSheet } from '@/components/admin/AdvisorSheets';
+import { formatIndianMobile } from '@/lib/phone';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -69,6 +71,8 @@ function AdminAdvisors() {
   const [deactivateReason, setDeactivateReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminAdvisorList | null>(null);
 
   const requestId = useRef(0);
 
@@ -165,17 +169,22 @@ function AdminAdvisors() {
         title="Advisors"
         description="Platform advisors, their current workload and account status."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setRefreshing(true);
-              reload();
-            }}
-            isLoading={refreshing}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
-            Refresh
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRefreshing(true);
+                reload();
+              }}
+              isLoading={refreshing}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+            >
+              Refresh
+            </Button>
+            <Button onClick={() => setAddOpen(true)} leftIcon={<UserPlus className="h-4 w-4" />}>
+              Add advisor
+            </Button>
+          </>
         }
       />
 
@@ -197,6 +206,13 @@ function AdminAdvisors() {
           icon={UserCheck}
           title="No advisors found"
           description={anyFilter ? 'No advisors match these filters.' : 'No advisor accounts yet.'}
+          action={
+            !anyFilter && (
+              <Button onClick={() => setAddOpen(true)} leftIcon={<UserPlus className="h-4 w-4" />}>
+                Add advisor
+              </Button>
+            )
+          }
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -206,13 +222,10 @@ function AdminAdvisors() {
               <TableHeader>
                 <tr>
                   <TableHead>Advisor</TableHead>
-                  <TableHead>Employee code</TableHead>
+                  <TableHead>Code · joined</TableHead>
                   <TableHead>Speciality</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Open requests</TableHead>
-                  <TableHead className="text-right">Quotes reviewed</TableHead>
-                  <TableHead className="text-right">Active jobs</TableHead>
-                  <TableHead>Joined</TableHead>
+                  <TableHead>Workload</TableHead>
                   <TableHead className="text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -224,17 +237,37 @@ function AdminAdvisors() {
                     <TableCell className="max-w-[16rem]">
                       <div className="font-semibold text-navy-900">{adv.fullName}</div>
                       <div className="truncate text-xs text-navy-500">{adv.email}</div>
+                      {adv.phoneNumber && (
+                        <div className="text-xs tabular-nums text-navy-500">{formatIndianMobile(adv.phoneNumber)}</div>
+                      )}
                     </TableCell>
-                    <TableCell className="text-navy-700">{adv.employeeCode || '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <div className="text-navy-700">{adv.employeeCode || '—'}</div>
+                      <div className="text-xs text-navy-500">{formatDate(adv.createdAtUtc)}</div>
+                    </TableCell>
                     <TableCell className="text-navy-700">{adv.specialization || 'General'}</TableCell>
                     <TableCell>
                       <StatusBadge status={statusOf(adv)} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{adv.activeAssignedRequestsCount}</TableCell>
-                    <TableCell className="text-right tabular-nums">{adv.totalQuotesReviewedCount}</TableCell>
-                    <TableCell className="text-right tabular-nums">{adv.activeJobsOverseeingCount}</TableCell>
-                    <TableCell className="whitespace-nowrap text-xs text-navy-500">{formatDate(adv.createdAtUtc)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="whitespace-nowrap tabular-nums">
+                      <div className="text-navy-800">
+                        {adv.activeAssignedRequestsCount}
+                        {adv.maxAssignedRequests ? `/${adv.maxAssignedRequests}` : ''} open · {adv.activeJobsOverseeingCount}{' '}
+                        {adv.activeJobsOverseeingCount === 1 ? 'job' : 'jobs'}
+                      </div>
+                      <div className="text-xs text-navy-500">{adv.totalQuotesReviewedCount} quotes reviewed</div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditing(adv)}
+                        aria-label={`Edit ${adv.fullName}`}
+                        title="Edit"
+                        className="px-2"
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
                       {adv.isActive ? (
                         <Button
                           size="sm"
@@ -313,6 +346,17 @@ function AdminAdvisors() {
               <Button variant="outline" onClick={closeSheet} className="w-full sm:w-auto">
                 Close
               </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                leftIcon={<Pencil className="h-4 w-4" />}
+                onClick={() => {
+                  setEditing(selectedAdvisor);
+                  setSelectedAdvisor(null);
+                }}
+              >
+                Edit
+              </Button>
               {selectedAdvisor.isActive ? (
                 <Button
                   variant="outline"
@@ -340,12 +384,30 @@ function AdminAdvisors() {
             <dl className="space-y-2 text-sm">
               <Row label="Status" value={<StatusBadge status={statusOf(selectedAdvisor)} />} />
               <Row label="Employee code" value={selectedAdvisor.employeeCode || '—'} />
+              {selectedAdvisor.phoneNumber && (
+                <Row label="Mobile" value={formatIndianMobile(selectedAdvisor.phoneNumber)} />
+              )}
               <Row label="Speciality" value={selectedAdvisor.specialization || 'General'} />
+              {selectedAdvisor.maxAssignedRequests != null && (
+                <Row label="Max open requests" value={selectedAdvisor.maxAssignedRequests} />
+              )}
               <Row label="Joined" value={formatDate(selectedAdvisor.createdAtUtc)} />
             </dl>
           </div>
         )}
       </Modal>
+
+      <AddAdvisorSheet isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={() => reload()} />
+
+      <EditAdvisorSheet
+        advisor={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(adv) => {
+          setEditing(null);
+          toast.success('Advisor updated', adv.fullName);
+          reload();
+        }}
+      />
 
       <ConfirmationDialog
         isOpen={!!confirm}

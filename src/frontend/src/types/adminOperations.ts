@@ -297,7 +297,35 @@ export interface AdminAdvisorList {
   totalQuotesReviewedCount: number;
   activeJobsOverseeingCount: number;
   createdAtUtc: string;
+  phoneNumber?: string;
+  maxAssignedRequests?: number;
 }
+
+/** POST /admin/advisors. `temporaryPassword` is only set when it was generated, and only in this response. */
+export interface CreatedAdvisor {
+  advisor: AdminAdvisorList;
+  loginMobile: string;
+  temporaryPassword?: string | null;
+  passwordGenerated: boolean;
+  welcomeEmailSent: boolean;
+  welcomeEmailStatus: string;
+}
+
+export interface PromotedAdvisor {
+  advisor: AdminAdvisorList;
+  alreadyAdvisor: boolean;
+}
+
+/** Sent with a 409 whose first error is EXISTING_CUSTOMER_ACCOUNT. */
+export interface ExistingCustomerAccount {
+  userId: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  matchedBy: string;
+}
+
+export const EXISTING_CUSTOMER_ACCOUNT = 'EXISTING_CUSTOMER_ACCOUNT';
 
 export interface AdminCustomerList {
   id: string;

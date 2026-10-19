@@ -96,6 +96,7 @@ public static class DependencyInjection
 
         // Milestone 9: Operations & Admin Control Center Services
         services.AddScoped<IAdminOperationsService, AdminOperationsService>();
+        services.AddScoped<IAdminAdvisorAccountService, AdminAdvisorAccountService>();
         services.AddScoped<IAdvisorOperationsService, AdvisorOperationsService>();
 
         // Milestone 10: Financial & Payment Foundation Services
