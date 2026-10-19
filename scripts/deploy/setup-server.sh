@@ -575,6 +575,7 @@ summary() {
     printf '\n  Useful commands (as root on this server):\n'
     printf '      bash %s/scripts/deploy/status.sh   # health, memory, disk, last backup\n' "$APP_DIR"
     printf '      bash %s/scripts/deploy/update.sh   # install the newest release\n' "$APP_DIR"
+    printf '      bash %s/scripts/deploy/set-keys.sh # Maps, Razorpay, email, SMS, WhatsApp keys (asks, then restarts the API)\n' "$APP_DIR"
     printf '      nano %s/.env                        # Google Maps / Razorpay keys, then: cd %s && docker compose up -d backend\n' "$APP_DIR" "$APP_DIR"
     printf '\n  Guide: docs/deployment/hostinger-kvm1.md in the repository.\n'
     printf '==============================================================================\n\n'

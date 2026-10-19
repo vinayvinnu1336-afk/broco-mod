@@ -168,10 +168,18 @@ again** - it skips everything that is done and only adds the certificate.
 `bash /opt/broco-mod/scripts/deploy/status.sh`. If the API still says NOT answering after ten minutes,
 send your developer the output of `cd /opt/broco-mod && docker compose logs --tail=100 backend`.
 
-## Step 6 - Add Google Maps and Razorpay later (optional)
+## Step 6 - Add Google Maps, Razorpay, email, SMS and WhatsApp later (optional)
 
 BroCo works without them. Maps add a pin-on-map and address search on the booking page; Razorpay takes
-real online payments (until then payments are "pretend" and only allowed in demo mode).
+real online payments (until then payments are "pretend" and only allowed in demo mode); email, SMS and
+WhatsApp deliver password reset codes, booking confirmations, receipts and commission reminders.
+
+**Easiest way:** run `sudo bash /opt/broco-mod/scripts/deploy/set-keys.sh`. It asks for each key
+(press Enter to keep a value), backs up `.env`, saves the new values, restarts the API and shows what
+is configured. Then check Admin → System health → Integrations and use its test buttons. Where to get
+every key, and the SMS texts to register on DLT: [Integrations setup](../integrations-setup.md).
+
+By hand, for Maps and Razorpay:
 
 1. Get the keys: [Google Maps setup](../google-maps-setup.md), [Razorpay setup](../razorpay-setup.md).
 2. In the terminal: `nano /opt/broco-mod/.env`, find the lines (`GOOGLE_MAPS_BROWSER_KEY=`,

@@ -136,6 +136,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var authPermitPerMinute = builder.Configuration.GetValue("RateLimiting:AuthPermitPerMinute", 10);
 var apiPermitPerMinute = builder.Configuration.GetValue("RateLimiting:ApiPermitPerMinute", 300);
 var geoPermitPerMinute = builder.Configuration.GetValue("RateLimiting:GeoPermitPerMinute", 30);
+var integrationTestPermitPer10Minutes = builder.Configuration.GetValue("RateLimiting:IntegrationTestPermitPer10Minutes", 10);
 
 static string ClientPartitionKey(HttpContext context) =>
     context.User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -175,6 +176,17 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = geoPermitPerMinute,
                 Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Admin test email / SMS / WhatsApp: each one is a real (paid) message.
+    options.AddPolicy("integration-test-rate-limit", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"integration-test:{ClientPartitionKey(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = integrationTestPermitPer10Minutes,
+                Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0
             }));
 

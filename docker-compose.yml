@@ -112,6 +112,30 @@ services:
       GoogleMaps__BrowserApiKey: ${GOOGLE_MAPS_BROWSER_KEY:-}
       GoogleMaps__ServerApiKey: ${GOOGLE_MAPS_SERVER_KEY:-}
       Geocoding__FallbackProvider: ${GEOCODING_FALLBACK_PROVIDER:-OpenStreetMap}
+      # Email, SMS and WhatsApp (docs/integrations-setup.md). Empty = that channel is off. Read on every send;
+      # after editing .env run `docker compose up -d backend` (or scripts/deploy/set-keys.sh, which does it for you).
+      App__PublicUrl: ${PUBLIC_ORIGIN:-}
+      Email__ZeptoMailApiToken: ${ZEPTOMAIL_API_TOKEN:-}
+      Email__ZeptoMailApiHost: ${ZEPTOMAIL_API_HOST:-api.zeptomail.in}
+      Email__FromAddress: ${EMAIL_FROM_ADDRESS:-noreply@brocomob.com}
+      Email__FromName: ${EMAIL_FROM_NAME:-BroCo}
+      Sms__Provider: ${SMS_PROVIDER:-}
+      Sms__GupshupUserId: ${GUPSHUP_SMS_USERID:-}
+      Sms__GupshupPassword: ${GUPSHUP_SMS_PASSWORD:-}
+      Sms__SenderId: ${SMS_SENDER_ID:-}
+      Sms__DltEntityId: ${DLT_ENTITY_ID:-}
+      Sms__DltTemplates__Otp: ${DLT_TEMPLATE_OTP:-}
+      Sms__DltTemplates__BookingConfirmed: ${DLT_TEMPLATE_BOOKING:-}
+      Sms__DltTemplates__QuoteReady: ${DLT_TEMPLATE_QUOTE:-}
+      Sms__DltTemplates__PaymentReceived: ${DLT_TEMPLATE_PAYMENT:-}
+      Sms__DltTemplates__CommissionReminder: ${DLT_TEMPLATE_COMMISSION_REMINDER:-}
+      WhatsApp__Provider: ${WHATSAPP_PROVIDER:-}
+      WhatsApp__GupshupApiKey: ${GUPSHUP_WA_API_KEY:-}
+      WhatsApp__SourceNumber: ${GUPSHUP_WA_SOURCE_NUMBER:-}
+      WhatsApp__AppName: ${GUPSHUP_WA_APP_NAME:-}
+      WhatsApp__Templates__Otp: ${WA_TEMPLATE_OTP:-}
+      Otp__MaxRequestsPerNumber: ${OTP_MAX_PER_NUMBER:-3}
+      Otp__MaxRequestsPerIp: ${OTP_MAX_PER_IP:-10}
       # Job photos and videos (docs/architecture/media.md). Kept in the broco-mod-media volume; back it up with the database.
       Media__StoragePath: /app/data/media
       Media__SigningKey: ${MEDIA_SIGNING_KEY:-}

@@ -11,7 +11,9 @@ public record NotificationMessage(
     NotificationChannel Channel = NotificationChannel.InApp,
     Guid? ReferenceId = null,
     string? ReferenceType = null,
-    string? MetadataJson = null
+    string? MetadataJson = null,
+    // Values for the email / SMS templates (e.g. "code", "amount"); see MessagingTemplates in Infrastructure.
+    IReadOnlyDictionary<string, string>? Data = null
 );
 
 public interface INotificationProvider

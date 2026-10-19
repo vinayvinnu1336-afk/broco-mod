@@ -3,6 +3,7 @@ using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
 using BroCoMod.Domain.Entities;
 using BroCoMod.Domain.Enums;
+using BroCoMod.Infrastructure.Services.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -37,77 +38,25 @@ public class InAppNotificationProvider : INotificationProvider
     }
 }
 
-public class EmailNotificationProvider : INotificationProvider
-{
-    private readonly ILogger<EmailNotificationProvider> _logger;
-
-    public EmailNotificationProvider(ILogger<EmailNotificationProvider> logger)
-    {
-        _logger = logger;
-    }
-
-    public NotificationChannel Channel => NotificationChannel.Email;
-
-    public Task<bool> SendAsync(NotificationMessage message, CancellationToken cancellationToken = default)
-    {
-        // Provider stub - ready for SendGrid / SMTP integration without external dependencies
-        _logger.LogInformation("[EmailProvider] Queued email notification to User {UserId}: {Title}", message.UserId, message.Title);
-        return Task.FromResult(true);
-    }
-}
-
-public class SmsNotificationProvider : INotificationProvider
-{
-    private readonly ILogger<SmsNotificationProvider> _logger;
-
-    public SmsNotificationProvider(ILogger<SmsNotificationProvider> logger)
-    {
-        _logger = logger;
-    }
-
-    public NotificationChannel Channel => NotificationChannel.Sms;
-
-    public Task<bool> SendAsync(NotificationMessage message, CancellationToken cancellationToken = default)
-    {
-        // Provider stub - ready for Twilio / Gupshup SMS integration
-        _logger.LogInformation("[SmsProvider] Queued SMS notification to User {UserId}: {Title}", message.UserId, message.Title);
-        return Task.FromResult(true);
-    }
-}
-
-public class WhatsAppNotificationProvider : INotificationProvider
-{
-    private readonly ILogger<WhatsAppNotificationProvider> _logger;
-
-    public WhatsAppNotificationProvider(ILogger<WhatsAppNotificationProvider> logger)
-    {
-        _logger = logger;
-    }
-
-    public NotificationChannel Channel => NotificationChannel.WhatsApp;
-
-    public Task<bool> SendAsync(NotificationMessage message, CancellationToken cancellationToken = default)
-    {
-        // Provider stub - ready for Meta Cloud API integration
-        _logger.LogInformation("[WhatsAppProvider] Queued WhatsApp notification to User {UserId}: {Title}", message.UserId, message.Title);
-        return Task.FromResult(true);
-    }
-}
+// Email, SMS and WhatsApp providers: Messaging/NotificationProviders.cs
 
 public class NotificationService : INotificationService
 {
     private readonly IApplicationDbContext _context;
     private readonly IEnumerable<INotificationProvider> _providers;
     private readonly ILogger<NotificationService> _logger;
+    private readonly ExternalNotificationQueue? _externalQueue;
 
     public NotificationService(
         IApplicationDbContext context,
         IEnumerable<INotificationProvider> providers,
-        ILogger<NotificationService> logger)
+        ILogger<NotificationService> logger,
+        ExternalNotificationQueue? externalQueue = null)
     {
         _context = context;
         _providers = providers;
         _logger = logger;
+        _externalQueue = externalQueue;
     }
 
     public async Task SendInAppNotificationAsync(
@@ -132,6 +81,9 @@ public class NotificationService : INotificationService
 
         _context.Notifications.Add(notification);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Booking confirmations, quotations and receipts also go out by email / SMS, in the background.
+        _externalQueue?.TryEnqueue(new ExternalNotificationJob(userId, title, message, type, referenceId, referenceType));
     }
 
     public async Task NotifyAdvisorsOfNewRequestAsync(
