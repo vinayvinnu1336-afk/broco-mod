@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate } from '@/lib/format';
 import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { useCityOptions } from '@/lib/filterOptions';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -27,7 +28,7 @@ const BOOKINGS_OPTIONS = [
   { value: 'false', label: 'No bookings' },
 ];
 
-const FILTER_DEFAULTS = { q: '', bookings: '', range: '', from: '', to: '', size: '25' };
+const FILTER_DEFAULTS = { q: '', bookings: '', city: '', range: '', from: '', to: '', size: '25' };
 
 export default function AdminCustomersPage() {
   return (
@@ -58,6 +59,7 @@ function AdminCustomers() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
+  const cityOptions = useCityOptions(true);
 
   const requestId = useRef(0);
 
@@ -68,6 +70,7 @@ function AdminCustomers() {
         pageSize,
         search: f.q,
         hasBookings: f.bookings === 'true' || f.bookings === 'false' ? f.bookings : '',
+        city: f.city,
         ...dateRangeQuery(f),
       }),
     [urlPage, pageSize, f]
@@ -132,6 +135,7 @@ function AdminCustomers() {
         searchLabel="Search customers"
         fields={[
           { type: 'select', key: 'bookings', label: 'Bookings', allLabel: 'With or without bookings', options: BOOKINGS_OPTIONS },
+          { type: 'select', key: 'city', label: 'Booked in', allLabel: 'Any city', options: cityOptions },
           { type: 'dateRange', label: 'Joined' },
         ]}
         summary={loading ? 'Loading…' : plural(totalCount, 'customer', 'customers')}

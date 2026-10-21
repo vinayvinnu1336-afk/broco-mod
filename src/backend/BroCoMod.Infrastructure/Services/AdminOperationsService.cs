@@ -36,28 +36,37 @@ public class AdminOperationsService : IAdminOperationsService
         _blockAfterOverdueDays = Math.Max(0, configuration?.GetValue<int?>("Commission:BlockNewJobsAfterOverdueDays") ?? 3);
     }
 
-    public async Task<AdminDashboardKpiDto> GetDashboardKpisAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminDashboardKpiDto> GetDashboardKpisAsync(string? city = null, CancellationToken cancellationToken = default)
     {
-        var totalUsers = await _context.Users.CountAsync(cancellationToken);
-        var totalCustomers = await _context.CustomerProfiles.CountAsync(cancellationToken);
-        var activeCustomers = await _context.CustomerProfiles.CountAsync(c => c.User.IsActive, cancellationToken);
-        var totalGarages = await _context.Garages.CountAsync(cancellationToken);
-        var activeGarages = await _context.Garages.CountAsync(g => g.Status == GarageStatus.Verified && g.IsActive, cancellationToken);
-        var pendingGarages = await _context.Garages.CountAsync(g => g.Status == GarageStatus.PendingVerification, cancellationToken);
-        var suspendedGarages = await _context.Garages.CountAsync(g => g.Status == GarageStatus.Suspended, cancellationToken);
-        var inactiveGarages = await _context.Garages.CountAsync(g => g.Status == GarageStatus.Inactive, cancellationToken);
-        var totalAdvisors = await _context.AdvisorProfiles.CountAsync(cancellationToken);
-        var activeAdvisors = await _context.AdvisorProfiles.CountAsync(a => a.User.IsActive, cancellationToken);
-        var totalRequests = await _context.ServiceRequests.CountAsync(cancellationToken);
-        var activeRequests = await _context.ServiceRequests.CountAsync(sr => sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled, cancellationToken);
-        var completedRequests = await _context.ServiceRequests.CountAsync(sr => sr.Status == ServiceRequestStatus.Completed, cancellationToken);
-        var cancelledRequests = await _context.ServiceRequests.CountAsync(sr => sr.Status == ServiceRequestStatus.Cancelled, cancellationToken);
+        // With a City filter: garages and advisors of that city, requests and jobs booked there, and customers
+        // with at least one booking there. Users, notifications and the attention queue stay platform-wide.
+        var cityKey = CityScoping.Normalize(city);
+        var requestsInCity = _context.ServiceRequests.InCity(city);
+        var garagesInCity = _context.Garages.InCity(city);
+        var advisorsInCity = _context.AdvisorProfiles.Where(a => a.RemovedAtUtc == null && (cityKey == null || a.City.ToLower() == cityKey));
+        var customersInCity = _context.CustomerProfiles.Where(c => cityKey == null || _context.ServiceRequests.Any(sr => sr.CustomerId == c.Id && sr.City.ToLower() == cityKey));
+        var jobsInCity = _context.ServiceJobs.Where(j => cityKey == null || j.ServiceRequest.City.ToLower() == cityKey);
 
-        var jobsInProgress = await _context.ServiceJobs.CountAsync(j =>
+        var totalUsers = await _context.Users.CountAsync(cancellationToken);
+        var totalCustomers = await customersInCity.CountAsync(cancellationToken);
+        var activeCustomers = await customersInCity.CountAsync(c => c.User.IsActive, cancellationToken);
+        var totalGarages = await garagesInCity.CountAsync(cancellationToken);
+        var activeGarages = await garagesInCity.CountAsync(g => g.Status == GarageStatus.Verified && g.IsActive, cancellationToken);
+        var pendingGarages = await garagesInCity.CountAsync(g => g.Status == GarageStatus.PendingVerification, cancellationToken);
+        var suspendedGarages = await garagesInCity.CountAsync(g => g.Status == GarageStatus.Suspended, cancellationToken);
+        var inactiveGarages = await garagesInCity.CountAsync(g => g.Status == GarageStatus.Inactive, cancellationToken);
+        var totalAdvisors = await advisorsInCity.CountAsync(cancellationToken);
+        var activeAdvisors = await advisorsInCity.CountAsync(a => a.User.IsActive, cancellationToken);
+        var totalRequests = await requestsInCity.CountAsync(cancellationToken);
+        var activeRequests = await requestsInCity.CountAsync(sr => sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled, cancellationToken);
+        var completedRequests = await requestsInCity.CountAsync(sr => sr.Status == ServiceRequestStatus.Completed, cancellationToken);
+        var cancelledRequests = await requestsInCity.CountAsync(sr => sr.Status == ServiceRequestStatus.Cancelled, cancellationToken);
+
+        var jobsInProgress = await jobsInCity.CountAsync(j =>
             j.Status != ServiceJobStatus.Closed &&
             j.Status != ServiceJobStatus.Cancelled, cancellationToken);
 
-        var jobsCompleted = await _context.ServiceJobs.CountAsync(j =>
+        var jobsCompleted = await jobsInCity.CountAsync(j =>
             j.Status == ServiceJobStatus.Closed, cancellationToken);
 
         var failedNotifications = await _context.Notifications.CountAsync(n => n.Status == NotificationStatus.Failed, cancellationToken);
@@ -67,7 +76,7 @@ public class AdminOperationsService : IAdminOperationsService
         var recentUsers = await _adminPortalService.GetUsersAsync(cancellationToken);
         var recentAuditLogs = await _auditService.GetRecentAuditLogsAsync(10, cancellationToken);
 
-        var recentRequests = await _context.ServiceRequests
+        var recentRequests = await requestsInCity
             .AsNoTracking()
             .Include(sr => sr.CustomerProfile).ThenInclude(cp => cp.User)
             .Include(sr => sr.AssignedAdvisor).ThenInclude(a => a.User)
@@ -87,14 +96,14 @@ public class AdminOperationsService : IAdminOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 sr.GarageAssignments.Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed).Select(ga => ga.Garage.Name).FirstOrDefault(),
                 sr.ServiceJob != null ? sr.ServiceJob.Status.ToString() : null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -192,14 +201,14 @@ public class AdminOperationsService : IAdminOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 sr.GarageAssignments.Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed).Select(ga => ga.Garage.Name).FirstOrDefault(),
                 sr.ServiceJob != null ? sr.ServiceJob.Status.ToString() : null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -271,12 +280,20 @@ public class AdminOperationsService : IAdminOperationsService
             ))
             .ToList();
 
+        var noteAuthorIds = sr.AdvisorNotes.Select(n => n.AdvisorId).Distinct().ToList();
+        var removedAuthorIds = (await _context.AdvisorProfiles.AsNoTracking()
+            .Where(a => a.RemovedAtUtc != null && (noteAuthorIds.Contains(a.UserId) || noteAuthorIds.Contains(a.Id)))
+            .Select(a => new { a.Id, a.UserId })
+            .ToListAsync(cancellationToken))
+            .SelectMany(a => new[] { a.Id, a.UserId })
+            .ToHashSet();
+
         var advisorNotes = sr.AdvisorNotes
             .OrderBy(n => n.CreatedAtUtc)
             .Select(n => new AdminAdvisorNoteDto(
                 n.Id,
                 n.AdvisorId,
-                n.AdvisorName,
+                removedAuthorIds.Contains(n.AdvisorId) ? AdvisorProfile.FormerAdvisorName : n.AdvisorName,
                 n.Note,
                 n.CreatedAtUtc
             ))
@@ -392,7 +409,7 @@ public class AdminOperationsService : IAdminOperationsService
             sr.CustomerLocation.X,
             sr.ServiceLocation != null ? $"{sr.ServiceLocation.AddressLine1}, {sr.ServiceLocation.City}" : null,
             sr.AssignedAdvisorId,
-            sr.AssignedAdvisor?.User.FullName,
+            AdvisorDisplay.Name(sr.AssignedAdvisor),
             sr.AssignedAdvisor?.User.Email,
             dispatchedGarages,
             quotesReceived,
@@ -404,7 +421,8 @@ public class AdminOperationsService : IAdminOperationsService
             timelineEvents,
             sr.NeedsPickup,
             sr.PickupNotes,
-            sr.PickupSlot
+            sr.PickupSlot,
+            sr.City
         );
     }
 
@@ -432,12 +450,7 @@ public class AdminOperationsService : IAdminOperationsService
                 g.Address.ToLower().Contains(search));
         }
 
-        // Garages have no separate city column; the city is part of the address.
-        var city = ListFilters.Search(filter.City);
-        if (city != null)
-        {
-            query = query.Where(g => g.Address.ToLower().Contains(city));
-        }
+        query = query.InCity(filter.City);
 
         if (!string.IsNullOrWhiteSpace(filter.Dues))
         {
@@ -490,7 +503,8 @@ public class AdminOperationsService : IAdminOperationsService
                 g.StatusChangedAtUtc,
                 g.StatusReason,
                 g.ServiceJobs.Count(j => j.Status != ServiceJobStatus.Closed && j.Status != ServiceJobStatus.Cancelled),
-                g.Quotes.Count
+                g.Quotes.Count,
+                g.City
             ))
             .ToListAsync(cancellationToken);
 
@@ -572,7 +586,8 @@ public class AdminOperationsService : IAdminOperationsService
             activeJobs,
             completedJobs,
             recentJobs,
-            auditHistory
+            auditHistory,
+            g.City
         );
     }
 
@@ -700,11 +715,18 @@ public class AdminOperationsService : IAdminOperationsService
             .AsNoTracking()
             .Include(a => a.User);
 
-        IQueryable<AdvisorProfile> filteredQuery = query;
+        // Removed advisors are gone from the list; their past records stay.
+        IQueryable<AdvisorProfile> filteredQuery = query.Where(a => a.RemovedAtUtc == null);
 
         if (filter.IsActive.HasValue)
         {
             filteredQuery = filteredQuery.Where(a => a.User.IsActive == filter.IsActive.Value);
+        }
+
+        var cityKey = CityScoping.Normalize(filter.City);
+        if (cityKey != null)
+        {
+            filteredQuery = filteredQuery.Where(a => a.City.ToLower() == cityKey);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -740,7 +762,8 @@ public class AdminOperationsService : IAdminOperationsService
                 _context.ServiceJobs.Count(j => j.ServiceRequest.AssignedAdvisorId == a.Id && j.Status != ServiceJobStatus.Closed && j.Status != ServiceJobStatus.Cancelled),
                 a.CreatedAtUtc,
                 a.User.PhoneNumber,
-                a.MaxAssignedRequests
+                a.MaxAssignedRequests,
+                a.City
             ))
             .ToListAsync(cancellationToken);
 
@@ -753,7 +776,8 @@ public class AdminOperationsService : IAdminOperationsService
             .Include(a => a.User)
             .FirstOrDefaultAsync(a => a.Id == id || a.UserId == id, cancellationToken);
 
-        if (advisor == null)
+        // A removed advisor can never sign in again.
+        if (advisor == null || advisor.IsRemoved)
             throw new KeyNotFoundException($"Advisor {id} not found.");
 
         advisor.User.SetActive(true);
@@ -835,6 +859,13 @@ public class AdminOperationsService : IAdminOperationsService
         if (fromUtc.HasValue) query = query.Where(c => c.CreatedAtUtc >= fromUtc.Value);
         if (toUtc.HasValue) query = query.Where(c => c.CreatedAtUtc <= toUtc.Value);
 
+        // Customers aren't tied to a city; this finds the ones who booked there.
+        var cityKey = CityScoping.Normalize(filter.City);
+        if (cityKey != null)
+        {
+            query = query.Where(c => _context.ServiceRequests.Any(sr => sr.CustomerId == c.Id && sr.City.ToLower() == cityKey));
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
@@ -903,14 +934,14 @@ public class AdminOperationsService : IAdminOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 sr.GarageAssignments.Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed).Select(ga => ga.Garage.Name).FirstOrDefault(),
                 sr.ServiceJob != null ? sr.ServiceJob.Status.ToString() : null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -973,6 +1004,9 @@ public class AdminOperationsService : IAdminOperationsService
         var isPackage = ListFilters.ServiceType(filter.ServiceType);
         if (isPackage == true) query = query.Where(j => j.ServiceRequest.ServicePackageId != null);
         else if (isPackage == false) query = query.Where(j => j.ServiceRequest.ServicePackageId == null);
+
+        var cityKey = CityScoping.Normalize(filter.City);
+        if (cityKey != null) query = query.Where(j => j.ServiceRequest.City.ToLower() == cityKey);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

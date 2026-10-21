@@ -92,9 +92,13 @@ public class ListFiltersIntegrationTests : IClassFixture<WebApplicationFactory<P
         verify.IsSuccessStatusCode.Should().BeTrue(await verify.Content.ReadAsStringAsync());
     }
 
-    private static async Task CancelAsync(Customer customer, Guid requestId) =>
-        (await customer.Client.PostAsJsonAsync($"/api/v1/customer/requests/{requestId}/cancel", new CancelServiceRequestCommand("Test finished")))
+    /// <summary>Only BroCo cancels once the advance is paid, so tests tidy up through the admin cancel.</summary>
+    private async Task CancelAsync(Customer customer, Guid requestId)
+    {
+        var admin = await SignedInAsync("admin@brocomod.com");
+        (await admin.PostAsJsonAsync($"/api/v1/admin/requests/{requestId}/cancel", new AdminCancelBookingRequest("Test finished")))
             .EnsureSuccessStatusCode();
+    }
 
     /// <summary>The list in `data` (a plain array, or `data.items` for a paged result).</summary>
     private static async Task<List<JsonElement>> ListAsync(HttpClient client, string url)

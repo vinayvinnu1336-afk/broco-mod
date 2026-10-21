@@ -29,6 +29,15 @@ public interface IServiceAreaService
     IReadOnlyList<ServiceAreaDto> GetAreas();
     ServiceAreaDto? FindLiveAreaFor(double latitude, double longitude);
     bool IsPincodeServed(ServiceAreaDto area, string pincode);
+
+    /// <summary>
+    /// The live city a place belongs to: the area containing the pin, else the city named in the address text,
+    /// else the area whose pincode prefixes match. Null when nothing matches.
+    /// </summary>
+    string? ResolveCity(double? latitude, double? longitude, string? addressText = null, string? pincode = null);
+
+    /// <summary>The configured spelling of a live city ("bangalore" → "Bengaluru"), or null when it isn't a live city.</summary>
+    string? CanonicalLiveCity(string? city);
 }
 
 public record ReverseGeocodeResult(string? Pincode, string? City, string? State, string FormattedAddress);
@@ -59,7 +68,7 @@ public interface ICommissionService
     Task SettleCommissionsForPaymentAsync(Guid paymentId, CancellationToken ct = default);
 
     Task<PagedResult<GarageCommissionDto>> GetAdminCommissionsAsync(string? status, Guid? garageId, int page, int pageSize, CancellationToken ct = default);
-    Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(CancellationToken ct = default);
+    Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(string? city = null, CancellationToken ct = default);
     Task<GarageCommissionDto> MarkReceivedAsync(Guid commissionId, MarkCommissionReceivedRequest request, Guid adminUserId, CancellationToken ct = default);
     Task<GarageCommissionDto> WaiveAsync(Guid commissionId, WaiveCommissionRequest request, Guid adminUserId, CancellationToken ct = default);
 
@@ -77,8 +86,8 @@ public interface ICommissionService
 public interface ICommissionDuesService
 {
     Task<PagedResult<GarageCommissionDto>> GetDuesAsync(CommissionDuesQuery query, CancellationToken ct = default);
-    Task<GarageDuesOverviewDto> GetDuesOverviewAsync(CancellationToken ct = default);
-    Task<IReadOnlyList<GarageDuesSummaryDto>> GetGarageDuesAsync(CancellationToken ct = default);
+    Task<GarageDuesOverviewDto> GetDuesOverviewAsync(string? city = null, CancellationToken ct = default);
+    Task<IReadOnlyList<GarageDuesSummaryDto>> GetGarageDuesAsync(string? city = null, CancellationToken ct = default);
 
     /// <summary>Reminds the garage about one due now. Not sent (Sent = false) if staff reminded it within the last hour.</summary>
     Task<CommissionReminderResultDto> SendManualReminderAsync(Guid commissionId, Guid staffUserId, CancellationToken ct = default);

@@ -100,10 +100,16 @@ public class PackageBookingWithoutQuotesIntegrationTests : IClassFixture<WebAppl
         return checkout.Amount;
     }
 
-    /// <summary>Leaves the shared queues tidy: an open, paid package booking would sit in every advisor's queue.</summary>
-    private static async Task CancelAsync(HttpClient customer, Guid requestId) =>
-        (await customer.PostAsJsonAsync($"/api/v1/customer/requests/{requestId}/cancel", new CancelServiceRequestCommand("Test finished")))
+    /// <summary>
+    /// Leaves the shared queues tidy: an open, paid package booking would sit in every advisor's queue.
+    /// Only BroCo cancels once the advance is paid, so this goes through the admin cancel.
+    /// </summary>
+    private async Task CancelAsync(HttpClient customer, Guid requestId)
+    {
+        var admin = await SignedInAsync("admin@brocomod.com");
+        (await admin.PostAsJsonAsync($"/api/v1/admin/requests/{requestId}/cancel", new AdminCancelBookingRequest("Test finished")))
             .EnsureSuccessStatusCode();
+    }
 
     private async Task<Guid> CentralMetroIdAsync()
     {
@@ -399,7 +405,7 @@ public class PackageBookingWithoutQuotesIntegrationTests : IClassFixture<WebAppl
         public Task<InitiatePaymentResponseDto> InitiateCommissionPaymentAsync(Guid garageId, Guid payerUserId, PayCommissionsRequest request, CancellationToken ct = default) => _inner.InitiateCommissionPaymentAsync(garageId, payerUserId, request, ct);
         public Task SettleCommissionsForPaymentAsync(Guid paymentId, CancellationToken ct = default) => _inner.SettleCommissionsForPaymentAsync(paymentId, ct);
         public Task<PagedResult<GarageCommissionDto>> GetAdminCommissionsAsync(string? status, Guid? garageId, int page, int pageSize, CancellationToken ct = default) => _inner.GetAdminCommissionsAsync(status, garageId, page, pageSize, ct);
-        public Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(CancellationToken ct = default) => _inner.GetAdminOverviewAsync(ct);
+        public Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(string? city = null, CancellationToken ct = default) => _inner.GetAdminOverviewAsync(city, ct);
         public Task<GarageCommissionDto> MarkReceivedAsync(Guid commissionId, MarkCommissionReceivedRequest request, Guid adminUserId, CancellationToken ct = default) => _inner.MarkReceivedAsync(commissionId, request, adminUserId, ct);
         public Task<GarageCommissionDto> WaiveAsync(Guid commissionId, WaiveCommissionRequest request, Guid adminUserId, CancellationToken ct = default) => _inner.WaiveAsync(commissionId, request, adminUserId, ct);
         public Task<CommissionTermsDto> GetTermsAsync(CancellationToken ct = default) => _inner.GetTermsAsync(ct);

@@ -123,6 +123,9 @@ public class DatabaseSeeder
         }
 
 
+        // 4b-1. Every garage, advisor and request belongs to a city (rows made before cities existed, or by older code).
+        await AssignMissingCitiesAsync();
+
         // 4b-2. Give open requests created before advisor auto-assignment existed an owning advisor.
         await AssignUnownedOpenRequestsAsync();
 
@@ -188,7 +191,7 @@ public class DatabaseSeeder
 
         if (advisorUser != null && !await _context.AdvisorProfiles.AnyAsync(ap => ap.UserId == advisorUser.Id))
         {
-            _context.AdvisorProfiles.Add(new AdvisorProfile(advisorUser.Id, "ADV-1001", "European Performance Tuning", 50));
+            _context.AdvisorProfiles.Add(new AdvisorProfile(advisorUser.Id, "ADV-1001", "European Performance Tuning", 50, "Hyderabad"));
             await _context.SaveChangesAsync();
         }
 
@@ -379,7 +382,53 @@ public class DatabaseSeeder
             await _context.SaveChangesAsync();
         }
 
+        await AssignMissingCitiesAsync();
+
         _logger.LogInformation("Database initialization and seeding completed successfully.");
+    }
+
+    private async Task AssignMissingCitiesAsync()
+    {
+        var areas = new ServiceAreaService(_configuration);
+        var changed = 0;
+
+        // Column-only updates: other code may hold these rows, so the concurrency token is left alone.
+        var garages = await _context.Garages.AsNoTracking().Where(g => g.City == "")
+            .Select(g => new { g.Id, g.Location, g.Address }).ToListAsync();
+        foreach (var garage in garages)
+        {
+            var hasPin = !(garage.Location.X == 0 && garage.Location.Y == 0);
+            if (areas.ResolveCity(hasPin ? garage.Location.Y : null, hasPin ? garage.Location.X : null, garage.Address) is { } city)
+            {
+                changed += await _context.Garages.Where(g => g.Id == garage.Id && g.City == "")
+                    .ExecuteUpdateAsync(s => s.SetProperty(g => g.City, city));
+            }
+        }
+
+        var requests = await _context.ServiceRequests.AsNoTracking().Where(sr => sr.City == "")
+            .Select(sr => new { sr.Id, sr.CustomerLocation, AddressCity = sr.ServiceLocation != null ? sr.ServiceLocation.City : null, Pincode = sr.ServiceLocation != null ? sr.ServiceLocation.Pincode : null })
+            .ToListAsync();
+        foreach (var request in requests)
+        {
+            if (areas.ResolveCity(request.CustomerLocation.Y, request.CustomerLocation.X, request.AddressCity, request.Pincode) is { } city)
+            {
+                changed += await _context.ServiceRequests.Where(sr => sr.Id == request.Id && sr.City == "")
+                    .ExecuteUpdateAsync(s => s.SetProperty(sr => sr.City, city));
+            }
+        }
+
+        // Advisors start in the first live city (Hyderabad); admins move them in Admin → Advisors.
+        var defaultCity = areas.CanonicalLiveCity("Hyderabad") ?? areas.GetAreas().FirstOrDefault(a => a.IsLive)?.City;
+        if (defaultCity != null)
+        {
+            changed += await _context.AdvisorProfiles.Where(a => a.City == "")
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.City, defaultCity));
+        }
+
+        if (changed > 0)
+        {
+            _logger.LogInformation("Set the city on {Count} garages, requests and advisors.", changed);
+        }
     }
 
     private async Task AssignUnownedOpenRequestsAsync()
@@ -396,7 +445,7 @@ public class DatabaseSeeder
 
         foreach (var request in unowned)
         {
-            var advisorId = AdvisorAssignment.Pick(loads)!.Value;
+            var advisorId = AdvisorAssignment.Pick(loads, request.City)!.Value;
             request.SetResponsibleAdvisor(advisorId);
             var index = loads.FindIndex(l => l.AdvisorId == advisorId);
             loads[index] = loads[index] with { OpenRequests = loads[index].OpenRequests + 1 };

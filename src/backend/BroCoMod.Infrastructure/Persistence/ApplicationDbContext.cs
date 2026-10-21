@@ -158,6 +158,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
             builder.HasIndex(g => g.Status);
             builder.HasIndex(g => g.IsActive);
+
+            builder.Property(g => g.City).IsRequired().HasMaxLength(Garage.CityMaxLength).HasDefaultValue(string.Empty);
+            builder.HasIndex(g => g.City);
         });
 
         // ServiceLocation configuration
@@ -219,6 +222,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.HasIndex(sr => sr.CreatedAtUtc);
             builder.HasIndex(sr => sr.AssignedAdvisorId);
             builder.HasIndex(sr => new { sr.CustomerId, sr.IdempotencyKey });
+
+            builder.Property(sr => sr.City).IsRequired().HasMaxLength(ServiceRequest.CityMaxLength).HasDefaultValue(string.Empty);
+            builder.HasIndex(sr => sr.City);
 
             builder.HasOne(sr => sr.CustomerProfile)
                 .WithMany()
@@ -668,6 +674,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(ap => ap.EmployeeCode).IsRequired().HasMaxLength(50);
             builder.Property(ap => ap.Specialization).HasMaxLength(100);
             builder.HasIndex(ap => ap.UserId).IsUnique();
+            builder.Property(ap => ap.City).IsRequired().HasMaxLength(AdvisorProfile.CityMaxLength).HasDefaultValue(string.Empty);
+            builder.HasIndex(ap => ap.City);
+            builder.Ignore(ap => ap.IsRemoved);
         });
 
         // VehicleManufacturer configuration

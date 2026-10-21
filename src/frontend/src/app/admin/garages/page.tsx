@@ -4,7 +4,8 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { AdminGarageList, PagedResult } from '@/types/adminOperations';
-import { Building2, RefreshCw } from 'lucide-react';
+import { Building2, Plus, RefreshCw } from 'lucide-react';
+import { AddGarageSheet } from '@/components/admin/GarageSheets';
 import { Button } from '@/components/ui/Button';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -104,7 +105,8 @@ function AdminGarages() {
   const toast = useToast();
   const filters = useUrlFilters(FILTER_DEFAULTS);
   const { values: f, page: urlPage } = filters;
-  const cityOptions = useCityOptions();
+  const cityOptions = useCityOptions(true);
+  const [addOpen, setAddOpen] = useState(false);
   const [garages, setGarages] = useState<AdminGarageList[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -231,19 +233,24 @@ function AdminGarages() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Garages"
-        description="Verify new garages, check their activity and suspend or deactivate them when needed."
+        description="Add and verify garages, check their activity and suspend or deactivate them when needed."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setRefreshing(true);
-              reload();
-            }}
-            isLoading={refreshing}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
-            Refresh
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRefreshing(true);
+                reload();
+              }}
+              isLoading={refreshing}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+            >
+              Refresh
+            </Button>
+            <Button onClick={() => setAddOpen(true)} leftIcon={<Plus className="h-4 w-4" />}>
+              Add garage
+            </Button>
+          </>
         }
       />
 
@@ -268,7 +275,14 @@ function AdminGarages() {
         <EmptyState
           icon={Building2}
           title="No garages found"
-          description={anyFilter ? 'No garages match these filters.' : 'Garages appear here when they sign up.'}
+          description={anyFilter ? 'No garages match these filters.' : 'Garages appear here when they sign up or you add one.'}
+          action={
+            !anyFilter && (
+              <Button onClick={() => setAddOpen(true)} leftIcon={<Plus className="h-4 w-4" />}>
+                Add garage
+              </Button>
+            )
+          }
         />
       ) : (
         <div className={`space-y-3 transition-opacity ${loading ? 'opacity-60' : ''}`}>
@@ -278,12 +292,13 @@ function AdminGarages() {
               <TableHeader>
                 <tr>
                   <TableHead>Garage</TableHead>
-                  <TableHead>Contact</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead className="hidden 2xl:table-cell">Contact</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Radius</TableHead>
+                  <TableHead className="hidden text-right 2xl:table-cell">Radius</TableHead>
                   <TableHead className="text-right">Active jobs</TableHead>
                   <TableHead className="text-right">Quotes</TableHead>
-                  <TableHead>Joined</TableHead>
+                  <TableHead className="hidden 2xl:table-cell">Joined</TableHead>
                   <TableHead className="text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -297,18 +312,20 @@ function AdminGarages() {
                         {g.name}
                       </Link>
                       <div className="truncate text-xs text-navy-500">{g.address}</div>
+                      <div className="text-xs tabular-nums text-navy-500 2xl:hidden">{g.phoneNumber}</div>
                     </TableCell>
-                    <TableCell className="max-w-[14rem]">
+                    <TableCell className="whitespace-nowrap text-navy-700">{g.city || '—'}</TableCell>
+                    <TableCell className="hidden max-w-[14rem] 2xl:table-cell">
                       <div className="truncate text-navy-800">{g.email}</div>
                       <div className="text-xs text-navy-500">{g.phoneNumber}</div>
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={garageStatus(g.status)} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{Number(g.serviceRadiusKm).toFixed(1)} km</TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-right tabular-nums 2xl:table-cell">{Number(g.serviceRadiusKm).toFixed(1)} km</TableCell>
                     <TableCell className="text-right tabular-nums">{g.activeJobsCount}</TableCell>
                     <TableCell className="text-right tabular-nums">{g.totalQuotesCount}</TableCell>
-                    <TableCell className="whitespace-nowrap text-xs text-navy-500">{formatDate(g.createdAtUtc)}</TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-xs text-navy-500 2xl:table-cell">{formatDate(g.createdAtUtc)}</TableCell>
                     <TableCell>{renderRowActions(g)}</TableCell>
                   </TableRow>
                 ))}
@@ -326,7 +343,7 @@ function AdminGarages() {
                   leading={<IconTile icon={Building2} tone="blue" />}
                   title={g.name}
                   subtitle={g.address || g.phoneNumber}
-                  meta={`${Number(g.serviceRadiusKm).toFixed(0)} km radius · ${g.activeJobsCount} active jobs · ${g.totalQuotesCount} quotes`}
+                  meta={`${g.city ? `${g.city} · ` : ''}${Number(g.serviceRadiusKm).toFixed(0)} km radius · ${g.activeJobsCount} active jobs · ${g.totalQuotesCount} quotes`}
                   trailing={<StatusBadge status={garageStatus(g.status)} />}
                 />
               ))}
@@ -359,6 +376,8 @@ function AdminGarages() {
           </div>
         </div>
       )}
+
+      <AddGarageSheet isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={() => reload()} />
 
       <ConfirmationDialog
         isOpen={!!action}

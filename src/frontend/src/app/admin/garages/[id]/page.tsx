@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileText,
   History,
+  Building2,
   Inbox,
   Mail,
   MapPin,
@@ -27,6 +28,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatDateTime, humanize } from '@/lib/format';
+import { ChangeGarageCitySheet } from '@/components/admin/GarageSheets';
 
 // The API serialises the garage status enum as a number (1-4); names are also accepted.
 const GARAGE_STATUS_NAMES: Record<string, string> = {
@@ -89,6 +91,7 @@ export default function AdminGarageDetailPage({ params }: { params: { id: string
   const [actionReason, setActionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [changingCity, setChangingCity] = useState(false);
 
   const loadGarageDetail = useCallback(async () => {
     setLoading(true);
@@ -274,6 +277,13 @@ export default function AdminGarageDetailPage({ params }: { params: { id: string
             subtitle="Address"
             meta={`Map position ${Number(garage.latitude).toFixed(4)}, ${Number(garage.longitude).toFixed(4)}`}
           />
+          <ListItem
+            onClick={() => setChangingCity(true)}
+            leading={<IconTile icon={Building2} tone="neutral" />}
+            title={garage.city || 'No city'}
+            subtitle="City: its bookings and advisors"
+            trailing={<span className="text-sm font-medium text-electric-600">Change</span>}
+          />
         </ListGroup>
 
         {/* Service area */}
@@ -371,6 +381,16 @@ export default function AdminGarageDetailPage({ params }: { params: { id: string
       </div>
 
       <p className="break-all px-1 text-xs text-navy-400">Garage ID {garage.id}</p>
+
+      <ChangeGarageCitySheet
+        garage={changingCity ? garage : null}
+        onClose={() => setChangingCity(false)}
+        onSaved={(g) => {
+          setChangingCity(false);
+          toast.success('City changed', `${g.name} is now in ${g.city}`);
+          loadGarageDetail();
+        }}
+      />
 
       <ConfirmationDialog
         isOpen={!!action}

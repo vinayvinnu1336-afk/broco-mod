@@ -17,6 +17,7 @@ public class ServiceJobService : IServiceJobService
     private readonly INotificationService _notificationService;
     private readonly ILogger<ServiceJobService> _logger;
     private readonly ICommissionService _commissionService;
+    private readonly IAdvisorCityScope? _cityScope;
 
     public ServiceJobService(
         ApplicationDbContext context,
@@ -24,8 +25,10 @@ public class ServiceJobService : IServiceJobService
         IAuditService auditService,
         INotificationService notificationService,
         ILogger<ServiceJobService> logger,
-        ICommissionService commissionService)
+        ICommissionService commissionService,
+        IAdvisorCityScope? cityScope = null)
     {
+        _cityScope = cityScope;
         _commissionService = commissionService;
         _context = context;
         _jobNumberGenerator = jobNumberGenerator;
@@ -89,11 +92,15 @@ public class ServiceJobService : IServiceJobService
             .Include(j => j.ServiceRequest)
                 .ThenInclude(sr => sr!.CustomerProfile)
                     .ThenInclude(cp => cp!.User)
+            .Include(j => j.ServiceRequest)
+                .ThenInclude(sr => sr!.ServiceLocation)
             .Include(j => j.Garage)
             .Include(j => j.CustomerQuotation)
+                .ThenInclude(q => q!.LineItems)
             .Include(j => j.Inspections)
             .Include(j => j.Activities)
             .Include(j => j.AdditionalWorkRequests)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(j => j.Id == jobId, cancellationToken);
 
         if (job == null)
@@ -102,7 +109,18 @@ public class ServiceJobService : IServiceJobService
         if (job.GarageId != garageId)
             throw new UnauthorizedAccessException("Access denied. You do not have permission to view jobs for another garage.");
 
-        return MapToGarageDetailDto(job);
+        // Package bookings list what the package covers from the catalogue (the share text and job sheet use it).
+        List<string>? packageIncludes = null;
+        if (job.ServiceRequest?.ServicePackageId is Guid packageId)
+        {
+            packageIncludes = await _context.ServicePackages
+                .AsNoTracking()
+                .Where(p => p.Id == packageId)
+                .Select(p => p.Includes)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return MapToGarageDetailDto(job, packageIncludes, includeCustomerLocation: true);
     }
 
     public async Task<CustomerServiceJobDetailDto> GetCustomerJobDetailAsync(
@@ -198,6 +216,13 @@ public class ServiceJobService : IServiceJobService
         }
 
         query = ApplyJobListFilter(query, filter, includeGarageName: true);
+
+        // Advisors only see jobs on their city's requests (or ones assigned to them).
+        if (_cityScope != null && await _cityScope.GetRestrictionAsync(cancellationToken) is { } restriction)
+        {
+            var visible = _context.ServiceRequests.VisibleTo(restriction);
+            query = query.Where(j => visible.Any(sr => sr.Id == j.ServiceRequestId));
+        }
 
         var jobs = await query
             .OrderByDescending(j => j.CreatedAtUtc)
@@ -717,54 +742,7 @@ public class ServiceJobService : IServiceJobService
         return MapToGarageDetailDto(job);
     }
 
-    public async Task<GarageServiceJobDetailDto> CancelJobAsync(
-        Guid jobId,
-        Guid garageId,
-        Guid userId,
-        CancelJobRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
-
-        job.Cancel(request.Reason, userId);
-
-        var activity = new ServiceJobActivity(
-            serviceJobId: job.Id,
-            activityType: JobActivityType.JobCancelled,
-            message: $"Job cancelled. Reason: {request.Reason}",
-            isCustomerVisible: true,
-            createdByUserId: userId
-        );
-        _context.ServiceJobActivities.Add(activity);
-
-        await _context.SaveChangesAsync(cancellationToken);
-
-        await _auditService.LogAsync(
-            action: "SERVICE_JOB_CANCELLED",
-            userId: userId,
-            userEmail: "GarageUser",
-            entityName: "ServiceJob",
-            entityId: job.Id.ToString(),
-            details: $"Job #{job.JobNumber} cancelled: {request.Reason}",
-            cancellationToken: cancellationToken
-        );
-
-        if (job.ServiceRequest?.CustomerId != null)
-        {
-            var customerUserId = await ResolveCustomerUserIdAsync(job.ServiceRequest.CustomerId, cancellationToken);
-            await _notificationService.SendInAppNotificationAsync(
-                userId: customerUserId,
-                title: "Service Cancelled",
-                message: $"Your service job #{job.JobNumber} has been cancelled: {request.Reason}",
-                type: "JobCancelled",
-                referenceId: job.ServiceRequestId,
-                referenceType: "ServiceRequest",
-                cancellationToken: cancellationToken
-            );
-        }
-
-        return MapToGarageDetailDto(job);
-    }
+    // Garages can't cancel jobs; BookingCancellationService handles cancellations and garage requests to cancel.
 
     #endregion
 
@@ -1017,7 +995,8 @@ public class ServiceJobService : IServiceJobService
         (job.CustomerQuotation?.CustomerTotal ?? job.ServiceRequest?.PackagePrice ?? 0m) +
         job.AdditionalWorkRequests.Where(a => a.Status == AdditionalWorkStatus.Approved).Sum(a => a.EstimatedAdditionalAmount);
 
-    private static GarageServiceJobDetailDto MapToGarageDetailDto(ServiceJob job)
+    private static GarageServiceJobDetailDto MapToGarageDetailDto(
+        ServiceJob job, IReadOnlyList<string>? packageIncludes = null, bool includeCustomerLocation = false)
     {
         var customerUser = job.ServiceRequest?.CustomerProfile?.User;
         var customerName = customerUser?.FullName ?? "Customer";
@@ -1082,7 +1061,15 @@ public class ServiceJobService : IServiceJobService
             BalanceToCollect: Math.Max(0m, ServiceValueOf(job) - (job.ServiceRequest?.AdvancePaidAmount ?? 0m)),
             NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
             PickupNotes: job.ServiceRequest?.PickupNotes,
-            PickupSlot: job.ServiceRequest?.PickupSlot
+            PickupSlot: job.ServiceRequest?.PickupSlot,
+            // Only the assigned garage reaches this mapper; the exact address is withheld once the job is cancelled.
+            CustomerLocation: includeCustomerLocation && GarageCustomerLocation.IsVisibleFor(job.Status)
+                ? GarageCustomerLocation.For(job.ServiceRequest, job.Garage)
+                : null,
+            ServiceItems: GarageCustomerLocation.ServiceItems(job.ServiceRequest, job.CustomerQuotation, packageIncludes),
+            ServiceCategory: job.ServiceRequest?.ServiceCategory,
+            VehicleFuel: job.ServiceRequest?.VehicleFuel,
+            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate
         );
     }
 

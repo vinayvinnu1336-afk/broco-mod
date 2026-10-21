@@ -108,7 +108,8 @@ public record AdminRequestOperationalDetailDto(
     IReadOnlyList<AdminAuditLogSummaryDto> TimelineEvents,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    string City = ""
 );
 
 public record AdminDispatchedGarageDto(
@@ -229,7 +230,8 @@ public record AdminGarageListDto(
     DateTime? StatusChangedAtUtc,
     string? StatusReason,
     int ActiveJobsCount,
-    int TotalQuotesCount
+    int TotalQuotesCount,
+    string City = ""
 );
 
 public record AdminGarageDetailDto(
@@ -255,7 +257,8 @@ public record AdminGarageDetailDto(
     int ActiveJobsCount,
     int CompletedJobsCount,
     IReadOnlyList<AdminGarageRecentJobDto> RecentJobs,
-    IReadOnlyList<AdminAuditLogSummaryDto> AuditHistory
+    IReadOnlyList<AdminAuditLogSummaryDto> AuditHistory,
+    string City = ""
 );
 
 public record AdminGarageRecentJobDto(
@@ -280,7 +283,8 @@ public record AdminAdvisorFilter(
     string? Search = null,
     bool? IsActive = null,
     int PageNumber = 1,
-    int PageSize = 25
+    int PageSize = 25,
+    string? City = null
 );
 
 public record AdminAdvisorListDto(
@@ -296,7 +300,8 @@ public record AdminAdvisorListDto(
     int ActiveJobsOverseeingCount,
     DateTime CreatedAtUtc,
     string PhoneNumber = "",
-    int MaxAssignedRequests = 25
+    int MaxAssignedRequests = 25,
+    string City = ""
 );
 
 public record ActivateAdvisorRequest();
@@ -311,7 +316,9 @@ public record AdminCustomerFilter(
     int PageSize = 25,
     bool? HasBookings = null,
     DateTime? FromDateUtc = null,
-    DateTime? ToDateUtc = null
+    DateTime? ToDateUtc = null,
+    // Customers with at least one booking in this city
+    string? City = null
 );
 
 public record AdminCustomerListDto(
@@ -349,7 +356,8 @@ public record AdminJobFilter(
     int PageSize = 25,
     DateTime? FromDateUtc = null,
     DateTime? ToDateUtc = null,
-    string? ServiceType = null
+    string? ServiceType = null,
+    string? City = null
 );
 
 public record AdminJobListItemDto(

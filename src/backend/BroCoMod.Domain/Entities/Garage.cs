@@ -22,6 +22,11 @@ public class Garage : BaseEntity
     public DateTime? StatusChangedAtUtc { get; private set; }
     public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
 
+    /// <summary>The service area (city) the garage works in. Advisors only see garages of their own city.</summary>
+    public string City { get; private set; } = string.Empty;
+
+    public const int CityMaxLength = 100;
+
     // Navigation properties
     public ICollection<GarageQuote> Quotes { get; private set; } = new List<GarageQuote>();
     public ICollection<GarageRequest> GarageRequests { get; private set; } = new List<GarageRequest>();
@@ -39,9 +44,11 @@ public class Garage : BaseEntity
         bool isVerified = true,
         bool isOperational = true,
         GarageStatus? status = null,
-        double serviceRadiusKm = 10.0)
+        double serviceRadiusKm = 10.0,
+        string? city = null)
     {
         Name = name;
+        City = NormalizeCity(city);
         Email = email;
         PhoneNumber = phoneNumber;
         Address = address;
@@ -53,6 +60,22 @@ public class Garage : BaseEntity
         IsOperational = isOperational;
         ServiceRadiusKm = serviceRadiusKm >= 1.0 && serviceRadiusKm <= 50.0 ? serviceRadiusKm : 10.0;
         StatusChangedAtUtc = DateTime.UtcNow;
+    }
+
+    public void SetCity(string? city)
+    {
+        var normalized = NormalizeCity(city);
+        if (normalized == City) return;
+        City = normalized;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    private static string NormalizeCity(string? city)
+    {
+        var value = (city ?? string.Empty).Trim();
+        if (value.Length > CityMaxLength) throw new ArgumentException($"City must be at most {CityMaxLength} characters.", nameof(city));
+        return value;
     }
 
     public void UpdateContact(string address, string phoneNumber)

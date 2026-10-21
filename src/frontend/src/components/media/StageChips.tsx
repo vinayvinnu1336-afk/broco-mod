@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { MEDIA_STAGES, MediaStage } from '@/types/media';
+import { CUSTOMER_UPLOAD_LABEL, MEDIA_STAGES, MediaStage } from '@/types/media';
 
 export function stageLabel(stage: MediaStage | string): string {
+  if (stage === 'CustomerUpload') return CUSTOMER_UPLOAD_LABEL;
   return MEDIA_STAGES.find((s) => s.value === stage)?.label ?? String(stage);
 }
 

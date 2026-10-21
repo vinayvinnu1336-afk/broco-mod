@@ -13,6 +13,7 @@ namespace BroCoMod.Api.Controllers.v1;
 [ApiController]
 [Route("api/v1/advisor/commissions")]
 [Authorize(Roles = $"{AppRoles.Advisor},{AppRoles.SuperAdmin}")]
+[TypeFilter(typeof(BroCoMod.Api.Infrastructure.AdvisorCityAccessFilter))]
 public class AdvisorCommissionController : ControllerBase
 {
     private readonly ICommissionDuesService _dues;
@@ -31,17 +32,18 @@ public class AdvisorCommissionController : ControllerBase
     public async Task<IActionResult> GetDues(
         [FromQuery] string? status, [FromQuery] Guid? garageId, [FromQuery] string? search,
         [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sort,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? city = null, CancellationToken ct = default) =>
         Ok(ApiResponse<PagedResult<GarageCommissionDto>>.Ok(await _dues.GetDuesAsync(
-            new CommissionDuesQuery(search, status, garageId, dueFrom, dueTo, sort, page, pageSize), ct)));
+            new CommissionDuesQuery(search, status, garageId, dueFrom, dueTo, sort, page, pageSize, city), ct)));
 
+    // An advisor always gets their own city's garages, whatever city is asked for (see IAdvisorCityScope).
     [HttpGet("overview")]
-    public async Task<IActionResult> GetOverview(CancellationToken ct) =>
-        Ok(ApiResponse<GarageDuesOverviewDto>.Ok(await _dues.GetDuesOverviewAsync(ct)));
+    public async Task<IActionResult> GetOverview([FromQuery] string? city, CancellationToken ct) =>
+        Ok(ApiResponse<GarageDuesOverviewDto>.Ok(await _dues.GetDuesOverviewAsync(city, ct)));
 
     [HttpGet("garages")]
-    public async Task<IActionResult> GetGarages(CancellationToken ct) =>
-        Ok(ApiResponse<IReadOnlyList<GarageDuesSummaryDto>>.Ok(await _dues.GetGarageDuesAsync(ct)));
+    public async Task<IActionResult> GetGarages([FromQuery] string? city, CancellationToken ct) =>
+        Ok(ApiResponse<IReadOnlyList<GarageDuesSummaryDto>>.Ok(await _dues.GetGarageDuesAsync(city, ct)));
 
     [HttpPost("{id:guid}/remind")]
     public async Task<IActionResult> Remind(Guid id, CancellationToken ct) =>

@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, Film, ImageIcon, Images, RotateCw, Video, X } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, ChevronDown, Film, ImageIcon, Images, RotateCw, Video, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { checkMediaFile, formatBytes, makeThumbnail, uploadMediaFile, UploadHandle } from '@/lib/media';
 import { MediaKind, MediaLimits, MediaStage, ServiceMedia } from '@/types/media';
-import { StageChips } from './StageChips';
 
 type ItemStatus = 'ready' | 'invalid' | 'uploading' | 'done' | 'error';
 
@@ -30,7 +29,10 @@ export interface MediaUploaderProps {
   endpoint: string;
   limits: MediaLimits;
   remainingSlots: number;
+  /** Suggested answer to "Before or after the service?"; with none, the uploader waits for a choice. */
   defaultStage?: MediaStage;
+  /** Ask when the photos were taken (garage and staff). Off: everything goes up as `defaultStage` or Other. */
+  askStage?: boolean;
   /** Garages and advisors can mark workshop-only photos; defaults to shown. */
   allowHideFromCustomer?: boolean;
   onUploaded: (media: ServiceMedia) => void;
@@ -49,13 +51,15 @@ export function MediaUploader({
   endpoint,
   limits,
   remainingSlots,
-  defaultStage = 'Other',
+  defaultStage,
+  askStage = true,
   allowHideFromCustomer = true,
   onUploaded,
   onFinished,
 }: MediaUploaderProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [stage, setStage] = useState<MediaStage>(defaultStage);
+  const [stage, setStage] = useState<MediaStage | null>(defaultStage ?? null);
+  const [moreStages, setMoreStages] = useState(false);
   const [visible, setVisible] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [touch, setTouch] = useState(false);
@@ -73,10 +77,11 @@ export function MediaUploader({
 
   useEffect(() => {
     if (isOpen) {
-      setStage(defaultStage);
+      setStage(defaultStage ?? (askStage ? null : 'Other'));
+      setMoreStages(!!defaultStage && !MAIN_STAGES.some((s) => s.value === defaultStage));
       setVisible(true);
     }
-  }, [isOpen, defaultStage]);
+  }, [isOpen, defaultStage, askStage]);
 
   // Free preview memory when the dialog closes or unmounts.
   useEffect(() => {
@@ -121,6 +126,7 @@ export function MediaUploader({
   }
 
   async function uploadAll() {
+    if (!stage) return;
     setUploading(true);
     cancelled.current = false;
     let uploaded = 0;
@@ -131,7 +137,7 @@ export function MediaUploader({
       const handle = uploadMediaFile(
         endpoint,
         item.file,
-        { caption: latest.caption, stage, isVisibleToCustomer: visible, thumbnail: latest.thumb },
+        { caption: latest.caption, stage: stage ?? 'Other', isVisibleToCustomer: visible, thumbnail: latest.thumb },
         (progress) => update(item.key, { progress })
       );
       current.current = handle;
@@ -157,6 +163,7 @@ export function MediaUploader({
   }
 
   const readyCount = queue.filter((q) => q.status === 'ready' || q.status === 'error').length;
+  const needsStage = askStage && !stage;
   const hasVideos = queue.some((q) => q.kind === 'Video' && q.status !== 'invalid');
 
   return (
@@ -177,13 +184,68 @@ export function MediaUploader({
               Cancel
             </Button>
           )}
-          <Button onClick={uploadAll} disabled={readyCount === 0 || uploading} isLoading={uploading} className="w-full sm:w-auto">
+          <Button
+            onClick={uploadAll}
+            disabled={readyCount === 0 || uploading || needsStage}
+            isLoading={uploading}
+            title={needsStage ? 'Choose before or after the service first' : undefined}
+            className="w-full sm:w-auto"
+          >
             {readyCount > 0 ? `Upload ${readyCount}` : 'Upload'}
           </Button>
         </div>
       }
     >
       <div className="space-y-5">
+        {/* First question: which side of the service these show (the galleries group by it) */}
+        {askStage && (
+          <fieldset disabled={uploading}>
+            <legend id="upload-stage-label" className="mb-1.5 text-sm font-medium text-navy-800">
+              Before or after the service? <span className="text-semantic-error">*</span>
+            </legend>
+            <div role="radiogroup" aria-labelledby="upload-stage-label" aria-required="true" className="grid grid-cols-2 gap-2">
+              {MAIN_STAGES.map((s) => (
+                <StageOption key={s.value} label={s.label} hint={s.hint} active={stage === s.value} onClick={() => setStage(s.value)} />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setMoreStages((v) => !v)}
+              aria-expanded={moreStages}
+              className="mt-2 inline-flex min-h-[36px] items-center gap-1 text-sm font-medium text-electric-700 hover:underline"
+            >
+              More
+              <ChevronDown className={`h-4 w-4 transition-transform ${moreStages ? 'rotate-180' : ''}`} aria-hidden />
+            </button>
+            {moreStages && (
+              <div role="radiogroup" aria-label="Other stages" className="mt-1 flex flex-wrap gap-2">
+                {MORE_STAGES.map((s) => {
+                  const active = stage === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setStage(s.value)}
+                      className={`inline-flex min-h-[36px] items-center rounded-full border px-3.5 text-sm font-medium transition touch-manipulation ${
+                        active
+                          ? 'border-navy-900 bg-navy-900 text-white'
+                          : 'border-surface-200 bg-white text-navy-600 hover:border-surface-300 hover:text-navy-900'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {needsStage && queue.length > 0 && (
+              <p className="mt-1.5 text-xs text-semantic-error">Choose before or after the service to upload.</p>
+            )}
+          </fieldset>
+        )}
+
         {/* Pickers */}
         <div className={`grid gap-2 ${touch ? 'grid-cols-3' : 'grid-cols-1'}`}>
           {touch && (
@@ -340,12 +402,6 @@ export function MediaUploader({
 
         {/* Shared details */}
         <div className="space-y-4">
-          <div>
-            <div id="upload-stage-label" className="mb-1.5 text-sm font-medium text-navy-800">
-              When was this taken?
-            </div>
-            <StageChips value={stage} onChange={setStage} labelledBy="upload-stage-label" disabled={uploading} />
-          </div>
           {allowHideFromCustomer && (
             <Checkbox
               id="upload-visible"
@@ -360,6 +416,36 @@ export function MediaUploader({
         </div>
       </div>
     </Modal>
+  );
+}
+
+const MAIN_STAGES: { value: MediaStage; label: string; hint: string }[] = [
+  { value: 'Before', label: 'Before service', hint: 'Car as it came in' },
+  { value: 'After', label: 'After service', hint: 'Work done, ready to hand over' },
+];
+const MORE_STAGES: { value: MediaStage; label: string }[] = [
+  { value: 'Inspection', label: 'Inspection' },
+  { value: 'During', label: 'During work' },
+  { value: 'Other', label: 'Other' },
+];
+
+function StageOption({ label, hint, active, onClick }: { label: string; hint: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex min-h-[64px] flex-col items-start justify-center rounded-2xl border-2 px-3 py-2.5 text-left transition touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 ${
+        active ? 'border-electric-600 bg-electric-50' : 'border-surface-200 bg-white hover:border-surface-300'
+      }`}
+    >
+      <span className={`flex items-center gap-1.5 text-sm font-semibold ${active ? 'text-electric-800' : 'text-navy-900'}`}>
+        {active && <CheckCircle2 className="h-4 w-4 text-electric-600" aria-hidden />}
+        {label}
+      </span>
+      <span className="mt-0.5 text-xs text-navy-500">{hint}</span>
+    </button>
   );
 }
 

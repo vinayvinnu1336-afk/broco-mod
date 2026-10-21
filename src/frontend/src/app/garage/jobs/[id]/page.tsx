@@ -31,8 +31,8 @@ import {
   Package,
   Phone,
   PlusCircle,
+  Share2,
   Wrench,
-  X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -52,6 +52,9 @@ import { formatDateTime, formatINR, humanize } from '@/lib/format';
 import { GarageCommission } from '@/components/garage/commission';
 import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { PickupSummary } from '@/components/booking/PickupSummary';
+import { CustomerLocationCard } from '@/components/garage/CustomerLocationCard';
+import { ShareJobSheet } from '@/components/garage/ShareJobSheet';
+import { buildJobShareText, jobShareInput } from '@/lib/jobShare';
 import type { MediaStage } from '@/types/media';
 
 /** Payment fields the API adds to the garage job detail (not yet in the shared type). */
@@ -80,7 +83,7 @@ type ModalKey =
   | 'vehicleReady'
   | 'handover'
   | 'close'
-  | 'cancel'
+  | 'askBroCo'
   | 'additionalWork';
 
 interface StepAction {
@@ -106,12 +109,10 @@ const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?
   BookingConfirmed: {
     hint: 'Agree a drop-off time with the customer, then set the schedule.',
     primary: { modal: 'schedule', label: 'Schedule', icon: <Calendar className="h-4 w-4" /> },
-    secondary: { modal: 'cancel', label: 'Cancel booking', icon: <X className="h-4 w-4" /> },
   },
   Scheduled: {
     hint: 'When the car arrives, record it with the odometer reading.',
     primary: { modal: 'receive', label: 'Car received', icon: <CarFront className="h-4 w-4" /> },
-    secondary: { modal: 'cancel', label: 'Cancel booking', icon: <X className="h-4 w-4" /> },
   },
   VehicleReceived: {
     hint: 'Inspect the car, or start work straight away if no inspection is needed.',
@@ -192,7 +193,7 @@ const SUCCESS_MESSAGES: Record<string, string> = {
   'vehicle-ready': 'Customer told the car is ready',
   handover: 'Handover recorded',
   close: 'Job closed',
-  cancel: 'Booking cancelled',
+  'cancellation-request': 'BroCo has been asked to reassign or cancel this job',
   'additional-work': 'Extra work sent to the advisor',
 };
 
@@ -202,11 +203,10 @@ function localInputToUtcIso(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-/** What a new photo most likely shows at this point of the job. */
-function mediaStageFor(status: string): MediaStage {
-  if (['BookingConfirmed', 'Scheduled', 'VehicleReceived'].includes(status)) return 'Before';
-  if (status === 'Inspection') return 'Inspection';
-  if (status === 'WorkStarted' || status === 'WorkInProgress') return 'During';
+/** Suggested answer to "Before or after the service?": before work starts → Before, once it's done → After. */
+function mediaStageFor(status: string): MediaStage | undefined {
+  if (['BookingConfirmed', 'Scheduled', 'VehicleReceived', 'Inspection'].includes(status)) return 'Before';
+  if (status === 'WorkStarted' || status === 'WorkInProgress') return undefined; // could be either: the garage picks
   return 'After';
 }
 
@@ -234,6 +234,7 @@ export default function GarageJobDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const [activeModal, setActiveModal] = useState<ModalKey | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Form states
   const [scheduleForm, setScheduleForm] = useState<ScheduleJobRequest>({
@@ -358,6 +359,7 @@ export default function GarageJobDetailPage() {
 
   const status = String(job.status);
   const isCancelled = status === 'Cancelled';
+  const canAskBroCo = !isCancelled && status !== 'Closed' && status !== 'HandedOver';
   const stageIndex = STAGES.findIndex((s) => s.statuses.includes(status));
   const currentStage = stageIndex >= 0 ? STAGES[stageIndex] : null;
   const next = NEXT_STEP[status];
@@ -523,6 +525,32 @@ export default function GarageJobDetailPage() {
             )}
           </div>
         </section>
+
+        {/* Where the car is (the API sends it only to this garage, and not once the job is cancelled) */}
+        {!isCancelled && (
+          <Section
+            title="Customer location"
+            action={
+              <Button variant="outline" size="sm" leftIcon={<Share2 className="h-4 w-4" />} onClick={() => setShareOpen(true)}>
+                Share job details
+              </Button>
+            }
+          >
+            {job.customerLocation ? (
+              <CustomerLocationCard
+                location={job.customerLocation}
+                customerName={job.customerName}
+                customerPhone={job.customerPhone}
+                needsPickup={job.needsPickup}
+                pickupNotes={job.pickupNotes}
+              />
+            ) : (
+              <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
+                The customer’s location isn’t available for this job. Call the customer or your BroCo advisor.
+              </p>
+            )}
+          </Section>
+        )}
 
         {/* Payment */}
         {showPaymentCard && !isCancelled && (
@@ -773,6 +801,20 @@ export default function GarageJobDetailPage() {
         </Section>
       </div>
 
+      {/* Only BroCo cancels bookings; the garage asks instead. */}
+      {canAskBroCo && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="ghost"
+            onClick={() => openModal('askBroCo')}
+            disabled={actionLoading}
+            className="w-full text-red-700 hover:bg-red-50 sm:w-auto"
+          >
+            Can’t do this job? Ask BroCo to reassign or cancel
+          </Button>
+        </div>
+      )}
+
       {/* Next action */}
       {next?.primary && (
         <>
@@ -782,7 +824,6 @@ export default function GarageJobDetailPage() {
                 variant="outline"
                 onClick={() => openModal(next.secondary!.modal)}
                 disabled={actionLoading}
-                className={next.secondary.modal === 'cancel' ? '!text-red-700' : ''}
               >
                 {next.secondary.label}
               </Button>
@@ -802,6 +843,8 @@ export default function GarageJobDetailPage() {
       )}
 
       {/* ===== Sheets ===== */}
+
+      <ShareJobSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} text={buildJobShareText(jobShareInput(job))} />
 
       <Modal
         isOpen={activeModal === 'schedule'}
@@ -865,7 +908,7 @@ export default function GarageJobDetailPage() {
         isOpen={activeModal === 'receive'}
         onClose={closeModal}
         title="Car received"
-        description="Confirm the car is at the workshop. After this the customer can no longer cancel."
+        description="Confirm the car is at the workshop."
         footer={modalFooter(
           <Button
             className="w-full sm:w-auto"
@@ -1160,19 +1203,19 @@ export default function GarageJobDetailPage() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === 'cancel'}
+        isOpen={activeModal === 'askBroCo'}
         onClose={closeModal}
-        title="Cancel this booking?"
-        description="You can only cancel before the car arrives. The customer and advisor will be told."
+        title="Ask BroCo to reassign or cancel?"
+        description="Only BroCo can cancel a booking. We’ll tell the BroCo team and the advisor, who will move the job to another garage or cancel it with the customer. Keep the job as it is until they get back to you."
         footer={modalFooter(
           <Button
             variant="danger"
             className="w-full sm:w-auto"
             isLoading={actionLoading}
             disabled={!cancelReason.trim()}
-            onClick={() => handleAction('cancel', { reason: cancelReason })}
+            onClick={() => handleAction('cancellation-request', { reason: cancelReason.trim() })}
           >
-            Cancel booking
+            Send to BroCo
           </Button>
         )}
       >
@@ -1184,7 +1227,8 @@ export default function GarageJobDetailPage() {
           rows={3}
           value={cancelReason}
           onChange={(e) => setCancelReason(e.target.value)}
-          placeholder="Why can’t you do this job?"
+          maxLength={500}
+          placeholder="Why can’t you do this job? e.g. Part not available this week"
         />
       </Modal>
 

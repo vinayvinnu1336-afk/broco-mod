@@ -2,8 +2,8 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { AdminAdvisorList, PagedResult } from '@/types/adminOperations';
-import { Pencil, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
+import { AdminAdvisorList, AdvisorRemovalPreview, PagedResult, RemovedAdvisor } from '@/types/adminOperations';
+import { MapPin, Pencil, RefreshCw, Trash2, UserCheck, UserPlus } from 'lucide-react';
 import { AddAdvisorSheet, EditAdvisorSheet } from '@/components/admin/AdvisorSheets';
 import { formatIndianMobile } from '@/lib/phone';
 import { Avatar } from '@/components/ui/Avatar';
@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/format';
 import { toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { useCityOptions } from '@/lib/filterOptions';
 
 const ACTIVE_FILTERS = [
   { value: '', label: 'All' },
@@ -32,7 +33,7 @@ const ACTIVE_FILTERS = [
   { value: 'false', label: 'Inactive' },
 ];
 
-const FILTER_DEFAULTS = { q: '', active: '', size: '25' };
+const FILTER_DEFAULTS = { q: '', active: '', city: '', size: '25' };
 
 export default function AdminAdvisorsPage() {
   return (
@@ -73,11 +74,19 @@ function AdminAdvisors() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<AdminAdvisorList | null>(null);
+  const cityOptions = useCityOptions(true);
+
+  // Remove: hidden from this list, can't sign in again, open bookings move to the city's other advisors.
+  const [removing, setRemoving] = useState<AdminAdvisorList | null>(null);
+  const [removalPreview, setRemovalPreview] = useState<AdvisorRemovalPreview | null>(null);
+  const [removalLoading, setRemovalLoading] = useState(false);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const [removeSaving, setRemoveSaving] = useState(false);
 
   const requestId = useRef(0);
 
   const query = useMemo(
-    () => toQueryString({ page: urlPage, pageSize, search: f.q, isActive: f.active === 'true' || f.active === 'false' ? f.active : '' }),
+    () => toQueryString({ page: urlPage, pageSize, search: f.q, city: f.city, isActive: f.active === 'true' || f.active === 'false' ? f.active : '' }),
     [urlPage, pageSize, f]
   );
 
@@ -111,7 +120,7 @@ function AdminAdvisors() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const anyFilter = filters.isActive('q') || filters.isActive('active');
+  const anyFilter = filters.isActive('q') || filters.isActive('active') || filters.isActive('city');
 
   const openConfirm = (type: 'activate' | 'deactivate', adv: AdminAdvisorList) => {
     setSelectedAdvisor(null);
@@ -161,6 +170,37 @@ function AdminAdvisors() {
     }
   };
 
+  const openRemove = async (adv: AdminAdvisorList) => {
+    setSelectedAdvisor(null);
+    setRemoving(adv);
+    setRemovalPreview(null);
+    setRemovalError(null);
+    setRemovalLoading(true);
+    const res = await apiFetch<AdvisorRemovalPreview>(`/admin/advisors/${adv.id}/removal`);
+    setRemovalLoading(false);
+    if (res.success && res.data) setRemovalPreview(res.data);
+    else setRemovalError(res.message || 'Could not check this advisor’s bookings.');
+  };
+
+  const closeRemove = () => {
+    if (!removeSaving) setRemoving(null);
+  };
+
+  const submitRemove = async () => {
+    if (!removing) return;
+    setRemoveSaving(true);
+    setRemovalError(null);
+    const res = await apiFetch<RemovedAdvisor>(`/admin/advisors/${removing.id}`, { method: 'DELETE' });
+    setRemoveSaving(false);
+    if (res.success) {
+      toast.success('Advisor removed', res.message || removing.fullName);
+      setRemoving(null);
+      reload();
+    } else {
+      setRemovalError(res.message || 'Could not remove the advisor.');
+    }
+  };
+
   const statusOf = (adv: AdminAdvisorList) => (adv.isActive ? 'Active' : 'Inactive');
 
   return (
@@ -194,6 +234,7 @@ function AdminAdvisors() {
         searchPlaceholder="Name, email, phone or employee code"
         searchLabel="Search advisors"
         status={{ key: 'active', options: ACTIVE_FILTERS, ariaLabel: 'Advisor status' }}
+        fields={[{ type: 'select', key: 'city', label: 'City', options: cityOptions, allLabel: 'All cities' }]}
         summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'advisor' : 'advisors'}`}
       />
 
@@ -222,8 +263,9 @@ function AdminAdvisors() {
               <TableHeader>
                 <tr>
                   <TableHead>Advisor</TableHead>
+                  <TableHead>City</TableHead>
                   <TableHead>Code · joined</TableHead>
-                  <TableHead>Speciality</TableHead>
+                  <TableHead className="hidden 2xl:table-cell">Speciality</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Workload</TableHead>
                   <TableHead className="text-right">
@@ -241,11 +283,13 @@ function AdminAdvisors() {
                         <div className="text-xs tabular-nums text-navy-500">{formatIndianMobile(adv.phoneNumber)}</div>
                       )}
                     </TableCell>
+                    <TableCell className="whitespace-nowrap text-navy-700">{adv.city || '—'}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       <div className="text-navy-700">{adv.employeeCode || '—'}</div>
                       <div className="text-xs text-navy-500">{formatDate(adv.createdAtUtc)}</div>
+                      <div className="max-w-[10rem] truncate text-xs text-navy-500 2xl:hidden">{adv.specialization || 'General'}</div>
                     </TableCell>
-                    <TableCell className="text-navy-700">{adv.specialization || 'General'}</TableCell>
+                    <TableCell className="hidden text-navy-700 2xl:table-cell">{adv.specialization || 'General'}</TableCell>
                     <TableCell>
                       <StatusBadge status={statusOf(adv)} />
                     </TableCell>
@@ -282,6 +326,16 @@ function AdminAdvisors() {
                           Activate
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openRemove(adv)}
+                        aria-label={`Remove ${adv.fullName}`}
+                        title="Remove advisor"
+                        className="px-2 text-navy-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -298,7 +352,7 @@ function AdminAdvisors() {
                   onClick={() => setSelectedAdvisor(adv)}
                   leading={<Avatar name={adv.fullName} size="lg" />}
                   title={adv.fullName}
-                  subtitle={adv.specialization || adv.email}
+                  subtitle={[adv.city, adv.specialization || adv.email].filter(Boolean).join(' · ')}
                   meta={`${adv.activeAssignedRequestsCount} open requests · ${adv.activeJobsOverseeingCount} active jobs`}
                   trailing={<StatusBadge status={statusOf(adv)} />}
                 />
@@ -370,6 +424,14 @@ function AdminAdvisors() {
                   Activate
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                className="w-full text-red-600 hover:text-red-700 sm:w-auto"
+                leftIcon={<Trash2 className="h-4 w-4" />}
+                onClick={() => openRemove(selectedAdvisor)}
+              >
+                Remove advisor
+              </Button>
             </div>
           )
         }
@@ -383,6 +445,7 @@ function AdminAdvisors() {
             </div>
             <dl className="space-y-2 text-sm">
               <Row label="Status" value={<StatusBadge status={statusOf(selectedAdvisor)} />} />
+              <Row label="City" value={selectedAdvisor.city || '—'} />
               <Row label="Employee code" value={selectedAdvisor.employeeCode || '—'} />
               {selectedAdvisor.phoneNumber && (
                 <Row label="Mobile" value={formatIndianMobile(selectedAdvisor.phoneNumber)} />
@@ -407,6 +470,51 @@ function AdminAdvisors() {
           toast.success('Advisor updated', adv.fullName);
           reload();
         }}
+      />
+
+      <ConfirmationDialog
+        isOpen={!!removing}
+        onClose={closeRemove}
+        onConfirm={submitRemove}
+        isLoading={removeSaving}
+        variant="danger"
+        title={removing ? `Remove ${removing.fullName}?` : ''}
+        confirmText="Remove advisor"
+        message={
+          removing && (
+            <div className="space-y-3">
+              <p>
+                They disappear from this list and can never sign in again. Past bookings, notes and jobs keep their
+                record and show “Former advisor”.
+              </p>
+              <div className="flex items-start gap-2 rounded-xl border border-surface-200 bg-surface-50 px-3.5 py-3 text-sm text-navy-800">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-400" aria-hidden="true" />
+                {removalLoading ? (
+                  <span className="text-navy-500">Checking their open bookings…</span>
+                ) : removalPreview ? (
+                  removalPreview.openRequestsCount === 0 ? (
+                    <span>They have no open bookings, so nothing needs to move.</span>
+                  ) : (
+                    <span>
+                      <strong className="tabular-nums">{removalPreview.openRequestsCount}</strong> open{' '}
+                      {removalPreview.openRequestsCount === 1 ? 'booking moves' : 'bookings move'} to{' '}
+                      {removalPreview.otherAdvisorsInCity > 0
+                        ? `the other advisors in ${removalPreview.city || 'their city'}, least busy first.`
+                        : `an advisor in another city: there is no other active advisor in ${removalPreview.city || 'their city'}.`}
+                    </span>
+                  )
+                ) : (
+                  <span className="text-navy-500">Open bookings move to the other advisors in their city.</span>
+                )}
+              </div>
+              {removalError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {removalError}
+                </p>
+              )}
+            </div>
+          )
+        }
       />
 
       <ConfirmationDialog

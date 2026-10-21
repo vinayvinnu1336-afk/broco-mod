@@ -9,6 +9,7 @@ namespace BroCoMod.Api.Controllers.v1;
 [ApiController]
 [Route("api/v1/advisor")]
 [Authorize(Roles = $"{AppRoles.Advisor},{AppRoles.SuperAdmin}")]
+[TypeFilter(typeof(BroCoMod.Api.Infrastructure.AdvisorCityAccessFilter))]
 public class AdvisorController : ControllerBase
 {
     private readonly IAdvisorPortalService _advisorPortalService;

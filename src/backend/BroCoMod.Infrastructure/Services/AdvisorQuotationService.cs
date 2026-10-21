@@ -238,11 +238,20 @@ public class AdvisorQuotationService : IAdvisorQuotationService
             .OrderByDescending(n => n.CreatedAtUtc)
             .ToListAsync(ct);
 
+        // Notes by an advisor who has since been removed keep the record but not the name.
+        var authorIds = notes.Select(n => n.AdvisorId).Distinct().ToList();
+        var removedAuthors = (await _context.AdvisorProfiles.AsNoTracking()
+                .Where(a => a.RemovedAtUtc != null && (authorIds.Contains(a.UserId) || authorIds.Contains(a.Id)))
+                .Select(a => new { a.Id, a.UserId })
+                .ToListAsync(ct))
+            .SelectMany(a => new[] { a.Id, a.UserId })
+            .ToHashSet();
+
         var dtos = notes.Select(n => new AdvisorRequestNoteDto(
             n.Id,
             n.ServiceRequestId,
             n.AdvisorId,
-            n.AdvisorName,
+            removedAuthors.Contains(n.AdvisorId) ? Domain.Entities.Identity.AdvisorProfile.FormerAdvisorName : n.AdvisorName,
             n.Note,
             n.CreatedAtUtc,
             n.UpdatedAtUtc,

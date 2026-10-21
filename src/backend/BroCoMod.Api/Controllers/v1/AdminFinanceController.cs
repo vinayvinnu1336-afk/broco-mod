@@ -44,9 +44,13 @@ public class AdminFinanceController : ControllerBase
     public async Task<IActionResult> GetOverview(
         [FromQuery] DateTime? fromUtc,
         [FromQuery] DateTime? toUtc,
+        [FromQuery] string? city,
+        [FromServices] IAdvisorCityScope cityScope,
         CancellationToken cancellationToken)
     {
-        var overview = await _adminFinanceService.GetFinanceOverviewAsync(fromUtc, toUtc, cancellationToken);
+        // Advisors (who can read this overview) always get their own city's figures.
+        var overview = await _adminFinanceService.GetFinanceOverviewAsync(fromUtc, toUtc, cancellationToken,
+            await cityScope.EffectiveCityAsync(city, cancellationToken));
         return Ok(ApiResponse<FinanceOverviewDto>.Ok(overview));
     }
 

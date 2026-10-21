@@ -21,6 +21,7 @@ public class IdentityService : IIdentityService
     private readonly ILogger<IdentityService> _logger;
     private readonly IOtpDelivery? _otpDelivery;
     private readonly OtpRequestLimiter? _otpLimiter;
+    private readonly IServiceAreaService? _serviceAreas;
 
     private const string PasswordResetPurpose = "PasswordReset";
 
@@ -33,8 +34,10 @@ public class IdentityService : IIdentityService
         ILogger<IdentityService> logger,
         IEnumerable<INotificationProvider>? notificationProviders = null,
         IOtpDelivery? otpDelivery = null,
-        OtpRequestLimiter? otpLimiter = null)
+        OtpRequestLimiter? otpLimiter = null,
+        IServiceAreaService? serviceAreas = null)
     {
+        _serviceAreas = serviceAreas;
         _notificationProviders = notificationProviders ?? Array.Empty<INotificationProvider>();
         _otpDelivery = otpDelivery;
         _otpLimiter = otpLimiter;
@@ -131,7 +134,9 @@ public class IdentityService : IIdentityService
                 longitude: hasLocation ? request.Longitude!.Value : 0,
                 latitude: hasLocation ? request.Latitude!.Value : 0,
                 isVerified: false,
-                isOperational: hasLocation);
+                isOperational: hasLocation,
+                // The city the workshop pin is in (else the one named in the address); advisors of that city handle it.
+                city: _serviceAreas?.ResolveCity(hasLocation ? request.Latitude : null, hasLocation ? request.Longitude : null, request.Address));
             _context.Garages.Add(garage);
 
             garageId = garage.Id;
@@ -821,6 +826,12 @@ public class IdentityService : IIdentityService
         if (user == null)
         {
             throw new KeyNotFoundException($"User with ID {userId} not found.");
+        }
+
+        // A removed advisor can never sign in again.
+        if (isActive && await _context.AdvisorProfiles.AnyAsync(a => a.UserId == userId && a.RemovedAtUtc != null, cancellationToken))
+        {
+            throw new InvalidOperationException("This advisor was removed and can't be reactivated.");
         }
 
         user.SetActive(isActive);

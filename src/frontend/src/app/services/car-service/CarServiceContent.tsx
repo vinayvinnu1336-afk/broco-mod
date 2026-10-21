@@ -617,7 +617,7 @@ function FaqSection({ advancePct }: { advancePct: number }) {
     },
     {
       q: 'Can I cancel my booking?',
-      a: `Yes. The ${advancePct}% advance is refundable if you cancel before the garage starts work.`,
+      a: `You can cancel it yourself any time before you pay the ${advancePct}% advance. After you have paid, contact BroCo support and we will cancel it for you; refunds follow our Cancellation & Refund Policy.`,
     },
     {
       q: 'Why does my car show “Price on request”?',

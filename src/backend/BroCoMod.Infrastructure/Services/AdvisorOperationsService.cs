@@ -10,11 +10,16 @@ namespace BroCoMod.Infrastructure.Services;
 public class AdvisorOperationsService : IAdvisorOperationsService
 {
     private readonly IApplicationDbContext _context;
+    private readonly IAdvisorCityScope? _cityScope;
 
-    public AdvisorOperationsService(IApplicationDbContext context)
+    public AdvisorOperationsService(IApplicationDbContext context, IAdvisorCityScope? cityScope = null)
     {
         _context = context;
+        _cityScope = cityScope;
     }
+
+    private async Task<AdvisorCityRestriction?> RestrictionAsync(CancellationToken ct) =>
+        _cityScope == null ? null : await _cityScope.GetRestrictionAsync(ct);
 
     public async Task<AdvisorDashboardKpiDto> GetAdvisorDashboardKpisAsync(Guid advisorUserId, CancellationToken cancellationToken = default)
     {
@@ -25,7 +30,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
         var advisorId = advisor?.Id;
 
         // Base query for advisor
-        var requestQuery = _context.ServiceRequests.AsNoTracking();
+        var requestQuery = _context.ServiceRequests.AsNoTracking().VisibleTo(await RestrictionAsync(cancellationToken));
         if (advisorId.HasValue)
         {
             requestQuery = requestQuery.Where(sr => sr.AssignedAdvisorId == advisorId.Value);
@@ -40,7 +45,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
             sr.Status == ServiceRequestStatus.QuotesReceived &&
             !sr.GarageAssignments.Any(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed), cancellationToken);
 
-        var packageBookingsToAssignCount = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId)).CountAsync(cancellationToken);
+        var packageBookingsToAssignCount = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId, await RestrictionAsync(cancellationToken))).CountAsync(cancellationToken);
 
         var cqQuery = _context.CustomerQuotations.AsNoTracking();
         if (advisorId.HasValue)
@@ -86,14 +91,14 @@ public class AdvisorOperationsService : IAdvisorOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 sr.GarageAssignments.Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed).Select(ga => ga.Garage.Name).FirstOrDefault(),
                 sr.ServiceJob != null ? sr.ServiceJob.Status.ToString() : null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -110,9 +115,12 @@ public class AdvisorOperationsService : IAdvisorOperationsService
         );
     }
 
-    /// <summary>Requests this advisor owns, plus ones nobody owns yet (a super admin with no advisor profile sees all).</summary>
-    private IQueryable<ServiceRequest> OwnedOrUnowned(Guid? advisorId) =>
+    /// <summary>
+    /// Requests this advisor owns, plus ones nobody owns yet in their city (a super admin with no advisor profile sees all).
+    /// </summary>
+    private IQueryable<ServiceRequest> OwnedOrUnowned(Guid? advisorId, AdvisorCityRestriction? restriction) =>
         _context.ServiceRequests.AsNoTracking()
+            .VisibleTo(restriction)
             .Where(sr => advisorId == null || sr.AssignedAdvisorId == null || sr.AssignedAdvisorId == advisorId.Value);
 
     /// <summary>
@@ -135,7 +143,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
         var advisorId = advisor?.Id;
 
         // 0. Paid package bookings waiting for the advisor to assign a garage
-        var packageBookingsToAssign = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId))
+        var packageBookingsToAssign = await PackagesAwaitingGarage(OwnedOrUnowned(advisorId, await RestrictionAsync(cancellationToken)))
             .OrderByDescending(sr => sr.AdvancePaidAtUtc)
             .Take(25)
             .Select(sr => new AdvisorPackageBookingQueueItemDto(
@@ -143,7 +151,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
                 sr.RequestNumber,
                 sr.CustomerProfile != null ? sr.CustomerProfile.User.FullName : "Customer",
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.ServicePackageName ?? "Service package",
                 sr.PackagePrice ?? 0m,
                 sr.AdvancePaidAmount,
@@ -153,6 +161,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
 
         // 1. New Requests: unassigned or newly assigned needing quotes (packages are never quoted)
         var newRequestsQuery = _context.ServiceRequests.AsNoTracking()
+            .VisibleTo(await RestrictionAsync(cancellationToken))
             .Include(sr => sr.CustomerProfile).ThenInclude(cp => cp.User)
             .Include(sr => sr.AssignedAdvisor).ThenInclude(a => a.User)
             .Include(sr => sr.ServiceLocation)
@@ -175,14 +184,14 @@ public class AdvisorOperationsService : IAdvisorOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 null,
                 null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -190,6 +199,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
 
         // 2. Quotes To Review: requests with received garage quotes awaiting assignment
         var quotesToReviewQuery = _context.ServiceRequests.AsNoTracking()
+            .VisibleTo(await RestrictionAsync(cancellationToken))
             .Include(sr => sr.CustomerProfile).ThenInclude(cp => cp.User)
             .Include(sr => sr.AssignedAdvisor).ThenInclude(a => a.User)
             .Include(sr => sr.ServiceLocation)
@@ -212,14 +222,14 @@ public class AdvisorOperationsService : IAdvisorOperationsService
                 sr.VehicleLicensePlate,
                 sr.Status.ToString(),
                 sr.AssignedAdvisorId,
-                sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+                sr.AssignedAdvisor != null ? (sr.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : sr.AssignedAdvisor.User.FullName) : null,
                 sr.GarageRequests.Count,
                 sr.GarageQuotes.Count,
                 null,
                 null,
                 sr.CreatedAtUtc,
                 $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-                sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+                sr.City != "" ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
                 sr.GarageRequests.Count,
                 sr.CreatedAtUtc
             ))
@@ -249,7 +259,7 @@ public class AdvisorOperationsService : IAdvisorOperationsService
                 cq.ServiceRequest.VehicleLicensePlate,
                 cq.ServiceRequest.Status.ToString(),
                 cq.ServiceRequest.AssignedAdvisorId,
-                cq.ServiceRequest.AssignedAdvisor != null ? cq.ServiceRequest.AssignedAdvisor.User.FullName : null,
+                cq.ServiceRequest.AssignedAdvisor != null ? (cq.ServiceRequest.AssignedAdvisor.RemovedAtUtc != null ? AdvisorProfile.FormerAdvisorName : cq.ServiceRequest.AssignedAdvisor.User.FullName) : null,
                 cq.ServiceRequest.GarageRequests.Count,
                 cq.ServiceRequest.GarageQuotes.Count,
                 cq.ServiceRequest.GarageAssignments.Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed).Select(ga => ga.Garage.Name).FirstOrDefault(),

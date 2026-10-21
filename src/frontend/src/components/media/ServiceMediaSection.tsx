@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, ImagePlus } from 'lucide-react';
+import { ImagePlus } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { DEFAULT_MEDIA_LIMITS } from '@/lib/media';
 import { Card } from '@/components/ui/Card';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { MediaStage, ServiceMedia, ServiceMediaList, UpdateServiceMediaRequest } from '@/types/media';
-import { MediaGallery } from './MediaGallery';
+import { MediaStageGroups } from './MediaStageGroups';
 import { MediaUploader } from './MediaUploader';
 
 export interface ServiceMediaSectionProps {
@@ -47,6 +47,8 @@ export function ServiceMediaSection({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploaderOpen, setUploaderOpen] = useState(false);
+  // Stage picked by tapping a group's "Add" (Before / After); otherwise the screen's suggestion.
+  const [uploadStage, setUploadStage] = useState<MediaStage | undefined>(undefined);
   const lastRefresh = useRef(0);
 
   const load = useCallback(
@@ -102,8 +104,13 @@ export function ServiceMediaSection({
   const canUpload = !!data?.canUpload;
   const canManage = items.some((m) => m.canEdit || m.canDelete);
   const photos = items.filter((m) => m.kind === 'Photo').length;
-  const videos = items.length - photos;
-  const summary = [photos ? `${photos} photo${photos === 1 ? '' : 's'}` : null, videos ? `${videos} video${videos === 1 ? '' : 's'}` : null]
+  const videos = items.filter((m) => m.kind === 'Video').length;
+  const documents = items.length - photos - videos;
+  const summary = [
+    photos ? `${photos} photo${photos === 1 ? '' : 's'}` : null,
+    videos ? `${videos} video${videos === 1 ? '' : 's'}` : null,
+    documents ? `${documents} PDF${documents === 1 ? '' : 's'}` : null,
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -116,13 +123,19 @@ export function ServiceMediaSection({
 
   if (hideWhenEmpty && (loading || error || (items.length === 0 && !canUpload))) return null;
 
+  function openUploader(stage?: MediaStage) {
+    setUploadStage(stage);
+    setUploaderOpen(true);
+  }
+  const roomLeft = (data?.remainingSlots ?? 0) > 0;
+
   const headingId = `media-title-${jobId ?? requestId}`;
   const addButton = canUpload && (
     <Button
       variant="outline"
       size="sm"
       leftIcon={<ImagePlus className="h-4 w-4" />}
-      onClick={() => setUploaderOpen(true)}
+      onClick={() => openUploader()}
       disabled={(data?.remainingSlots ?? 0) <= 0}
       title={(data?.remainingSlots ?? 0) <= 0 ? `The most allowed is ${data?.maxItems}` : undefined}
       className="shrink-0"
@@ -152,32 +165,19 @@ export function ServiceMediaSection({
         Try again
       </button>
     </div>
-  ) : items.length === 0 ? (
-    canUpload ? (
-      <button
-        type="button"
-        onClick={() => setUploaderOpen(true)}
-        className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-surface-300 bg-surface-50 p-4 text-left text-sm text-navy-600 transition hover:border-electric-400 hover:bg-electric-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600"
-      >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-electric-600 shadow-sm">
-          <Camera className="h-5 w-5" />
-        </span>
-        <span>{emptyText}</span>
-      </button>
-    ) : (
-      <p className="flex items-center gap-3 rounded-xl border border-dashed border-surface-300 p-4 text-sm text-navy-500">
-        <Camera className="h-5 w-5 shrink-0 text-navy-400" />
-        {emptyText}
-      </p>
-    )
   ) : (
-    <MediaGallery
-      items={items}
-      showVisibility={audience !== 'customer'}
-      onUpdate={canManage ? updateItem : undefined}
-      onDelete={canManage ? deleteItem : undefined}
-      onLoadError={onLoadError}
-    />
+    <div className="space-y-3">
+      {items.length === 0 && <p className="text-sm text-navy-500">{emptyText}</p>}
+      <MediaStageGroups
+        items={items}
+        idPrefix={headingId}
+        showVisibility={audience !== 'customer'}
+        onUpdate={canManage ? updateItem : undefined}
+        onDelete={canManage ? deleteItem : undefined}
+        onLoadError={onLoadError}
+        onAdd={canUpload && roomLeft ? openUploader : undefined}
+      />
+    </div>
   );
 
   const uploader = canUpload && data && (
@@ -187,7 +187,8 @@ export function ServiceMediaSection({
       endpoint={endpoint}
       limits={data.limits ?? DEFAULT_MEDIA_LIMITS}
       remainingSlots={data.remainingSlots}
-      defaultStage={defaultStage}
+      defaultStage={uploadStage ?? defaultStage}
+      askStage={audience !== 'customer'}
       onUploaded={addItem}
       onFinished={(n) => n > 0 && toast.success(n === 1 ? 'Uploaded' : `${n} uploaded`)}
     />

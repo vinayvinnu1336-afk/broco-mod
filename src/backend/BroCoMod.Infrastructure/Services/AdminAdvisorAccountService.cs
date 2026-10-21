@@ -33,6 +33,8 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
     private readonly IEmailSender? _emailSender;
     private readonly IConfiguration? _configuration;
     private readonly ILogger<AdminAdvisorAccountService>? _logger;
+    private readonly IServiceAreaService? _serviceAreas;
+    private readonly INotificationService? _notifications;
 
     public AdminAdvisorAccountService(
         IApplicationDbContext context,
@@ -40,8 +42,12 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
         IAuditService auditService,
         IEmailSender? emailSender = null,
         IConfiguration? configuration = null,
-        ILogger<AdminAdvisorAccountService>? logger = null)
+        ILogger<AdminAdvisorAccountService>? logger = null,
+        IServiceAreaService? serviceAreas = null,
+        INotificationService? notifications = null)
     {
+        _serviceAreas = serviceAreas;
+        _notifications = notifications;
         _context = context;
         _passwordHasher = passwordHasher;
         _auditService = auditService;
@@ -59,6 +65,7 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
         var email = ValidEmail(request.Email);
         var specialization = ValidSpecialization(request.Specialization);
         var maxAssigned = ValidMaxAssigned(request.MaxAssignedRequests);
+        var city = ValidCity(request.City);
 
         var passwordGenerated = string.IsNullOrEmpty(request.Password);
         var password = passwordGenerated ? TemporaryPassword.Generate() : request.Password!;
@@ -72,7 +79,7 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
         var advisorRole = await AdvisorRoleAsync(cancellationToken);
         var hash = _passwordHasher.HashPassword(password, out var salt);
         var user = new User(email, fullName, phoneNumber, hash, salt);
-        var profile = new AdvisorProfile(user.Id, await NewEmployeeCodeAsync(cancellationToken), specialization, maxAssigned);
+        var profile = new AdvisorProfile(user.Id, await NewEmployeeCodeAsync(cancellationToken), specialization, maxAssigned, city);
 
         _context.Users.Add(user);
         _context.UserRoles.Add(new UserRole { User = user, Role = advisorRole });
@@ -97,7 +104,7 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
             userEmail: admin,
             entityName: nameof(AdvisorProfile),
             entityId: profile.Id.ToString(),
-            details: $"Advisor '{user.FullName}' ({user.Email}, mobile ending {phoneNumber[^4..]}) created with employee code {profile.EmployeeCode}. " +
+            details: $"Advisor '{user.FullName}' ({user.Email}, mobile ending {phoneNumber[^4..]}) created with employee code {profile.EmployeeCode} in {profile.City}. " +
                      $"Password {(passwordGenerated ? "generated" : "set by the administrator")}; welcome email {(emailSent ? "sent" : "not sent")}.",
             ipAddress: ipAddress,
             cancellationToken: cancellationToken);
@@ -116,6 +123,7 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
     {
         var specialization = request.Specialization is null ? null : ValidSpecialization(request.Specialization);
         int? maxAssigned = request.MaxAssignedRequests is null ? null : ValidMaxAssigned(request.MaxAssignedRequests);
+        var city = string.IsNullOrWhiteSpace(request.City) ? null : ValidCity(request.City);
 
         var user = await FindAccountForPromotionAsync(request, cancellationToken);
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -149,12 +157,21 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
         if (profile == null)
         {
             profile = new AdvisorProfile(user.Id, await NewEmployeeCodeAsync(cancellationToken),
-                specialization ?? DefaultSpecialization, maxAssigned ?? DefaultMaxAssignedRequests);
+                specialization ?? DefaultSpecialization, maxAssigned ?? DefaultMaxAssignedRequests,
+                city ?? ValidCity(null));
             _context.AdvisorProfiles.Add(profile);
         }
-        else if (specialization != null || maxAssigned != null)
+        else
         {
-            profile.UpdateDetails(specialization ?? profile.Specialization, maxAssigned ?? profile.MaxAssignedRequests);
+            if (profile.IsRemoved)
+            {
+                throw new AdvisorAccountException(AdvisorAccountErrors.NotEligible, "This advisor was removed and can't be made an advisor again.");
+            }
+            if (specialization != null || maxAssigned != null)
+            {
+                profile.UpdateDetails(specialization ?? profile.Specialization, maxAssigned ?? profile.MaxAssignedRequests);
+            }
+            if (city != null) profile.SetCity(city);
         }
 
         // Sessions signed in as a customer end, so the next sign-in carries the advisor role.
@@ -187,20 +204,25 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
             .Include(a => a.User)
             .FirstOrDefaultAsync(a => a.Id == id || a.UserId == id, cancellationToken)
             ?? throw new AdvisorAccountException(AdvisorAccountErrors.NotFound, "Advisor not found.", 404);
+        if (profile.IsRemoved) throw new AdvisorAccountException(AdvisorAccountErrors.NotFound, "Advisor not found.", 404);
 
         var fullName = request.FullName is null ? profile.User.FullName : ValidName(request.FullName);
         var specialization = request.Specialization is null ? profile.Specialization : ValidSpecialization(request.Specialization);
         var maxAssigned = request.MaxAssignedRequests is null ? profile.MaxAssignedRequests : ValidMaxAssigned(request.MaxAssignedRequests);
+        var city = request.City is null ? profile.City : ValidCity(request.City);
 
         var changes = new List<string>();
         if (fullName != profile.User.FullName) changes.Add($"name '{profile.User.FullName}' to '{fullName}'");
         if (specialization != profile.Specialization) changes.Add($"speciality '{profile.Specialization}' to '{specialization}'");
         if (maxAssigned != profile.MaxAssignedRequests) changes.Add($"max open requests {profile.MaxAssignedRequests} to {maxAssigned}");
+        // Open requests they already own stay with them (and visible to them); new ones come from the new city.
+        if (city != profile.City) changes.Add($"city '{profile.City}' to '{city}'");
 
         if (changes.Count > 0)
         {
             if (fullName != profile.User.FullName) profile.User.UpdateProfile(fullName, profile.User.PhoneNumber);
             profile.UpdateDetails(specialization, maxAssigned);
+            if (city != profile.City) profile.SetCity(city);
             await _context.SaveChangesAsync(cancellationToken);
 
             await _auditService.LogAsync(
@@ -360,6 +382,142 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
         return max;
     }
 
+    /// <summary>One of the live service areas, in its configured spelling.</summary>
+    private string ValidCity(string? value)
+    {
+        var city = (value ?? string.Empty).Trim();
+        if (city.Length == 0) throw Invalid("Choose the city the advisor works in.");
+        if (_serviceAreas == null) return city.Length <= AdvisorProfile.CityMaxLength ? city : throw Invalid("City is too long.");
+        return _serviceAreas.CanonicalLiveCity(city)
+            ?? throw Invalid($"Choose one of our cities: {string.Join(", ", _serviceAreas.GetAreas().Where(a => a.IsLive).Select(a => a.City))}.");
+    }
+
+    // ------------------------------------------------------------------ remove
+
+    private static bool IsOpen(ServiceRequestStatus status) =>
+        status != ServiceRequestStatus.Completed && status != ServiceRequestStatus.Cancelled;
+
+    private async Task<AdvisorProfile> RemovableAdvisorAsync(Guid id, Guid adminId, CancellationToken cancellationToken)
+    {
+        var profile = await _context.AdvisorProfiles
+            .Include(a => a.User).ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(a => a.Id == id || a.UserId == id, cancellationToken);
+        if (profile == null || profile.IsRemoved)
+        {
+            throw new AdvisorAccountException(AdvisorAccountErrors.NotFound, "Advisor not found.", 404);
+        }
+        if (profile.UserId == adminId)
+        {
+            throw new AdvisorAccountException(AdvisorAccountErrors.CannotRemoveSelf, "You can't remove your own account.");
+        }
+        if (profile.User.UserRoles.Any(ur => ur.Role.Name == AppRoles.SuperAdmin) || profile.User.UserRoles.All(ur => ur.Role.Name != AppRoles.Advisor))
+        {
+            throw new AdvisorAccountException(AdvisorAccountErrors.NotEligible, "Only advisor accounts can be removed here.");
+        }
+        return profile;
+    }
+
+    public async Task<AdvisorRemovalPreviewDto> GetRemovalPreviewAsync(Guid id, Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var profile = await RemovableAdvisorAsync(id, adminId, cancellationToken);
+        var open = await _context.ServiceRequests.CountAsync(sr =>
+            sr.AssignedAdvisorId == profile.Id && sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled, cancellationToken);
+        var others = (await AdvisorAssignment.GetEligibleLoadsAsync(_context, cancellationToken))
+            .Count(l => l.AdvisorId != profile.Id && string.Equals(l.City, profile.City, StringComparison.OrdinalIgnoreCase));
+        return new AdvisorRemovalPreviewDto(profile.Id, profile.User.FullName, profile.City, open, others);
+    }
+
+    public async Task<RemovedAdvisorDto> RemoveAdvisorAsync(Guid id, Guid adminId, string? ipAddress = null, CancellationToken cancellationToken = default)
+    {
+        var profile = await RemovableAdvisorAsync(id, adminId, cancellationToken);
+
+        var openRequests = await _context.ServiceRequests
+            .Where(sr => sr.AssignedAdvisorId == profile.Id && sr.Status != ServiceRequestStatus.Completed && sr.Status != ServiceRequestStatus.Cancelled)
+            .OrderBy(sr => sr.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        // The same capacity-aware picker new bookings use: the request's city first, another city only when it has nobody.
+        var loads = (await AdvisorAssignment.GetEligibleLoadsAsync(_context, cancellationToken))
+            .Where(l => l.AdvisorId != profile.Id)
+            .ToList();
+        var moved = new Dictionary<Guid, int>();
+        var outsideCity = 0;
+        var unassigned = 0;
+        foreach (var request in openRequests.Where(r => IsOpen(r.Status)))
+        {
+            var city = request.City.Length > 0 ? request.City : profile.City;
+            var next = AdvisorAssignment.Pick(loads, city);
+            if (next == null)
+            {
+                request.ReleaseResponsibleAdvisor();
+                unassigned++;
+                continue;
+            }
+
+            request.SetResponsibleAdvisor(next.Value);
+            moved[next.Value] = moved.GetValueOrDefault(next.Value) + 1;
+            var index = loads.FindIndex(l => l.AdvisorId == next.Value);
+            if (!string.Equals(loads[index].City, city, StringComparison.OrdinalIgnoreCase)) outsideCity++;
+            loads[index] = loads[index] with { OpenRequests = loads[index].OpenRequests + 1 };
+        }
+
+        // Signed out everywhere and never able to sign in again; nothing else about the account is changed.
+        profile.MarkRemoved();
+        profile.User.SetActive(false);
+        var now = DateTime.UtcNow;
+        var sessions = await _context.RefreshTokens
+            .Where(t => t.UserId == profile.UserId && t.RevokedAtUtc == null && t.ExpiresAtUtc > now)
+            .ToListAsync(cancellationToken);
+        foreach (var session in sessions) session.Revoke("Advisor removed by an administrator");
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var reassignments = await _context.AdvisorProfiles.AsNoTracking()
+            .Where(a => moved.Keys.Contains(a.Id))
+            .Select(a => new { a.Id, a.UserId, a.User.FullName, a.City })
+            .ToListAsync(cancellationToken);
+        var summary = reassignments
+            .Select(a => new AdvisorReassignmentDto(a.Id, a.FullName, a.City, moved[a.Id]))
+            .OrderByDescending(r => r.RequestsCount).ThenBy(r => r.FullName)
+            .ToList();
+
+        var details = $"Advisor '{profile.User.FullName}' ({profile.User.Email}, {profile.City}) removed. " +
+                      (openRequests.Count == 0
+                          ? "They had no open requests."
+                          : $"{openRequests.Count - unassigned} open request(s) reassigned" +
+                            (summary.Count > 0 ? $": {string.Join(", ", summary.Select(r => $"{r.RequestsCount} to {r.FullName} ({r.City})"))}" : string.Empty) +
+                            (unassigned > 0 ? $"; {unassigned} left without an advisor (no active advisor available)" : string.Empty) + ".");
+        await _auditService.LogAsync(
+            action: "ADMIN_ADVISOR_REMOVED",
+            userId: adminId,
+            userEmail: await AdminEmailAsync(adminId, cancellationToken),
+            entityName: nameof(AdvisorProfile),
+            entityId: profile.Id.ToString(),
+            details: details,
+            ipAddress: ipAddress,
+            cancellationToken: cancellationToken);
+
+        if (_notifications != null)
+        {
+            foreach (var r in reassignments)
+            {
+                try
+                {
+                    await _notifications.SendInAppNotificationAsync(r.UserId, "Bookings moved to you",
+                        $"{moved[r.Id]} open booking{(moved[r.Id] == 1 ? " was" : "s were")} moved to you from an advisor who left.",
+                        "AdvisorReassigned", cancellationToken: cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger?.LogWarning(ex, "Could not notify advisor {AdvisorId} about reassigned requests.", r.Id);
+                }
+            }
+        }
+
+        return new RemovedAdvisorDto(profile.Id, profile.User.FullName, profile.City,
+            openRequests.Count - unassigned, outsideCity, unassigned, summary);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private async Task<Role> AdvisorRoleAsync(CancellationToken cancellationToken) =>
@@ -424,6 +582,7 @@ public class AdminAdvisorAccountService : IAdminAdvisorAccountService
                 _context.ServiceJobs.Count(j => j.ServiceRequest.AssignedAdvisorId == a.Id && j.Status != ServiceJobStatus.Closed && j.Status != ServiceJobStatus.Cancelled),
                 a.CreatedAtUtc,
                 a.User.PhoneNumber,
-                a.MaxAssignedRequests))
+                a.MaxAssignedRequests,
+                a.City))
             .FirstAsync(cancellationToken);
 }

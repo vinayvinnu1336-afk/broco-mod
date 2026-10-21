@@ -117,6 +117,29 @@ export interface GarageServiceJobDetailDto {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  /** Only for the garage doing the job; null once it is cancelled. */
+  customerLocation?: GarageCustomerLocationDto | null;
+  /** Package items from the catalogue, else the quotation's lines, else the services picked. */
+  serviceItems?: string[] | null;
+  serviceCategory?: string | null;
+  vehicleFuel?: string | null;
+  preferredServiceDate?: string | null;
+}
+
+/** Where the car is, for the garage that holds the job. AddressLine2 carries the area and "Near <landmark>". */
+export interface GarageCustomerLocationDto {
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  formattedAddress: string;
+  latitude: number;
+  longitude: number;
+  workshopLatitude?: number | null;
+  workshopLongitude?: number | null;
+  workshopAddress?: string | null;
+  distanceKm?: number | null;
 }
 
 export interface CustomerServiceJobDetailDto {

@@ -49,9 +49,9 @@ public class AdminController : ControllerBase
 
     [HttpGet("dashboard")]
     [ProducesResponseType(typeof(ApiResponse<AdminDashboardKpiDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetDashboard([FromQuery] string? city, CancellationToken cancellationToken)
     {
-        var dashboard = await _adminOperationsService.GetDashboardKpisAsync(cancellationToken);
+        var dashboard = await _adminOperationsService.GetDashboardKpisAsync(city, cancellationToken);
         return Ok(ApiResponse<AdminDashboardKpiDto>.Ok(dashboard));
     }
 
@@ -108,6 +108,49 @@ public class AdminController : ControllerBase
             return NotFound(ApiResponse<object>.Fail($"Service request {id} not found."));
         }
         return Ok(ApiResponse<AdminRequestOperationalDetailDto>.Ok(detail));
+    }
+
+    /// <summary>What cancelling this booking would involve: job stage, money paid online (refunded separately) and commission.</summary>
+    [HttpGet("requests/{id:guid}/cancellation")]
+    [ProducesResponseType(typeof(ApiResponse<AdminBookingCancellationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRequestCancellation(
+        Guid id,
+        [FromServices] IBookingCancellationService bookingCancellation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var summary = await bookingCancellation.GetAdminCancellationAsync(id, cancellationToken);
+            return Ok(ApiResponse<AdminBookingCancellationDto>.Ok(summary));
+        }
+        catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+    }
+
+    /// <summary>
+    /// The only way to cancel a booking once anything is paid: ends the request, job, assignment and quotations,
+    /// waives a commission still due, and tells the customer, garage and advisor. Refunds are made from Payments.
+    /// </summary>
+    [HttpPost("requests/{id:guid}/cancel")]
+    [ProducesResponseType(typeof(ApiResponse<AdminBookingCancellationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelRequest(
+        Guid id,
+        [FromBody] AdminCancelBookingRequest request,
+        [FromServices] IBookingCancellationService bookingCancellation,
+        CancellationToken cancellationToken)
+    {
+        var adminId = _currentUserService.UserId ?? Guid.Empty;
+        try
+        {
+            var summary = await bookingCancellation.CancelByAdminAsync(id, adminId, request.Reason, cancellationToken);
+            return Ok(ApiResponse<AdminBookingCancellationDto>.Ok(summary, $"Booking {summary.RequestNumber} cancelled."));
+        }
+        catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+        catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
     }
 
     // ==========================================
@@ -264,11 +307,12 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetAdvisors(
         [FromQuery] string? search,
         [FromQuery] bool? isActive,
+        [FromQuery] string? city,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminAdvisorFilter(search, isActive, page, pageSize);
+        var filter = new AdminAdvisorFilter(search, isActive, page, pageSize, city);
         var advisors = await _adminOperationsService.GetAdvisorsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminAdvisorListDto>>.Ok(advisors));
     }
@@ -345,6 +389,97 @@ public class AdminController : ControllerBase
         }
     }
 
+    /// <summary>What removing this advisor would do (open bookings to move, other advisors in their city), for the confirmation.</summary>
+    [HttpGet("advisors/{id:guid}/removal")]
+    [ProducesResponseType(typeof(ApiResponse<AdvisorRemovalPreviewDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdvisorRemoval(Guid id, [FromServices] IAdminAdvisorAccountService advisorAccounts, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(ApiResponse<AdvisorRemovalPreviewDto>.Ok(
+                await advisorAccounts.GetRemovalPreviewAsync(id, _currentUserService.UserId ?? Guid.Empty, cancellationToken)));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Removes an advisor: hidden from this list, signed out and unable to sign in again; their open bookings move to
+    /// other advisors of the same city. Past records keep them (shown as "Former advisor").
+    /// </summary>
+    [HttpDelete("advisors/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<RemovedAdvisorDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveAdvisor(Guid id, [FromServices] IAdminAdvisorAccountService advisorAccounts, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var removed = await advisorAccounts.RemoveAdvisorAsync(id, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            var message = removed.ReassignedCount == 0 && removed.LeftUnassignedCount == 0
+                ? $"{removed.FullName} was removed."
+                : $"{removed.FullName} was removed. {removed.ReassignedCount} open booking{(removed.ReassignedCount == 1 ? "" : "s")} moved to other advisors" +
+                  (removed.LeftUnassignedCount > 0 ? $"; {removed.LeftUnassignedCount} wait for an advisor." : ".");
+            return Ok(ApiResponse<RemovedAdvisorDto>.Ok(removed, message));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Adds a garage with its owner account (verified now by default). A 409 means the mobile or email is taken.
+    /// The temporary password is only in this response.
+    /// </summary>
+    [HttpPost("garages")]
+    [ProducesResponseType(typeof(ApiResponse<CreatedGarageAccountDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateGarage(
+        [FromBody] CreateGarageAccountRequest request,
+        [FromServices] IAdminGarageAccountService garageAccounts,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var created = await garageAccounts.CreateGarageAsync(request, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            Response.Headers.CacheControl = "no-store";
+            return StatusCode(StatusCodes.Status201Created, ApiResponse<CreatedGarageAccountDto>.Ok(created, $"{created.Garage.Name} added."));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
+    [HttpPut("garages/{id:guid}/city")]
+    [ProducesResponseType(typeof(ApiResponse<AdminGarageListDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateGarageCity(
+        Guid id,
+        [FromBody] UpdateGarageCityRequest request,
+        [FromServices] IAdminGarageAccountService garageAccounts,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var garage = await garageAccounts.UpdateGarageCityAsync(id, request.City, _currentUserService.UserId ?? Guid.Empty,
+                HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            return Ok(ApiResponse<AdminGarageListDto>.Ok(garage, $"{garage.Name} is now in {garage.City}."));
+        }
+        catch (AdvisorAccountException ex)
+        {
+            return AdvisorAccountError(ex);
+        }
+    }
+
     // The error code goes first in Errors so the admin UI can tell an existing customer account from other conflicts.
     private ObjectResult AdvisorAccountError(AdvisorAccountException ex) =>
         StatusCode(ex.StatusCode, ex.ExistingCustomer is { } existing
@@ -398,13 +533,14 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetCustomers(
         [FromQuery] string? search,
         [FromQuery] bool? hasBookings = null,
+        [FromQuery] string? city = null,
         [FromQuery] DateTime? fromDateUtc = null,
         [FromQuery] DateTime? toDateUtc = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminCustomerFilter(search, page, pageSize, hasBookings, fromDateUtc, toDateUtc);
+        var filter = new AdminCustomerFilter(search, page, pageSize, hasBookings, fromDateUtc, toDateUtc, city);
         var customers = await _adminOperationsService.GetCustomersAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminCustomerListDto>>.Ok(customers));
     }
@@ -531,11 +667,12 @@ public class AdminController : ControllerBase
         [FromQuery] DateTime? fromDateUtc = null,
         [FromQuery] DateTime? toDateUtc = null,
         [FromQuery] string? serviceType = null,
+        [FromQuery] string? city = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var filter = new AdminJobFilter(status, garageId, search, page, pageSize, fromDateUtc, toDateUtc, serviceType);
+        var filter = new AdminJobFilter(status, garageId, search, page, pageSize, fromDateUtc, toDateUtc, serviceType, city);
         var jobs = await _adminOperationsService.GetJobsAsync(filter, cancellationToken);
         return Ok(ApiResponse<PagedResult<AdminJobListItemDto>>.Ok(jobs));
     }
