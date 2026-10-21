@@ -70,6 +70,19 @@ public class GarageAssignment : BaseEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>The whole booking is cancelled: the assignment ends even if the customer already confirmed it.</summary>
+    public void CancelWithBooking(string reason, Guid userId)
+    {
+        if (Status != GarageAssignmentStatus.Assigned && Status != GarageAssignmentStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot cancel garage assignment in '{Status}' state.");
+
+        Status = GarageAssignmentStatus.Cancelled;
+        CancelledAtUtc = DateTime.UtcNow;
+        CancellationReason = string.IsNullOrWhiteSpace(reason) ? "Booking cancelled" : reason.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     public void MarkReassigned(string reason, Guid advisorId)
     {
         if (Status != GarageAssignmentStatus.Assigned)

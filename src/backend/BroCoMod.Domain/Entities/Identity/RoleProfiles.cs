@@ -62,16 +62,31 @@ public class AdvisorProfile : BaseEntity
     public string Specialization { get; private set; } = string.Empty;
     public int MaxAssignedRequests { get; private set; } = 25;
 
+    /// <summary>The service area (city) the advisor works in. They only see requests, jobs and garages of this city.</summary>
+    public string City { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Set when an admin removed the advisor: hidden from Admin → Advisors and unable to sign in. The row stays so
+    /// past requests, notes and jobs keep pointing at it; screens show "Former advisor" instead of the name.
+    /// </summary>
+    public DateTime? RemovedAtUtc { get; private set; }
+
+    public bool IsRemoved => RemovedAtUtc.HasValue;
+
+    public const int CityMaxLength = 100;
+    public const string FormerAdvisorName = "Former advisor";
+
     public User User { get; private set; } = default!;
 
     protected AdvisorProfile() { }
 
-    public AdvisorProfile(Guid userId, string employeeCode, string specialization = "General Automotive", int maxAssignedRequests = 25)
+    public AdvisorProfile(Guid userId, string employeeCode, string specialization = "General Automotive", int maxAssignedRequests = 25, string? city = null)
     {
         UserId = userId;
         EmployeeCode = employeeCode;
         Specialization = specialization;
         MaxAssignedRequests = maxAssignedRequests;
+        City = NormalizeCity(city);
     }
 
     public void UpdateDetails(string specialization, int maxAssignedRequests)
@@ -79,5 +94,25 @@ public class AdvisorProfile : BaseEntity
         Specialization = specialization;
         MaxAssignedRequests = maxAssignedRequests;
         UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void SetCity(string? city)
+    {
+        City = NormalizeCity(city);
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void MarkRemoved()
+    {
+        if (IsRemoved) return;
+        RemovedAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    private static string NormalizeCity(string? city)
+    {
+        var value = (city ?? string.Empty).Trim();
+        if (value.Length > CityMaxLength) throw new ArgumentException($"City must be at most {CityMaxLength} characters.", nameof(city));
+        return value;
     }
 }

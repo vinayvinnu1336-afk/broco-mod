@@ -18,10 +18,11 @@ import { Alert } from '@/components/ui/Alert';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
+import { CustomerUploadsCard } from '@/components/booking/CustomerUploadsCard';
 import { formatDate, formatDateTime, formatINRWhole, humanize } from '@/lib/format';
 import { advanceFor, payBookingAdvance } from '@/components/booking/advancePayment';
 import { formatPickup } from '@/components/booking/pickup';
+import { BUSINESS } from '@/content/legal/business';
 import {
   DetailRow,
   RequestProgress,
@@ -142,6 +143,8 @@ export default function CustomerRequestDetailPage() {
       loadData();
     } else {
       setCancelError(res.message || 'Failed to cancel service request.');
+      // A payment may have just gone through: refresh so the page shows "contact support" instead.
+      loadData();
     }
   }
 
@@ -181,9 +184,13 @@ export default function CustomerRequestDetailPage() {
   }
 
   const reqKey = statusKey(request.status);
-  const canCancel = reqKey !== 'CANCELLED' && reqKey !== 'COMPLETED';
   const isPackageBooking = !!request.servicePackageCode;
   const advancePaid = !!request.advancePaidAtUtc;
+  // Owner's rule: the customer may cancel only before paying anything (and before the car is at the garage);
+  // after that only BroCo support can cancel. The server enforces the same rule.
+  const carAtGarage = !!job && job.status !== 'Cancelled' && JOB_ORDER.indexOf(job.status as ServiceJobStatus) >= 2;
+  const bookingOpen = reqKey !== 'CANCELLED' && reqKey !== 'COMPLETED';
+  const canCancel = bookingOpen && !advancePaid && !carAtGarage;
   // Package bookings have a fixed price: no garage quotes, BroCo assigns a garage once the advance is paid.
   const nextStep = isPackageBooking ? packageNextStep(request.status, advancePaid) : requestNextStep(request.status);
   const awaitingGarage = isPackageBooking && packageStageIndex(request.status) === 0;
@@ -313,8 +320,8 @@ export default function CustomerRequestDetailPage() {
         </Card>
       )}
 
-      {/* Photos & videos the garage or advisor shared (view only) */}
-      <ServiceMediaSection requestId={id} audience="customer" title="Photos & videos of your car" hideWhenEmpty />
+      {/* Photos the garage or advisor shared, and the customer's own photos and PDFs (old quotation, bills) */}
+      <CustomerUploadsCard requestId={id} />
 
       {/* Updates */}
       {job && (
@@ -402,6 +409,8 @@ export default function CustomerRequestDetailPage() {
         </div>
       )}
 
+      {bookingOpen && !canCancel && <CancelViaSupport />}
+
       <Modal
         isOpen={cancelOpen}
         onClose={() => !cancelLoading && setCancelOpen(false)}
@@ -452,6 +461,24 @@ export default function CustomerRequestDetailPage() {
         />
       </Modal>
     </div>
+  );
+}
+
+/** After any payment only BroCo can cancel a booking, so the cancel button gives way to this line. */
+function CancelViaSupport() {
+  return (
+    <p className="px-4 text-center text-sm text-navy-600">
+      Need to cancel?{' '}
+      <Link href="/contact" className="font-semibold text-electric-700 underline underline-offset-2">
+        Contact support
+      </Link>{' '}
+      <span className="whitespace-nowrap">
+        at{' '}
+        <a href={`mailto:${BUSINESS.supportEmail}`} className="font-medium text-navy-800 underline-offset-2 hover:underline">
+          {BUSINESS.supportEmail}
+        </a>
+      </span>
+    </p>
   );
 }
 

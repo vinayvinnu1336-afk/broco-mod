@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import {
@@ -8,7 +9,7 @@ import {
   GarageIncomingRequestDetailDto,
   PagedResult,
 } from '@/types/serviceRequest';
-import { Calendar, Car, ChevronLeft, ChevronRight, Clock, FilePlus2, Inbox, MapPin, Navigation } from 'lucide-react';
+import { Calendar, Car, ChevronLeft, ChevronRight, Clock, FilePlus2, Inbox, MapPin, Navigation, Share2, Wrench } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +23,10 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
 import { formatDate, formatRelative } from '@/lib/format';
 import { PickupSummary } from '@/components/booking/PickupSummary';
+import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
+import { CustomerLocationCard } from '@/components/garage/CustomerLocationCard';
+import { ShareJobSheet } from '@/components/garage/ShareJobSheet';
+import { buildJobShareText, jobShareInput, ShareableJob } from '@/lib/jobShare';
 
 /** Requests the garage can still quote on. Others (declined/expired) stay visible but de-emphasised. */
 const CLOSED_STATUSES = ['DECLINED', 'EXPIRED'];
@@ -69,6 +74,9 @@ function GarageRequests() {
   // Detail sheet
   const [selectedRequest, setSelectedRequest] = useState<GarageIncomingRequestDetailDto | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+  // Share text for a request this garage now holds the job for (built from the job detail).
+  const [shareText, setShareText] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   const query = useMemo(
     () => toQueryString({ page: urlPage, pageSize: PAGE_SIZE, search: f.q, status: f.status, ...dateRangeQuery(f) }),
@@ -117,6 +125,14 @@ function GarageRequests() {
       toast.error('Could not open request', res.message || 'Please try again.');
     }
     setDetailLoadingId(null);
+  }
+
+  async function openShare(serviceJobId: string) {
+    setShareLoading(true);
+    const res = await apiFetch<ShareableJob>(`/garage/jobs/${serviceJobId}`);
+    if (res.success && res.data) setShareText(buildJobShareText(jobShareInput(res.data)));
+    else toast.error('Could not load the job', res.message || 'Please try again.');
+    setShareLoading(false);
   }
 
   function createQuote(garageRequestId: string) {
@@ -261,17 +277,27 @@ function GarageRequests() {
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedRequest(null)}>
                 Close
               </Button>
-              <Button
-                className="w-full sm:w-auto"
-                leftIcon={<FilePlus2 className="h-4 w-4" />}
-                onClick={() => {
-                  const reqId = selectedRequest.garageRequestId;
-                  setSelectedRequest(null);
-                  createQuote(reqId);
-                }}
-              >
-                Create quote
-              </Button>
+              {selectedRequest.serviceJobId ? (
+                <Link
+                  href={`/garage/jobs/${selectedRequest.serviceJobId}`}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-electric-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-electric-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2 sm:w-auto"
+                >
+                  <Wrench className="h-4 w-4" aria-hidden />
+                  Open job
+                </Link>
+              ) : (
+                <Button
+                  className="w-full sm:w-auto"
+                  leftIcon={<FilePlus2 className="h-4 w-4" />}
+                  onClick={() => {
+                    const reqId = selectedRequest.garageRequestId;
+                    setSelectedRequest(null);
+                    createQuote(reqId);
+                  }}
+                >
+                  Create quote
+                </Button>
+              )}
             </div>
           )
         }
@@ -322,12 +348,59 @@ function GarageRequests() {
               </div>
             </dl>
 
-            <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">
-              Your quote goes to a BroCo advisor, not straight to the customer. Item prices stay private.
-            </p>
+            {/* While quoting: the photos and PDFs the customer attached (e.g. an old quotation). */}
+            {!selectedRequest.serviceJobId && (
+              <ServiceMediaSection
+                requestId={selectedRequest.serviceRequestId}
+                audience="garage"
+                title="Customer's photos & documents"
+                hideWhenEmpty
+                className="!p-3 shadow-none sm:!p-4"
+              />
+            )}
+
+            {selectedRequest.serviceJobId ? (
+              <section aria-labelledby="request-location-title" className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 id="request-location-title" className="text-sm font-semibold text-navy-900">
+                    Customer location
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<Share2 className="h-4 w-4" />}
+                    isLoading={shareLoading}
+                    onClick={() => openShare(selectedRequest.serviceJobId!)}
+                  >
+                    Share job details
+                  </Button>
+                </div>
+                {selectedRequest.customerLocation ? (
+                  <CustomerLocationCard
+                    location={selectedRequest.customerLocation}
+                    customerName={selectedRequest.customerName}
+                    customerPhone={selectedRequest.customerPhone}
+                    needsPickup={selectedRequest.needsPickup}
+                    pickupNotes={selectedRequest.pickupNotes}
+                  />
+                ) : (
+                  <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">The customer’s location isn’t available.</p>
+                )}
+                <p className="text-xs text-navy-500">
+                  You have this job{selectedRequest.serviceJobNumber ? ` (${selectedRequest.serviceJobNumber})` : ''}. Track it from Jobs.
+                </p>
+              </section>
+            ) : (
+              <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">
+                Your quote goes to a BroCo advisor, not straight to the customer. Item prices stay private. The exact
+                address is shared once you get the job.
+              </p>
+            )}
           </div>
         )}
       </Modal>
+
+      <ShareJobSheet isOpen={!!shareText} onClose={() => setShareText(null)} text={shareText ?? ''} />
     </div>
   );
 }

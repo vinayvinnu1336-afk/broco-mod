@@ -24,7 +24,8 @@ public class GarageMatchingService : IGarageMatchingService
     public async Task<IReadOnlyList<EligibleGarageMatch>> FindEligibleGaragesAsync(
         Point customerLocation,
         double? radiusKm = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? city = null)
     {
         if (customerLocation == null)
         {
@@ -42,6 +43,7 @@ public class GarageMatchingService : IGarageMatchingService
             // In-Memory test fallback: evaluate eligibility & calculate distance via geodesic Haversine
             var allGarages = await _context.Garages
                 .AsNoTracking()
+                .InCity(city)
                 .Where(g => g.IsActive && g.IsOperational && g.IsVerified && g.Status == GarageStatus.Verified && g.Location != null)
                 .ToListAsync(cancellationToken);
 
@@ -73,7 +75,8 @@ public class GarageMatchingService : IGarageMatchingService
         // PostGIS geography distance is calculated on the WGS84 spheroid in meters.
         var eligibleQuery = await _context.Garages
             .AsNoTracking()
-            .Where(g => g.IsActive 
+            .InCity(city)
+            .Where(g => g.IsActive
                         && g.IsOperational 
                         && g.IsVerified
                         && g.Status == GarageStatus.Verified 

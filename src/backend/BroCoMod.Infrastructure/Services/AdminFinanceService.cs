@@ -23,11 +23,24 @@ public class AdminFinanceService : IAdminFinanceService
     public async Task<FinanceOverviewDto> GetFinanceOverviewAsync(
         DateTime? fromUtc = null,
         DateTime? toUtc = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? city = null)
     {
         var paymentsQuery = _context.Payments.AsNoTracking().AsQueryable();
         var settlementsQuery = _context.GarageSettlements.AsNoTracking().AsQueryable();
         var commissionsQuery = _context.GarageCommissions.AsNoTracking().AsQueryable();
+
+        // City filter: a payment belongs to its booking's city (commission payments, which have no booking, to the
+        // garage's); settlements and commissions to the garage's city.
+        var cityKey = CityScoping.Normalize(city);
+        if (cityKey != null)
+        {
+            paymentsQuery = paymentsQuery.Where(p => p.ServiceRequestId != null
+                ? _context.ServiceRequests.Any(sr => sr.Id == p.ServiceRequestId && sr.City.ToLower() == cityKey)
+                : p.Garage != null && p.Garage.City.ToLower() == cityKey);
+            settlementsQuery = settlementsQuery.Where(s => s.Garage != null && s.Garage.City.ToLower() == cityKey);
+            commissionsQuery = commissionsQuery.Where(c => c.Garage != null && c.Garage.City.ToLower() == cityKey);
+        }
 
         if (fromUtc.HasValue)
         {

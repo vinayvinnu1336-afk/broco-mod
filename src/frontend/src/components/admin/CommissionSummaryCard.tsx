@@ -12,8 +12,17 @@ import { useGarageDuesOverview } from '@/components/commissions/useGarageDuesOve
  * Link card with the garage commission totals (outstanding / overdue / collected or garages overdue),
  * highlighted when garages are late. Used on the admin finance page and both staff dashboards.
  */
-export function CommissionSummaryCard({ portal = 'admin', title = 'Garage commissions' }: { portal?: DuesPortal; title?: string }) {
-  const { overview, failed } = useGarageDuesOverview(portal);
+export function CommissionSummaryCard({
+  portal = 'admin',
+  title = 'Garage commissions',
+  city,
+}: {
+  portal?: DuesPortal;
+  title?: string;
+  /** Admins: one city's garages only. */
+  city?: string;
+}) {
+  const { overview, failed } = useGarageDuesOverview(portal, city || undefined);
   const late = (overview?.overdueCount ?? 0) > 0;
   const href = late ? `${duesPageHref(portal)}?status=Overdue` : duesPageHref(portal);
 

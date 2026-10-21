@@ -568,22 +568,30 @@ public class GarageController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
     }
 
+    /// <summary>Only BroCo cancels bookings. Kept so old clients get a clear answer instead of a 404.</summary>
     [HttpPost("jobs/{id:guid}/cancel")]
-    [ProducesResponseType(typeof(ApiResponse<GarageServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    public IActionResult CancelJob(Guid id) =>
+        StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(BookingCancellationRules.GarageCannotCancelMessage));
+
+    /// <summary>The garage can't do the job: BroCo's admins and the request's advisor are asked to reassign or cancel it.</summary>
+    [HttpPost("jobs/{id:guid}/cancellation-request")]
+    [ProducesResponseType(typeof(ApiResponse<GarageCancellationAskResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> CancelJob(
+    public async Task<IActionResult> AskBroCoToCancel(
         Guid id,
-        [FromBody] CancelJobRequest request,
+        [FromBody] GarageCancellationAskRequest request,
+        [FromServices] IBookingCancellationService bookingCancellation,
         CancellationToken cancellationToken)
     {
         var garageId = GetEffectiveGarageId();
         var userId = GetEffectiveUserId();
         try
         {
-            var job = await _serviceJobService.CancelJobAsync(id, garageId, userId, request, cancellationToken);
-            return Ok(ApiResponse<GarageServiceJobDetailDto>.Ok(job, "Job cancelled."));
+            var result = await bookingCancellation.AskBroCoToCancelAsync(id, garageId, userId, request.Reason, cancellationToken);
+            return Ok(ApiResponse<GarageCancellationAskResultDto>.Ok(result, "BroCo has been asked to reassign or cancel this job."));
         }
         catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         catch (UnauthorizedAccessException ex) { return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message)); }

@@ -51,7 +51,7 @@ export default function AdminRequestsPage() {
 function AdminRequests() {
   const filters = useUrlFilters(FILTER_DEFAULTS);
   const { values: f, page: urlPage } = filters;
-  const cityOptions = useCityOptions();
+  const cityOptions = useCityOptions(true);
 
   const [requests, setRequests] = useState<AdminRequestSummary[]>([]);
   const [loading, setLoading] = useState(true);

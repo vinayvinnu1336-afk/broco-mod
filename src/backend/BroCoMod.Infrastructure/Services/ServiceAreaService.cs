@@ -59,6 +59,52 @@ public class ServiceAreaService : IServiceAreaService
         return digits.Length == 6 && options.PincodePrefixes.Any(p => digits.StartsWith(p, StringComparison.Ordinal));
     }
 
+    // Older or local names people still type in addresses.
+    private static readonly Dictionary<string, string> CityAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Bangalore"] = "Bengaluru",
+        ["Secunderabad"] = "Hyderabad",
+    };
+
+    public string? ResolveCity(double? latitude, double? longitude, string? addressText = null, string? pincode = null)
+    {
+        if (latitude is { } lat && longitude is { } lng && !(lat == 0 && lng == 0)
+            && FindLiveAreaFor(lat, lng) is { } area)
+        {
+            return area.City;
+        }
+
+        var live = _areas.Where(a => a.IsLive).ToList();
+        if (!string.IsNullOrWhiteSpace(addressText))
+        {
+            var named = live.FirstOrDefault(a => addressText.Contains(a.City, StringComparison.OrdinalIgnoreCase));
+            if (named != null) return named.City;
+            foreach (var (alias, city) in CityAliases)
+            {
+                if (addressText.Contains(alias, StringComparison.OrdinalIgnoreCase) && CanonicalLiveCity(city) is { } aliased)
+                    return aliased;
+            }
+        }
+
+        var digits = string.IsNullOrWhiteSpace(pincode)
+            ? System.Text.RegularExpressions.Regex.Match(addressText ?? string.Empty, @"(?<!\d)\d{6}(?!\d)").Value
+            : new string(pincode.Where(char.IsDigit).ToArray());
+        if (digits.Length == 6)
+        {
+            var byPincode = live.FirstOrDefault(a => a.PincodePrefixes.Any(p => digits.StartsWith(p, StringComparison.Ordinal)));
+            if (byPincode != null) return byPincode.City;
+        }
+        return null;
+    }
+
+    public string? CanonicalLiveCity(string? city)
+    {
+        var value = (city ?? string.Empty).Trim();
+        if (value.Length == 0) return null;
+        if (CityAliases.TryGetValue(value, out var aliased)) value = aliased;
+        return _areas.FirstOrDefault(a => a.IsLive && string.Equals(a.City, value, StringComparison.OrdinalIgnoreCase))?.City;
+    }
+
     private static ServiceAreaDto ToDto(AreaOptions a) =>
         new(a.City, a.State, a.Latitude, a.Longitude, a.RadiusKm, a.IsLive);
 

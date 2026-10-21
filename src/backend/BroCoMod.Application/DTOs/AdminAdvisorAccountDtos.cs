@@ -13,7 +13,9 @@ public record CreateAdvisorRequest(
     string Email,
     string? Specialization = null,
     int? MaxAssignedRequests = null,
-    string? Password = null
+    string? Password = null,
+    // One of the live service areas; required. The advisor only sees this city.
+    string? City = null
 );
 
 /// <summary>Turns an existing customer account (found by email or mobile) into an advisor.</summary>
@@ -21,13 +23,16 @@ public record PromoteToAdvisorRequest(
     string? Email = null,
     string? MobileNumber = null,
     string? Specialization = null,
-    int? MaxAssignedRequests = null
+    int? MaxAssignedRequests = null,
+    // Required when the account has no advisor profile yet.
+    string? City = null
 );
 
 public record UpdateAdvisorRequest(
     string? FullName = null,
     string? Specialization = null,
-    int? MaxAssignedRequests = null
+    int? MaxAssignedRequests = null,
+    string? City = null
 );
 
 /// <summary>
@@ -67,6 +72,7 @@ public static class AdvisorAccountErrors
     public const string AlreadyAdvisor = "ALREADY_ADVISOR";
     public const string NotEligible = "NOT_ELIGIBLE";
     public const string NotFound = "NOT_FOUND";
+    public const string CannotRemoveSelf = "CANNOT_REMOVE_SELF";
 }
 
 public sealed class AdvisorAccountException : Exception
@@ -83,3 +89,30 @@ public sealed class AdvisorAccountException : Exception
         ExistingCustomer = existingCustomer;
     }
 }
+
+/// <summary>What removing an advisor would do, shown in the confirmation dialog.</summary>
+public record AdvisorRemovalPreviewDto(
+    Guid AdvisorId,
+    string FullName,
+    string City,
+    int OpenRequestsCount,
+    int OtherAdvisorsInCity
+);
+
+/// <summary>Where one removed advisor's open bookings went.</summary>
+public record AdvisorReassignmentDto(
+    Guid AdvisorId,
+    string FullName,
+    string City,
+    int RequestsCount
+);
+
+public record RemovedAdvisorDto(
+    Guid AdvisorId,
+    string FullName,
+    string City,
+    int ReassignedCount,
+    int ReassignedOutsideCityCount,
+    int LeftUnassignedCount,
+    IReadOnlyList<AdvisorReassignmentDto> Reassignments
+);

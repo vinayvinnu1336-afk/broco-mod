@@ -111,15 +111,15 @@ test('1. visitor checks prices, signs up and books the Standard package', async 
   await page.getByLabel(/^I agree to the Terms/).check();
   await page.getByRole('button', { name: /Create account/ }).click();
 
-  // Booking (one page): the package and the car are carried over.
+  // Booking, screen 1 (car, service, location): the package and the car are carried over.
   await expect(page).toHaveURL(/\/customer\/requests\/new\?package=STANDARD/);
   await expect(page.getByRole('radio', { name: new RegExp(standard.package.name) })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('button', { name: new RegExp(`${CAR.brand} ${CAR.model}, ${CAR.fuel}`) })).toBeVisible();
-  await expect(valueOf(page, 'Package price')).toHaveText(inr(state.price));
   await checkLayout(page, 'booking: service');
+  const continueButton = page.getByRole('button', { name: 'Continue' });
   const payButton = page.getByRole('button', { name: `Pay ${inr(state.advance)} & book` });
 
-  // Your car: add the car (saved when the booking is made).
+  // Your car: add the car (saved when the customer continues).
   await expect(page.getByRole('heading', { name: 'Your car', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Add this car' })).toBeVisible();
   await page.getByLabel(/^Registration number/).fill(`TS 09 PK ${Math.floor(1000 + Math.random() * 8999)}`);
@@ -132,19 +132,21 @@ test('1. visitor checks prices, signs up and books the Standard package', async 
   // Changing the pincode after confirming needs a fresh confirmation.
   await page.getByLabel(/^Pincode/).fill('500033');
   await expect(page.getByText('You changed the address after pinning')).toBeVisible();
-  await payButton.click();
+  await continueButton.click();
   await expect(page.getByRole('alert').filter({ hasText: /confirm your car is still at this pin/ }).first()).toBeVisible();
   await page.getByRole('button', { name: "Yes, it's here" }).click();
   await expect(page.getByText('You confirmed your car is at this pin')).toBeVisible();
   await checkLayout(page, 'booking: location');
+  await continueButton.click();
 
-  // Pick-up & drop: free pick-up with a note for the driver.
+  // Screen 2. Pick-up & drop: free pick-up with a note for the driver.
+  await expect(page).toHaveURL(/step=review/);
   await page.getByRole('radio', { name: /Yes, pick up my car/ }).click();
   await page.getByLabel(/^Pick-up notes/).fill('Gate 2, call before coming');
 
-  // Check your booking: the price split, then pay 10% and book.
-  const review = page.getByRole('region', { name: 'Check your booking' });
-  await expect(page.getByRole('heading', { name: 'Check your booking' })).toBeVisible();
+  // Review your booking: the price split, then pay 10% and book.
+  const review = page.getByRole('region', { name: 'Review your booking' });
+  await expect(page.getByRole('heading', { name: 'Review your booking' })).toBeVisible();
   await expect(page.getByText('Pin and address match')).toBeVisible();
   await expect(review.getByText('Yes - Gate 2, call before coming')).toBeVisible();
   await expect(valueOf(page, 'Package price')).toHaveText(inr(state.price));

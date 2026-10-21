@@ -230,7 +230,9 @@ public record CommissionDuesQuery(
     // due (oldest first, default), garage, amount or reminded (least recently reminded first).
     string? Sort = null,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    // The garage's city; advisors are always limited to their own.
+    string? City = null
 );
 
 /// <summary>Unpaid commission totals for staff; advisors see this without the collected revenue.</summary>

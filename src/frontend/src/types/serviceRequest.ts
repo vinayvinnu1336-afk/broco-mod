@@ -1,3 +1,5 @@
+import type { GarageCustomerLocationDto } from './serviceJob';
+
 export interface CustomerVehicle {
   id: string;
   manufacturerName: string;
@@ -111,6 +113,12 @@ export interface GarageIncomingRequestDetailDto {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  /** Set only once this garage holds the confirmed job; quoting garages see the area only. */
+  serviceJobId?: string | null;
+  serviceJobNumber?: string | null;
+  customerLocation?: GarageCustomerLocationDto | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 export interface DispatchedGarageSummaryDto {

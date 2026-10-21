@@ -79,7 +79,7 @@ public class MediaFileValidationTests
     }
 
     [Theory]
-    [InlineData("doc.pdf")]
+    [InlineData("bill.docx")]
     [InlineData("anim.gif")]
     [InlineData("vector.svg")]
     [InlineData("noextension")]
@@ -88,7 +88,52 @@ public class MediaFileValidationTests
         var (type, error) = MediaFileInspector.Validate(Jpeg, name, null, 100, MaxPhoto, MaxVideo);
 
         type.Should().BeNull();
-        error.Should().Contain("not a supported photo or video").And.Contain("Videos: mp4, mov, webm");
+        error.Should().Contain("not a supported photo or video").And.Contain("Videos: mp4, mov, webm").And.Contain("Documents: pdf");
+    }
+
+    private static readonly byte[] Pdf = Encoding.ASCII.GetBytes("%PDF-1.7\n%âãÏÓ\n1 0 obj");
+
+    [Theory]
+    [InlineData("old-quotation.pdf", "application/pdf")]
+    [InlineData("BILL.PDF", "")]
+    [InlineData("scan.pdf", "application/octet-stream")]
+    public void Pdfs_AreRecognisedFromTheirSignature(string name, string declared)
+    {
+        var (type, error) = MediaFileInspector.Validate(Pdf, name, declared, 4096, MaxPhoto, MaxVideo, maxDocumentBytes: 10 * 1024 * 1024);
+
+        error.Should().BeNull();
+        type!.Kind.Should().Be(ServiceMediaKind.Document);
+        type.ContentType.Should().Be("application/pdf");
+        type.Extension.Should().Be(".pdf");
+    }
+
+    [Fact]
+    public void AFakePdf_APdfNamedJpg_AndAMislabelledPdf_AreRejected()
+    {
+        var html = Encoding.ASCII.GetBytes("<html><body>%PDF-1.4</body></html>");
+        MediaFileInspector.Validate(html, "quote.pdf", "application/pdf", html.Length, MaxPhoto, MaxVideo).Error
+            .Should().Contain("not a real PDF file");
+        MediaFileInspector.Validate(Jpeg, "quote.pdf", "application/pdf", 100, MaxPhoto, MaxVideo).Error
+            .Should().Contain("not a real PDF file");
+        MediaFileInspector.Validate(Pdf, "photo.jpg", "image/jpeg", 100, MaxPhoto, MaxVideo).Error
+            .Should().Contain("not a real JPG file");
+        MediaFileInspector.Validate(Pdf, "quote.pdf", "text/html", 100, MaxPhoto, MaxVideo).Error
+            .Should().Contain("says it is text/html");
+    }
+
+    [Fact]
+    public void PdfsOverTheDocumentLimit_AreRejected()
+    {
+        MediaFileInspector.Validate(Pdf, "a.pdf", "application/pdf", 2048, MaxPhoto, MaxVideo, maxDocumentBytes: 1024).Error
+            .Should().Contain("PDFs can be up to 1 KB");
+        MediaFileInspector.Validate(Pdf, "a.pdf", "application/pdf", 1024, MaxPhoto, MaxVideo, maxDocumentBytes: 1024).Error
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void APdf_IsNeverAcceptedAsAThumbnail()
+    {
+        MediaFileInspector.DetectThumbnail(Pdf).Should().BeNull();
     }
 
     [Fact]

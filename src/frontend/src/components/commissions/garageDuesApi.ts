@@ -65,6 +65,8 @@ export interface DuesQuery {
   sort?: DuesSort;
   page: number;
   pageSize: number;
+  /** Garages of one city (admins; advisors always get their own city). */
+  city?: string;
 }
 
 const base = (portal: DuesPortal) => (portal === 'admin' ? '/admin/commissions' : '/advisor/commissions');
@@ -78,12 +80,15 @@ export const garageDuesApi = {
     if (query.dueFrom) q.set('dueFrom', query.dueFrom);
     if (query.dueTo) q.set('dueTo', query.dueTo);
     if (query.sort && query.sort !== 'due') q.set('sort', query.sort);
+    if (query.city) q.set('city', query.city);
     q.set('page', String(query.page));
     q.set('pageSize', String(query.pageSize));
     return apiFetch<PagedResult<GarageDue>>(`${base(portal)}?${q.toString()}`);
   },
-  overview: (portal: DuesPortal) => apiFetch<GarageDuesOverview>(`${base(portal)}/overview`),
-  garages: (portal: DuesPortal) => apiFetch<GarageDuesSummary[]>(`${base(portal)}/garages`),
+  overview: (portal: DuesPortal, city?: string) =>
+    apiFetch<GarageDuesOverview>(`${base(portal)}/overview${city ? `?city=${encodeURIComponent(city)}` : ''}`),
+  garages: (portal: DuesPortal, city?: string) =>
+    apiFetch<GarageDuesSummary[]>(`${base(portal)}/garages${city ? `?city=${encodeURIComponent(city)}` : ''}`),
   remind: (portal: DuesPortal, id: string) => apiFetch<ReminderResult>(`${base(portal)}/${id}/remind`, { method: 'POST' }),
   remindOverdue: (portal: DuesPortal, garageId?: string) =>
     apiFetch<BulkReminderResult>(`${base(portal)}/remind-overdue`, {

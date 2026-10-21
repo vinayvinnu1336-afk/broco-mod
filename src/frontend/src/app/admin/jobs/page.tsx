@@ -17,7 +17,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate } from '@/lib/format';
 import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
-import { SERVICE_TYPE_OPTIONS } from '@/lib/filterOptions';
+import { SERVICE_TYPE_OPTIONS, useCityOptions } from '@/lib/filterOptions';
 
 // Values are ServiceJobStatus names (the API filters on them); labels are what operators read.
 const STATUS_OPTIONS = [
@@ -33,7 +33,7 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
-const FILTER_DEFAULTS = { q: '', status: '', garage: '', type: '', range: '', from: '', to: '', size: '25' };
+const FILTER_DEFAULTS = { q: '', status: '', garage: '', type: '', city: '', range: '', from: '', to: '', size: '25' };
 
 const rowLink =
   'inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50';
@@ -65,6 +65,7 @@ function AdminJobs() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [garageOptions, setGarageOptions] = useState<{ value: string; label: string }[]>([]);
+  const cityOptions = useCityOptions(true);
   const pageSize = [25, 50, 100].includes(Number(f.size)) ? Number(f.size) : 25;
   const latest = useRef(0);
 
@@ -90,6 +91,7 @@ function AdminJobs() {
         status: f.status,
         garageId: f.garage,
         serviceType: f.type,
+        city: f.city,
         ...dateRangeQuery(f),
       }),
     [urlPage, pageSize, f]
@@ -151,6 +153,7 @@ function AdminJobs() {
           { type: 'select', key: 'status', label: 'Status', allLabel: 'All statuses', options: STATUS_OPTIONS },
           { type: 'select', key: 'garage', label: 'Garage', allLabel: 'All garages', options: garageOptions },
           { type: 'select', key: 'type', label: 'Service type', allLabel: 'Packages and repairs', options: SERVICE_TYPE_OPTIONS },
+          { type: 'select', key: 'city', label: 'City', allLabel: 'All cities', options: cityOptions },
           { type: 'dateRange', label: 'Created' },
         ]}
         summary={loading ? 'Loading…' : `${totalCount} ${totalCount === 1 ? 'job' : 'jobs'}`}

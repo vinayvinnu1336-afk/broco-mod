@@ -110,7 +110,31 @@ public record GarageServiceJobDetailDto(
     decimal BalanceToCollect = 0,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    GarageCustomerLocationDto? CustomerLocation = null,
+    IReadOnlyList<string>? ServiceItems = null,
+    string? ServiceCategory = null,
+    string? VehicleFuel = null,
+    DateTime? PreferredServiceDate = null
+);
+
+/// <summary>
+/// Where the car is, for the garage that is doing the job (never for garages that only quoted):
+/// the customer's full address and pin, the workshop's pin and the straight-line distance between them.
+/// </summary>
+public record GarageCustomerLocationDto(
+    string AddressLine1,
+    string? AddressLine2,
+    string City,
+    string State,
+    string Pincode,
+    string FormattedAddress,
+    double Latitude,
+    double Longitude,
+    double? WorkshopLatitude = null,
+    double? WorkshopLongitude = null,
+    string? WorkshopAddress = null,
+    double? DistanceKm = null
 );
 
 public record CustomerServiceJobDetailDto(

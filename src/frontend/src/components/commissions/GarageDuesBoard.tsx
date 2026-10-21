@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { StatCard } from '@/components/ui/StatCard';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
+import { useCityOptions } from '@/lib/filterOptions';
 import { CommissionDetails, dueStatus, dueText, remindersText } from './CommissionDetails';
 import {
   announceGarageDuesChanged,
@@ -65,6 +66,9 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [garageId, setGarageId] = useState('');
+  // Admins can narrow to one city; advisors always see their own city's garages (the API decides).
+  const [city, setCity] = useState('');
+  const cityOptions = useCityOptions(true);
   const [dueFrom, setDueFrom] = useState('');
   const [dueTo, setDueTo] = useState('');
   const [sort, setSort] = useState<DuesSort>('due');
@@ -105,7 +109,8 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
   }, [searchInput]);
 
   const loadSummary = useCallback(async () => {
-    const [ov, gs] = await Promise.all([garageDuesApi.overview(portal), garageDuesApi.garages(portal)]);
+    const cityFilter = portal === 'admin' ? city : undefined;
+    const [ov, gs] = await Promise.all([garageDuesApi.overview(portal, cityFilter), garageDuesApi.garages(portal, cityFilter)]);
     if (ov.success && ov.data) {
       setOverview(ov.data);
       setOverviewError(null);
@@ -113,7 +118,7 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
       setOverviewError(ov.message || 'Could not load the totals.');
     }
     if (gs.success && gs.data) setGarages(gs.data);
-  }, [portal]);
+  }, [portal, city]);
 
   const loadList = useCallback(async () => {
     const requestId = ++listRequest.current;
@@ -122,6 +127,7 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
       status,
       search,
       garageId: garageId || undefined,
+      city: portal === 'admin' ? city || undefined : undefined,
       dueFrom: dueFrom ? dayStartIso(dueFrom) : undefined,
       dueTo: dueTo ? dayEndIso(dueTo) : undefined,
       sort,
@@ -137,7 +143,7 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
       setListError(res.message || 'Could not load garage dues.');
     }
     setLoading(false);
-  }, [portal, status, search, garageId, dueFrom, dueTo, sort, page]);
+  }, [portal, status, search, garageId, dueFrom, dueTo, sort, page, city]);
 
   useEffect(() => {
     loadSummary();
@@ -196,9 +202,10 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
 
   const open = (c: GarageDue) => (onSelect ? onSelect(c) : setViewing(c));
 
-  const activeFilters = [garageId, dueFrom, dueTo].filter(Boolean).length + (sort !== 'due' ? 1 : 0);
+  const activeFilters = [garageId, dueFrom, dueTo, city].filter(Boolean).length + (sort !== 'due' ? 1 : 0);
   const clearFilters = () => {
     setGarageId('');
+    setCity('');
     setDueFrom('');
     setDueTo('');
     setSort('due');
@@ -357,7 +364,24 @@ export function GarageDuesBoard({ portal, onSelect, reloadToken = 0 }: GarageDue
         ]}
       />
 
-      <div id="dues-filters" className={`${showFilters ? 'grid' : 'hidden'} grid-cols-2 gap-3 sm:grid lg:grid-cols-4`}>
+      <div
+        id="dues-filters"
+        className={`${showFilters ? 'grid' : 'hidden'} grid-cols-2 gap-3 sm:grid ${portal === 'admin' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}
+      >
+        {portal === 'admin' && (
+          <div className="col-span-2 sm:col-span-1">
+            <Select
+              label="City"
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setGarageId('');
+                setPage(1);
+              }}
+              options={[{ value: '', label: 'All cities' }, ...cityOptions]}
+            />
+          </div>
+        )}
         <div className="col-span-2 sm:col-span-1">
           <Select
             label="Garage"

@@ -814,6 +814,13 @@ namespace BroCoMod.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("");
+
                     b.Property<Guid>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasColumnType("uuid");
@@ -874,6 +881,8 @@ namespace BroCoMod.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("City");
 
                     b.HasIndex("IsActive");
 
@@ -1500,6 +1509,13 @@ namespace BroCoMod.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -1510,6 +1526,9 @@ namespace BroCoMod.Infrastructure.Migrations
 
                     b.Property<int>("MaxAssignedRequests")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RemovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Specialization")
                         .IsRequired()
@@ -1523,6 +1542,8 @@ namespace BroCoMod.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("City");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -2688,6 +2709,13 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.Property<DateTime?>("CancelledAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -2791,6 +2819,8 @@ namespace BroCoMod.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedAdvisorId");
+
+                    b.HasIndex("City");
 
                     b.HasIndex("CreatedAtUtc");
 

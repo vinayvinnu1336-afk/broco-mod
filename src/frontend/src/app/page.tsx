@@ -116,7 +116,7 @@ const FAQS = [
   },
   {
     q: 'Can I cancel a booking?',
-    a: 'Yes. The 10% advance is refundable if you cancel before the garage starts work.',
+    a: 'You can cancel it yourself any time before you pay. After you have paid, contact BroCo support and we will cancel it for you; refunds follow our Cancellation & Refund Policy.',
   },
   {
     q: 'Which cities do you serve?',

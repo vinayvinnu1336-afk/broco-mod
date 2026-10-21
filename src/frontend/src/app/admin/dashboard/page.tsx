@@ -24,6 +24,9 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatRelative, humanize } from '@/lib/format';
 import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
+import { Select } from '@/components/ui/Select';
+import { useCityOptions } from '@/lib/filterOptions';
+import { toQueryString } from '@/lib/useUrlFilters';
 
 const viewAllLink =
   'inline-flex min-h-[32px] items-center rounded-lg px-1.5 text-sm font-medium text-electric-600 hover:text-electric-700';
@@ -54,10 +57,13 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One city's figures, or the whole platform.
+  const [city, setCity] = useState('');
+  const cityOptions = useCityOptions(true);
 
   const loadDashboard = useCallback(async () => {
     setRefreshing(true);
-    const res = await apiFetch<AdminDashboardKpis>('/admin/dashboard');
+    const res = await apiFetch<AdminDashboardKpis>(`/admin/dashboard${toQueryString({ city })}`);
     if (res.success && res.data) {
       setData(res.data);
       setError(null);
@@ -66,7 +72,7 @@ export default function AdminDashboardPage() {
     }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [city]);
 
   useEffect(() => {
     loadDashboard();
@@ -97,16 +103,30 @@ export default function AdminDashboardPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Overview"
-        description="Requests, jobs and garages across the platform, and what needs a decision."
+        description={
+          city
+            ? `Requests, jobs, garages and advisors in ${city}, and what needs a decision.`
+            : 'Requests, jobs and garages across the platform, and what needs a decision.'
+        }
         actions={
-          <Button
-            variant="outline"
-            onClick={loadDashboard}
-            isLoading={refreshing}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-          >
-            Refresh
-          </Button>
+          <>
+            <div className="w-full sm:w-44">
+              <Select
+                aria-label="City"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                options={[{ value: '', label: 'All cities' }, ...cityOptions]}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={loadDashboard}
+              isLoading={refreshing}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
 
@@ -198,7 +218,7 @@ export default function AdminDashboardPage() {
         )}
       </ListGroup>
 
-      <CommissionSummaryCard portal="admin" title="Garage dues" />
+      <CommissionSummaryCard portal="admin" title="Garage dues" city={city} />
 
       {/* Recent activity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

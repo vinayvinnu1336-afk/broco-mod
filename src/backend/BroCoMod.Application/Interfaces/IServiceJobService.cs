@@ -23,7 +23,6 @@ public interface IServiceJobService
     Task<GarageServiceJobDetailDto> MarkVehicleReadyAsync(Guid jobId, Guid garageId, Guid userId, VehicleReadyRequest request, CancellationToken cancellationToken = default);
     Task<GarageServiceJobDetailDto> HandOverVehicleAsync(Guid jobId, Guid garageId, Guid userId, HandOverVehicleRequest request, CancellationToken cancellationToken = default);
     Task<GarageServiceJobDetailDto> CloseJobAsync(Guid jobId, Guid garageId, Guid userId, CloseJobRequest request, CancellationToken cancellationToken = default);
-    Task<GarageServiceJobDetailDto> CancelJobAsync(Guid jobId, Guid garageId, Guid userId, CancelJobRequest request, CancellationToken cancellationToken = default);
 
     // Additional Work Requests
     Task<AdditionalWorkRequestDto> CreateAdditionalWorkRequestAsync(Guid jobId, Guid garageId, Guid userId, CreateAdditionalWorkRequest request, CancellationToken cancellationToken = default);

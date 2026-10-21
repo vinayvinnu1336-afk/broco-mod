@@ -21,14 +21,17 @@ public class GarageQuoteService : IGarageQuoteService
     private readonly INotificationService _notificationService;
     private readonly IAuditService _auditService;
     private readonly ILogger<GarageQuoteService> _logger;
+    private readonly IAdvisorCityScope? _cityScope;
 
     public GarageQuoteService(
         IApplicationDbContext context,
         IQuoteNumberGenerator quoteNumberGenerator,
         INotificationService notificationService,
         IAuditService auditService,
-        ILogger<GarageQuoteService> logger)
+        ILogger<GarageQuoteService> logger,
+        IAdvisorCityScope? cityScope = null)
     {
+        _cityScope = cityScope;
         _context = context;
         _quoteNumberGenerator = quoteNumberGenerator;
         _notificationService = notificationService;
@@ -456,6 +459,10 @@ public class GarageQuoteService : IGarageQuoteService
             .Include(q => q.GarageRequest)
             .Include(q => q.ServiceRequest)
             .Where(q => q.Status != QuoteStatus.Draft);
+
+        // Advisors only see quotes on their city's requests.
+        var visible = _context.ServiceRequests.VisibleTo(_cityScope == null ? null : await _cityScope.GetRestrictionAsync(cancellationToken));
+        query = query.Where(q => visible.Any(sr => sr.Id == q.ServiceRequestId));
 
         if (serviceRequestId.HasValue)
         {

@@ -131,7 +131,8 @@ public interface IAdminFinanceService
     Task<FinanceOverviewDto> GetFinanceOverviewAsync(
         DateTime? fromUtc = null,
         DateTime? toUtc = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? city = null);
 
     Task<PagedResult<PaymentDto>> GetAdminPaymentsAsync(
         PaymentFilterDto filter,

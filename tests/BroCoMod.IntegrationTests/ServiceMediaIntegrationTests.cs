@@ -194,7 +194,199 @@ public class ServiceMediaIntegrationTests : IClassFixture<MediaTestFactory>
         return doc.RootElement.GetProperty("message").GetString() ?? string.Empty;
     }
 
+    /// <summary>
+    /// A quote-type request near Central Metro: the booking sends it to Central Metro for a quote (no job yet).
+    /// Nothing is accepted or paid, so no commission is created.
+    /// </summary>
+    private async Task<(HttpClient Customer, Guid RequestId)> QuoteRequestSentToCentralMetroAsync()
+    {
+        var customer = await NewCustomerAsync();
+        var makes = await customer.GetFromJsonAsync<ApiResponse<List<VehicleManufacturerDto>>>("/api/v1/vehicle-manufacturers", JsonOptions);
+        var maruti = makes!.Data!.Single(m => m.Name == "Maruti Suzuki");
+        var models = await customer.GetFromJsonAsync<ApiResponse<List<VehicleModelDto>>>($"/api/v1/vehicle-manufacturers/{maruti.Id}/models", JsonOptions);
+        var swift = models!.Data!.Single(m => m.Name == "Swift");
+        var vehicleJson = $$"""
+        { "manufacturerId": "{{maruti.Id}}", "modelId": "{{swift.Id}}", "year": 2021, "fuelType": "Petrol",
+          "transmission": "Manual", "licensePlate": "TS-10-{{Random.Shared.Next(1000, 9999)}}", "mileage": 30000, "color": "White" }
+        """;
+        var vehicleRes = await customer.PostAsync("/api/v1/customer/vehicles", new StringContent(vehicleJson, Encoding.UTF8, "application/json"));
+        vehicleRes.EnsureSuccessStatusCode();
+        using var vehicleDoc = JsonDocument.Parse(await vehicleRes.Content.ReadAsStringAsync());
+        var vehicleId = vehicleDoc.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+        var booking = new CreateServiceBookingRequest(vehicleId, "Plot 12, Road No. 2", "Banjara Hills", "Hyderabad", "Telangana", "500034", "India",
+            17.4126, 78.4482, ProblemDescription: "Dent on the rear door and the AC is not cooling.", ServiceCategory: "Denting & Painting");
+        var bookRes = await customer.PostAsJsonAsync("/api/v1/customer/requests", booking);
+        bookRes.StatusCode.Should().Be(HttpStatusCode.Created, await bookRes.Content.ReadAsStringAsync());
+        var request = (await bookRes.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!;
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var centralMetroId = await db.GarageUsers.Where(gu => gu.User.Email == CentralMetroOwner).Select(gu => gu.GarageId).FirstAsync();
+        (await db.GarageRequests.AnyAsync(gr => gr.ServiceRequestId == request.Id && gr.GarageId == centralMetroId))
+            .Should().BeTrue("the request is sent to nearby Central Metro for a quote");
+        return (customer, request.Id);
+    }
+
+    /// <summary>The smallest file that starts like a real PDF.</summary>
+    private static readonly byte[] TinyPdf = Encoding.ASCII.GetBytes(
+        "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+
     // ---------- tests ----------
+
+    [Fact]
+    public async Task Customer_AddsPhotosAndPdfs_ToTheirOwnRequest_AndDeletesThem_ButNotOtherPeoples()
+    {
+        var (customer, requestId, jobId) = await PackageJobAtCentralMetroAsync();
+        var url = $"/api/v1/media/requests/{requestId}";
+
+        // The stage and visibility the customer sends are ignored: it is always a customer upload, shown to them.
+        var photo = await UploadOkAsync(customer, url, Form(TinyPng, "dent.png", "image/png", caption: "Dent on rear door", stage: "After", visible: false));
+        var pdf = await UploadOkAsync(customer, url, Form(TinyPdf, "old-quotation.pdf", "application/pdf", caption: "Quote from last service"));
+
+        photo.Stage.Should().Be("CustomerUpload");
+        photo.IsVisibleToCustomer.Should().BeTrue();
+        photo.Caption.Should().Be("Dent on rear door");
+        photo.ServiceJobId.Should().Be(jobId);
+        photo.UploadedByName.Should().Be("You");
+        photo.CanDelete.Should().BeTrue();
+        photo.CanEdit.Should().BeFalse();
+        pdf.Kind.Should().Be("Document");
+        pdf.ContentType.Should().Be("application/pdf");
+        pdf.ThumbnailUrl.Should().BeNull();
+        pdf.FileName.Should().Be("old-quotation.pdf");
+
+        var list = await ListAsync(customer, url);
+        list.Items.Select(i => i.Id).Should().BeEquivalentTo(new[] { photo.Id, pdf.Id });
+        list.RemainingSlots.Should().Be(8);
+        list.Limits.DocumentExtensions.Should().Contain("pdf");
+
+        // The PDF opens in the browser through its signed link, with the type found from its bytes.
+        var file = await _factory.CreateClient().GetAsync(list.Items.Single(i => i.Id == pdf.Id).Url);
+        file.StatusCode.Should().Be(HttpStatusCode.OK);
+        file.Content.Headers.ContentType!.MediaType.Should().Be("application/pdf");
+        file.Content.Headers.ContentDisposition!.DispositionType.Should().Be("inline");
+        file.Headers.GetValues("X-Content-Type-Options").Should().Contain("nosniff");
+        (await file.Content.ReadAsByteArrayAsync()).Should().Equal(TinyPdf);
+
+        // Another customer can neither add to nor see this request; the garage and advisor can see the uploads.
+        var otherCustomer = await NewCustomerAsync();
+        (await otherCustomer.PostAsync(url, Form(TinyPng, "x.png", "image/png"))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await otherCustomer.DeleteAsync($"/api/v1/media/{photo.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var garage = await SignedInAsync(CentralMetroOwner);
+        var garageList = await ListAsync(garage, $"/api/v1/media/jobs/{jobId}");
+        garageList.Items.Select(i => i.Id).Should().Contain(new[] { photo.Id, pdf.Id });
+        garageList.Items.Single(i => i.Id == photo.Id).UploadedByName.Should().Be("Customer", "garages don't see the customer's name");
+        (await garage.DeleteAsync($"/api/v1/media/{photo.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // The customer can't delete what the advisor added, nor move their own upload to another stage.
+        var advisor = await SignedInAsync("advisor@brocomod.com");
+        var advisorPhoto = await UploadOkAsync(advisor, url, Form(TinyPng, "advisor.png", "image/png", stage: "Before"));
+        (await customer.DeleteAsync($"/api/v1/media/{advisorPhoto.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await advisor.PatchAsJsonAsync($"/api/v1/media/{photo.Id}", new UpdateServiceMediaRequest(null, "Before", null)))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await advisor.PatchAsJsonAsync($"/api/v1/media/{advisorPhoto.Id}", new UpdateServiceMediaRequest(null, "CustomerUpload", null)))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await advisor.PatchAsJsonAsync($"/api/v1/media/{photo.Id}", new UpdateServiceMediaRequest("Rear door dent", "CustomerUpload", null)))
+            .StatusCode.Should().Be(HttpStatusCode.OK, "sending the stage it already has is fine");
+
+        // Their own upload they can delete; it is gone for everyone and frees a slot.
+        (await customer.DeleteAsync($"/api/v1/media/{photo.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var after = await ListAsync(customer, url);
+        after.Items.Select(i => i.Id).Should().BeEquivalentTo(new[] { pdf.Id, advisorPhoto.Id });
+        after.RemainingSlots.Should().Be(9);
+        var advisorList = await ListAsync(advisor, url);
+        advisorList.Items.Should().NotContain(i => i.Id == photo.Id);
+        advisorList.RemainingSlots.Should().Be(advisorList.MaxItems - 1, "customer uploads don't use the garage's and advisor's room");
+    }
+
+    [Fact]
+    public async Task Customer_Uploads_AreCheckedByTheirBytes_AndVideosAreNotTakenFromCustomers()
+    {
+        var (customer, requestId, _) = await PackageJobAtCentralMetroAsync();
+        var url = $"/api/v1/media/requests/{requestId}";
+
+        var fakePdf = await customer.PostAsync(url, Form(Encoding.UTF8.GetBytes("<html><script>alert(1)</script></html>"), "quote.pdf", "application/pdf"));
+        fakePdf.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await MessageAsync(fakePdf)).Should().Contain("not a real PDF file");
+
+        var pngCalledPdf = await customer.PostAsync(url, Form(TinyPng, "quote.pdf", "application/pdf"));
+        pngCalledPdf.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var pdfCalledJpg = await customer.PostAsync(url, Form(TinyPdf, "photo.jpg", "image/jpeg"));
+        pdfCalledJpg.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var video = await customer.PostAsync(url, Form(TinyMp4, "noise.mp4", "video/mp4"));
+        video.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await MessageAsync(video)).Should().Contain("photos");
+
+        var word = await customer.PostAsync(url, Form(Encoding.ASCII.GetBytes("PK\u0003\u0004 word"), "bill.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        word.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // The customer's own limit, with a small limit so the test stays quick.
+        await using var strict = _factory.WithWebHostBuilder(b => b.UseSetting("Media:MaxCustomerItemsPerRequest", "1"));
+        var strictClient = strict.CreateClient();
+        strictClient.DefaultRequestHeaders.Authorization = customer.DefaultRequestHeaders.Authorization;
+        await UploadOkAsync(strictClient, url, Form(TinyPng, "one.png", "image/png"));
+        var overLimit = await strictClient.PostAsync(url, Form(TinyPdf, "two.pdf", "application/pdf"));
+        overLimit.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await MessageAsync(overLimit)).Should().Contain("the most allowed");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await db.ServiceMediaFiles.CountAsync(m => m.ServiceRequestId == requestId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task QuotingGarage_SeesOnlyTheCustomersUploads_AndAdvisorSeesEverything()
+    {
+        var (customer, requestId) = await QuoteRequestSentToCentralMetroAsync();
+        var url = $"/api/v1/media/requests/{requestId}";
+        var advisor = await SignedInAsync("advisor@brocomod.com");
+        var garage = await SignedInAsync(CentralMetroOwner);
+
+        var customerPdf = await UploadOkAsync(customer, url, Form(TinyPdf, "last-quote.pdf", "application/pdf", caption: "Quote from another garage"));
+        var customerPhoto = await UploadOkAsync(customer, url, Form(TinyPng, "dent.png", "image/png"));
+        var advisorShown = await UploadOkAsync(advisor, url, Form(TinyPng, "advisor-note.png", "image/png", stage: "Inspection"));
+        var advisorHidden = await UploadOkAsync(advisor, url, Form(TinyPng, "internal.png", "image/png", stage: "Other", visible: false));
+
+        // The garage the request was sent to sees what the customer attached, nothing else, and can't add or delete.
+        var garageList = await ListAsync(garage, url);
+        garageList.Items.Select(i => i.Id).Should().BeEquivalentTo(new[] { customerPdf.Id, customerPhoto.Id });
+        garageList.CanUpload.Should().BeFalse();
+        garageList.Items.Should().OnlyContain(i => !i.CanDelete && !i.CanEdit);
+        (await _factory.CreateClient().GetAsync(garageList.Items[0].Url)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await garage.PostAsync(url, Form(TinyPng, "garage.png", "image/png"))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await garage.DeleteAsync($"/api/v1/media/{customerPhoto.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await garage.DeleteAsync($"/api/v1/media/{advisorShown.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // A garage the request was not sent to sees nothing.
+        var otherGarage = await OtherGarageOwnerAsync();
+        (await otherGarage.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // The customer sees their uploads and what BroCo shows them, never the hidden item.
+        var customerList = await ListAsync(customer, url);
+        customerList.Items.Select(i => i.Id).Should().BeEquivalentTo(new[] { customerPdf.Id, customerPhoto.Id, advisorShown.Id });
+        (await customer.DeleteAsync($"/api/v1/media/{advisorHidden.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // The advisor sees everything.
+        (await ListAsync(advisor, url)).Items.Select(i => i.Id)
+            .Should().BeEquivalentTo(new[] { customerPdf.Id, customerPhoto.Id, advisorShown.Id, advisorHidden.Id });
+
+        // Once the request is cancelled, the customer can't add more (the uploads stay for BroCo). Cancelled straight
+        // in the database so this test doesn't depend on the cancellation rules.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var request = await db.ServiceRequests.SingleAsync(r => r.Id == requestId);
+            request.Cancel("Fixed it myself");
+            await db.SaveChangesAsync();
+        }
+        var cancelled = await customer.PostAsync(url, Form(TinyPng, "late.png", "image/png"));
+        cancelled.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ListAsync(customer, url)).CanUpload.Should().BeFalse();
+        (await garage.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.Forbidden, "a cancelled request is no longer being quoted");
+    }
 
     [Fact]
     public async Task Garage_UploadsToItsOwnJob_AndEachRoleSeesWhatItShould_ThroughSignedLinks()
@@ -234,7 +426,9 @@ public class ServiceMediaIntegrationTests : IClassFixture<MediaTestFactory>
 
         var customerList = await ListAsync(customer, $"/api/v1/media/requests/{requestId}");
         customerList.Items.Should().ContainSingle().Which.Id.Should().Be(photo.Id);
-        customerList.CanUpload.Should().BeFalse();
+        customerList.CanUpload.Should().BeTrue("customers can attach their own photos and PDFs");
+        customerList.MaxItems.Should().Be(10, "customers have their own allowance, separate from the garage's");
+        customerList.RemainingSlots.Should().Be(10);
         customerList.CanEdit.Should().BeFalse();
         customerList.Items[0].CanDelete.Should().BeFalse();
         customerList.Items[0].UploadedByName.Should().Be("Garage", "customers see who took it by role, not by staff name");
@@ -264,9 +458,9 @@ public class ServiceMediaIntegrationTests : IClassFixture<MediaTestFactory>
     }
 
     [Fact]
-    public async Task OtherGarages_AndCustomers_CannotUpload_AndOtherPeopleCannotSeeTheMedia()
+    public async Task OtherGarages_AndOtherCustomers_CannotUpload_OrSeeTheMedia()
     {
-        var (customer, requestId, jobId) = await PackageJobAtCentralMetroAsync();
+        var (_, requestId, jobId) = await PackageJobAtCentralMetroAsync();
         var otherGarage = await OtherGarageOwnerAsync();
         var otherCustomer = await NewCustomerAsync();
 
@@ -274,10 +468,6 @@ public class ServiceMediaIntegrationTests : IClassFixture<MediaTestFactory>
         otherGarageUpload.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await otherGarage.GetAsync($"/api/v1/media/requests/{requestId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await otherGarage.GetAsync($"/api/v1/media/jobs/{jobId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        var customerUpload = await customer.PostAsync($"/api/v1/media/requests/{requestId}", Form(TinyPng, "mine.png", "image/png"));
-        customerUpload.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await MessageAsync(customerUpload)).Should().Contain("not upload");
 
         (await otherCustomer.GetAsync($"/api/v1/media/requests/{requestId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await otherCustomer.PostAsync($"/api/v1/media/requests/{requestId}", Form(TinyPng, "x.png", "image/png")))

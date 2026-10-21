@@ -5,7 +5,9 @@ namespace BroCoMod.Domain.Entities;
 public enum ServiceMediaKind
 {
     Photo = 1,
-    Video = 2
+    Video = 2,
+    /// <summary>A PDF, e.g. the customer's old quotation or a bill.</summary>
+    Document = 3
 }
 
 /// <summary>When in the service the photo or video was taken.</summary>
@@ -15,7 +17,9 @@ public enum ServiceMediaStage
     During = 2,
     After = 3,
     Inspection = 4,
-    Other = 5
+    Other = 5,
+    /// <summary>Added by the customer (a dent, a warning light, an old quotation). Only the API sets it, for customer uploads.</summary>
+    CustomerUpload = 6
 }
 
 /// <summary>

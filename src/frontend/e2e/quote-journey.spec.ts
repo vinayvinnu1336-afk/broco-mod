@@ -76,14 +76,14 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
   await expect(page).toHaveURL(/\/customer\/dashboard/);
   await checkLayout(page, 'new customer dashboard');
 
-  // Booking (one page). Service: other services → AC, describe the problem.
+  // Booking, screen 1 (car, service, location). Service: other services → AC, describe the problem.
   await page.goto('/customer/requests/new');
   await page.getByRole('tab', { name: 'Other services' }).click();
   await page.getByRole('checkbox', { name: SERVICE }).click();
   await page.getByLabel(/^Describe the problem/).fill('AC blows warm air and makes a rattling noise when switched on.');
   await checkLayout(page, 'booking: other services');
 
-  // Your car: add the car (saved when the request is sent).
+  // Your car: add the car (saved when the customer continues).
   await expect(page.getByRole('heading', { name: 'Add your car' })).toBeVisible();
   await page.getByRole('button', { name: 'Select your car' }).click();
   await pickCar(page, CAR);
@@ -92,13 +92,15 @@ test('1. customer signs up and asks for an AC repair quote', async ({ browser })
 
   // Where is your car: pin the car in Hyderabad.
   await pinCarInHyderabad(page, { house: '8-2-293, Road No. 12', area: 'Banjara Hills', pincode: '500034' });
+  await page.getByRole('button', { name: 'Continue' }).click();
 
-  // Pick-up & drop: the customer drives in.
+  // Screen 2. Pick-up & drop: the customer drives in.
+  await expect(page).toHaveURL(/step=review/);
   await page.getByRole('radio', { name: /No, I'll drive to the garage/ }).click();
 
-  // Check your booking: nothing to pay yet; garages will quote.
-  const review = page.getByRole('region', { name: 'Check your booking' });
-  await expect(page.getByRole('heading', { name: 'Check your booking' })).toBeVisible();
+  // Review your booking: nothing to pay yet; garages will quote.
+  const review = page.getByRole('region', { name: 'Review your booking' });
+  await expect(page.getByRole('heading', { name: 'Review your booking' })).toBeVisible();
   await expect(page.getByText('Nothing to pay now')).toBeVisible();
   await expect(review.getByText(SERVICE, { exact: true })).toBeVisible();
   await expect(review.getByText("No, I'll drive to the garage")).toBeVisible();

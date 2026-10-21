@@ -17,6 +17,7 @@ interface AdvisorProfileData {
   email: string;
   employeeCode: string;
   specialization: string;
+  city?: string;
   maxAssignedRequests: number;
 }
 
@@ -71,6 +72,7 @@ export default function AdvisorProfilePage() {
               <ListGroup title="Advisor details">
                 <ListItem title="Employee code" trailing={<span className="font-mono text-sm text-navy-700">{profile.employeeCode || '—'}</span>} />
                 <ListItem title="Specialisation" trailing={<span className="text-sm text-navy-700">{profile.specialization || '—'}</span>} />
+                <ListItem title="City" trailing={<span className="text-sm text-navy-700">{profile.city || '—'}</span>} />
                 <ListItem
                   title="Open requests you can hold"
                   trailing={<span className="text-sm tabular-nums text-navy-700">{profile.maxAssignedRequests}</span>}

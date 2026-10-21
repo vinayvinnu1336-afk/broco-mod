@@ -93,18 +93,18 @@ public class AdminCatalogueController : ControllerBase
     public async Task<IActionResult> GetCommissions(
         [FromQuery] string? status, [FromQuery] Guid? garageId, [FromQuery] string? search,
         [FromQuery] DateTime? dueFrom, [FromQuery] DateTime? dueTo, [FromQuery] string? sort,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? city = null, CancellationToken ct = default) =>
         Ok(ApiResponse<PagedResult<GarageCommissionDto>>.Ok(await _dues.GetDuesAsync(
-            new CommissionDuesQuery(search, string.IsNullOrWhiteSpace(status) ? "All" : status, garageId, dueFrom, dueTo, sort, page, pageSize), ct)));
+            new CommissionDuesQuery(search, string.IsNullOrWhiteSpace(status) ? "All" : status, garageId, dueFrom, dueTo, sort, page, pageSize, city), ct)));
 
     [HttpGet("commissions/overview")]
-    public async Task<IActionResult> GetCommissionOverview(CancellationToken ct) =>
-        Ok(ApiResponse<AdminCommissionOverviewDto>.Ok(await _commissions.GetAdminOverviewAsync(ct)));
+    public async Task<IActionResult> GetCommissionOverview([FromQuery] string? city, CancellationToken ct) =>
+        Ok(ApiResponse<AdminCommissionOverviewDto>.Ok(await _commissions.GetAdminOverviewAsync(city, ct)));
 
     /// <summary>Every garage with unpaid commission, most overdue first.</summary>
     [HttpGet("commissions/garages")]
-    public async Task<IActionResult> GetGarageDues(CancellationToken ct) =>
-        Ok(ApiResponse<IReadOnlyList<GarageDuesSummaryDto>>.Ok(await _dues.GetGarageDuesAsync(ct)));
+    public async Task<IActionResult> GetGarageDues([FromQuery] string? city, CancellationToken ct) =>
+        Ok(ApiResponse<IReadOnlyList<GarageDuesSummaryDto>>.Ok(await _dues.GetGarageDuesAsync(city, ct)));
 
     /// <summary>Reminds the garage about one due now (429 if staff already reminded it in the last hour).</summary>
     [HttpPost("commissions/{id:guid}/remind")]

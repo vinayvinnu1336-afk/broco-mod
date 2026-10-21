@@ -25,19 +25,22 @@ export const SERVICE_CATEGORY_OPTIONS = [
   'General Repair',
 ].map((name) => ({ value: name, label: name }));
 
-/** Cities BroCo serves (from the public service-area list), for city filters. */
-export function useCityOptions(): { value: string; label: string }[] {
+/**
+ * Cities BroCo serves (from the public service-area list), for city filters. `liveOnly` keeps only the cities
+ * that take bookings: the ones an advisor or garage can belong to.
+ */
+export function useCityOptions(liveOnly = false): { value: string; label: string }[] {
   const [cities, setCities] = useState<{ value: string; label: string }[]>([]);
   useEffect(() => {
     let alive = true;
     catalogueApi.serviceAreas().then((res) => {
       if (!alive || !res.success || !res.data) return;
-      const names = Array.from(new Set(res.data.map((a) => a.city).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      const names = Array.from(new Set(res.data.filter((a) => !liveOnly || a.isLive).map((a) => a.city).filter(Boolean))).sort((a, b) => a.localeCompare(b));
       setCities(names.map((c) => ({ value: c, label: c })));
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [liveOnly]);
   return cities;
 }
