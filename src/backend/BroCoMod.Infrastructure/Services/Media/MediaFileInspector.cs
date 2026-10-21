@@ -17,6 +17,7 @@ public static class MediaFileInspector
 
     public static readonly IReadOnlyList<string> PhotoExtensions = new[] { "jpg", "jpeg", "png", "webp", "heic", "heif" };
     public static readonly IReadOnlyList<string> VideoExtensions = new[] { "mp4", "mov", "webm", "m4v" };
+    public static readonly IReadOnlyList<string> DocumentExtensions = new[] { "pdf" };
 
     private static readonly HashSet<string> HeifBrands = new(StringComparer.Ordinal)
     {
@@ -34,6 +35,7 @@ public static class MediaFileInspector
         ["video/mp4"] = new[] { "mp4", "m4v", "mov" },
         ["video/quicktime"] = new[] { "mov", "mp4", "m4v" },
         ["video/webm"] = new[] { "webm" },
+        ["application/pdf"] = new[] { "pdf" },
     };
 
     private static readonly Dictionary<string, string[]> DeclaredTypesByType = new(StringComparer.Ordinal)
@@ -45,6 +47,7 @@ public static class MediaFileInspector
         ["video/mp4"] = new[] { "video/mp4", "video/quicktime", "video/x-m4v" },
         ["video/quicktime"] = new[] { "video/quicktime", "video/mp4", "video/x-m4v" },
         ["video/webm"] = new[] { "video/webm" },
+        ["application/pdf"] = new[] { "application/pdf", "application/x-pdf" },
     };
 
     /// <summary>Recognises the file from its header, or returns null for anything not allowed.</summary>
@@ -55,6 +58,9 @@ public static class MediaFileInspector
 
         if (header.Length >= 8 && header[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
             return new(ServiceMediaKind.Photo, "image/png", ".png");
+
+        if (header.Length >= 5 && Ascii(header, 0, 5) == "%PDF-")
+            return new(ServiceMediaKind.Document, "application/pdf", ".pdf");
 
         if (header.Length >= 12 && Ascii(header, 0, 4) == "RIFF" && Ascii(header, 8, 4) == "WEBP")
             return new(ServiceMediaKind.Photo, "image/webp", ".webp");
@@ -96,16 +102,17 @@ public static class MediaFileInspector
         string? declaredContentType,
         long length,
         long maxPhotoBytes,
-        long maxVideoBytes)
+        long maxVideoBytes,
+        long? maxDocumentBytes = null)
     {
         var displayName = string.IsNullOrWhiteSpace(fileName) ? "This file" : $"\"{Path.GetFileName(fileName)}\"";
         if (length <= 0)
             return (null, $"{displayName} is empty.");
 
         var extension = Path.GetExtension(fileName ?? string.Empty).TrimStart('.').ToLowerInvariant();
-        var allowedList = $"Photos: {string.Join(", ", PhotoExtensions.Where(e => e != "heif"))}. Videos: {string.Join(", ", VideoExtensions.Where(e => e != "m4v"))}.";
-        if (!PhotoExtensions.Contains(extension) && !VideoExtensions.Contains(extension))
-            return (null, $"{displayName} is not a supported photo or video. {allowedList}");
+        var allowedList = $"Photos: {string.Join(", ", PhotoExtensions.Where(e => e != "heif"))}. Videos: {string.Join(", ", VideoExtensions.Where(e => e != "m4v"))}. Documents: pdf.";
+        if (!PhotoExtensions.Contains(extension) && !VideoExtensions.Contains(extension) && !DocumentExtensions.Contains(extension))
+            return (null, $"{displayName} is not a supported photo or video, or a PDF. {allowedList}");
 
         var detected = Detect(header);
         if (detected == null || !ExtensionsByType[detected.ContentType].Contains(extension))
@@ -117,10 +124,20 @@ public static class MediaFileInspector
         if (!declaredIsGeneric && !DeclaredTypesByType[detected.ContentType].Contains(declared))
             return (null, $"{displayName} says it is {declared} but its contents are {detected.ContentType}.");
 
-        var max = detected.Kind == ServiceMediaKind.Photo ? maxPhotoBytes : maxVideoBytes;
+        var max = detected.Kind switch
+        {
+            ServiceMediaKind.Photo => maxPhotoBytes,
+            ServiceMediaKind.Document => maxDocumentBytes ?? maxPhotoBytes,
+            _ => maxVideoBytes,
+        };
         if (length > max)
         {
-            var what = detected.Kind == ServiceMediaKind.Photo ? "Photos" : "Videos";
+            var what = detected.Kind switch
+            {
+                ServiceMediaKind.Photo => "Photos",
+                ServiceMediaKind.Document => "PDFs",
+                _ => "Videos",
+            };
             return (null, $"{displayName} is {FormatSize(length)}. {what} can be up to {FormatSize(max)}.");
         }
 

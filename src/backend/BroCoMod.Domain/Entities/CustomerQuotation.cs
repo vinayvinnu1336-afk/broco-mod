@@ -225,6 +225,19 @@ public class CustomerQuotation : BaseEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
+    /// <summary>The whole booking is cancelled: an open or accepted quotation ends with it.</summary>
+    public void CancelWithBooking(string reason)
+    {
+        if (Status is CustomerQuotationStatus.Cancelled or CustomerQuotationStatus.Rejected or CustomerQuotationStatus.Expired)
+            return;
+
+        Status = CustomerQuotationStatus.Cancelled;
+        CancelledAtUtc = DateTime.UtcNow;
+        AdvisorRemarks = string.IsNullOrWhiteSpace(reason) ? AdvisorRemarks : $"{AdvisorRemarks} (Cancelled: {reason.Trim()})".Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     public void Accept(Guid? versionId = null)
     {
         if (Status != CustomerQuotationStatus.Sent)

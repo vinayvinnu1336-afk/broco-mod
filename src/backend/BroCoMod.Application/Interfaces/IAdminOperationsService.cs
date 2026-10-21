@@ -4,7 +4,7 @@ namespace BroCoMod.Application.Interfaces;
 
 public interface IAdminOperationsService
 {
-    Task<AdminDashboardKpiDto> GetDashboardKpisAsync(CancellationToken cancellationToken = default);
+    Task<AdminDashboardKpiDto> GetDashboardKpisAsync(string? city = null, CancellationToken cancellationToken = default);
     
     Task<PagedResult<AdminRequestSummaryDto>> GetRequestsAsync(AdminRequestFilter filter, CancellationToken cancellationToken = default);
     

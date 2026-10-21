@@ -26,6 +26,10 @@ public record ServiceMediaDto(
     bool CanEdit,
     bool CanDelete);
 
+/// <summary>
+/// <see cref="MaxItems"/> and <see cref="RemainingSlots"/> are the caller's own allowance: a customer's photos
+/// and PDFs have their own limit, separate from the garage and advisor items.
+/// </summary>
 public record ServiceMediaListDto(
     Guid ServiceRequestId,
     Guid? ServiceJobId,
@@ -40,7 +44,9 @@ public record MediaLimitsDto(
     long MaxPhotoBytes,
     long MaxVideoBytes,
     IReadOnlyList<string> PhotoExtensions,
-    IReadOnlyList<string> VideoExtensions);
+    IReadOnlyList<string> VideoExtensions,
+    long MaxDocumentBytes,
+    IReadOnlyList<string> DocumentExtensions);
 
 /// <summary>Only the fields that are sent are changed.</summary>
 public record UpdateServiceMediaRequest(

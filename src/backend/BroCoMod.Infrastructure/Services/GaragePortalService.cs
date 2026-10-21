@@ -238,6 +238,8 @@ public class GaragePortalService : IGaragePortalService
             if (locationChanged)
             {
                 garage.UpdateLocation(request.Longitude!.Value, request.Latitude!.Value);
+                // A pin moved into another city moves the garage to that city's advisors and bookings.
+                if (_serviceAreas?.ResolveCity(request.Latitude, request.Longitude, address) is { } newCity) garage.SetCity(newCity);
                 // A verified garage that had no pin was kept out of matching; now it has one.
                 if (!hadLocation && !garage.IsOperational && garage.Status == GarageStatus.Verified) garage.SetOperational(true);
             }

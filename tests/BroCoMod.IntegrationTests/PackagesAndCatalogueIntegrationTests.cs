@@ -129,8 +129,9 @@ public class PackagesAndCatalogueIntegrationTests : IClassFixture<WebApplication
         var request = (await booking.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>(JsonOptions))!.Data!;
         request.ServicePackageCode.Should().Be("BASIC");
 
-        var advisor = await SignedInAsync("advisor@brocomod.com");
-        var candidates = await advisor.GetFromJsonAsync<ApiResponse<List<PackageGarageCandidateDto>>>($"/api/v1/advisor/requests/{request.Id}/package-garages", JsonOptions);
+        // The demo advisor works in Hyderabad, so a Bengaluru booking is not theirs; an admin sees every city.
+        var admin = await SignedInAsync("admin@brocomod.com");
+        var candidates = await admin.GetFromJsonAsync<ApiResponse<List<PackageGarageCandidateDto>>>($"/api/v1/advisor/requests/{request.Id}/package-garages", JsonOptions);
         candidates!.Data.Should().Contain(g => g.Name == "Indiranagar Auto Care");
         candidates.Data.Should().NotContain(g => g.Name == "Central Metro Motors");
     }

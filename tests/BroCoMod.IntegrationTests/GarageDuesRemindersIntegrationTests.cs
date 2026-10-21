@@ -229,7 +229,8 @@ public class GarageDuesRemindersIntegrationTests : IClassFixture<WebApplicationF
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var phone = $"+91 9{Random.Shared.Next(1000, 9999)} {Random.Shared.Next(10000, 99999)}";
-        var garage = new Garage($"Dues Test Motors {suffix}", $"dues_{suffix}@garage.test", phone, "1 Test Road", 68.0, 12.0);
+        // Listed in Hyderabad, where the demo advisor works, so the advisor sees its dues; matching goes by the pin.
+        var garage = new Garage($"Dues Test Motors {suffix}", $"dues_{suffix}@garage.test", phone, "1 Test Road", 68.0, 12.0, city: "Hyderabad");
         db.Garages.Add(garage);
 
         var hash = scope.ServiceProvider.GetRequiredService<IPasswordHasher>().HashPassword(Password, out var salt);

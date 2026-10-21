@@ -17,7 +17,10 @@ namespace BroCoMod.Infrastructure.Services.Media;
 /// - Super admin and advisors: see, upload, edit (caption, stage, show to customer) and delete everything.
 /// - Garage users: see and upload on requests whose job (or active assignment) is at their garage; they can
 ///   delete their own upload within <see cref="MediaOptions.GarageDeleteWindowHours"/> to fix a mistake.
-/// - Customers: see the items on their own requests that are shown to customers. Nothing else.
+/// - Customers: see the items on their own requests that are shown to customers. They can also add their own
+///   photos and PDFs (stage CustomerUpload, e.g. an old quotation) and delete those.
+/// - Garages a request was sent to for a quote (no job or assignment yet) see only the customer's uploads,
+///   so they can quote accurately; never another garage's or BroCo's photos.
 /// </summary>
 public sealed class ServiceMediaService : IServiceMediaService
 {
@@ -62,7 +65,8 @@ public sealed class ServiceMediaService : IServiceMediaService
         public bool IsStaff => Viewer is Viewer.Admin or Viewer.Advisor;
     }
 
-    private sealed record RequestScope(Guid ServiceRequestId, Guid? ServiceJobId);
+    /// <param name="CustomerUploadsOnly">A garage that only received the request for quoting: it sees the customer's uploads and nothing else.</param>
+    private sealed record RequestScope(Guid ServiceRequestId, Guid? ServiceJobId, bool CustomerUploadsOnly, bool IsCancelled);
 
     #region Queries
 
@@ -86,9 +90,13 @@ public sealed class ServiceMediaService : IServiceMediaService
             .Where(m => m.ServiceRequestId == scope.ServiceRequestId && !m.IsDeleted);
         if (caller.Viewer == Viewer.Customer)
             query = query.Where(m => m.IsVisibleToCustomer);
+        if (scope.CustomerUploadsOnly)
+            query = query.Where(m => m.Stage == ServiceMediaStage.CustomerUpload);
 
         var items = await query.OrderBy(m => m.CreatedAtUtc).ToListAsync(ct);
-        var canUpload = caller.Viewer != Viewer.Customer;
+        var canUpload = CanUpload(caller, scope);
+        var maxItems = caller.Viewer == Viewer.Customer ? _options.MaxCustomerItemsPerRequest : _options.MaxItemsPerRequest;
+        var used = canUpload ? await CountTowardsLimitAsync(caller, scope.ServiceRequestId, ct) : 0;
 
         return new ServiceMediaListDto(
             scope.ServiceRequestId,
@@ -96,9 +104,33 @@ public sealed class ServiceMediaService : IServiceMediaService
             items.Select(m => ToDto(m, caller)).ToList(),
             canUpload,
             caller.IsStaff,
-            _options.MaxItemsPerRequest,
-            canUpload ? Math.Max(0, _options.MaxItemsPerRequest - items.Count) : 0,
-            new MediaLimitsDto(_options.MaxPhotoBytes, _options.MaxVideoBytes, MediaFileInspector.PhotoExtensions, MediaFileInspector.VideoExtensions));
+            maxItems,
+            canUpload ? Math.Max(0, maxItems - used) : 0,
+            new MediaLimitsDto(
+                _options.MaxPhotoBytes,
+                _options.MaxVideoBytes,
+                MediaFileInspector.PhotoExtensions,
+                MediaFileInspector.VideoExtensions,
+                _options.MaxDocumentBytes,
+                MediaFileInspector.DocumentExtensions));
+    }
+
+    private static bool CanUpload(Caller caller, RequestScope scope) =>
+        caller.Viewer switch
+        {
+            Viewer.Customer => !scope.IsCancelled,
+            Viewer.Garage => !scope.CustomerUploadsOnly,
+            _ => true,
+        };
+
+    /// <summary>Customer uploads and garage/BroCo items have separate limits, so one never uses up the other's room.</summary>
+    private Task<int> CountTowardsLimitAsync(Caller caller, Guid serviceRequestId, CancellationToken ct)
+    {
+        var query = _context.ServiceMediaFiles.Where(m => m.ServiceRequestId == serviceRequestId && !m.IsDeleted);
+        query = caller.Viewer == Viewer.Customer
+            ? query.Where(m => m.Stage == ServiceMediaStage.CustomerUpload)
+            : query.Where(m => m.Stage != ServiceMediaStage.CustomerUpload);
+        return query.CountAsync(ct);
     }
 
     public async Task<MediaContentResult?> ResolveSignedContentAsync(Guid mediaId, long expiresUnix, string? signature, bool thumbnail, CancellationToken cancellationToken = default)
@@ -144,18 +176,30 @@ public sealed class ServiceMediaService : IServiceMediaService
 
     private async Task<ServiceMediaDto> UploadAsync(Caller caller, RequestScope scope, MediaUploadInput input, CancellationToken ct)
     {
-        if (caller.Viewer == Viewer.Customer)
-            throw new UnauthorizedAccessException("Customers can view photos and videos but not upload them.");
+        var isCustomer = caller.Viewer == Viewer.Customer;
+        if (!CanUpload(caller, scope))
+        {
+            throw new UnauthorizedAccessException(isCustomer
+                ? "This request is cancelled, so files can no longer be added."
+                : "Garages can add photos once the job is at their garage.");
+        }
 
-        var existing = await _context.ServiceMediaFiles.CountAsync(m => m.ServiceRequestId == scope.ServiceRequestId && !m.IsDeleted, ct);
-        if (existing >= _options.MaxItemsPerRequest)
+        var existing = await CountTowardsLimitAsync(caller, scope.ServiceRequestId, ct);
+        if (isCustomer && existing >= _options.MaxCustomerItemsPerRequest)
+            throw new ArgumentException($"You have already added {_options.MaxCustomerItemsPerRequest} files, the most allowed. Delete one to add another.");
+        if (!isCustomer && existing >= _options.MaxItemsPerRequest)
             throw new ArgumentException($"This request already has {_options.MaxItemsPerRequest} photos and videos, the most allowed. Delete one to add another.");
 
-        var stage = ParseStage(input.Stage) ?? ServiceMediaStage.Other;
+        // Customer uploads are always marked as such (and shown to the customer); nobody else can use that stage.
+        var stage = isCustomer ? ServiceMediaStage.CustomerUpload : ParseStage(input.Stage) ?? ServiceMediaStage.Other;
+        if (stage == ServiceMediaStage.CustomerUpload && !isCustomer) stage = ServiceMediaStage.Other;
+
         var header = await ReadHeaderAsync(input.Content, ct);
-        var (type, error) = MediaFileInspector.Validate(header, input.FileName, input.ContentType, input.Length, _options.MaxPhotoBytes, _options.MaxVideoBytes);
+        var (type, error) = MediaFileInspector.Validate(header, input.FileName, input.ContentType, input.Length, _options.MaxPhotoBytes, _options.MaxVideoBytes, _options.MaxDocumentBytes);
         if (type == null)
             throw new ArgumentException(error);
+        if (isCustomer && type.Kind == ServiceMediaKind.Video)
+            throw new ArgumentException("You can add photos (JPG, PNG, WebP, HEIC) and PDFs here. To show a noise or a problem on video, share it with your BroCo advisor.");
 
         var uploaderName = await _context.Users.AsNoTracking()
             .Where(u => u.Id == caller.UserId)
@@ -180,9 +224,10 @@ public sealed class ServiceMediaService : IServiceMediaService
                 storagePath,
                 input.Caption,
                 stage,
-                input.IsVisibleToCustomer ?? true);
+                isCustomer || (input.IsVisibleToCustomer ?? true));
 
-            var thumbnail = await SaveThumbnailAsync(input, ct);
+            // PDFs are shown as a document tile; a browser-made preview is not needed.
+            var thumbnail = type.Kind == ServiceMediaKind.Document ? null : await SaveThumbnailAsync(input, ct);
             if (thumbnail != null)
             {
                 thumbnailPath = thumbnail.Value.Path;
@@ -213,7 +258,14 @@ public sealed class ServiceMediaService : IServiceMediaService
 
         ServiceMediaStage? stage = null;
         if (!string.IsNullOrWhiteSpace(request.Stage))
+        {
             stage = ParseStage(request.Stage) ?? throw new ArgumentException($"Unknown stage \"{request.Stage}\". Use Before, During, After, Inspection or Other.");
+            // "Customer upload" marks what the customer added (quoting garages can see those), so it is never given or taken away.
+            if (stage == media.Stage)
+                stage = null;
+            else if (stage == ServiceMediaStage.CustomerUpload || media.Stage == ServiceMediaStage.CustomerUpload)
+                throw new ArgumentException("Files the customer added keep the stage \"Customer upload\"; other items can't be given it.");
+        }
 
         var before = $"caption \"{media.Caption}\", stage {media.Stage}, visible {media.IsVisibleToCustomer}";
         media.UpdateDetails(request.Caption, stage, request.IsVisibleToCustomer, captionProvided: request.Caption != null);
@@ -269,16 +321,22 @@ public sealed class ServiceMediaService : IServiceMediaService
             {
                 sr.Id,
                 sr.CustomerId,
+                sr.Status,
                 JobId = sr.ServiceJob != null ? (Guid?)sr.ServiceJob.Id : null,
                 JobGarageId = sr.ServiceJob != null ? (Guid?)sr.ServiceJob.GarageId : null,
                 AssignedGarageIds = sr.GarageAssignments
                     .Where(ga => ga.Status == GarageAssignmentStatus.Assigned || ga.Status == GarageAssignmentStatus.Confirmed)
                     .Select(ga => ga.GarageId)
+                    .ToList(),
+                QuotingGarageIds = sr.GarageRequests
+                    .Where(gr => gr.Status != GarageRequestStatus.Declined && gr.Status != GarageRequestStatus.Expired)
+                    .Select(gr => gr.GarageId)
                     .ToList()
             })
             .FirstOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException("Service request not found.");
 
+        var customerUploadsOnly = false;
         switch (caller.Viewer)
         {
             case Viewer.Admin:
@@ -288,8 +346,14 @@ public sealed class ServiceMediaService : IServiceMediaService
                 var atThisGarage = request.JobGarageId.HasValue
                     ? request.JobGarageId == caller.GarageId
                     : request.AssignedGarageIds.Contains(caller.GarageId!.Value);
-                if (!atThisGarage)
+                // While garages are still quoting (no job, nobody assigned), the ones it was sent to see what the
+                // customer attached. Once the job goes to a garage, the others lose access.
+                var stillQuoting = !request.JobGarageId.HasValue && request.AssignedGarageIds.Count == 0
+                    && request.Status != ServiceRequestStatus.Cancelled
+                    && request.QuotingGarageIds.Contains(caller.GarageId!.Value);
+                if (!atThisGarage && !stillQuoting)
                     throw new DataIsolationViolationException("Garages can only see photos and videos of their own jobs.");
+                customerUploadsOnly = !atThisGarage;
                 break;
             case Viewer.Customer:
                 var profileId = await CurrentCustomerProfileIdAsync(caller, ct);
@@ -298,7 +362,7 @@ public sealed class ServiceMediaService : IServiceMediaService
                 break;
         }
 
-        return new RequestScope(request.Id, request.JobId);
+        return new RequestScope(request.Id, request.JobId, customerUploadsOnly, request.Status == ServiceRequestStatus.Cancelled);
     }
 
     private async Task<RequestScope> AuthorizeJobAsync(Caller caller, Guid serviceJobId, CancellationToken ct)
@@ -316,11 +380,13 @@ public sealed class ServiceMediaService : IServiceMediaService
     {
         var media = await _context.ServiceMediaFiles.FirstOrDefaultAsync(m => m.Id == mediaId && !m.IsDeleted, ct)
             ?? throw new KeyNotFoundException("Photo or video not found.");
-        await AuthorizeRequestAsync(caller, media.ServiceRequestId, ct);
-        if (caller.Viewer == Viewer.Customer)
+        var scope = await AuthorizeRequestAsync(caller, media.ServiceRequestId, ct);
+        if (caller.Viewer == Viewer.Customer && !media.IsVisibleToCustomer)
+            throw new KeyNotFoundException("Photo or video not found.");
+        if (scope.CustomerUploadsOnly)
         {
-            if (!media.IsVisibleToCustomer) throw new KeyNotFoundException("Photo or video not found.");
-            throw new UnauthorizedAccessException("Customers can view photos and videos but not change them.");
+            if (media.Stage != ServiceMediaStage.CustomerUpload) throw new KeyNotFoundException("Photo or video not found.");
+            throw new UnauthorizedAccessException("Only the customer and BroCo can change the customer's files.");
         }
         return media;
     }
@@ -337,6 +403,9 @@ public sealed class ServiceMediaService : IServiceMediaService
 
     private bool CanDelete(ServiceMedia media, Caller caller) =>
         caller.IsStaff
+        || (caller.Viewer == Viewer.Customer
+            && media.Stage == ServiceMediaStage.CustomerUpload
+            && media.UploadedByUserId == caller.UserId)
         || (caller.Viewer == Viewer.Garage
             && media.UploadedByUserId == caller.UserId
             && media.CreatedAtUtc >= DateTime.UtcNow.AddHours(-_options.GarageDeleteWindowHours));
@@ -365,7 +434,7 @@ public sealed class ServiceMediaService : IServiceMediaService
             media.SizeBytes,
             media.IsVisibleToCustomer,
             RoleLabel(media.UploadedByRole),
-            caller.Viewer == Viewer.Customer ? RoleLabel(media.UploadedByRole) : media.UploadedByName,
+            UploaderName(media, caller),
             media.CreatedAtUtc,
             media.UpdatedAtUtc,
             url,
@@ -379,8 +448,18 @@ public sealed class ServiceMediaService : IServiceMediaService
     {
         AppRoles.SuperAdmin => "BroCo team",
         AppRoles.Advisor => "BroCo advisor",
+        AppRoles.Customer => "Customer",
         _ when AppRoles.IsGarageRole(role) => "Garage",
         _ => "BroCo",
+    };
+
+    /// <summary>Customers see roles, not staff names; garages never see the customer's name.</summary>
+    private static string UploaderName(ServiceMedia media, Caller caller) => caller.Viewer switch
+    {
+        Viewer.Customer when media.UploadedByUserId == caller.UserId => "You",
+        Viewer.Customer => RoleLabel(media.UploadedByRole),
+        Viewer.Garage when media.UploadedByRole == AppRoles.Customer => RoleLabel(media.UploadedByRole),
+        _ => media.UploadedByName,
     };
 
     private static ServiceMediaStage? ParseStage(string? value) =>

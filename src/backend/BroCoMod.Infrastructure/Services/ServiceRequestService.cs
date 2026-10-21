@@ -23,6 +23,7 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IServiceAreaService? _serviceAreas;
     private readonly IGeocodingService? _geocoding;
     private readonly decimal _advancePercentage;
+    private readonly IAdvisorCityScope? _cityScope;
 
     public ServiceRequestService(
         IApplicationDbContext context,
@@ -33,8 +34,10 @@ public class ServiceRequestService : IServiceRequestService
         ILogger<ServiceRequestService> logger,
         IServiceAreaService? serviceAreas = null,
         IGeocodingService? geocoding = null,
-        Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
+        Microsoft.Extensions.Configuration.IConfiguration? configuration = null,
+        IAdvisorCityScope? cityScope = null)
     {
+        _cityScope = cityScope;
         _advancePercentage = configuration == null ? 10m : BookingAdvance.Percentage(configuration);
         _serviceAreas = serviceAreas;
         _geocoding = geocoding;
@@ -250,7 +253,13 @@ public class ServiceRequestService : IServiceRequestService
             serviceRequest.AttachPackage(package.Id, package.Code, package.Name, packagePrice, vehicle.FuelType.ToString());
         }
 
-        // 6-7. Quote-based repairs go out to every eligible garage within 10 km for quotes.
+        // The booking's city (the live service area containing the pin, else the address) decides which
+        // advisors see it and which garages may take it.
+        var bookingCity = _serviceAreas?.ResolveCity(request.Latitude, request.Longitude, request.City, request.Pincode)
+                          ?? request.City.Trim();
+        serviceRequest.SetCity(bookingCity.Length > ServiceRequest.CityMaxLength ? bookingCity[..ServiceRequest.CityMaxLength] : bookingCity);
+
+        // 6-7. Quote-based repairs go out to every eligible garage of the booking's city within 10 km for quotes.
         // Fixed-price packages don't: they stay NEW until the advisor assigns a garage directly
         // once the advance is paid (PackageBookingService), so no garage is asked to quote.
         IReadOnlyList<EligibleGarageMatch> eligibleGarages = Array.Empty<EligibleGarageMatch>();
@@ -259,7 +268,8 @@ public class ServiceRequestService : IServiceRequestService
             eligibleGarages = await _garageMatchingService.FindEligibleGaragesAsync(
                 serviceLocation.Location,
                 radiusKm: 10.0,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                city: serviceRequest.City);
 
             foreach (var match in eligibleGarages)
             {
@@ -278,9 +288,10 @@ public class ServiceRequestService : IServiceRequestService
             }
         }
 
-        // 7b. Give the request an owner (an active advisor with room, fewest open requests first).
-        // Without an owner the request never appears on any advisor's dashboard or work queue.
-        var responsibleAdvisorId = await AdvisorAssignment.PickResponsibleAdvisorAsync(_context, cancellationToken);
+        // 7b. Give the request an owner: an active advisor of the booking's city with room, fewest open requests
+        // first (another city's advisor only when the city has none). Without an owner the request never
+        // appears on any advisor's dashboard or work queue.
+        var responsibleAdvisorId = await AdvisorAssignment.PickResponsibleAdvisorAsync(_context, serviceRequest.City, cancellationToken);
 
         if (responsibleAdvisorId.HasValue)
         {
@@ -430,34 +441,7 @@ public class ServiceRequestService : IServiceRequestService
         return MapToDetailDto(request);
     }
 
-    public async Task<bool> CancelCustomerRequestAsync(
-        Guid customerId,
-        Guid requestId,
-        string reason,
-        CancellationToken cancellationToken = default)
-    {
-        var resolvedCustomerId = await ResolveCustomerIdAsync(customerId, cancellationToken);
-
-        var request = await _context.ServiceRequests
-            .FirstOrDefaultAsync(sr => sr.Id == requestId && sr.CustomerId == resolvedCustomerId, cancellationToken);
-
-        if (request == null)
-        {
-            throw new KeyNotFoundException($"Service request with ID '{requestId}' was not found or is unauthorized.");
-        }
-
-        request.Cancel(reason);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        await _auditService.LogAsync(
-            action: "SERVICE_REQUEST_STATUS_CHANGED",
-            entityName: nameof(ServiceRequest),
-            entityId: request.Id.ToString(),
-            details: $"Status changed to Cancelled. Reason: {reason}",
-            cancellationToken: cancellationToken);
-
-        return true;
-    }
+    // Customer cancellation lives in BookingCancellationService (only before any payment).
 
     public async Task<PagedResult<GarageIncomingRequestDto>> GetGarageRequestsAsync(
         Guid garageId,
@@ -545,6 +529,23 @@ public class ServiceRequestService : IServiceRequestService
         gr.MarkViewed();
         await _context.SaveChangesAsync(cancellationToken);
 
+        // The exact address and the customer's contact go only to the garage that holds the confirmed job.
+        var job = await _context.ServiceJobs
+            .AsNoTracking()
+            .Include(j => j.Garage)
+            .Where(j => j.ServiceRequestId == gr.ServiceRequestId && j.GarageId == garageId && j.Status != ServiceJobStatus.Cancelled)
+            .OrderByDescending(j => j.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        User? customerUser = null;
+        if (job != null)
+        {
+            customerUser = await _context.CustomerProfiles
+                .AsNoTracking()
+                .Where(cp => cp.Id == gr.ServiceRequest.CustomerId)
+                .Select(cp => cp.User)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         return new GarageIncomingRequestDetailDto(
             gr.Id,
             gr.ServiceRequestId,
@@ -564,7 +565,12 @@ public class ServiceRequestService : IServiceRequestService
             gr.RespondedAtUtc,
             gr.ServiceRequest.NeedsPickup,
             gr.ServiceRequest.PickupNotes,
-            gr.ServiceRequest.PickupSlot);
+            gr.ServiceRequest.PickupSlot,
+            ServiceJobId: job?.Id,
+            ServiceJobNumber: job?.JobNumber,
+            CustomerLocation: job != null ? GarageCustomerLocation.For(gr.ServiceRequest, job.Garage) : null,
+            CustomerName: job != null ? customerUser?.FullName : null,
+            CustomerPhone: job != null ? customerUser?.PhoneNumber : null);
     }
 
     public async Task<PagedResult<AdvisorServiceRequestSummaryDto>> GetAdvisorRequestsAsync(
@@ -582,6 +588,9 @@ public class ServiceRequestService : IServiceRequestService
             .Include(sr => sr.CustomerProfile)
                 .ThenInclude(cp => cp!.User)
             .Include(sr => sr.GarageRequests);
+
+        // Advisors only see their own city's requests (and any assigned to them).
+        query = query.VisibleTo(_cityScope == null ? null : await _cityScope.GetRestrictionAsync(cancellationToken));
 
         if (filter != null)
         {
@@ -625,7 +634,7 @@ public class ServiceRequestService : IServiceRequestService
             sr.CustomerProfile != null ? sr.CustomerProfile.User.Email : "",
             sr.CustomerProfile != null ? sr.CustomerProfile.User.PhoneNumber : "",
             $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
-            sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
+            sr.City.Length > 0 ? sr.City : sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
             sr.ProblemDescription,
             sr.ServiceCategory,
             FormatStatus(sr.Status),
@@ -655,7 +664,7 @@ public class ServiceRequestService : IServiceRequestService
             .Include(sr => sr.ServiceJob)
             .FirstOrDefaultAsync(sr => sr.Id == requestId, cancellationToken);
 
-        if (request == null)
+        if (request == null || (_cityScope != null && !await _cityScope.CanAccessRequestAsync(requestId, cancellationToken)))
         {
             throw new KeyNotFoundException($"Service request with ID '{requestId}' was not found.");
         }
@@ -719,7 +728,8 @@ public class ServiceRequestService : IServiceRequestService
             request.ServiceJob?.JobNumber,
             request.NeedsPickup,
             request.PickupNotes,
-            request.PickupSlot);
+            request.PickupSlot,
+            request.City);
     }
 
     public async Task<PagedResult<AdminServiceRequestSummaryDto>> GetAdminRequestsAsync(
@@ -755,7 +765,7 @@ public class ServiceRequestService : IServiceRequestService
             $"{sr.VehicleYear} {sr.VehicleMake} {sr.VehicleModel}",
             sr.ServiceLocation != null ? sr.ServiceLocation.City : "",
             FormatStatus(sr.Status),
-            sr.AssignedAdvisor != null ? sr.AssignedAdvisor.User.FullName : null,
+            AdvisorDisplay.Name(sr.AssignedAdvisor),
             sr.GarageRequests.Count,
             sr.GarageRequests.Count,
             sr.SubmittedAtUtc)).ToList();
@@ -822,7 +832,7 @@ public class ServiceRequestService : IServiceRequestService
             request.PreferredServiceDate,
             FormatStatus(request.Status),
             request.AssignedAdvisorId,
-            request.AssignedAdvisor?.User?.FullName,
+            AdvisorDisplay.Name(request.AssignedAdvisor),
             dispatchedGarages,
             request.SubmittedAtUtc,
             request.CancelledAtUtc,
@@ -868,7 +878,7 @@ public class ServiceRequestService : IServiceRequestService
             sr.PreferredServiceDate,
             FormatStatus(sr.Status),
             sr.AssignedAdvisorId,
-            sr.AssignedAdvisor?.User?.FullName,
+            AdvisorDisplay.Name(sr.AssignedAdvisor),
             sr.GarageRequests.Count,
             sr.SubmittedAtUtc,
             sr.CancelledAtUtc,
@@ -883,7 +893,8 @@ public class ServiceRequestService : IServiceRequestService
             ServiceCategories.Split(sr.ServiceCategory),
             sr.NeedsPickup,
             sr.PickupNotes,
-            sr.PickupSlot);
+            sr.PickupSlot,
+            sr.City);
     }
 
     private static string FormatStatus(ServiceRequestStatus status) => status switch

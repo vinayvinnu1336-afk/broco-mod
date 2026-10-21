@@ -241,6 +241,8 @@ export interface AdminGarageList {
   statusReason?: string;
   activeJobsCount: number;
   totalQuotesCount: number;
+  /** The service area (city) the garage works in. */
+  city?: string;
 }
 
 export interface AdminGarageDetail {
@@ -259,6 +261,7 @@ export interface AdminGarageDetail {
   statusChangedAtUtc?: string;
   createdAtUtc: string;
   concurrencyToken: string;
+  city?: string;
   totalDispatchesReceived: number;
   totalQuotesSubmitted: number;
   totalQuotesWon: number;
@@ -299,6 +302,8 @@ export interface AdminAdvisorList {
   createdAtUtc: string;
   phoneNumber?: string;
   maxAssignedRequests?: number;
+  /** The city the advisor works in; they only see its requests, jobs and garages. */
+  city?: string;
 }
 
 /** POST /admin/advisors. `temporaryPassword` is only set when it was generated, and only in this response. */
@@ -314,6 +319,38 @@ export interface CreatedAdvisor {
 export interface PromotedAdvisor {
   advisor: AdminAdvisorList;
   alreadyAdvisor: boolean;
+}
+
+/** GET /admin/advisors/{id}/removal: what removing the advisor would do. */
+export interface AdvisorRemovalPreview {
+  advisorId: string;
+  fullName: string;
+  city: string;
+  openRequestsCount: number;
+  otherAdvisorsInCity: number;
+}
+
+/** DELETE /admin/advisors/{id}. */
+export interface RemovedAdvisor {
+  advisorId: string;
+  fullName: string;
+  city: string;
+  reassignedCount: number;
+  reassignedOutsideCityCount: number;
+  leftUnassignedCount: number;
+  reassignments: { advisorId: string; fullName: string; city: string; requestsCount: number }[];
+}
+
+/** POST /admin/garages. `temporaryPassword` is only set when it was generated, and only in this response. */
+export interface CreatedGarageAccount {
+  garage: AdminGarageList;
+  ownerUserId: string;
+  ownerName: string;
+  loginMobile: string;
+  temporaryPassword?: string | null;
+  passwordGenerated: boolean;
+  welcomeEmailSent: boolean;
+  welcomeEmailStatus: string;
 }
 
 /** Sent with a 409 whose first error is EXISTING_CUSTOMER_ACCOUNT. */

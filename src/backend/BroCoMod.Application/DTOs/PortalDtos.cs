@@ -189,7 +189,9 @@ public record AdvisorProfileDto(
     string Email,
     string EmployeeCode,
     string Specialization,
-    int MaxAssignedRequests
+    int MaxAssignedRequests,
+    // The city the advisor works in; they only see its requests, jobs and garages.
+    string City = ""
 );
 
 public record AdvisorRequestSummaryDto(

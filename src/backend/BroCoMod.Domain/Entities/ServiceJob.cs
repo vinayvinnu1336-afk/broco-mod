@@ -233,4 +233,25 @@ public class ServiceJob : BaseEntity
         UpdatedAtUtc = DateTime.UtcNow;
         ConcurrencyToken = Guid.NewGuid();
     }
+
+    /// <summary>
+    /// BroCo cancels the booking: an admin may stop a job at any stage until it is closed,
+    /// even after the car has reached the garage (unlike <see cref="Cancel"/>).
+    /// </summary>
+    public void CancelByAdmin(string reason, Guid adminUserId)
+    {
+        if (Status == ServiceJobStatus.Cancelled)
+            throw new InvalidOperationException("This job is already cancelled.");
+        if (Status == ServiceJobStatus.Closed)
+            throw new InvalidOperationException("This job is closed, so it can no longer be cancelled.");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("Cancellation reason is mandatory.", nameof(reason));
+
+        CancelledAtUtc = DateTime.UtcNow;
+        CancellationReason = reason.Trim();
+        Status = ServiceJobStatus.Cancelled;
+        UpdatedByUserId = adminUserId;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }

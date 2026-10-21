@@ -1,11 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { EyeOff, Film, ImageOff, Play } from 'lucide-react';
+import { EyeOff, FileText, Film, ImageOff, Play } from 'lucide-react';
 import { resolveMediaUrl } from '@/lib/media';
 import { ServiceMedia, UpdateServiceMediaRequest } from '@/types/media';
 import { MediaViewer } from './MediaViewer';
 import { stageLabel } from './StageChips';
+
+const GRID = {
+  normal: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-5',
+  dense: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4',
+  compact: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8',
+};
 
 export interface MediaGalleryProps {
   items: ServiceMedia[];
@@ -15,10 +21,22 @@ export interface MediaGalleryProps {
   onDelete?: (item: ServiceMedia) => Promise<string | null>;
   /** Called when a picture fails to load, e.g. because its signed link expired while the page was open. */
   onLoadError?: () => void;
+  /** Inside a stage group (Before / After ...) the stage chip on each tile is redundant. */
+  hideStageLabel?: boolean;
+  /** "dense": fewer columns from md up, for half-width groups. "compact": small tiles for minor groups. */
+  density?: 'normal' | 'dense' | 'compact';
 }
 
 /** Square thumbnails (3 across on phones, 4-5 on wider screens); tap one to open the full-screen viewer. */
-export function MediaGallery({ items, showVisibility = false, onUpdate, onDelete, onLoadError }: MediaGalleryProps) {
+export function MediaGallery({
+  items,
+  showVisibility = false,
+  onUpdate,
+  onDelete,
+  onLoadError,
+  hideStageLabel = false,
+  density = 'normal',
+}: MediaGalleryProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [broken, setBroken] = useState<Record<string, boolean>>({});
 
@@ -26,10 +44,14 @@ export function MediaGallery({ items, showVisibility = false, onUpdate, onDelete
 
   return (
     <>
-      <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5" aria-label="Photos and videos">
+      <ul
+        className={`grid gap-2 ${GRID[density]}`}
+        aria-label="Photos and videos"
+      >
         {items.map((item, i) => {
           const thumb = resolveMediaUrl(item.thumbnailUrl ?? (item.kind === 'Photo' ? item.url : null));
           const label = item.caption || `${item.kind === 'Video' ? 'Video' : 'Photo'} ${i + 1}`;
+          if (item.kind === 'Document') return <DocumentTile key={item.id} item={item} />;
           return (
             <li key={item.id}>
               <button
@@ -70,9 +92,11 @@ export function MediaGallery({ items, showVisibility = false, onUpdate, onDelete
                   </span>
                 )}
 
-                <span className="pointer-events-none absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-full bg-navy-950/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-[2px]">
-                  {stageLabel(item.stage)}
-                </span>
+                {!hideStageLabel && (
+                  <span className="pointer-events-none absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-full bg-navy-950/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-[2px]">
+                    {stageLabel(item.stage)}
+                  </span>
+                )}
 
                 {showVisibility && !item.isVisibleToCustomer && (
                   <span
@@ -108,5 +132,27 @@ export function MediaGallery({ items, showVisibility = false, onUpdate, onDelete
         />
       )}
     </>
+  );
+}
+
+/** PDFs (e.g. the customer's old quotation) open in a new tab through their signed link; browsers show them inline. */
+function DocumentTile({ item }: { item: ServiceMedia }) {
+  return (
+    <li>
+      <a
+        href={resolveMediaUrl(item.url)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative flex aspect-square w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-surface-50 px-2 text-center ring-1 ring-inset ring-surface-200 transition hover:bg-electric-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2"
+        aria-label={`Open PDF in a new tab: ${item.caption || item.fileName}`}
+        title={item.caption ? `${item.caption} (${item.fileName})` : item.fileName}
+      >
+        <FileText className="h-7 w-7 text-electric-600" aria-hidden="true" />
+        <span className="line-clamp-2 w-full break-all text-[11px] font-medium leading-tight text-navy-700">{item.fileName}</span>
+        <span className="pointer-events-none absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-full bg-navy-950/60 px-2 py-0.5 text-[11px] font-medium text-white">
+          {stageLabel(item.stage)}
+        </span>
+      </a>
+    </li>
   );
 }

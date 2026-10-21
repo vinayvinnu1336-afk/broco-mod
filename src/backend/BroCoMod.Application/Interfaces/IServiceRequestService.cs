@@ -21,12 +21,6 @@ public interface IServiceRequestService
         Guid requestId,
         CancellationToken cancellationToken = default);
 
-    Task<bool> CancelCustomerRequestAsync(
-        Guid customerId,
-        Guid requestId,
-        string reason,
-        CancellationToken cancellationToken = default);
-
     Task<PagedResult<GarageIncomingRequestDto>> GetGarageRequestsAsync(
         Guid garageId,
         int page = 1,

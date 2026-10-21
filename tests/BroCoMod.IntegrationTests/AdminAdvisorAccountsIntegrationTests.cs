@@ -95,6 +95,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
             fullName = "  Priya   Sharma ",
             mobileNumber = mobile,
             email = email.ToUpperInvariant(),
+            city = "Hyderabad",
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
@@ -151,7 +152,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         var email = NewEmail();
 
         var response = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest(
-            "Ravi Kumar", mobile, email, Specialization: "EV and hybrids", MaxAssignedRequests: 60, Password: "chosen-pw"));
+            "Ravi Kumar", mobile, email, Specialization: "EV and hybrids", MaxAssignedRequests: 60, Password: "chosen-pw", City: "Hyderabad"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         var created = (await BodyAsync<CreatedAdvisorDto>(response)).Data!;
@@ -177,7 +178,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         var admin = await AdminAsync();
 
         var response = await admin.PostAsJsonAsync("/api/v1/admin/advisors",
-            new CreateAdvisorRequest(name, mobile, email, MaxAssignedRequests: max, Password: password));
+            new CreateAdvisorRequest(name, mobile, email, MaxAssignedRequests: max, Password: password, City: "Hyderabad"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
         (await BodyAsync<object>(response)).Errors![0].Should().Be(AdvisorAccountErrors.Validation);
@@ -189,11 +190,11 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         var admin = await AdminAsync();
         var mobile = TestMobiles.New();
         var email = NewEmail();
-        (await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("First Advisor", mobile, email)))
+        (await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("First Advisor", mobile, email, City: "Hyderabad")))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var sameMobile = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Second", mobile, NewEmail()));
-        var sameEmail = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Second", TestMobiles.New(), email));
+        var sameMobile = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Second", mobile, NewEmail(), City: "Hyderabad"));
+        var sameEmail = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Second", TestMobiles.New(), email, City: "Hyderabad"));
 
         foreach (var response in new[] { sameMobile, sameEmail })
         {
@@ -205,11 +206,11 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         var garageEmail = NewEmail("garage");
         await RegisterAsync(garageEmail, garageMobile, AppRoles.GarageOwner);
 
-        var garageByMobile = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Third", garageMobile, NewEmail()));
+        var garageByMobile = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Third", garageMobile, NewEmail(), City: "Hyderabad"));
         garageByMobile.StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await BodyAsync<object>(garageByMobile)).Errors![0].Should().Be(AdvisorAccountErrors.MobileTaken);
 
-        var garageByEmail = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Third", TestMobiles.New(), garageEmail));
+        var garageByEmail = await admin.PostAsJsonAsync("/api/v1/admin/advisors", new CreateAdvisorRequest("Third", TestMobiles.New(), garageEmail, City: "Hyderabad"));
         garageByEmail.StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await BodyAsync<object>(garageByEmail)).Errors![0].Should().Be(AdvisorAccountErrors.EmailTaken);
     }
@@ -225,7 +226,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         var customer = await RegisterAsync(email, TestMobiles.Canonical(mobile));
 
         var response = await admin.PostAsJsonAsync("/api/v1/admin/advisors",
-            new CreateAdvisorRequest("Existing Person", mobile, NewEmail()));
+            new CreateAdvisorRequest("Existing Person", mobile, NewEmail(), City: "Hyderabad"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var conflict = await BodyAsync<ExistingCustomerAccountDto>(response);
@@ -235,7 +236,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         conflict.Data.MatchedBy.Should().Be("mobile");
 
         var promote = await admin.PostAsJsonAsync("/api/v1/admin/advisors/promote",
-            new PromoteToAdvisorRequest(Email: conflict.Data.Email, Specialization: "Body work", MaxAssignedRequests: 40));
+            new PromoteToAdvisorRequest(Email: conflict.Data.Email, Specialization: "Body work", MaxAssignedRequests: 40, City: "Hyderabad"));
         promote.StatusCode.Should().Be(HttpStatusCode.OK, await promote.Content.ReadAsStringAsync());
         var promoted = (await BodyAsync<PromotedAdvisorDto>(promote)).Data!;
         promoted.AlreadyAdvisor.Should().BeFalse();
@@ -272,7 +273,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
         await RegisterAsync(email, TestMobiles.New());
 
         var response = await admin.PostAsJsonAsync("/api/v1/admin/advisors",
-            new CreateAdvisorRequest("Existing Person", TestMobiles.New(), email));
+            new CreateAdvisorRequest("Existing Person", TestMobiles.New(), email, City: "Hyderabad"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var conflict = await BodyAsync<ExistingCustomerAccountDto>(response);
@@ -309,7 +310,7 @@ public class AdminAdvisorAccountsIntegrationTests : IClassFixture<WebApplication
     {
         var admin = await AdminAsync();
         var created = (await BodyAsync<CreatedAdvisorDto>(await admin.PostAsJsonAsync("/api/v1/admin/advisors",
-            new CreateAdvisorRequest("Edit Me", TestMobiles.New(), NewEmail())))).Data!;
+            new CreateAdvisorRequest("Edit Me", TestMobiles.New(), NewEmail(), City: "Hyderabad")))).Data!;
 
         var response = await admin.PutAsJsonAsync($"/api/v1/admin/advisors/{created.Advisor.Id}",
             new UpdateAdvisorRequest("Edited Name", "Diagnostics", 80));

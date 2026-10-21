@@ -9,10 +9,11 @@ Garages and advisors add photos and videos of the customer's car to a service re
 | Super admin | Everything | Yes | Yes | Yes |
 | Advisor | Every request (advisors can open any request today) | Yes | Yes | Yes |
 | Garage (owner, manager, staff) | Requests whose job is at their garage (or, before the job exists, that are assigned to it) | Yes | No | Only their own upload, within 24 hours (`Media:GarageDeleteWindowHours`) |
-| Customer | Their own requests, only items marked "customer can see" | No | No | No |
+| Customer | Their own requests, only items marked "customer can see" (and their own uploads) | Photos and PDFs only, stage "Customer upload", up to 10 per request (`Media:MaxCustomerItemsPerRequest`); not on cancelled requests | No | Their own uploads, any time |
+| Garage the request was sent to for a quote (no job or assignment yet) | Only the customer's uploads | No | No | No |
 
 - Garages can't edit: the owner asked for advisors and admins to manage the gallery. The 24-hour delete lets a garage fix a wrong upload without calling the advisor.
-- Garages that only quoted (and were not picked) see nothing. That keeps one customer's car photos away from competing garages.
+- Garages quoting a request see only what the customer attached (e.g. an old quotation), so they can quote accurately. Once the job goes to a garage, or the request is cancelled, the others see nothing. That keeps one customer's car photos away from competing garages.
 - Uploads default to "customer can see". Untick it for workshop-only shots. An advisor can hide or show any item later.
 - Upload, edit and delete are written to the audit log (`MEDIA_UPLOADED`, `MEDIA_UPDATED`, `MEDIA_DELETED`).
 - Delete is soft: the row is kept with `IsDeleted` so the audit log still points at it, and the file stays on disk. Nobody can see or stream it any more.
@@ -21,6 +22,7 @@ Garages and advisors add photos and videos of the customer's car to a service re
 
 - **Photos:** JPG, PNG, WebP, HEIC. Up to 10 MB each.
 - **Videos:** MP4, MOV, WebM. Up to 100 MB each.
+- **Documents:** PDF (`%PDF-` signature), up to 10 MB (`Media:MaxDocumentBytes`). Customers add them; they open in a new tab through the signed link (`application/pdf`, inline). Galleries show a document tile with the file name.
 - **At most 30** photos and videos per request (`Media:MaxItemsPerRequest`).
 - The API reads each file's first bytes (magic numbers) and checks that the name and the type the browser sent agree with them. A renamed HTML file, a PNG called `.jpg` or a GIF is refused with a 400 and a message the uploader can understand.
 - The browser makes a small JPEG preview (a scaled photo or the first frame of a video) and sends it with the upload. Galleries load these previews instead of full photos, which matters on phone data. When the browser can't decode a file (e.g. HEIC outside Safari), there is no preview and the original is shown.
@@ -75,4 +77,5 @@ Uploads are one file per request so the app can show progress for each and retry
 - **Garage → Jobs → job:** "Photos & videos" card with Add (camera, video or gallery on phones).
 - **Advisor → Requests → request** and **Advisor → Jobs → job:** add, edit caption and stage, hide from or show to the customer, delete.
 - **Admin → Requests → request:** the same as the advisor.
-- **Customer → My requests → request:** view only, with a full-screen viewer (swipe or arrow keys, Escape to close).
+- **Customer → My requests → request:** "Photos & documents": the garage's and BroCo's photos (full-screen viewer), plus the customer's own photos and PDFs (add with caption, retry, delete). Files picked while booking upload right after the request is created.
+- **Garage → Requests → request (while quoting):** the customer's photos and PDFs, view only.

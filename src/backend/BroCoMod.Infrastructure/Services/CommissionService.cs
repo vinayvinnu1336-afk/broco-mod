@@ -30,6 +30,11 @@ public class CommissionService : ICommissionService, ICommissionDuesService
     private readonly int _reminderIntervalHours;
     private readonly int _blockAfterOverdueDays;
     private readonly decimal _advancePercentage;
+    private readonly IAdvisorCityScope? _cityScope;
+
+    /// <summary>The garage city to limit staff lists to: the advisor's own, else the admin's City filter.</summary>
+    private async Task<string?> StaffCityAsync(string? requested, CancellationToken ct) =>
+        CityScoping.Normalize(_cityScope == null ? requested : await _cityScope.EffectiveCityAsync(requested, ct));
 
     public CommissionService(
         ApplicationDbContext context,
@@ -39,8 +44,10 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         IEnumerable<INotificationProvider> providers,
         IAuditService audit,
         IConfiguration configuration,
-        ILogger<CommissionService> logger)
+        ILogger<CommissionService> logger,
+        IAdvisorCityScope? cityScope = null)
     {
+        _cityScope = cityScope;
         _context = context;
         _gatewayFactory = gatewayFactory;
         _paymentNumbers = paymentNumbers;
@@ -293,14 +300,18 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         return new PagedResult<GarageCommissionDto>(items.Select(c => ToDto(c, now)).ToList(), page, pageSize, total);
     }
 
-    public async Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(CancellationToken ct = default)
+    private static IQueryable<GarageCommission> InGarageCity(IQueryable<GarageCommission> query, string? normalizedCity) =>
+        normalizedCity == null ? query : query.Where(c => c.Garage!.City.ToLower() == normalizedCity);
+
+    public async Task<AdminCommissionOverviewDto> GetAdminOverviewAsync(string? city = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        var due = await _context.GarageCommissions.AsNoTracking()
+        var cityFilter = await StaffCityAsync(city, ct);
+        var due = await InGarageCity(_context.GarageCommissions.AsNoTracking(), cityFilter)
             .Where(c => c.Status == GarageCommissionStatus.Due)
             .Select(c => new { c.GarageId, c.TotalDue, c.DueAtUtc })
             .ToListAsync(ct);
-        var collected = await _context.GarageCommissions.AsNoTracking()
+        var collected = await InGarageCity(_context.GarageCommissions.AsNoTracking(), cityFilter)
             .Where(c => c.Status == GarageCommissionStatus.Paid)
             .SumAsync(c => (decimal?)c.TotalDue, ct) ?? 0m;
         var overdue = due.Where(d => d.DueAtUtc < now).ToList();
@@ -438,6 +449,7 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         else if (!status.Equals("All", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Status must be Due, Overdue, Paid, Waived or All.");
 
+        query = InGarageCity(query, await StaffCityAsync(q.City, ct));
         if (q.GarageId.HasValue) query = query.Where(c => c.GarageId == q.GarageId.Value);
         if (q.DueFrom.HasValue)
         {
@@ -473,10 +485,10 @@ public class CommissionService : ICommissionService, ICommissionDuesService
         return new PagedResult<GarageCommissionDto>(await ToStaffDtosAsync(items, now, ct), page, pageSize, total);
     }
 
-    public async Task<GarageDuesOverviewDto> GetDuesOverviewAsync(CancellationToken ct = default)
+    public async Task<GarageDuesOverviewDto> GetDuesOverviewAsync(string? city = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        var due = await _context.GarageCommissions.AsNoTracking()
+        var due = await InGarageCity(_context.GarageCommissions.AsNoTracking(), await StaffCityAsync(city, ct))
             .Where(c => c.Status == GarageCommissionStatus.Due)
             .Select(c => new { c.GarageId, c.TotalDue, c.DueAtUtc })
             .ToListAsync(ct);
@@ -489,10 +501,10 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             CountBlockedGarages(due.Select(d => (d.GarageId, d.DueAtUtc)), now));
     }
 
-    public async Task<IReadOnlyList<GarageDuesSummaryDto>> GetGarageDuesAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<GarageDuesSummaryDto>> GetGarageDuesAsync(string? city = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        var rows = await _context.GarageCommissions.AsNoTracking()
+        var rows = await InGarageCity(_context.GarageCommissions.AsNoTracking(), await StaffCityAsync(city, ct))
             .Where(c => c.Status == GarageCommissionStatus.Due)
             .Select(c => new { c.GarageId, c.Garage!.Name, c.Garage.PhoneNumber, c.TotalDue, c.DueAtUtc, c.LastReminderAtUtc })
             .ToListAsync(ct);
@@ -568,6 +580,8 @@ public class CommissionService : ICommissionService, ICommissionDuesService
             .Include(c => c.Garage)
             .Where(c => c.Status == GarageCommissionStatus.Due && c.DueAtUtc < now);
         if (garageId.HasValue) query = query.Where(c => c.GarageId == garageId.Value);
+        // An advisor only reminds garages of their own city.
+        query = InGarageCity(query, await StaffCityAsync(null, ct));
         var overdue = await query.OrderBy(c => c.DueAtUtc).Take(500).ToListAsync(ct);
 
         var recent = await RecentManualRemindersAsync(overdue.Select(c => c.Id).ToList(), now, ct);

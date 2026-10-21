@@ -68,7 +68,9 @@ public record ServiceRequestDetailDto(
     IReadOnlyList<string>? ServiceCategories = null,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    // The service area the booking is in (decides its advisors and garages).
+    string City = ""
 );
 
 public record CustomerServiceRequestSummaryDto(
@@ -119,7 +121,13 @@ public record GarageIncomingRequestDetailDto(
     DateTime? RespondedAtUtc,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    // Filled only once this garage has the confirmed job (a ServiceJob); quoting garages see the area only.
+    Guid? ServiceJobId = null,
+    string? ServiceJobNumber = null,
+    GarageCustomerLocationDto? CustomerLocation = null,
+    string? CustomerName = null,
+    string? CustomerPhone = null
 );
 
 public record AdvisorServiceRequestSummaryDto(
@@ -181,7 +189,8 @@ public record AdvisorServiceRequestDetailDto(
     string? ServiceJobNumber = null,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    string City = ""
 );
 
 public record AdminServiceRequestSummaryDto(

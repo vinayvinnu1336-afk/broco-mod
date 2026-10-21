@@ -1,3 +1,4 @@
+using BroCoMod.Application.Common;
 using BroCoMod.Application.DTOs;
 using BroCoMod.Application.Interfaces;
 using BroCoMod.Domain.Constants;
@@ -261,23 +262,37 @@ public class CustomerController : ControllerBase
         }
     }
 
+    /// <summary>The customer may cancel only before paying anything; after that only BroCo support can (409).</summary>
     [HttpPost("requests/{id:guid}/cancel")]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> CancelRequest(Guid id, [FromBody] CancelServiceRequestCommand command, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelRequest(
+        Guid id,
+        [FromBody] CancelServiceRequestCommand command,
+        [FromServices] IBookingCancellationService bookingCancellation,
+        CancellationToken cancellationToken)
     {
         var customerId = GetEffectiveCustomerId();
         try
         {
-            var success = await _serviceRequestService.CancelCustomerRequestAsync(customerId, id, command.Reason, cancellationToken);
-            return Ok(ApiResponse<bool>.Ok(success, "Service request cancelled successfully."));
+            await bookingCancellation.CancelByCustomerAsync(customerId, id, command.Reason, cancellationToken);
+            return Ok(ApiResponse<bool>.Ok(true, "Service request cancelled successfully."));
         }
         catch (KeyNotFoundException ex)
         {
             return NotFound(ApiResponse<object>.Fail(ex.Message));
         }
+        catch (CancellationNotAllowedException ex)
+        {
+            return Conflict(ApiResponse<object>.Fail(ex.Message));
+        }
         catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<object>.Fail(ex.Message));
         }

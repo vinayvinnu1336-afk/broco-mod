@@ -40,6 +40,7 @@ public class CustomerAdvanceController : ControllerBase
 [ApiController]
 [Route("api/v1/advisor")]
 [Authorize(Roles = $"{AppRoles.Advisor},{AppRoles.SuperAdmin}")]
+[TypeFilter(typeof(BroCoMod.Api.Infrastructure.AdvisorCityAccessFilter))]
 public class AdvisorPackageController : ControllerBase
 {
     private readonly IPackageBookingService _packages;

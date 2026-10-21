@@ -45,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IOtpProvider, OtpProvider>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        // Advisors work in one city; every advisor-facing query is limited through this.
+        services.AddScoped<IAdvisorCityScope, AdvisorCityScope>();
         services.AddScoped<IIdentityService, IdentityService>();
 
         // Portal & Vehicle Services
@@ -93,10 +95,12 @@ public static class DependencyInjection
         // Milestone 8: Service Execution & Garage Job Lifecycle Services
         services.AddScoped<IServiceJobNumberGenerator, ServiceJobNumberGenerator>();
         services.AddScoped<IServiceJobService, ServiceJobService>();
+        services.AddScoped<IBookingCancellationService, BookingCancellationService>();
 
         // Milestone 9: Operations & Admin Control Center Services
         services.AddScoped<IAdminOperationsService, AdminOperationsService>();
         services.AddScoped<IAdminAdvisorAccountService, AdminAdvisorAccountService>();
+        services.AddScoped<IAdminGarageAccountService, AdminGarageAccountService>();
         services.AddScoped<IAdvisorOperationsService, AdvisorOperationsService>();
 
         // Milestone 10: Financial & Payment Foundation Services

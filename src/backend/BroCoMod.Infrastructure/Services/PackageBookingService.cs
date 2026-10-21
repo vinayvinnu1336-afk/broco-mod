@@ -54,6 +54,7 @@ public class PackageBookingService : IPackageBookingService
     /// Verified, active, operational garages within the request's radius (each garage's own service
     /// radius also applies), nearest first, leaving out garages paused for overdue commission. Package
     /// bookings are never dispatched for quotes, so this is a live search, not the booking-time dispatch list.
+    /// Only garages of the booking's city are candidates.
     /// </summary>
     public async Task<IReadOnlyList<PackageGarageCandidateDto>> GetCandidateGaragesAsync(Guid serviceRequestId, CancellationToken ct = default)
     {
@@ -61,17 +62,17 @@ public class PackageBookingService : IPackageBookingService
             .FirstOrDefaultAsync(r => r.Id == serviceRequestId, ct)
             ?? throw new KeyNotFoundException("Service request not found.");
 
-        var result = await AvailableGaragesWithinAsync(request.CustomerLocation, request.RadiusKm, ct);
+        var result = await AvailableGaragesWithinAsync(request.CustomerLocation, request.RadiusKm, request.City, ct);
         if (result.Count == 0 && request.RadiusKm < WiderSearchRadiusKm)
         {
-            result = await AvailableGaragesWithinAsync(request.CustomerLocation, WiderSearchRadiusKm, ct);
+            result = await AvailableGaragesWithinAsync(request.CustomerLocation, WiderSearchRadiusKm, request.City, ct);
         }
         return result;
     }
 
-    private async Task<List<PackageGarageCandidateDto>> AvailableGaragesWithinAsync(NetTopologySuite.Geometries.Point location, double radiusKm, CancellationToken ct)
+    private async Task<List<PackageGarageCandidateDto>> AvailableGaragesWithinAsync(NetTopologySuite.Geometries.Point location, double radiusKm, string city, CancellationToken ct)
     {
-        var nearby = await _matching.FindEligibleGaragesAsync(location, radiusKm, ct);
+        var nearby = await _matching.FindEligibleGaragesAsync(location, radiusKm, ct, city);
         var result = new List<PackageGarageCandidateDto>();
         foreach (var g in nearby.OrderBy(g => g.DistanceKm))
         {
@@ -104,6 +105,8 @@ public class PackageBookingService : IPackageBookingService
 
         var garage = await _context.Garages.FirstOrDefaultAsync(g => g.Id == garageId, ct)
             ?? throw new KeyNotFoundException("Garage not found.");
+        if (request.City.Length > 0 && !string.Equals(garage.City, request.City, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"{garage.Name} works in {(garage.City.Length > 0 ? garage.City : "another city")}, but this booking is in {request.City}. Choose a garage in {request.City}.");
         if (!garage.IsActive || !garage.IsVerified)
             throw new InvalidOperationException($"{garage.Name} is not an active, verified garage.");
         if (await _commissions.IsGarageBlockedForNewJobsAsync(garage.Id, ct))

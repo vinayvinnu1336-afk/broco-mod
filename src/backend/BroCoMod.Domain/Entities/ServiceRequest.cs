@@ -21,6 +21,11 @@ public class ServiceRequest : BaseEntity
     public Point CustomerLocation { get; private set; } = default!;
     public double RadiusKm { get; private set; } = 10.0;
 
+    /// <summary>The service area (city) the booking is in, fixed at booking time. Decides which advisors and garages handle it.</summary>
+    public string City { get; private set; } = string.Empty;
+
+    public const int CityMaxLength = 100;
+
     public string ProblemDescription { get; private set; } = string.Empty;
     public string Description => ProblemDescription; // Compatibility alias
 
@@ -161,6 +166,13 @@ public class ServiceRequest : BaseEntity
         VehicleFuel = vehicleFuel;
     }
 
+    public void SetCity(string? city)
+    {
+        var value = (city ?? string.Empty).Trim();
+        if (value.Length > CityMaxLength) throw new ArgumentException($"City must be at most {CityMaxLength} characters.", nameof(city));
+        City = value;
+    }
+
     public void SetVehicleFuel(string? vehicleFuel)
     {
         VehicleFuel = vehicleFuel;
@@ -223,6 +235,13 @@ public class ServiceRequest : BaseEntity
         }
 
         AssignedAdvisorId = advisorId;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>The owning advisor left and nobody can take over yet; the request waits for the next advisor.</summary>
+    public void ReleaseResponsibleAdvisor()
+    {
+        AssignedAdvisorId = null;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

@@ -19,6 +19,12 @@ public sealed class MediaOptions
     public long MaxThumbnailBytes { get; set; } = 1024 * 1024;
     public int MaxItemsPerRequest { get; set; } = 30;
 
+    /// <summary>PDFs (old quotations, bills). Customers attach them; they count towards the customer's own limit.</summary>
+    public long MaxDocumentBytes { get; set; } = 10 * 1024 * 1024;
+
+    /// <summary>Photos and PDFs a customer can add to one request, on top of the garage and advisor items.</summary>
+    public int MaxCustomerItemsPerRequest { get; set; } = 10;
+
     /// <summary>A garage can remove its own upload (e.g. a wrong photo) for this long; advisors and admins any time.</summary>
     public int GarageDeleteWindowHours { get; set; } = 24;
 }

@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
+import { CancelBookingCard } from '@/components/admin/CancelBookingCard';
 import { formatDate, formatDateTime, formatINR, formatRelative, humanize } from '@/lib/format';
 
 const outlineLink =
@@ -399,6 +400,9 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
           </ListGroup>
         </div>
       </div>
+
+      {/* Danger zone: the only place a booking is cancelled once anything is paid */}
+      <CancelBookingCard requestId={id} onCancelled={loadRequestDetail} />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Select } from '@/components/ui/Select';
 import { ChoiceChips, FormError } from '@/components/admin/FormControls';
+import { useCityOptions } from '@/lib/filterOptions';
 
 export const DEFAULT_SPECIALIZATION = 'General Automotive';
 const SPECIALIZATIONS = [
@@ -33,7 +34,39 @@ const OTHER = '__other__';
 const MAX_LIMIT = 200;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type FieldErrors = Partial<Record<'fullName' | 'mobile' | 'email' | 'specialization' | 'maxOpen' | 'password', string>>;
+type FieldErrors = Partial<Record<'fullName' | 'mobile' | 'email' | 'specialization' | 'maxOpen' | 'password' | 'city', string>>;
+
+/** The city an advisor works in: they only see that city's requests, jobs and garages. */
+function CityField({
+  id,
+  value,
+  onChange,
+  error,
+  helperText,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  helperText?: string;
+}) {
+  const cities = useCityOptions(true);
+  // Keep a city that is no longer live selectable, so editing an older advisor doesn't silently change it.
+  const options = value && !cities.some((c) => c.value === value) ? [{ value, label: value }, ...cities] : cities;
+  return (
+    <Select
+      id={id}
+      label="City"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Choose a city"
+      options={options}
+      error={error}
+      helperText={helperText}
+      required
+    />
+  );
+}
 
 /** Speciality picker: common choices, or "Other" with a free-text box. */
 function SpecializationField({
@@ -83,7 +116,7 @@ function validLimit(raw: string): number | null {
   return Number.isInteger(n) && n >= 1 && n <= MAX_LIMIT ? n : null;
 }
 
-function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -135,6 +168,7 @@ export function AddAdvisorSheet({
   const [email, setEmail] = useState('');
   const [specialization, setSpecialization] = useState(DEFAULT_SPECIALIZATION);
   const [maxOpen, setMaxOpen] = useState('25');
+  const [city, setCity] = useState('');
   const [passwordMode, setPasswordMode] = useState<'generate' | 'set'>('generate');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -155,6 +189,7 @@ export function AddAdvisorSheet({
     setEmail('');
     setSpecialization(DEFAULT_SPECIALIZATION);
     setMaxOpen('25');
+    setCity('');
     setPasswordMode('generate');
     setPassword('');
     setShowPassword(false);
@@ -180,6 +215,7 @@ export function AddAdvisorSheet({
     if (!EMAIL_PATTERN.test(email.trim())) e.email = 'Enter a valid email address';
     if (specialization.trim().length > 100) e.specialization = 'Keep it under 100 characters';
     if (validLimit(maxOpen) === null) e.maxOpen = `Enter a number from 1 to ${MAX_LIMIT}`;
+    if (!city) e.city = 'Choose the city they work in';
     if (passwordMode === 'set' && password.length < PASSWORD_MIN_LENGTH) e.password = PASSWORD_TOO_SHORT;
     return e;
   };
@@ -201,6 +237,7 @@ export function AddAdvisorSheet({
         specialization: specialization.trim() || DEFAULT_SPECIALIZATION,
         maxAssignedRequests: validLimit(maxOpen),
         password: passwordMode === 'set' ? password : null,
+        city,
       }),
     });
     setSaving(false);
@@ -229,6 +266,7 @@ export function AddAdvisorSheet({
         email: existing.email,
         specialization: specialization.trim() || DEFAULT_SPECIALIZATION,
         maxAssignedRequests: validLimit(maxOpen),
+        city,
       }),
     });
     setSaving(false);
@@ -354,6 +392,16 @@ export function AddAdvisorSheet({
             error={errors.email}
             helperText="The welcome email goes here"
             required
+          />
+          <CityField
+            id="advisor-city"
+            value={city}
+            onChange={(v) => {
+              setCity(v);
+              clearError('city');
+            }}
+            error={errors.city}
+            helperText="They only see this city's bookings, jobs and garages"
           />
           <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
             <SpecializationField value={specialization} onChange={setSpecialization} error={errors.specialization} />
@@ -506,6 +554,7 @@ export function EditAdvisorSheet({
   const [fullName, setFullName] = useState('');
   const [specialization, setSpecialization] = useState(DEFAULT_SPECIALIZATION);
   const [maxOpen, setMaxOpen] = useState('25');
+  const [city, setCity] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -516,6 +565,7 @@ export function EditAdvisorSheet({
     setFullName(advisor.fullName);
     setSpecialization(advisor.specialization || DEFAULT_SPECIALIZATION);
     setMaxOpen(String(advisor.maxAssignedRequests ?? 25));
+    setCity(advisor.city ?? '');
     setErrors({});
     setFormError(null);
   }, [advisor]);
@@ -531,6 +581,7 @@ export function EditAdvisorSheet({
     if (fullName.trim().length < 2) e.fullName = "Enter the advisor's full name";
     if (specialization.trim().length > 100) e.specialization = 'Keep it under 100 characters';
     if (validLimit(maxOpen) === null) e.maxOpen = `Enter a number from 1 to ${MAX_LIMIT}`;
+    if (!city) e.city = 'Choose the city they work in';
     setErrors(e);
     setFormError(null);
     if (Object.keys(e).length > 0) return;
@@ -542,6 +593,7 @@ export function EditAdvisorSheet({
         fullName: fullName.trim(),
         specialization: specialization.trim() || DEFAULT_SPECIALIZATION,
         maxAssignedRequests: validLimit(maxOpen),
+        city,
       }),
     });
     setSaving(false);
@@ -581,6 +633,20 @@ export function EditAdvisorSheet({
             }}
             error={errors.fullName}
             required
+          />
+          <CityField
+            id="edit-advisor-city"
+            value={city}
+            onChange={(v) => {
+              setCity(v);
+              clearError('city');
+            }}
+            error={errors.city}
+            helperText={
+              city && city !== advisor.city
+                ? 'Bookings they already have stay with them. New ones come from the new city.'
+                : "They only see this city's bookings, jobs and garages"
+            }
           />
           <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
             <SpecializationField value={specialization} onChange={setSpecialization} error={errors.specialization} />

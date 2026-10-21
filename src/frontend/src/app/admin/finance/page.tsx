@@ -35,6 +35,8 @@ import { useToast } from '@/components/ui/Toast';
 import { CommissionSummaryCard } from '@/components/admin/CommissionSummaryCard';
 import { formatDate, formatDateTime, formatINR, formatINRShort, formatINRWhole } from '@/lib/format';
 import { dateRangeQuery, toQueryString, useUrlFilters } from '@/lib/useUrlFilters';
+import { useCityOptions } from '@/lib/filterOptions';
+import { Select } from '@/components/ui/Select';
 
 // ---------------------------------------------------------------------------------------------
 // Response normalisation. The API returns settlements as a paged object and ledger rows with
@@ -210,6 +212,8 @@ const LEDGER_LIMIT = 200;
 // Each tab keeps its own filters in the URL (l* = ledger, s* = settlements), so switching tabs keeps them.
 const FILTER_DEFAULTS = {
   tab: 'ledger',
+  // City of the summary cards (bookings by their city, commission by the garage's).
+  city: '',
   lq: '',
   ltype: '',
   lacct: '',
@@ -239,6 +243,7 @@ function AdminFinance() {
   const router = useRouter();
   const toast = useToast();
   const filters = useUrlFilters(FILTER_DEFAULTS);
+  const cityOptions = useCityOptions(true);
   const { values: f, page: urlPage } = filters;
   const activeTab: Tab = f.tab === 'settlements' ? 'settlements' : 'ledger';
 
@@ -287,7 +292,7 @@ function AdminFinance() {
 
   const loadOverview = useCallback(async () => {
     setOverviewLoading(true);
-    const res = await apiFetch<FinanceOverviewDto>('/admin/finance/overview');
+    const res = await apiFetch<FinanceOverviewDto>(`/admin/finance/overview${toQueryString({ city: f.city })}`);
     if (res.success && res.data) {
       setOverview(res.data as unknown as Raw);
       setErrors((e) => ({ ...e, overview: undefined }));
@@ -295,7 +300,7 @@ function AdminFinance() {
       setErrors((e) => ({ ...e, overview: res.message || 'Could not load the finance summary.' }));
     }
     setOverviewLoading(false);
-  }, []);
+  }, [f.city]);
 
   const loadSettlements = useCallback(async (qs: string) => {
     const id = ++latestSettlements.current;
@@ -419,13 +424,23 @@ function AdminFinance() {
         title="Finance"
         description="Booking advances customers paid online, commission garages paid BroCo, and refunds."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => router.push('/admin/payments')}
-            leftIcon={<CreditCard className="h-4 w-4" />}
-          >
-            Payments & refunds
-          </Button>
+          <>
+            <div className="w-full sm:w-44">
+              <Select
+                aria-label="City for the summary"
+                value={f.city}
+                onChange={(e) => filters.set({ city: e.target.value })}
+                options={[{ value: '', label: 'All cities' }, ...cityOptions]}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/admin/payments')}
+              leftIcon={<CreditCard className="h-4 w-4" />}
+            >
+              Payments & refunds
+            </Button>
+          </>
         }
       />
 

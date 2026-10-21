@@ -173,6 +173,25 @@ public static class EmailTemplates
             footnote: "Keep this password safe and do not share it with anyone. You can change it any time with \"Forgot password\" on the sign-in page.");
     }
 
+    public static RenderedEmail GarageWelcome(string fullName, string garageName, string loginMobile, string email, string password, string? siteUrl)
+    {
+        var signIn = Link(siteUrl, "/login", "Sign in to BroCo");
+        return Render(
+            subject: $"{garageName} is on BroCo",
+            preheader: "Sign in with your mobile number and the password in this email.",
+            heading: "Welcome to BroCo",
+            greeting: $"Hi {FirstName(fullName)},",
+            paragraphs: new[]
+            {
+                $"The BroCo team has listed {garageName} on BroCo and created your garage owner account. Sign in with your mobile number and the password below to see bookings and jobs.",
+                signIn is { } link ? $"Sign in at {link.Url}" : string.Empty,
+            },
+            code: null,
+            rows: Rows(("Garage", garageName), ("Mobile number", loginMobile), ("Email", email), ("Password", password)),
+            button: signIn,
+            footnote: "Keep this password safe and do not share it with anyone. You can change it any time with \"Forgot password\" on the sign-in page.");
+    }
+
     private static string FirstName(string fullName) => fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
 
     private static IReadOnlyList<(string Label, string Value)> Rows(params (string Label, string? Value)[] rows) =>
