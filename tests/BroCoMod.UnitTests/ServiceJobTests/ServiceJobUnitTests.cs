@@ -251,7 +251,7 @@ public class ServiceJobUnitTests
     }
 
     [Fact]
-    public void ServiceJob_CloseJob_TransitionsToClosed_FromHandedOver()
+    public void ServiceJob_CloseJob_TransitionsToClosed_OncePaymentIsReceived()
     {
         var job = CreateTestJob();
         job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
@@ -259,6 +259,12 @@ public class ServiceJobUnitTests
         job.CompleteWork(Guid.NewGuid());
         job.MarkVehicleReady("Ready", Guid.NewGuid());
         job.HandOverVehicle("Handed over", Guid.NewGuid());
+        job.RecordPaymentReceived(4184m, "UPI", Guid.NewGuid());
+
+        job.Status.Should().Be(ServiceJobStatus.PaymentReceived);
+        job.PaymentReceivedAmount.Should().Be(4184m);
+        job.PaymentMode.Should().Be("UPI");
+        job.PaymentReceivedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
         job.CloseJob("All payment reconciled and warranty registered.", Guid.NewGuid());
 
@@ -278,7 +284,48 @@ public class ServiceJobUnitTests
         var act = () => job.CloseJob("Close", Guid.NewGuid());
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Cannot close job in 'VehicleReady' state. Allowed only when 'HandedOver'*");
+            .WithMessage("*Cannot close job in 'VehicleReady' state*");
+    }
+
+    [Fact]
+    public void ServiceJob_CloseJob_Throws_WhenHandedOverButPaymentNotRecorded()
+    {
+        var job = CreateTestJob();
+        job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
+        job.StartWork(Guid.NewGuid());
+        job.CompleteWork(Guid.NewGuid());
+        job.MarkVehicleReady("Ready", Guid.NewGuid());
+        job.HandOverVehicle("Handed over", Guid.NewGuid());
+
+        var act = () => job.CloseJob("Close", Guid.NewGuid());
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Record the payment*");
+    }
+
+    [Fact]
+    public void ServiceJob_RecordPaymentReceived_Throws_BeforeHandover()
+    {
+        var job = CreateTestJob();
+        job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
+
+        var act = () => job.RecordPaymentReceived(100m, "Cash", Guid.NewGuid());
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void ServiceJob_RecordPaymentReceived_RejectsNegativeAmount()
+    {
+        var job = CreateTestJob();
+        job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
+        job.StartWork(Guid.NewGuid());
+        job.CompleteWork(Guid.NewGuid());
+        job.MarkVehicleReady("Ready", Guid.NewGuid());
+        job.HandOverVehicle(null, Guid.NewGuid());
+
+        var act = () => job.RecordPaymentReceived(-1m, "Cash", Guid.NewGuid());
+
+        act.Should().Throw<ArgumentException>();
     }
 
     [Fact]

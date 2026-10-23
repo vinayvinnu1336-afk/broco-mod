@@ -224,6 +224,7 @@ export interface AdminRequestOperationalDetail {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  preferredServiceDate?: string | null;
 }
 
 export interface AdminGarageList {

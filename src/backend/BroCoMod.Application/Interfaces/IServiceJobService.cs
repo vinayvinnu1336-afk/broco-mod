@@ -22,6 +22,7 @@ public interface IServiceJobService
     Task<GarageServiceJobDetailDto> CompleteWorkAsync(Guid jobId, Guid garageId, Guid userId, CompleteWorkRequest request, CancellationToken cancellationToken = default);
     Task<GarageServiceJobDetailDto> MarkVehicleReadyAsync(Guid jobId, Guid garageId, Guid userId, VehicleReadyRequest request, CancellationToken cancellationToken = default);
     Task<GarageServiceJobDetailDto> HandOverVehicleAsync(Guid jobId, Guid garageId, Guid userId, HandOverVehicleRequest request, CancellationToken cancellationToken = default);
+    Task<GarageServiceJobDetailDto> RecordPaymentReceivedAsync(Guid jobId, Guid garageId, Guid userId, RecordPaymentReceivedRequest request, CancellationToken cancellationToken = default);
     Task<GarageServiceJobDetailDto> CloseJobAsync(Guid jobId, Guid garageId, Guid userId, CloseJobRequest request, CancellationToken cancellationToken = default);
 
     // Additional Work Requests

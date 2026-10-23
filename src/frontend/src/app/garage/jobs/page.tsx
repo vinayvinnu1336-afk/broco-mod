@@ -32,8 +32,9 @@ const FILTERS = [
   { value: 'VehicleReceived', label: 'Car received' },
   { value: 'Inspection', label: 'Inspection' },
   { value: 'WorkInProgress', label: 'In progress' },
-  { value: 'VehicleReady', label: 'Ready for pickup' },
+  { value: 'VehicleReady', label: 'Ready for handover' },
   { value: 'HandedOver', label: 'Handed over' },
+  { value: 'PaymentReceived', label: 'Payment received' },
   { value: 'Closed', label: 'Closed' },
 ];
 
@@ -51,6 +52,7 @@ function jobTile(status: string) {
     case 'WorkCompleted':
     case 'VehicleReady':
     case 'HandedOver':
+    case 'PaymentReceived':
       return <IconTile icon={CheckCircle2} tone="green" />;
     case 'Cancelled':
       return <IconTile icon={XCircle} tone="red" />;

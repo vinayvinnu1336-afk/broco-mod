@@ -109,7 +109,8 @@ public record AdminRequestOperationalDetailDto(
     bool NeedsPickup = false,
     string? PickupNotes = null,
     string? PickupSlot = null,
-    string City = ""
+    string City = "",
+    DateTime? PreferredServiceDate = null
 );
 
 public record AdminDispatchedGarageDto(

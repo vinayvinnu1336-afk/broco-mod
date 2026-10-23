@@ -320,6 +320,7 @@ public class ServiceJobService : IServiceJobService
         EnsureAdvancePaid(job);
 
         job.ReceiveVehicle(request.CurrentMileageKm ?? 0, request.Notes, null, userId);
+        job.ServiceRequest?.MarkInProgress();
 
         var mileageMsg = request.CurrentMileageKm.HasValue ? $" Mileage: {request.CurrentMileageKm.Value:N0} km." : string.Empty;
         var activity = new ServiceJobActivity(
@@ -469,6 +470,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.StartWork(userId);
+        job.ServiceRequest?.MarkInProgress();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
@@ -665,6 +667,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.HandOverVehicle(request.HandoverNotes, userId);
+        job.ServiceRequest?.MarkCompleted();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
@@ -707,6 +710,42 @@ public class ServiceJobService : IServiceJobService
         return MapToGarageDetailDto(job);
     }
 
+    public async Task<GarageServiceJobDetailDto> RecordPaymentReceivedAsync(
+        Guid jobId,
+        Guid garageId,
+        Guid userId,
+        RecordPaymentReceivedRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
+
+        job.RecordPaymentReceived(request.AmountReceived, request.PaymentMode, userId);
+
+        var mode = string.IsNullOrWhiteSpace(job.PaymentMode) ? string.Empty : $" by {job.PaymentMode}";
+        var note = string.IsNullOrWhiteSpace(request.Notes) ? string.Empty : $" {request.Notes.Trim()}";
+        _context.ServiceJobActivities.Add(new ServiceJobActivity(
+            serviceJobId: job.Id,
+            activityType: JobActivityType.PaymentReceived,
+            message: $"Payment of ₹{job.PaymentReceivedAmount:N0} received at the garage{mode}.{note}",
+            isCustomerVisible: true,
+            createdByUserId: userId
+        ));
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _auditService.LogAsync(
+            action: "SERVICE_JOB_PAYMENT_RECEIVED",
+            userId: userId,
+            userEmail: "GarageUser",
+            entityName: "ServiceJob",
+            entityId: job.Id.ToString(),
+            details: $"Garage recorded ₹{job.PaymentReceivedAmount:N2}{mode} from the customer for Job #{job.JobNumber}.",
+            cancellationToken: cancellationToken
+        );
+
+        return MapToGarageDetailDto(job);
+    }
+
     public async Task<GarageServiceJobDetailDto> CloseJobAsync(
         Guid jobId,
         Guid garageId,
@@ -717,6 +756,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.CloseJob(request.ClosingRemarks, userId);
+        job.ServiceRequest?.MarkCompleted();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
@@ -1069,7 +1109,10 @@ public class ServiceJobService : IServiceJobService
             ServiceItems: GarageCustomerLocation.ServiceItems(job.ServiceRequest, job.CustomerQuotation, packageIncludes),
             ServiceCategory: job.ServiceRequest?.ServiceCategory,
             VehicleFuel: job.ServiceRequest?.VehicleFuel,
-            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate
+            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate,
+            PaymentReceivedAtUtc: job.PaymentReceivedAtUtc,
+            PaymentReceivedAmount: job.PaymentReceivedAmount,
+            PaymentMode: job.PaymentMode
         );
     }
 
@@ -1187,7 +1230,8 @@ public class ServiceJobService : IServiceJobService
             ConcurrencyToken: job.ConcurrencyToken,
             NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
             PickupNotes: job.ServiceRequest?.PickupNotes,
-            PickupSlot: job.ServiceRequest?.PickupSlot
+            PickupSlot: job.ServiceRequest?.PickupSlot,
+            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate
         );
     }
 

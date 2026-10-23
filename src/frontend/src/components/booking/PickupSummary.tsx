@@ -1,10 +1,18 @@
 import React from 'react';
 import { CarFront, Truck } from 'lucide-react';
-import { PickupFields, formatPickup } from '@/components/booking/pickup';
+import { PickupFields, formatPickup, formatPreferredVisit } from '@/components/booking/pickup';
 
-/** "Pick-up & drop: Yes, Morning 9-12 - Gate 2" as a small block for staff screens (garage, advisor, admin). */
-export function PickupSummary({ className = '', ...pickup }: PickupFields & { className?: string }) {
+/**
+ * "Pick-up & drop: Yes, Morning 9-12 - Gate 2" plus the customer's chosen day, as a small block for
+ * staff screens (garage, advisor, admin).
+ */
+export function PickupSummary({
+  className = '',
+  preferredServiceDate,
+  ...pickup
+}: PickupFields & { className?: string; preferredServiceDate?: string | null }) {
   const yes = !!pickup.needsPickup;
+  const visit = formatPreferredVisit(preferredServiceDate, pickup.pickupSlot);
   const Icon = yes ? Truck : CarFront;
   return (
     <div
@@ -16,6 +24,14 @@ export function PickupSummary({ className = '', ...pickup }: PickupFields & { cl
       <div className="min-w-0">
         <div className={`text-xs font-medium ${yes ? 'text-electric-700' : 'text-navy-500'}`}>Pick-up &amp; drop</div>
         <div className="break-words font-semibold">{formatPickup(pickup)}</div>
+        {visit && (
+          <div className="mt-1.5 break-words">
+            <span className={`text-xs font-medium ${yes ? 'text-electric-700' : 'text-navy-500'}`}>
+              {yes ? 'Pick-up date' : 'Preferred visit'}:{' '}
+            </span>
+            <span className="font-semibold">{visit}</span>
+          </div>
+        )}
       </div>
     </div>
   );

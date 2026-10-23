@@ -212,7 +212,7 @@ public class BookingCancellationService : IBookingCancellationService
     /// <summary>Ends the request and everything still open under it, using each entity's own rules.</summary>
     private async Task CascadeAsync(ServiceRequest request, List<ServiceJob> jobs, string reason, Guid actorUserId, bool byAdmin, CancellationToken ct)
     {
-        request.Cancel(reason);
+        request.Cancel(reason, allowAfterCompletion: byAdmin);
 
         foreach (var job in jobs)
         {
@@ -288,10 +288,11 @@ public class BookingCancellationService : IBookingCancellationService
         var isCancelled = request.Status == ServiceRequestStatus.Cancelled;
         string? cannotCancel = isCancelled
             ? "This booking is already cancelled."
-            : request.Status == ServiceRequestStatus.Completed
-                ? "This booking is completed, so it can no longer be cancelled."
-                : allJobs.Any(j => j.Status == ServiceJobStatus.Closed)
-                    ? "This job is closed, so it can no longer be cancelled."
+            // A booking is Completed from handover, but BroCo can still cancel it until the job is closed.
+            : allJobs.Any(j => j.Status == ServiceJobStatus.Closed)
+                ? "This job is closed, so it can no longer be cancelled."
+                : request.Status == ServiceRequestStatus.Completed && allJobs.All(j => j.Status == ServiceJobStatus.Cancelled)
+                    ? "This booking is completed, so it can no longer be cancelled."
                     : null;
 
         var currency = payments.FirstOrDefault()?.Currency ?? "INR";

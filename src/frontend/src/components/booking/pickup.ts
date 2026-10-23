@@ -22,3 +22,16 @@ export function formatPickup(p: PickupFields, driveInText = 'No, customer drives
   const head = slot ? `Yes, ${slot}` : 'Yes';
   return notes ? `${head} - ${notes}` : head;
 }
+
+/**
+ * The day (and slot) the customer asked for, e.g. "Fri, 24 Oct 2026 · Morning 9-12".
+ * Drive-in bookings carry no pickupSlot, so their slot is read back from the hour the booking form stores.
+ */
+export function formatPreferredVisit(preferredServiceDate: string | null | undefined, pickupSlot?: string | null): string | null {
+  if (!preferredServiceDate) return null;
+  const when = new Date(preferredServiceDate);
+  if (Number.isNaN(when.getTime())) return null;
+  const day = when.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const slot = pickupSlot?.trim() || PICKUP_SLOTS.find((s) => s.hour === when.getHours() && when.getMinutes() === 0)?.value;
+  return slot ? `${day} · ${slot}` : day;
+}

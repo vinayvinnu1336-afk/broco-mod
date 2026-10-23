@@ -222,8 +222,8 @@ test('5. garage cannot receive the car before the advance is paid', async ({ bro
 
   await expect(page.getByText('Waiting for the customer’s 10% advance. You can’t receive the car until it’s paid.')).toBeVisible();
 
-  // Scheduling is allowed…
-  await actionBar(page, /^Schedule$/).click();
+  // The customer drives in, so the garage waits for the car; changing the time is allowed…
+  await actionBar(page, /^Change time$/).click();
   const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
   const day = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   await page.getByLabel(/^Drop-off/).fill(`${day}T10:00`);

@@ -115,7 +115,10 @@ public record GarageServiceJobDetailDto(
     IReadOnlyList<string>? ServiceItems = null,
     string? ServiceCategory = null,
     string? VehicleFuel = null,
-    DateTime? PreferredServiceDate = null
+    DateTime? PreferredServiceDate = null,
+    DateTime? PaymentReceivedAtUtc = null,
+    decimal? PaymentReceivedAmount = null,
+    string? PaymentMode = null
 );
 
 /// <summary>
@@ -198,7 +201,8 @@ public record AdvisorServiceJobDetailDto(
     Guid ConcurrencyToken,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    DateTime? PreferredServiceDate = null
 );
 
 // Command DTOs
@@ -248,6 +252,13 @@ public record HandOverVehicleRequest(
 
 public record CloseJobRequest(
     string? ClosingRemarks
+);
+
+/// <summary>Mode is free text from the app: Cash, UPI, Card or Other.</summary>
+public record RecordPaymentReceivedRequest(
+    decimal AmountReceived,
+    string? PaymentMode,
+    string? Notes = null
 );
 
 public record CancelJobRequest(
