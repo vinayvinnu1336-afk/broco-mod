@@ -174,7 +174,8 @@ public class AdvisorQuotationService : IAdvisorQuotationService
             quotesComparison,
             request.NeedsPickup,
             request.PickupNotes,
-            request.PickupSlot
+            request.PickupSlot,
+            request.PreferredServiceDate
         );
 
         return ApiResponse<QuoteComparisonDto>.Ok(dto);

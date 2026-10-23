@@ -79,6 +79,7 @@ export interface QuoteComparisonDto {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  preferredServiceDate?: string | null;
 }
 
 export interface AdvisorRequestNoteDto {

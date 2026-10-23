@@ -422,6 +422,7 @@ export default function AdvisorRequestQuotationReviewPage() {
             needsPickup={comparison.needsPickup}
             pickupNotes={comparison.pickupNotes}
             pickupSlot={comparison.pickupSlot}
+            preferredServiceDate={comparison.preferredServiceDate}
           />
           {!isPackage && (
           <dl className="grid grid-cols-2 gap-3 border-t border-surface-200 pt-4 sm:grid-cols-4">

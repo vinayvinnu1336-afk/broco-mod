@@ -52,6 +52,7 @@ import { formatDateTime, formatINR, humanize } from '@/lib/format';
 import { GarageCommission } from '@/components/garage/commission';
 import { ServiceMediaSection } from '@/components/media/ServiceMediaSection';
 import { PickupSummary } from '@/components/booking/PickupSummary';
+import { formatPreferredVisit } from '@/components/booking/pickup';
 import { CustomerLocationCard } from '@/components/garage/CustomerLocationCard';
 import { ShareJobSheet } from '@/components/garage/ShareJobSheet';
 import { buildJobShareText, jobShareInput } from '@/lib/jobShare';
@@ -93,7 +94,9 @@ interface StepAction {
 }
 
 /** The job lifecycle as the workshop sees it. WorkStarted/WorkInProgress are one step. */
-const STAGES: { label: string; statuses: string[]; at?: (j: GarageServiceJobDetailDto) => string | null | undefined }[] = [
+type Stage = { label: string; statuses: string[]; at?: (j: GarageServiceJobDetailDto) => string | null | undefined };
+
+const STAGES: Stage[] = [
   { label: 'Booked', statuses: ['BookingConfirmed'] },
   { label: 'Scheduled', statuses: ['Scheduled'], at: (j) => j.scheduledStartAtUtc },
   { label: 'Car received', statuses: ['VehicleReceived'], at: (j) => j.actualVehicleReceivedAtUtc },
@@ -149,6 +152,71 @@ const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?
   Closed: { hint: 'This job is finished. Nothing more to do.' },
   Cancelled: { hint: 'This booking was cancelled.' },
 };
+
+type NextStep = (typeof NEXT_STEP)[string];
+
+/** Pick-up bookings: the garage collects the car and brings it back, so a few steps read differently. */
+function stagesFor(job: GarageServiceJobDetailDto): Stage[] {
+  if (!job.needsPickup) return STAGES.map((s) => (s.statuses.includes('VehicleReady') ? { ...s, label: 'Ready to collect' } : s));
+  return STAGES.map((s) => {
+    if (s.statuses.includes('Scheduled')) return { ...s, label: 'Pick-up set' };
+    if (s.statuses.includes('VehicleReceived')) return { ...s, label: 'Car picked up' };
+    if (s.statuses.includes('VehicleReady')) return { ...s, label: 'Ready to deliver' };
+    if (s.statuses.includes('HandedOver')) return { ...s, label: 'Delivered' };
+    return s;
+  });
+}
+
+/**
+ * The next action follows what the customer chose at booking. They already picked drop-off or pick-up and a
+ * day/slot, so "Car received" (or "Car picked up") comes first; scheduling is only for changing that time.
+ */
+function nextStepFor(status: string, job: GarageServiceJobDetailDto): NextStep | undefined {
+  const base = NEXT_STEP[status];
+  const pickup = !!job.needsPickup;
+  const visit = formatPreferredVisit(job.preferredServiceDate, job.pickupSlot);
+  const receive: StepAction = {
+    modal: 'receive',
+    label: pickup ? 'Car picked up' : 'Car received',
+    icon: <CarFront className="h-4 w-4" />,
+  };
+  const changeTime: StepAction = { modal: 'schedule', label: 'Change time', icon: <Calendar className="h-4 w-4" /> };
+  switch (status) {
+    case 'BookingConfirmed':
+      return {
+        hint: pickup
+          ? `Pick up the car from the customer${visit ? ` on ${visit}` : ''}, then record it here.`
+          : `The customer will drop the car at your garage${visit ? ` on ${visit}` : ''}. Record it when it arrives.`,
+        primary: receive,
+        secondary: changeTime,
+      };
+    case 'Scheduled':
+      return {
+        hint: pickup ? 'Record it once you have picked up the car, with the odometer reading.' : base.hint,
+        primary: receive,
+        secondary: changeTime,
+      };
+    case 'WorkCompleted':
+      return pickup
+        ? { ...base, hint: 'Let the customer know the car is ready and when you will drop it back.', primary: { ...base.primary!, label: 'Ready to deliver' } }
+        : base;
+    case 'VehicleReady':
+      return pickup
+        ? { ...base, hint: 'Record the handover when you drop the car and keys back with the customer.' }
+        : base;
+    default:
+      return base;
+  }
+}
+
+/** ISO time → value for `<input type="datetime-local">` in the viewer's local time. */
+function utcIsoToLocalInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const SEVERITY_OPTIONS = [
   { value: 'Info', label: 'Info only' },
@@ -309,6 +377,16 @@ export default function GarageJobDetailPage() {
 
   function openModal(key: ModalKey) {
     setErrorMsg(null);
+    // Start from the customer's chosen time (or the current schedule) so the garage only adjusts it.
+    if (key === 'schedule' && job && !scheduleForm.scheduledStartAtUtc) {
+      const startIso = job.scheduledStartAtUtc || job.preferredServiceDate;
+      const start = utcIsoToLocalInput(startIso);
+      if (start) {
+        const readyIso =
+          job.estimatedCompletionAtUtc || new Date(new Date(startIso!).getTime() + 6 * 60 * 60 * 1000).toISOString();
+        setScheduleForm({ ...scheduleForm, scheduledStartAtUtc: start, estimatedCompletionAtUtc: utcIsoToLocalInput(readyIso) });
+      }
+    }
     setActiveModal(key);
   }
 
@@ -360,9 +438,10 @@ export default function GarageJobDetailPage() {
   const status = String(job.status);
   const isCancelled = status === 'Cancelled';
   const canAskBroCo = !isCancelled && status !== 'Closed' && status !== 'HandedOver';
-  const stageIndex = STAGES.findIndex((s) => s.statuses.includes(status));
-  const currentStage = stageIndex >= 0 ? STAGES[stageIndex] : null;
-  const next = NEXT_STEP[status];
+  const stages = stagesFor(job);
+  const stageIndex = stages.findIndex((s) => s.statuses.includes(status));
+  const currentStage = stageIndex >= 0 ? stages[stageIndex] : null;
+  const next = nextStepFor(status, job);
   const canRequestExtraWork = status === 'WorkStarted' || status === 'WorkInProgress';
   const vehicleName = `${job.vehicleYear ?? ''} ${job.vehicleMake ?? ''} ${job.vehicleModel ?? ''}`.trim();
 
@@ -426,11 +505,11 @@ export default function GarageJobDetailPage() {
           ) : (
             <>
               <div className="text-xs font-medium text-navy-500">
-                {stageIndex >= 0 ? `Step ${stageIndex + 1} of ${STAGES.length}` : 'Current stage'}
+                {stageIndex >= 0 ? `Step ${stageIndex + 1} of ${stages.length}` : 'Current stage'}
               </div>
               <div className="mt-1 text-lg font-bold text-navy-900">{currentStage?.label ?? humanize(status)}</div>
               <div className="mt-3 flex gap-1" aria-hidden="true">
-                {STAGES.map((s, i) => (
+                {stages.map((s, i) => (
                   <span
                     key={s.label}
                     className={`h-1.5 flex-1 rounded-full ${
@@ -453,7 +532,7 @@ export default function GarageJobDetailPage() {
                   <span className="hidden group-open:inline">Hide steps</span>
                 </summary>
                 <ol className="mt-2 space-y-2">
-                  {STAGES.map((s, i) => {
+                  {stages.map((s, i) => {
                     const done = i < stageIndex;
                     const current = i === stageIndex;
                     const at = s.at?.(job);
@@ -644,7 +723,7 @@ export default function GarageJobDetailPage() {
         {/* Customer's problem */}
         <Section title="Customer’s problem">
           <div className="space-y-3 rounded-2xl border border-surface-200 bg-white p-4 text-sm shadow-card sm:p-5">
-            <PickupSummary needsPickup={job.needsPickup} pickupNotes={job.pickupNotes} pickupSlot={job.pickupSlot} />
+            <PickupSummary needsPickup={job.needsPickup} pickupNotes={job.pickupNotes} pickupSlot={job.pickupSlot} preferredServiceDate={job.preferredServiceDate} />
             <p className="whitespace-pre-wrap text-navy-800">{job.problemDescription || 'Not described.'}</p>
             {job.customerComplaintSnapshot && job.customerComplaintSnapshot !== job.problemDescription && (
               <div className="border-t border-surface-200 pt-3">

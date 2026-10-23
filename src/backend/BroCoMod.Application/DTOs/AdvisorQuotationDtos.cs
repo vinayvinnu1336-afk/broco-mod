@@ -17,7 +17,8 @@ public record QuoteComparisonDto(
     List<QuoteComparisonItemDto> Quotes,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    DateTime? PreferredServiceDate = null
 );
 
 public record QuoteComparisonItemDto(

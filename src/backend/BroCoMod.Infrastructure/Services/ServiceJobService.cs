@@ -1187,7 +1187,8 @@ public class ServiceJobService : IServiceJobService
             ConcurrencyToken: job.ConcurrencyToken,
             NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
             PickupNotes: job.ServiceRequest?.PickupNotes,
-            PickupSlot: job.ServiceRequest?.PickupSlot
+            PickupSlot: job.ServiceRequest?.PickupSlot,
+            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate
         );
     }
 

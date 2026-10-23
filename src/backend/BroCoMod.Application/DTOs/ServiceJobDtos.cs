@@ -198,7 +198,8 @@ public record AdvisorServiceJobDetailDto(
     Guid ConcurrencyToken,
     bool NeedsPickup = false,
     string? PickupNotes = null,
-    string? PickupSlot = null
+    string? PickupSlot = null,
+    DateTime? PreferredServiceDate = null
 );
 
 // Command DTOs
