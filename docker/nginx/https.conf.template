@@ -14,6 +14,20 @@ server {
     }
 }
 
+# Any other name on this server (www, the .in domain) gets a clean redirect to the main domain.
+# The certificate must list those names too, or browsers warn before they see the redirect.
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name _;
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    return 301 https://${DOMAIN}$request_uri;
+}
+
 server {
     listen 443 ssl;
     http2 on;
