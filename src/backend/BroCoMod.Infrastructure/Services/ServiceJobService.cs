@@ -320,6 +320,7 @@ public class ServiceJobService : IServiceJobService
         EnsureAdvancePaid(job);
 
         job.ReceiveVehicle(request.CurrentMileageKm ?? 0, request.Notes, null, userId);
+        job.ServiceRequest?.MarkInProgress();
 
         var mileageMsg = request.CurrentMileageKm.HasValue ? $" Mileage: {request.CurrentMileageKm.Value:N0} km." : string.Empty;
         var activity = new ServiceJobActivity(
@@ -469,6 +470,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.StartWork(userId);
+        job.ServiceRequest?.MarkInProgress();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
@@ -665,6 +667,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.HandOverVehicle(request.HandoverNotes, userId);
+        job.ServiceRequest?.MarkCompleted();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
@@ -717,6 +720,7 @@ public class ServiceJobService : IServiceJobService
         var job = await GetJobForGarageActionAsync(jobId, garageId, cancellationToken);
 
         job.CloseJob(request.ClosingRemarks, userId);
+        job.ServiceRequest?.MarkCompleted();
 
         var activity = new ServiceJobActivity(
             serviceJobId: job.Id,
