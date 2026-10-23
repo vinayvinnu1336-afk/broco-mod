@@ -135,7 +135,7 @@ export default function AdvisorJobDetailPage() {
     { label: 'Car received', at: job.actualVehicleReceivedAtUtc },
     { label: 'Work started', at: job.actualWorkStartedAtUtc },
     { label: 'Work completed', at: job.actualWorkCompletedAtUtc },
-    { label: 'Ready for pickup', at: job.vehicleReadyAtUtc },
+    { label: 'Ready for handover', at: job.vehicleReadyAtUtc },
     { label: 'Handed over', at: job.handedOverAtUtc },
     { label: 'Closed', at: job.closedAtUtc },
   ];

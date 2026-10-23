@@ -26,8 +26,9 @@ const STATUS_OPTIONS = [
   { value: 'VehicleReceived', label: 'Car received' },
   { value: 'Inspection', label: 'Inspection' },
   { value: 'WorkInProgress', label: 'In progress' },
-  { value: 'VehicleReady', label: 'Ready for pickup' },
+  { value: 'VehicleReady', label: 'Ready for handover' },
   { value: 'HandedOver', label: 'Handed over' },
+  { value: 'PaymentReceived', label: 'Payment received' },
   { value: 'Closed', label: 'Closed' },
 ];
 

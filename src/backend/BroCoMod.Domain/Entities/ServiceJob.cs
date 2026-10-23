@@ -25,6 +25,12 @@ public class ServiceJob : BaseEntity
     public DateTime? VehicleReadyAtUtc { get; private set; }
     public DateTime? HandedOverAtUtc { get; private set; }
     public DateTime? ClosedAtUtc { get; private set; }
+    public DateTime? PaymentReceivedAtUtc { get; private set; }
+    /// <summary>What the customer paid the garage at handover (the balance after BroCo's advance).</summary>
+    public decimal? PaymentReceivedAmount { get; private set; }
+    public string? PaymentMode { get; private set; }
+
+    public const int PaymentModeMaxLength = 30;
     public DateTime? CancelledAtUtc { get; private set; }
     public string? CancellationReason { get; private set; }
 
@@ -205,10 +211,31 @@ public class ServiceJob : BaseEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public void CloseJob(string? note, Guid userId)
+    public void RecordPaymentReceived(decimal amount, string? mode, Guid userId)
     {
         if (Status != ServiceJobStatus.HandedOver)
-            throw new InvalidOperationException($"Cannot close job in '{Status}' state. Allowed only when 'HandedOver'.");
+            throw new InvalidOperationException($"Cannot record the payment in '{Status}' state. Allowed only after the car is handed over.");
+        if (amount < 0)
+            throw new ArgumentException("Amount received cannot be negative.", nameof(amount));
+        var trimmedMode = string.IsNullOrWhiteSpace(mode) ? null : mode.Trim();
+        if (trimmedMode != null && trimmedMode.Length > PaymentModeMaxLength)
+            throw new ArgumentException($"Payment mode must be at most {PaymentModeMaxLength} characters.", nameof(mode));
+
+        PaymentReceivedAtUtc = DateTime.UtcNow;
+        PaymentReceivedAmount = decimal.Round(amount, 2);
+        PaymentMode = trimmedMode;
+        Status = ServiceJobStatus.PaymentReceived;
+        UpdatedByUserId = userId;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void CloseJob(string? note, Guid userId)
+    {
+        if (Status == ServiceJobStatus.HandedOver)
+            throw new InvalidOperationException("Record the payment received from the customer before closing the job.");
+        if (Status != ServiceJobStatus.PaymentReceived)
+            throw new InvalidOperationException($"Cannot close job in '{Status}' state. Allowed only after the payment is received.");
 
         ClosedAtUtc = DateTime.UtcNow;
         if (!string.IsNullOrWhiteSpace(note)) GarageInternalNotes = note.Trim();

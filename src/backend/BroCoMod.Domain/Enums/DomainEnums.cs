@@ -117,7 +117,9 @@ public enum ServiceJobStatus
     VehicleReady = 8,
     HandedOver = 9,
     Closed = 10,
-    Cancelled = 11
+    Cancelled = 11,
+    /// <summary>After handover: the garage has collected the customer's balance. Comes before Closed.</summary>
+    PaymentReceived = 12
 }
 
 public enum InspectionSeverity
@@ -152,7 +154,8 @@ public enum JobActivityType
     JobClosed = 11,
     JobCancelled = 12,
     AdditionalWorkRequested = 13,
-    AdditionalWorkReviewed = 14
+    AdditionalWorkReviewed = 14,
+    PaymentReceived = 15
 }
 
 public enum GarageStatus

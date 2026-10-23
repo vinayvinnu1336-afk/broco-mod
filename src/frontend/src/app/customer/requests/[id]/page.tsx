@@ -56,6 +56,7 @@ const JOB_ORDER: ServiceJobStatus[] = [
   'WorkCompleted',
   'VehicleReady',
   'HandedOver',
+  'PaymentReceived',
   'Closed',
 ];
 
@@ -65,8 +66,9 @@ const JOB_STEPS: { label: string; reachedAt: number }[] = [
   { label: 'Drop-off scheduled', reachedAt: 1 },
   { label: 'Car received at garage', reachedAt: 2 },
   { label: 'Work in progress', reachedAt: 4 },
-  { label: 'Ready for pickup', reachedAt: 7 },
+  { label: 'Ready for handover', reachedAt: 7 },
   { label: 'Handed over', reachedAt: 8 },
+  { label: 'Payment received', reachedAt: 9 },
 ];
 
 function severityVariant(severity: string): BadgeVariant {

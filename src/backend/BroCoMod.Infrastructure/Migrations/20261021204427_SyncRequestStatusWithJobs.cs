@@ -11,7 +11,7 @@ namespace BroCoMod.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Bookings never left "confirmed" while the garage worked the job. Catch existing ones up:
-            // job handed over / closed (9, 10) -> request Completed (11);
+            // job handed over / payment received / closed (9, 12, 10) -> request Completed (11);
             // job received .. vehicle ready (3..8) -> request InProgress (10).
             // Cancelled (12) and already-completed requests are left alone.
             migrationBuilder.Sql("""
@@ -19,7 +19,7 @@ namespace BroCoMod.Infrastructure.Migrations
                 SET "Status" = 11, "UpdatedAtUtc" = NOW()
                 WHERE sr."Status" NOT IN (11, 12)
                   AND EXISTS (SELECT 1 FROM "ServiceJobs" j
-                              WHERE j."ServiceRequestId" = sr."Id" AND j."Status" IN (9, 10));
+                              WHERE j."ServiceRequestId" = sr."Id" AND j."Status" IN (9, 10, 12));
 
                 UPDATE "ServiceRequests" sr
                 SET "Status" = 10, "UpdatedAtUtc" = NOW()

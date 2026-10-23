@@ -311,9 +311,10 @@ public class ListFiltersIntegrationTests : IClassFixture<WebApplicationFactory<P
         (await ListAsync(admin, $"/api/v1/admin/garages?search={central}&city=Mumbai")).Should().BeEmpty();
 
         // Every garage either owes commission or doesn't
-        var all = (await ListAsync(admin, "/api/v1/admin/garages?pageSize=100")).Select(g => Str(g, "id")).ToHashSet();
         var owing = (await ListAsync(admin, "/api/v1/admin/garages?pageSize=100&dues=any")).Select(g => Str(g, "id")).ToList();
         var clear = (await ListAsync(admin, "/api/v1/admin/garages?pageSize=100&dues=none")).Select(g => Str(g, "id")).ToList();
+        // Read last: tests running alongside add garages, never remove them.
+        var all = (await ListAsync(admin, "/api/v1/admin/garages?pageSize=100")).Select(g => Str(g, "id")).ToHashSet();
         owing.Should().NotIntersectWith(clear);
         owing.Concat(clear).Should().OnlyContain(id => all.Contains(id));
         clear.Should().NotBeEmpty();

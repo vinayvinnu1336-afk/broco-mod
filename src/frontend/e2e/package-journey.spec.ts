@@ -241,7 +241,7 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   await page.getByRole('dialog').getByLabel(/^Note for the customer/).fill('Oil, filters and checks done as per the package.');
   await confirmSheet(page, 'Mark work done');
   await expect(page.getByText(`Collect ${inr(state.atGarage!, 2)} from the customer at handover.`)).toBeVisible();
-  await actionBar(page, /^Ready to deliver$/).click();
+  await actionBar(page, /^Ready for handover$/).click();
   await confirmSheet(page, 'Notify customer');
 
   // Handover: collect the balance; BroCo's commission becomes due.
@@ -275,6 +275,12 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   // Back on the job: close it; the commission is shown as paid.
   await sheet.getByRole('link', { name: `Open job ${state.jobNumber}` }).click();
   await expect(page).toHaveURL(/\/garage\/jobs\//);
+  // The customer paid the balance at handover: record it, then close.
+  await actionBar(page, /^Payment received$/).click();
+  await expect(page.getByRole('dialog').getByLabel(/^Amount received/)).toHaveValue(String(state.atGarage));
+  await page.getByRole('dialog').getByLabel(/^Paid by/).selectOption('UPI');
+  await confirmSheet(page, 'Confirm payment');
+  await expect(page.getByText(`Customer paid you ${inr(state.atGarage!, 2)} by UPI`, { exact: false })).toBeVisible();
   await actionBar(page, /^Close job$/).click();
   await confirmSheet(page, 'Close job');
   await expect(page.getByText('This job is finished. Nothing more to do.')).toBeVisible();

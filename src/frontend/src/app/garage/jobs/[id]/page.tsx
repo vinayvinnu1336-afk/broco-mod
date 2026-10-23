@@ -71,7 +71,7 @@ type GarageJob = GarageServiceJobDetailDto & {
 const PRE_RECEIPT_STATUSES = ['BookingConfirmed', 'Scheduled'];
 /** Work finished: remind the workshop to collect the balance at handover. */
 const COLLECT_STATUSES = ['WorkCompleted', 'VehicleReady'];
-const AFTER_HANDOVER_STATUSES = ['HandedOver', 'Closed'];
+const AFTER_HANDOVER_STATUSES = ['HandedOver', 'PaymentReceived', 'Closed'];
 
 type ModalKey =
   | 'schedule'
@@ -83,6 +83,7 @@ type ModalKey =
   | 'completeWork'
   | 'vehicleReady'
   | 'handover'
+  | 'payment'
   | 'close'
   | 'askBroCo'
   | 'additionalWork';
@@ -103,8 +104,9 @@ const STAGES: Stage[] = [
   { label: 'Inspection', statuses: ['Inspection'], at: (j) => j.inspections?.[0]?.inspectionStartedAtUtc },
   { label: 'Work in progress', statuses: ['WorkStarted', 'WorkInProgress'], at: (j) => j.actualWorkStartedAtUtc },
   { label: 'Work done', statuses: ['WorkCompleted'], at: (j) => j.actualWorkCompletedAtUtc },
-  { label: 'Ready for pickup', statuses: ['VehicleReady'], at: (j) => j.vehicleReadyAtUtc },
+  { label: 'Ready for handover', statuses: ['VehicleReady'], at: (j) => j.vehicleReadyAtUtc },
   { label: 'Handed over', statuses: ['HandedOver'], at: (j) => j.handedOverAtUtc },
+  { label: 'Payment received', statuses: ['PaymentReceived'], at: (j) => j.paymentReceivedAtUtc },
   { label: 'Closed', statuses: ['Closed'], at: (j) => j.closedAtUtc },
 ];
 
@@ -139,14 +141,18 @@ const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?
   },
   WorkCompleted: {
     hint: 'Let the customer know the car is ready to collect.',
-    primary: { modal: 'vehicleReady', label: 'Ready for pickup', icon: <CheckCircle2 className="h-4 w-4" /> },
+    primary: { modal: 'vehicleReady', label: 'Ready for handover', icon: <CheckCircle2 className="h-4 w-4" /> },
   },
   VehicleReady: {
     hint: 'Record the handover when the customer collects the car and keys.',
     primary: { modal: 'handover', label: 'Hand over car', icon: <KeyRound className="h-4 w-4" /> },
   },
   HandedOver: {
-    hint: 'Close the job to finish it.',
+    hint: 'Record the payment the customer made to you, then close the job.',
+    primary: { modal: 'payment', label: 'Payment received', icon: <IndianRupee className="h-4 w-4" /> },
+  },
+  PaymentReceived: {
+    hint: 'Payment recorded. Close the job to finish it.',
     primary: { modal: 'close', label: 'Close job', icon: <Flag className="h-4 w-4" /> },
   },
   Closed: { hint: 'This job is finished. Nothing more to do.' },
@@ -157,12 +163,10 @@ type NextStep = (typeof NEXT_STEP)[string];
 
 /** Pick-up bookings: the garage collects the car and brings it back, so a few steps read differently. */
 function stagesFor(job: GarageServiceJobDetailDto): Stage[] {
-  if (!job.needsPickup) return STAGES.map((s) => (s.statuses.includes('VehicleReady') ? { ...s, label: 'Ready to collect' } : s));
+  if (!job.needsPickup) return STAGES;
   return STAGES.map((s) => {
     if (s.statuses.includes('Scheduled')) return { ...s, label: 'Pick-up set' };
     if (s.statuses.includes('VehicleReceived')) return { ...s, label: 'Car picked up' };
-    if (s.statuses.includes('VehicleReady')) return { ...s, label: 'Ready to deliver' };
-    if (s.statuses.includes('HandedOver')) return { ...s, label: 'Delivered' };
     return s;
   });
 }
@@ -197,9 +201,7 @@ function nextStepFor(status: string, job: GarageServiceJobDetailDto): NextStep |
         secondary: changeTime,
       };
     case 'WorkCompleted':
-      return pickup
-        ? { ...base, hint: 'Let the customer know the car is ready and when you will drop it back.', primary: { ...base.primary!, label: 'Ready to deliver' } }
-        : base;
+      return pickup ? { ...base, hint: 'Let the customer know the car is ready and when you will drop it back.' } : base;
     case 'VehicleReady':
       return pickup
         ? { ...base, hint: 'Record the handover when you drop the car and keys back with the customer.' }
@@ -217,6 +219,13 @@ function utcIsoToLocalInput(value: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+const PAYMENT_MODE_OPTIONS = [
+  { value: 'Cash', label: 'Cash' },
+  { value: 'UPI', label: 'UPI' },
+  { value: 'Card', label: 'Card' },
+  { value: 'Other', label: 'Other' },
+];
 
 const SEVERITY_OPTIONS = [
   { value: 'Info', label: 'Info only' },
@@ -260,6 +269,7 @@ const SUCCESS_MESSAGES: Record<string, string> = {
   'complete-work': 'Work marked as done',
   'vehicle-ready': 'Customer told the car is ready',
   handover: 'Handover recorded',
+  'payment-received': 'Payment recorded',
   close: 'Job closed',
   'cancellation-request': 'BroCo has been asked to reassign or cancel this job',
   'additional-work': 'Extra work sent to the advisor',
@@ -340,6 +350,7 @@ export default function GarageJobDetailPage() {
   const [vehicleReadyNotes, setVehicleReadyNotes] = useState('');
   const [handoverNotes, setHandoverNotes] = useState('');
   const [closingRemarks, setClosingRemarks] = useState('');
+  const [paymentForm, setPaymentForm] = useState({ amount: '', mode: 'Cash', notes: '' });
   const [cancelReason, setCancelReason] = useState('');
 
   const [additionalWorkForm, setAdditionalWorkForm] = useState<CreateAdditionalWorkRequest>({
@@ -377,6 +388,10 @@ export default function GarageJobDetailPage() {
 
   function openModal(key: ModalKey) {
     setErrorMsg(null);
+    if (key === 'payment' && job) {
+      const due = Number(job.balanceToCollect ?? 0);
+      setPaymentForm({ amount: due > 0 ? String(Math.round(due * 100) / 100) : '0', mode: 'Cash', notes: '' });
+    }
     // Start from the customer's chosen time (or the current schedule) so the garage only adjusts it.
     if (key === 'schedule' && job && !scheduleForm.scheduledStartAtUtc) {
       const startIso = job.scheduledStartAtUtc || job.preferredServiceDate;
@@ -437,7 +452,9 @@ export default function GarageJobDetailPage() {
 
   const status = String(job.status);
   const isCancelled = status === 'Cancelled';
-  const canAskBroCo = !isCancelled && status !== 'Closed' && status !== 'HandedOver';
+  const canAskBroCo = !isCancelled && !['Closed', 'HandedOver', 'PaymentReceived'].includes(status);
+  const paymentAmount = Number(paymentForm.amount);
+  const paymentInvalid = paymentForm.amount.trim() === '' || !Number.isFinite(paymentAmount) || paymentAmount < 0;
   const stages = stagesFor(job);
   const stageIndex = stages.findIndex((s) => s.statuses.includes(status));
   const currentStage = stageIndex >= 0 ? stages[stageIndex] : null;
@@ -679,6 +696,16 @@ export default function GarageJobDetailPage() {
                 </p>
               )}
 
+              {job.paymentReceivedAtUtc && (
+                <p className="flex items-start gap-2 rounded-xl bg-green-50 p-3 font-medium text-green-900">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                  <span>
+                    Customer paid you {formatINR(Number(job.paymentReceivedAmount ?? 0))}
+                    {job.paymentMode ? ` by ${job.paymentMode}` : ''} on {formatDateTime(job.paymentReceivedAtUtc)}.
+                  </span>
+                </p>
+              )}
+
               {AFTER_HANDOVER_STATUSES.includes(status) &&
                 (commission ? (
                   commission.status === 'Due' ? (
@@ -706,7 +733,7 @@ export default function GarageJobDetailPage() {
                     </p>
                   )
                 ) : (
-                  status === 'HandedOver' && (
+                  (status === 'HandedOver' || status === 'PaymentReceived') && (
                     <p className="text-sm text-navy-600">
                       BroCo commission for this job is now due —{' '}
                       <Link href="/garage/commission" className="font-semibold text-electric-700 hover:underline">
@@ -1206,7 +1233,7 @@ export default function GarageJobDetailPage() {
       <Modal
         isOpen={activeModal === 'vehicleReady'}
         onClose={closeModal}
-        title="Ready for pickup"
+        title="Ready for handover"
         description="The customer and advisor are told the car can be collected."
         footer={modalFooter(
           <Button
@@ -1253,6 +1280,64 @@ export default function GarageJobDetailPage() {
           onChange={(e) => setHandoverNotes(e.target.value)}
           placeholder="e.g. Keys handed to the owner"
         />
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'payment'}
+        onClose={closeModal}
+        title="Payment received"
+        description={
+          balanceToCollect > 0
+            ? `Record what the customer paid you. The balance due after BroCo's advance is ${formatINR(balanceToCollect)}.`
+            : 'The customer has nothing more to pay. Confirm to continue.'
+        }
+        footer={modalFooter(
+          <Button
+            className="w-full sm:w-auto"
+            isLoading={actionLoading}
+            disabled={paymentInvalid}
+            onClick={() =>
+              handleAction('payment-received', {
+                amountReceived: Number(paymentForm.amount),
+                paymentMode: paymentForm.mode,
+                notes: paymentForm.notes.trim() || null,
+              })
+            }
+          >
+            Confirm payment
+          </Button>
+        )}
+      >
+        {modalError}
+        <div className="space-y-4">
+          <Input
+            id="payment-amount"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            label="Amount received (₹)"
+            required
+            value={paymentForm.amount}
+            onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+            error={paymentInvalid && paymentForm.amount !== '' ? 'Enter the amount, 0 or more.' : undefined}
+          />
+          <Select
+            id="payment-mode"
+            label="Paid by"
+            options={PAYMENT_MODE_OPTIONS}
+            value={paymentForm.mode}
+            onChange={(e) => setPaymentForm({ ...paymentForm, mode: e.target.value })}
+          />
+          <Textarea
+            id="payment-notes"
+            label="Notes (optional)"
+            rows={2}
+            value={paymentForm.notes}
+            onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+            placeholder="e.g. UPI reference number"
+          />
+        </div>
       </Modal>
 
       <Modal
