@@ -1,0 +1,6063 @@
+{
+ "source": "GoMechanic Hyderabad prices read 24 Oct 2026 (the price GoMechanic shows after its own discount, before app coupons), plus Rs 350 on every package. BASIC = GoMechanic Basic Service, STANDARD = Standard Service, PREMIUM = Comprehensive Service. \"basis\" says where a price came from when GoMechanic has no exact match for that model and fuel.",
+ "markup": 350,
+ "prices": [
+  {
+   "brand": "Aston Martin",
+   "model": "DB11",
+   "fuel": "Petrol",
+   "BASIC": 21020,
+   "STANDARD": 24503,
+   "PREMIUM": 28877,
+   "basis": "Aston Martin DB9 Petrol"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "DB12",
+   "fuel": "Petrol",
+   "BASIC": 21020,
+   "STANDARD": 24503,
+   "PREMIUM": 28877,
+   "basis": "Aston Martin DB9 Petrol"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "DB9",
+   "fuel": "Petrol",
+   "BASIC": 21020,
+   "STANDARD": 24503,
+   "PREMIUM": 28877,
+   "basis": "exact"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "DBX",
+   "fuel": "Petrol",
+   "BASIC": 21020,
+   "STANDARD": 24503,
+   "PREMIUM": 28877,
+   "basis": "Aston Martin DB9 Petrol"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "Rapide",
+   "fuel": "Petrol",
+   "BASIC": 21020,
+   "STANDARD": 24503,
+   "PREMIUM": 28877,
+   "basis": "exact"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "Vanquish",
+   "fuel": "Petrol",
+   "BASIC": 20858,
+   "STANDARD": 24341,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Aston Martin",
+   "model": "Vantage",
+   "fuel": "Petrol",
+   "BASIC": 20858,
+   "STANDARD": 24341,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A3",
+   "fuel": "Petrol",
+   "BASIC": 9518,
+   "STANDARD": 13447,
+   "PREMIUM": 18428,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A3",
+   "fuel": "Diesel",
+   "BASIC": 9518,
+   "STANDARD": 13447,
+   "PREMIUM": 18428,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A4",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A4",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18581,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A5",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A5",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A6",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A6",
+   "fuel": "Diesel",
+   "BASIC": 10700,
+   "STANDARD": 14074,
+   "PREMIUM": 19634,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A7",
+   "fuel": "Petrol",
+   "BASIC": 12475,
+   "STANDARD": 15958,
+   "PREMIUM": 21749,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A7",
+   "fuel": "Diesel",
+   "BASIC": 12475,
+   "STANDARD": 15958,
+   "PREMIUM": 21749,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A8",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 27824,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "A8",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 27824,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q2",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19724,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q3",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q3",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18581,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q5",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q5",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q7",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q7",
+   "fuel": "Diesel",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "Q8",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 23288,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "R8",
+   "fuel": "Petrol",
+   "BASIC": 21312,
+   "STANDARD": 33980,
+   "PREMIUM": 45401,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "RS3",
+   "fuel": "Petrol",
+   "BASIC": 12475,
+   "STANDARD": 15958,
+   "PREMIUM": 20939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "RS5",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 26204,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "RS6 Avant",
+   "fuel": "Petrol",
+   "BASIC": 18023,
+   "STANDARD": 21506,
+   "PREMIUM": 26771,
+   "basis": "Audi RS7 Petrol"
+  },
+  {
+   "brand": "Audi",
+   "model": "RS7",
+   "fuel": "Petrol",
+   "BASIC": 18023,
+   "STANDARD": 21506,
+   "PREMIUM": 26771,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "S4",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Audi",
+   "model": "TT",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 21911,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "1 Series",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "1 Series",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "2 Series",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "2 Series",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "3 Series",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "3 Series",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18581,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "3 Series GT",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "3 Series GT",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "5 Series",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "5 Series",
+   "fuel": "Diesel",
+   "BASIC": 10700,
+   "STANDARD": 14074,
+   "PREMIUM": 19634,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "5 Series GT",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "6 Series",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21911,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "6 Series",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21911,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "6 Series GT",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21506,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "6 Series GT",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21506,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "7 Series",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "7 Series",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "7 Series",
+   "fuel": "Hybrid",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 22559,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "BMW",
+   "model": "M3",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "M4",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "BMW M3 Petrol"
+  },
+  {
+   "brand": "BMW",
+   "model": "M5",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25151,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X1",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X1",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18581,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X3",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X3",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X4",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X4",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X5",
+   "fuel": "Petrol",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X5",
+   "fuel": "Diesel",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X6",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X6",
+   "fuel": "Diesel",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X7",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "X7",
+   "fuel": "Diesel",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "BMW",
+   "model": "XM",
+   "fuel": "Hybrid",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "BMW X7 Petrol"
+  },
+  {
+   "brand": "BMW",
+   "model": "Z4",
+   "fuel": "Petrol",
+   "BASIC": 14014,
+   "STANDARD": 18428,
+   "PREMIUM": 25799,
+   "basis": "exact"
+  },
+  {
+   "brand": "Bentley",
+   "model": "Bentayga",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Bentley Continental Petrol"
+  },
+  {
+   "brand": "Bentley",
+   "model": "Bentayga",
+   "fuel": "Hybrid",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Bentley Continental Petrol"
+  },
+  {
+   "brand": "Bentley",
+   "model": "Continental",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Bentley",
+   "model": "Flying Spur",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Bentley",
+   "model": "Mulsanne",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Aveo",
+   "fuel": "Petrol",
+   "BASIC": 2689,
+   "STANDARD": 4309,
+   "PREMIUM": 5884,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Aveo",
+   "fuel": "Diesel",
+   "BASIC": 2959,
+   "STANDARD": 4309,
+   "PREMIUM": 6604,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Aveo U-VA",
+   "fuel": "Petrol",
+   "BASIC": 3139,
+   "STANDARD": 4219,
+   "PREMIUM": 6064,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Beat",
+   "fuel": "Petrol",
+   "BASIC": 3533,
+   "STANDARD": 4380,
+   "PREMIUM": 6191,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Beat",
+   "fuel": "Diesel",
+   "BASIC": 3661,
+   "STANDARD": 4510,
+   "PREMIUM": 6404,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Captiva",
+   "fuel": "Diesel",
+   "BASIC": 5029,
+   "STANDARD": 6559,
+   "PREMIUM": 9799,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Cruze",
+   "fuel": "Diesel",
+   "BASIC": 4874,
+   "STANDARD": 6229,
+   "PREMIUM": 9604,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Enjoy",
+   "fuel": "Petrol",
+   "BASIC": 3814,
+   "STANDARD": 4984,
+   "PREMIUM": 6559,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Enjoy",
+   "fuel": "Diesel",
+   "BASIC": 3994,
+   "STANDARD": 5254,
+   "PREMIUM": 7729,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Forester",
+   "fuel": "Petrol",
+   "BASIC": 5614,
+   "STANDARD": 7324,
+   "PREMIUM": 10699,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Optra",
+   "fuel": "Petrol",
+   "BASIC": 3454,
+   "STANDARD": 4714,
+   "PREMIUM": 6829,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Optra",
+   "fuel": "Diesel",
+   "BASIC": 4894,
+   "STANDARD": 6424,
+   "PREMIUM": 9889,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Optra Magnum",
+   "fuel": "Petrol",
+   "BASIC": 3589,
+   "STANDARD": 4849,
+   "PREMIUM": 7009,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Optra Magnum",
+   "fuel": "Diesel",
+   "BASIC": 5029,
+   "STANDARD": 6559,
+   "PREMIUM": 10069,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Optra SRV",
+   "fuel": "Petrol",
+   "BASIC": 3499,
+   "STANDARD": 4669,
+   "PREMIUM": 6964,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Sail",
+   "fuel": "Petrol",
+   "BASIC": 3459,
+   "STANDARD": 4275,
+   "PREMIUM": 6141,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Sail",
+   "fuel": "Diesel",
+   "BASIC": 3049,
+   "STANDARD": 4219,
+   "PREMIUM": 6199,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Sail Hatchback",
+   "fuel": "Petrol",
+   "BASIC": 2644,
+   "STANDARD": 3724,
+   "PREMIUM": 5794,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Sail Hatchback",
+   "fuel": "Diesel",
+   "BASIC": 2644,
+   "STANDARD": 3724,
+   "PREMIUM": 5974,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Spark",
+   "fuel": "Petrol",
+   "BASIC": 3244,
+   "STANDARD": 3684,
+   "PREMIUM": 5414,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Tavera",
+   "fuel": "Diesel",
+   "BASIC": 4354,
+   "STANDARD": 5704,
+   "PREMIUM": 8539,
+   "basis": "exact"
+  },
+  {
+   "brand": "Chevrolet",
+   "model": "Trailblazer",
+   "fuel": "Diesel",
+   "BASIC": 5614,
+   "STANDARD": 7324,
+   "PREMIUM": 10834,
+   "basis": "exact"
+  },
+  {
+   "brand": "Citroen",
+   "model": "Aircross",
+   "fuel": "Petrol",
+   "BASIC": 3754,
+   "STANDARD": 4749,
+   "PREMIUM": 7039,
+   "basis": "Citroen C3 Petrol"
+  },
+  {
+   "brand": "Citroen",
+   "model": "Basalt",
+   "fuel": "Petrol",
+   "BASIC": 3754,
+   "STANDARD": 4749,
+   "PREMIUM": 7039,
+   "basis": "Citroen C3 Petrol"
+  },
+  {
+   "brand": "Citroen",
+   "model": "C3",
+   "fuel": "Petrol",
+   "BASIC": 3754,
+   "STANDARD": 4749,
+   "PREMIUM": 7039,
+   "basis": "exact"
+  },
+  {
+   "brand": "Citroen",
+   "model": "C5 Aircross",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 7999,
+   "basis": "exact"
+  },
+  {
+   "brand": "Datsun",
+   "model": "GO",
+   "fuel": "Petrol",
+   "BASIC": 3044,
+   "STANDARD": 3684,
+   "PREMIUM": 5224,
+   "basis": "exact"
+  },
+  {
+   "brand": "Datsun",
+   "model": "GO+",
+   "fuel": "Petrol",
+   "BASIC": 3044,
+   "STANDARD": 3684,
+   "PREMIUM": 5224,
+   "basis": "exact"
+  },
+  {
+   "brand": "Datsun",
+   "model": "redi-GO",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 3524,
+   "PREMIUM": 4984,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "296 GTB",
+   "fuel": "Hybrid",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Ferrari 488 Petrol"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "458 Italia",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "458 Speciale",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "488",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "California",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "F12 Berlinetta",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "FF",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "Portofino",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Ferrari California Petrol"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "Purosangue",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Ferrari FF Petrol"
+  },
+  {
+   "brand": "Ferrari",
+   "model": "Roma",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Ferrari California Petrol"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Abarth Punto",
+   "fuel": "Petrol",
+   "BASIC": 3139,
+   "STANDARD": 4129,
+   "PREMIUM": 5839,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Adventure",
+   "fuel": "Petrol",
+   "BASIC": 3229,
+   "STANDARD": 4309,
+   "PREMIUM": 6064,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Adventure",
+   "fuel": "Diesel",
+   "BASIC": 3499,
+   "STANDARD": 4579,
+   "PREMIUM": 7954,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Avventura",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4174,
+   "PREMIUM": 5884,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Avventura",
+   "fuel": "Diesel",
+   "BASIC": 3364,
+   "STANDARD": 4444,
+   "PREMIUM": 7774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Linea",
+   "fuel": "Petrol",
+   "BASIC": 3609,
+   "STANDARD": 4704,
+   "PREMIUM": 6439,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Linea",
+   "fuel": "Diesel",
+   "BASIC": 3589,
+   "STANDARD": 4849,
+   "PREMIUM": 8089,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Linea Classic",
+   "fuel": "Petrol",
+   "BASIC": 3274,
+   "STANDARD": 4444,
+   "PREMIUM": 6109,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Linea Classic",
+   "fuel": "Diesel",
+   "BASIC": 3274,
+   "STANDARD": 4714,
+   "PREMIUM": 7909,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Palio",
+   "fuel": "Petrol",
+   "BASIC": 3004,
+   "STANDARD": 3994,
+   "PREMIUM": 6064,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Palio",
+   "fuel": "Diesel",
+   "BASIC": 3184,
+   "STANDARD": 4264,
+   "PREMIUM": 7234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Palio Stile",
+   "fuel": "Petrol",
+   "BASIC": 3139,
+   "STANDARD": 4129,
+   "PREMIUM": 6244,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Palio Stile",
+   "fuel": "Diesel",
+   "BASIC": 3319,
+   "STANDARD": 4399,
+   "PREMIUM": 7414,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Petra",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 4129,
+   "PREMIUM": 6064,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Petra",
+   "fuel": "Diesel",
+   "BASIC": 3229,
+   "STANDARD": 4399,
+   "PREMIUM": 7234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Punto",
+   "fuel": "Petrol",
+   "BASIC": 3189,
+   "STANDARD": 4159,
+   "PREMIUM": 6094,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Punto",
+   "fuel": "Diesel",
+   "BASIC": 3289,
+   "STANDARD": 3964,
+   "PREMIUM": 5956,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Punto Evo",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 4039,
+   "PREMIUM": 5794,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Punto Evo",
+   "fuel": "Diesel",
+   "BASIC": 3499,
+   "STANDARD": 4579,
+   "PREMIUM": 7954,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Uno",
+   "fuel": "Petrol",
+   "BASIC": 2914,
+   "STANDARD": 3904,
+   "PREMIUM": 5614,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Uno",
+   "fuel": "Diesel",
+   "BASIC": 3364,
+   "STANDARD": 4444,
+   "PREMIUM": 7774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Urban Cross",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 4039,
+   "PREMIUM": 5794,
+   "basis": "exact"
+  },
+  {
+   "brand": "Fiat",
+   "model": "Urban Cross",
+   "fuel": "Diesel",
+   "BASIC": 3499,
+   "STANDARD": 4579,
+   "PREMIUM": 7954,
+   "basis": "exact"
+  },
+  {
+   "brand": "Force Motors",
+   "model": "Gurkha",
+   "fuel": "Diesel",
+   "BASIC": 4984,
+   "STANDARD": 6334,
+   "PREMIUM": 9349,
+   "basis": "exact"
+  },
+  {
+   "brand": "Force Motors",
+   "model": "One",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 8134,
+   "basis": "exact"
+  },
+  {
+   "brand": "Force Motors",
+   "model": "Traveller",
+   "fuel": "Diesel",
+   "BASIC": 3949,
+   "STANDARD": 5029,
+   "PREMIUM": 7414,
+   "basis": "exact"
+  },
+  {
+   "brand": "Force Motors",
+   "model": "Trax",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5569,
+   "PREMIUM": 8134,
+   "basis": "exact"
+  },
+  {
+   "brand": "Force Motors",
+   "model": "Urbania",
+   "fuel": "Diesel",
+   "BASIC": 3949,
+   "STANDARD": 5029,
+   "PREMIUM": 7414,
+   "basis": "Force Motors Traveller Diesel"
+  },
+  {
+   "brand": "Ford",
+   "model": "EcoSport",
+   "fuel": "Petrol",
+   "BASIC": 3590,
+   "STANDARD": 4434,
+   "PREMIUM": 6160,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "EcoSport",
+   "fuel": "Diesel",
+   "BASIC": 3534,
+   "STANDARD": 4407,
+   "PREMIUM": 6514,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Endeavour",
+   "fuel": "Diesel",
+   "BASIC": 5644,
+   "STANDARD": 8389,
+   "PREMIUM": 10174,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Escort",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4174,
+   "PREMIUM": 6199,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Escort",
+   "fuel": "Diesel",
+   "BASIC": 3454,
+   "STANDARD": 4624,
+   "PREMIUM": 7549,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fiesta",
+   "fuel": "Petrol",
+   "BASIC": 3274,
+   "STANDARD": 4444,
+   "PREMIUM": 6379,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fiesta",
+   "fuel": "Diesel",
+   "BASIC": 3754,
+   "STANDARD": 4537,
+   "PREMIUM": 7099,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fiesta Classic",
+   "fuel": "Petrol",
+   "BASIC": 3274,
+   "STANDARD": 4444,
+   "PREMIUM": 6379,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fiesta Classic",
+   "fuel": "Diesel",
+   "BASIC": 3754,
+   "STANDARD": 4537,
+   "PREMIUM": 7099,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Figo",
+   "fuel": "Petrol",
+   "BASIC": 3615,
+   "STANDARD": 4559,
+   "PREMIUM": 6240,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Figo",
+   "fuel": "Diesel",
+   "BASIC": 3688,
+   "STANDARD": 4760,
+   "PREMIUM": 6554,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Figo Aspire",
+   "fuel": "Petrol",
+   "BASIC": 3549,
+   "STANDARD": 4414,
+   "PREMIUM": 6311,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Figo Aspire",
+   "fuel": "Diesel",
+   "BASIC": 3439,
+   "STANDARD": 4254,
+   "PREMIUM": 6499,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Figo Aspire",
+   "fuel": "CNG",
+   "BASIC": 3049,
+   "STANDARD": 4039,
+   "PREMIUM": 6469,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Freestyle",
+   "fuel": "Petrol",
+   "BASIC": 3874,
+   "STANDARD": 5382,
+   "PREMIUM": 6724,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Freestyle",
+   "fuel": "Diesel",
+   "BASIC": 3494,
+   "STANDARD": 4334,
+   "PREMIUM": 5944,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fusion",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4174,
+   "PREMIUM": 6244,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Fusion",
+   "fuel": "Diesel",
+   "BASIC": 3184,
+   "STANDARD": 4264,
+   "PREMIUM": 7324,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Ikon",
+   "fuel": "Petrol",
+   "BASIC": 3274,
+   "STANDARD": 4444,
+   "PREMIUM": 6379,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Ikon",
+   "fuel": "Diesel",
+   "BASIC": 3454,
+   "STANDARD": 4624,
+   "PREMIUM": 7549,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Mondeo",
+   "fuel": "Petrol",
+   "BASIC": 3229,
+   "STANDARD": 4399,
+   "PREMIUM": 6334,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Mondeo",
+   "fuel": "Diesel",
+   "BASIC": 3409,
+   "STANDARD": 4579,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Ford",
+   "model": "Mustang",
+   "fuel": "Petrol",
+   "BASIC": 12394,
+   "STANDARD": 17618,
+   "PREMIUM": 26609,
+   "basis": "exact"
+  },
+  {
+   "brand": "Foton",
+   "model": "ViW CS2",
+   "fuel": "Diesel",
+   "BASIC": 4849,
+   "STANDARD": 6199,
+   "PREMIUM": 8494,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hindustan Motors",
+   "model": "Ambassador",
+   "fuel": "Petrol",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 6289,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hindustan Motors",
+   "model": "Ambassador",
+   "fuel": "Diesel",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 6289,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hindustan Motors",
+   "model": "Contessa",
+   "fuel": "Petrol",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 6289,
+   "basis": "Hindustan Motors Ambassador Petrol"
+  },
+  {
+   "brand": "Hindustan Motors",
+   "model": "Contessa",
+   "fuel": "Diesel",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 6289,
+   "basis": "Hindustan Motors Ambassador Diesel"
+  },
+  {
+   "brand": "Honda",
+   "model": "Accord",
+   "fuel": "Petrol",
+   "BASIC": 4094,
+   "STANDARD": 5398,
+   "PREMIUM": 7894,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Accord",
+   "fuel": "Hybrid",
+   "BASIC": 4094,
+   "STANDARD": 5398,
+   "PREMIUM": 7894,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Honda",
+   "model": "Amaze",
+   "fuel": "Petrol",
+   "BASIC": 3515,
+   "STANDARD": 4290,
+   "PREMIUM": 6296,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Amaze",
+   "fuel": "Diesel",
+   "BASIC": 3923,
+   "STANDARD": 4670,
+   "PREMIUM": 6354,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "BR-V",
+   "fuel": "Petrol",
+   "BASIC": 3574,
+   "STANDARD": 4314,
+   "PREMIUM": 6076,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "BR-V",
+   "fuel": "Diesel",
+   "BASIC": 3364,
+   "STANDARD": 4534,
+   "PREMIUM": 6829,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Brio",
+   "fuel": "Petrol",
+   "BASIC": 3189,
+   "STANDARD": 3819,
+   "PREMIUM": 5584,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "CR-V",
+   "fuel": "Petrol",
+   "BASIC": 4039,
+   "STANDARD": 6019,
+   "PREMIUM": 6919,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "CR-V",
+   "fuel": "Diesel",
+   "BASIC": 5209,
+   "STANDARD": 6739,
+   "PREMIUM": 10069,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "City",
+   "fuel": "Petrol",
+   "BASIC": 3762,
+   "STANDARD": 4564,
+   "PREMIUM": 6119,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "City",
+   "fuel": "Diesel",
+   "BASIC": 3981,
+   "STANDARD": 4787,
+   "PREMIUM": 6812,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "City",
+   "fuel": "Hybrid",
+   "BASIC": 3762,
+   "STANDARD": 4564,
+   "PREMIUM": 6119,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Honda",
+   "model": "City ZX",
+   "fuel": "Petrol",
+   "BASIC": 3584,
+   "STANDARD": 4389,
+   "PREMIUM": 6226,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Civic",
+   "fuel": "Petrol",
+   "BASIC": 3920,
+   "STANDARD": 5181,
+   "PREMIUM": 7564,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Civic",
+   "fuel": "Diesel",
+   "BASIC": 3920,
+   "STANDARD": 5181,
+   "PREMIUM": 7564,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Honda",
+   "model": "Elevate",
+   "fuel": "Petrol",
+   "BASIC": 3384,
+   "STANDARD": 4229,
+   "PREMIUM": 5978,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Jazz",
+   "fuel": "Petrol",
+   "BASIC": 3486,
+   "STANDARD": 4290,
+   "PREMIUM": 6146,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Jazz",
+   "fuel": "Diesel",
+   "BASIC": 3853,
+   "STANDARD": 4670,
+   "PREMIUM": 6509,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Mobilio",
+   "fuel": "Petrol",
+   "BASIC": 3584,
+   "STANDARD": 4396,
+   "PREMIUM": 6304,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "Mobilio",
+   "fuel": "Diesel",
+   "BASIC": 3674,
+   "STANDARD": 4640,
+   "PREMIUM": 6548,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "WR-V",
+   "fuel": "Petrol",
+   "BASIC": 3509,
+   "STANDARD": 4454,
+   "PREMIUM": 6319,
+   "basis": "exact"
+  },
+  {
+   "brand": "Honda",
+   "model": "WR-V",
+   "fuel": "Diesel",
+   "BASIC": 3699,
+   "STANDARD": 4505,
+   "PREMIUM": 6709,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hummer",
+   "model": "H2",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hummer",
+   "model": "H3",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Accent",
+   "fuel": "Petrol",
+   "BASIC": 3414,
+   "STANDARD": 4043,
+   "PREMIUM": 6019,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Accent",
+   "fuel": "Diesel",
+   "BASIC": 3094,
+   "STANDARD": 4084,
+   "PREMIUM": 5299,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Accent",
+   "fuel": "CNG",
+   "BASIC": 2914,
+   "STANDARD": 3904,
+   "PREMIUM": 5119,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Accent Viva",
+   "fuel": "Petrol",
+   "BASIC": 2914,
+   "STANDARD": 3904,
+   "PREMIUM": 5119,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Alcazar",
+   "fuel": "Petrol",
+   "BASIC": 3784,
+   "STANDARD": 4729,
+   "PREMIUM": 6214,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Alcazar",
+   "fuel": "Diesel",
+   "BASIC": 5034,
+   "STANDARD": 7924,
+   "PREMIUM": 9664,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Aura",
+   "fuel": "Petrol",
+   "BASIC": 3244,
+   "STANDARD": 3829,
+   "PREMIUM": 5419,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Aura",
+   "fuel": "Diesel",
+   "BASIC": 2689,
+   "STANDARD": 3499,
+   "PREMIUM": 5344,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Aura",
+   "fuel": "CNG",
+   "BASIC": 3244,
+   "STANDARD": 3829,
+   "PREMIUM": 5419,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Creta",
+   "fuel": "Petrol",
+   "BASIC": 3709,
+   "STANDARD": 4564,
+   "PREMIUM": 6093,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Creta",
+   "fuel": "Diesel",
+   "BASIC": 4164,
+   "STANDARD": 4981,
+   "PREMIUM": 6733,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Elantra",
+   "fuel": "Petrol",
+   "BASIC": 3609,
+   "STANDARD": 4829,
+   "PREMIUM": 6604,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Elantra",
+   "fuel": "Diesel",
+   "BASIC": 4129,
+   "STANDARD": 5389,
+   "PREMIUM": 8584,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Elite i20",
+   "fuel": "Petrol",
+   "BASIC": 3279,
+   "STANDARD": 3964,
+   "PREMIUM": 5359,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Elite i20",
+   "fuel": "Diesel",
+   "BASIC": 3379,
+   "STANDARD": 4649,
+   "PREMIUM": 6349,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Eon",
+   "fuel": "Petrol",
+   "BASIC": 2922,
+   "STANDARD": 3511,
+   "PREMIUM": 5011,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Exter",
+   "fuel": "Petrol",
+   "BASIC": 3504,
+   "STANDARD": 4374,
+   "PREMIUM": 6139,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Exter",
+   "fuel": "CNG",
+   "BASIC": 3504,
+   "STANDARD": 4374,
+   "PREMIUM": 6139,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Getz",
+   "fuel": "Petrol",
+   "BASIC": 2749,
+   "STANDARD": 3274,
+   "PREMIUM": 4804,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Getz",
+   "fuel": "Diesel",
+   "BASIC": 2749,
+   "STANDARD": 3274,
+   "PREMIUM": 4804,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Getz Prime",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4264,
+   "PREMIUM": 6244,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Getz Prime",
+   "fuel": "Diesel",
+   "BASIC": 3094,
+   "STANDARD": 4264,
+   "PREMIUM": 6244,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10",
+   "fuel": "Petrol",
+   "BASIC": 3369,
+   "STANDARD": 3837,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10",
+   "fuel": "Diesel",
+   "BASIC": 3307,
+   "STANDARD": 4322,
+   "PREMIUM": 5797,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10",
+   "fuel": "CNG",
+   "BASIC": 3369,
+   "STANDARD": 3837,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10 Nios",
+   "fuel": "Petrol",
+   "BASIC": 3334,
+   "STANDARD": 3919,
+   "PREMIUM": 5314,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10 Nios",
+   "fuel": "Diesel",
+   "BASIC": 2824,
+   "STANDARD": 4444,
+   "PREMIUM": 6244,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Grand i10 Nios",
+   "fuel": "CNG",
+   "BASIC": 3334,
+   "STANDARD": 3919,
+   "PREMIUM": 5314,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Santa Fe",
+   "fuel": "Diesel",
+   "BASIC": 5164,
+   "STANDARD": 6694,
+   "PREMIUM": 10024,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Santro",
+   "fuel": "Petrol",
+   "BASIC": 3044,
+   "STANDARD": 3524,
+   "PREMIUM": 5044,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Santro",
+   "fuel": "CNG",
+   "BASIC": 3044,
+   "STANDARD": 3524,
+   "PREMIUM": 5044,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Santro Xing",
+   "fuel": "Petrol",
+   "BASIC": 3077,
+   "STANDARD": 3536,
+   "PREMIUM": 4891,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Santro Xing",
+   "fuel": "CNG",
+   "BASIC": 3077,
+   "STANDARD": 3536,
+   "PREMIUM": 4891,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Sonata",
+   "fuel": "Petrol",
+   "BASIC": 3454,
+   "STANDARD": 4624,
+   "PREMIUM": 6739,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Sonata",
+   "fuel": "Diesel",
+   "BASIC": 4219,
+   "STANDARD": 5479,
+   "PREMIUM": 9214,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Tucson",
+   "fuel": "Petrol",
+   "BASIC": 5164,
+   "STANDARD": 6694,
+   "PREMIUM": 10024,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Tucson",
+   "fuel": "Diesel",
+   "BASIC": 5164,
+   "STANDARD": 6694,
+   "PREMIUM": 10024,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Venue",
+   "fuel": "Petrol",
+   "BASIC": 3790,
+   "STANDARD": 4584,
+   "PREMIUM": 6265,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Venue",
+   "fuel": "Diesel",
+   "BASIC": 4309,
+   "STANDARD": 5057,
+   "PREMIUM": 7037,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Venue N Line",
+   "fuel": "Petrol",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 5749,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Verna",
+   "fuel": "Petrol",
+   "BASIC": 3674,
+   "STANDARD": 4564,
+   "PREMIUM": 6128,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Verna",
+   "fuel": "Diesel",
+   "BASIC": 4064,
+   "STANDARD": 4836,
+   "PREMIUM": 6690,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Xcent",
+   "fuel": "Petrol",
+   "BASIC": 3307,
+   "STANDARD": 3927,
+   "PREMIUM": 5512,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Xcent",
+   "fuel": "Diesel",
+   "BASIC": 3622,
+   "STANDARD": 4332,
+   "PREMIUM": 6234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "Xcent",
+   "fuel": "CNG",
+   "BASIC": 3307,
+   "STANDARD": 3927,
+   "PREMIUM": 5512,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i10",
+   "fuel": "Petrol",
+   "BASIC": 3122,
+   "STANDARD": 3636,
+   "PREMIUM": 5161,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i20",
+   "fuel": "Petrol",
+   "BASIC": 3287,
+   "STANDARD": 3947,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i20",
+   "fuel": "Diesel",
+   "BASIC": 3487,
+   "STANDARD": 4632,
+   "PREMIUM": 6502,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i20 Active",
+   "fuel": "Petrol",
+   "BASIC": 3324,
+   "STANDARD": 4052,
+   "PREMIUM": 5299,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i20 Active",
+   "fuel": "Diesel",
+   "BASIC": 2824,
+   "STANDARD": 4174,
+   "PREMIUM": 6199,
+   "basis": "exact"
+  },
+  {
+   "brand": "Hyundai",
+   "model": "i20 N Line",
+   "fuel": "Petrol",
+   "BASIC": 3284,
+   "STANDARD": 4229,
+   "PREMIUM": 5899,
+   "basis": "exact"
+  },
+  {
+   "brand": "Isuzu",
+   "model": "D-Max V-Cross",
+   "fuel": "Diesel",
+   "BASIC": 5209,
+   "STANDARD": 6649,
+   "PREMIUM": 10159,
+   "basis": "exact"
+  },
+  {
+   "brand": "Isuzu",
+   "model": "MU-7",
+   "fuel": "Diesel",
+   "BASIC": 5479,
+   "STANDARD": 8719,
+   "PREMIUM": 10609,
+   "basis": "exact"
+  },
+  {
+   "brand": "Isuzu",
+   "model": "MU-X",
+   "fuel": "Diesel",
+   "BASIC": 4579,
+   "STANDARD": 5929,
+   "PREMIUM": 8179,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "F-Pace",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "F-Pace",
+   "fuel": "Diesel",
+   "BASIC": 13771,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "F-Type",
+   "fuel": "Petrol",
+   "BASIC": 21425,
+   "STANDARD": 24908,
+   "PREMIUM": 27986,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XE",
+   "fuel": "Petrol",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XE",
+   "fuel": "Diesel",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XF",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XF",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XJ",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21911,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XJ",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21911,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jaguar",
+   "model": "XJR",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Compass",
+   "fuel": "Petrol",
+   "BASIC": 4994,
+   "STANDARD": 6354,
+   "PREMIUM": 9544,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Compass",
+   "fuel": "Diesel",
+   "BASIC": 5424,
+   "STANDARD": 8014,
+   "PREMIUM": 10204,
+   "basis": "exact"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Grand Cherokee",
+   "fuel": "Petrol",
+   "BASIC": 13349,
+   "STANDARD": 18349,
+   "PREMIUM": 25349,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Grand Cherokee",
+   "fuel": "Diesel",
+   "BASIC": 13849,
+   "STANDARD": 19349,
+   "PREMIUM": 26849,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Meridian",
+   "fuel": "Diesel",
+   "BASIC": 5424,
+   "STANDARD": 8014,
+   "PREMIUM": 10204,
+   "basis": "Jeep Compass Diesel"
+  },
+  {
+   "brand": "Jeep",
+   "model": "Wrangler",
+   "fuel": "Petrol",
+   "BASIC": 13349,
+   "STANDARD": 18349,
+   "PREMIUM": 25349,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Kia",
+   "model": "Carens",
+   "fuel": "Petrol",
+   "BASIC": 3584,
+   "STANDARD": 4380,
+   "PREMIUM": 5914,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Carens",
+   "fuel": "Diesel",
+   "BASIC": 4094,
+   "STANDARD": 4870,
+   "PREMIUM": 6484,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Carens Clavis",
+   "fuel": "Petrol",
+   "BASIC": 3584,
+   "STANDARD": 4380,
+   "PREMIUM": 5914,
+   "basis": "Kia Carens Petrol"
+  },
+  {
+   "brand": "Kia",
+   "model": "Carens Clavis",
+   "fuel": "Diesel",
+   "BASIC": 4094,
+   "STANDARD": 4870,
+   "PREMIUM": 6484,
+   "basis": "Kia Carens Diesel"
+  },
+  {
+   "brand": "Kia",
+   "model": "Carnival",
+   "fuel": "Diesel",
+   "BASIC": 5524,
+   "STANDARD": 8764,
+   "PREMIUM": 10654,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Seltos",
+   "fuel": "Petrol",
+   "BASIC": 3890,
+   "STANDARD": 4709,
+   "PREMIUM": 6415,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Seltos",
+   "fuel": "Diesel",
+   "BASIC": 4269,
+   "STANDARD": 5057,
+   "PREMIUM": 7037,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Sonet",
+   "fuel": "Petrol",
+   "BASIC": 3465,
+   "STANDARD": 4374,
+   "PREMIUM": 6139,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Sonet",
+   "fuel": "Diesel",
+   "BASIC": 3864,
+   "STANDARD": 4735,
+   "PREMIUM": 6889,
+   "basis": "exact"
+  },
+  {
+   "brand": "Kia",
+   "model": "Syros",
+   "fuel": "Petrol",
+   "BASIC": 3465,
+   "STANDARD": 4374,
+   "PREMIUM": 6139,
+   "basis": "Kia Sonet Petrol"
+  },
+  {
+   "brand": "Kia",
+   "model": "Syros",
+   "fuel": "Diesel",
+   "BASIC": 3864,
+   "STANDARD": 4735,
+   "PREMIUM": 6889,
+   "basis": "Kia Sonet Diesel"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Aventador",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Gallardo",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Huracan",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Revuelto",
+   "fuel": "Hybrid",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "Lamborghini Aventador Petrol"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Urus",
+   "fuel": "Petrol",
+   "BASIC": 19076,
+   "STANDARD": 36329,
+   "PREMIUM": 43214,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lamborghini",
+   "model": "Urus",
+   "fuel": "Hybrid",
+   "BASIC": 19076,
+   "STANDARD": 36329,
+   "PREMIUM": 43214,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Defender",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Defender",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22559,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Discovery",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22964,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Discovery",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22964,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Discovery Sport",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Discovery Sport",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Freelander 2",
+   "fuel": "Diesel",
+   "BASIC": 10328,
+   "STANDARD": 15067,
+   "PREMIUM": 20048,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Evoque",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 19724,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Evoque",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 19724,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Sport",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 23774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Sport",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 23774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Velar",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Land Rover",
+   "model": "Range Rover Velar",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Lexus",
+   "model": "ES",
+   "fuel": "Hybrid",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Lexus",
+   "model": "LC",
+   "fuel": "Hybrid",
+   "BASIC": 18023,
+   "STANDARD": 21506,
+   "PREMIUM": 28796,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Lexus",
+   "model": "LM",
+   "fuel": "Hybrid",
+   "BASIC": 12229,
+   "STANDARD": 15469,
+   "PREMIUM": 21229,
+   "basis": "Toyota Alphard Petrol"
+  },
+  {
+   "brand": "Lexus",
+   "model": "LS",
+   "fuel": "Hybrid",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22721,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Lexus",
+   "model": "LX",
+   "fuel": "Petrol",
+   "BASIC": 13447,
+   "STANDARD": 17051,
+   "PREMIUM": 22640,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lexus",
+   "model": "LX",
+   "fuel": "Diesel",
+   "BASIC": 13447,
+   "STANDARD": 17051,
+   "PREMIUM": 22640,
+   "basis": "exact"
+  },
+  {
+   "brand": "Lexus",
+   "model": "NX",
+   "fuel": "Hybrid",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Lexus",
+   "model": "RX",
+   "fuel": "Hybrid",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 23369,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "MG",
+   "model": "Astor",
+   "fuel": "Petrol",
+   "BASIC": 4864,
+   "STANDARD": 6194,
+   "PREMIUM": 9169,
+   "basis": "exact"
+  },
+  {
+   "brand": "MG",
+   "model": "Gloster",
+   "fuel": "Diesel",
+   "BASIC": 5479,
+   "STANDARD": 8719,
+   "PREMIUM": 10609,
+   "basis": "exact"
+  },
+  {
+   "brand": "MG",
+   "model": "Hector",
+   "fuel": "Petrol",
+   "BASIC": 4829,
+   "STANDARD": 6059,
+   "PREMIUM": 8122,
+   "basis": "exact"
+  },
+  {
+   "brand": "MG",
+   "model": "Hector",
+   "fuel": "Diesel",
+   "BASIC": 5079,
+   "STANDARD": 7969,
+   "PREMIUM": 8632,
+   "basis": "exact"
+  },
+  {
+   "brand": "MG",
+   "model": "Hector Plus",
+   "fuel": "Petrol",
+   "BASIC": 4954,
+   "STANDARD": 6284,
+   "PREMIUM": 8197,
+   "basis": "exact"
+  },
+  {
+   "brand": "MG",
+   "model": "Hector Plus",
+   "fuel": "Diesel",
+   "BASIC": 5704,
+   "STANDARD": 8944,
+   "PREMIUM": 9457,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Alturas G4",
+   "fuel": "Diesel",
+   "BASIC": 4894,
+   "STANDARD": 8224,
+   "PREMIUM": 9124,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Bolero",
+   "fuel": "Diesel",
+   "BASIC": 4169,
+   "STANDARD": 5094,
+   "PREMIUM": 7127,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Bolero Camper",
+   "fuel": "Diesel",
+   "BASIC": 3769,
+   "STANDARD": 5119,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Bolero Neo",
+   "fuel": "Diesel",
+   "BASIC": 4089,
+   "STANDARD": 5064,
+   "PREMIUM": 7127,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Bolero Pickup",
+   "fuel": "Diesel",
+   "BASIC": 3769,
+   "STANDARD": 5119,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Imperio",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 8134,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "KUV100",
+   "fuel": "Petrol",
+   "BASIC": 3289,
+   "STANDARD": 3749,
+   "PREMIUM": 5344,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "KUV100",
+   "fuel": "Diesel",
+   "BASIC": 3259,
+   "STANDARD": 3961,
+   "PREMIUM": 6214,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Logan",
+   "fuel": "Petrol",
+   "BASIC": 3184,
+   "STANDARD": 4354,
+   "PREMIUM": 6289,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Logan",
+   "fuel": "Diesel",
+   "BASIC": 4264,
+   "STANDARD": 5614,
+   "PREMIUM": 8089,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Marazzo",
+   "fuel": "Diesel",
+   "BASIC": 4553,
+   "STANDARD": 5556,
+   "PREMIUM": 7879,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "NuvoSport",
+   "fuel": "Diesel",
+   "BASIC": 3544,
+   "STANDARD": 4804,
+   "PREMIUM": 7279,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Quanto",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 8134,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Scorpio",
+   "fuel": "Diesel",
+   "BASIC": 4313,
+   "STANDARD": 5754,
+   "PREMIUM": 7782,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Scorpio Classic",
+   "fuel": "Diesel",
+   "BASIC": 4313,
+   "STANDARD": 5754,
+   "PREMIUM": 7782,
+   "basis": "Mahindra Scorpio Diesel"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Scorpio Getaway",
+   "fuel": "Diesel",
+   "BASIC": 3769,
+   "STANDARD": 5119,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Scorpio-N",
+   "fuel": "Petrol",
+   "BASIC": 4214,
+   "STANDARD": 5247,
+   "PREMIUM": 7343,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Scorpio-N",
+   "fuel": "Diesel",
+   "BASIC": 4294,
+   "STANDARD": 5469,
+   "PREMIUM": 7666,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "TUV300",
+   "fuel": "Diesel",
+   "BASIC": 4274,
+   "STANDARD": 5421,
+   "PREMIUM": 7489,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "TUV300 Plus",
+   "fuel": "Diesel",
+   "BASIC": 3769,
+   "STANDARD": 5119,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Thar",
+   "fuel": "Petrol",
+   "BASIC": 4358,
+   "STANDARD": 5659,
+   "PREMIUM": 7828,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Thar",
+   "fuel": "Diesel",
+   "BASIC": 4358,
+   "STANDARD": 5659,
+   "PREMIUM": 7828,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Thar Roxx",
+   "fuel": "Petrol",
+   "BASIC": 4358,
+   "STANDARD": 5659,
+   "PREMIUM": 7828,
+   "basis": "Mahindra Thar Diesel"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Thar Roxx",
+   "fuel": "Diesel",
+   "BASIC": 4358,
+   "STANDARD": 5659,
+   "PREMIUM": 7828,
+   "basis": "Mahindra Thar Diesel"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Verito",
+   "fuel": "Petrol",
+   "BASIC": 3904,
+   "STANDARD": 5254,
+   "PREMIUM": 7459,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Verito",
+   "fuel": "Diesel",
+   "BASIC": 4264,
+   "STANDARD": 5614,
+   "PREMIUM": 8089,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Verito Vibe",
+   "fuel": "Diesel",
+   "BASIC": 4129,
+   "STANDARD": 5389,
+   "PREMIUM": 7999,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV 3XO",
+   "fuel": "Petrol",
+   "BASIC": 3424,
+   "STANDARD": 4244,
+   "PREMIUM": 5959,
+   "basis": "Mahindra XUV300 Petrol"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV 3XO",
+   "fuel": "Diesel",
+   "BASIC": 3424,
+   "STANDARD": 4834,
+   "PREMIUM": 6799,
+   "basis": "Mahindra XUV300 Diesel"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV300",
+   "fuel": "Petrol",
+   "BASIC": 3424,
+   "STANDARD": 4244,
+   "PREMIUM": 5959,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV300",
+   "fuel": "Diesel",
+   "BASIC": 3424,
+   "STANDARD": 4834,
+   "PREMIUM": 6799,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV500",
+   "fuel": "Petrol",
+   "BASIC": 4058,
+   "STANDARD": 5784,
+   "PREMIUM": 7643,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV500",
+   "fuel": "Diesel",
+   "BASIC": 4358,
+   "STANDARD": 5659,
+   "PREMIUM": 7395,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV700",
+   "fuel": "Petrol",
+   "BASIC": 3974,
+   "STANDARD": 5094,
+   "PREMIUM": 7294,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "XUV700",
+   "fuel": "Diesel",
+   "BASIC": 4374,
+   "STANDARD": 5377,
+   "PREMIUM": 7624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mahindra",
+   "model": "Xylo",
+   "fuel": "Diesel",
+   "BASIC": 4169,
+   "STANDARD": 5369,
+   "PREMIUM": 7397,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "800",
+   "fuel": "Petrol",
+   "BASIC": 2899,
+   "STANDARD": 3439,
+   "PREMIUM": 4444,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "A-Star",
+   "fuel": "Petrol",
+   "BASIC": 2949,
+   "STANDARD": 3469,
+   "PREMIUM": 4864,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto",
+   "fuel": "Petrol",
+   "BASIC": 2936,
+   "STANDARD": 3376,
+   "PREMIUM": 4831,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto",
+   "fuel": "CNG",
+   "BASIC": 2936,
+   "STANDARD": 3376,
+   "PREMIUM": 4831,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto 800",
+   "fuel": "Petrol",
+   "BASIC": 2877,
+   "STANDARD": 3286,
+   "PREMIUM": 4891,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto 800",
+   "fuel": "CNG",
+   "BASIC": 2877,
+   "STANDARD": 3286,
+   "PREMIUM": 4891,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto K10",
+   "fuel": "Petrol",
+   "BASIC": 2912,
+   "STANDARD": 3495,
+   "PREMIUM": 5099,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Alto K10",
+   "fuel": "CNG",
+   "BASIC": 2812,
+   "STANDARD": 3351,
+   "PREMIUM": 4906,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Baleno",
+   "fuel": "Petrol",
+   "BASIC": 3187,
+   "STANDARD": 3857,
+   "PREMIUM": 5887,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Baleno",
+   "fuel": "CNG",
+   "BASIC": 3287,
+   "STANDARD": 3912,
+   "PREMIUM": 5842,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Brezza",
+   "fuel": "Petrol",
+   "BASIC": 3610,
+   "STANDARD": 4279,
+   "PREMIUM": 6085,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Brezza",
+   "fuel": "Diesel",
+   "BASIC": 3754,
+   "STANDARD": 4627,
+   "PREMIUM": 6407,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Brezza",
+   "fuel": "CNG",
+   "BASIC": 3610,
+   "STANDARD": 4404,
+   "PREMIUM": 6085,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Celerio",
+   "fuel": "Petrol",
+   "BASIC": 2922,
+   "STANDARD": 3511,
+   "PREMIUM": 5011,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Celerio",
+   "fuel": "Diesel",
+   "BASIC": 2856,
+   "STANDARD": 3515,
+   "PREMIUM": 5158,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Celerio",
+   "fuel": "CNG",
+   "BASIC": 2922,
+   "STANDARD": 3511,
+   "PREMIUM": 5011,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ciaz",
+   "fuel": "Petrol",
+   "BASIC": 3620,
+   "STANDARD": 4439,
+   "PREMIUM": 6040,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ciaz",
+   "fuel": "Diesel",
+   "BASIC": 3864,
+   "STANDARD": 4537,
+   "PREMIUM": 6512,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Dzire",
+   "fuel": "Petrol",
+   "BASIC": 3142,
+   "STANDARD": 3722,
+   "PREMIUM": 5603,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Dzire",
+   "fuel": "Diesel",
+   "BASIC": 3242,
+   "STANDARD": 3867,
+   "PREMIUM": 5681,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Dzire",
+   "fuel": "CNG",
+   "BASIC": 3142,
+   "STANDARD": 3722,
+   "PREMIUM": 5608,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Eeco",
+   "fuel": "Petrol",
+   "BASIC": 3349,
+   "STANDARD": 3844,
+   "PREMIUM": 5234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Eeco",
+   "fuel": "CNG",
+   "BASIC": 3299,
+   "STANDARD": 3844,
+   "PREMIUM": 5234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ertiga",
+   "fuel": "Petrol",
+   "BASIC": 3280,
+   "STANDARD": 3962,
+   "PREMIUM": 5787,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ertiga",
+   "fuel": "Diesel",
+   "BASIC": 3524,
+   "STANDARD": 4357,
+   "PREMIUM": 6161,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ertiga",
+   "fuel": "CNG",
+   "BASIC": 3280,
+   "STANDARD": 3941,
+   "PREMIUM": 5766,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Esteem",
+   "fuel": "Petrol",
+   "BASIC": 2644,
+   "STANDARD": 3544,
+   "PREMIUM": 4759,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Esteem",
+   "fuel": "Diesel",
+   "BASIC": 2644,
+   "STANDARD": 3544,
+   "PREMIUM": 4759,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Estilo",
+   "fuel": "Petrol",
+   "BASIC": 3044,
+   "STANDARD": 3489,
+   "PREMIUM": 5014,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Fronx",
+   "fuel": "Petrol",
+   "BASIC": 3224,
+   "STANDARD": 3794,
+   "PREMIUM": 5735,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Fronx",
+   "fuel": "CNG",
+   "BASIC": 3224,
+   "STANDARD": 3794,
+   "PREMIUM": 5735,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Grand Vitara",
+   "fuel": "Petrol",
+   "BASIC": 3521,
+   "STANDARD": 4974,
+   "PREMIUM": 6964,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Grand Vitara",
+   "fuel": "Hybrid",
+   "BASIC": 3521,
+   "STANDARD": 4974,
+   "PREMIUM": 6964,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Grand Vitara",
+   "fuel": "CNG",
+   "BASIC": 3679,
+   "STANDARD": 4849,
+   "PREMIUM": 6514,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Gypsy",
+   "fuel": "Petrol",
+   "BASIC": 3229,
+   "STANDARD": 4399,
+   "PREMIUM": 6154,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ignis",
+   "fuel": "Petrol",
+   "BASIC": 3189,
+   "STANDARD": 3749,
+   "PREMIUM": 5194,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ignis",
+   "fuel": "Diesel",
+   "BASIC": 2959,
+   "STANDARD": 3859,
+   "PREMIUM": 6514,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Invicto",
+   "fuel": "Hybrid",
+   "BASIC": 4414,
+   "STANDARD": 5744,
+   "PREMIUM": 7864,
+   "basis": "Toyota Innova Hycross Petrol"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Jimny",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4174,
+   "PREMIUM": 5659,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Kizashi",
+   "fuel": "Petrol",
+   "BASIC": 3544,
+   "STANDARD": 5614,
+   "PREMIUM": 7144,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Omni",
+   "fuel": "Petrol",
+   "BASIC": 2749,
+   "STANDARD": 2734,
+   "PREMIUM": 4174,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ritz",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 3529,
+   "PREMIUM": 5029,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Ritz",
+   "fuel": "Diesel",
+   "BASIC": 3144,
+   "STANDARD": 3664,
+   "PREMIUM": 5209,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "S-Cross",
+   "fuel": "Petrol",
+   "BASIC": 3259,
+   "STANDARD": 3894,
+   "PREMIUM": 5539,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "S-Cross",
+   "fuel": "Diesel",
+   "BASIC": 3639,
+   "STANDARD": 4379,
+   "PREMIUM": 6279,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "S-Presso",
+   "fuel": "Petrol",
+   "BASIC": 3024,
+   "STANDARD": 3621,
+   "PREMIUM": 5464,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "S-Presso",
+   "fuel": "CNG",
+   "BASIC": 3024,
+   "STANDARD": 3621,
+   "PREMIUM": 5464,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "SX4",
+   "fuel": "Petrol",
+   "BASIC": 3629,
+   "STANDARD": 4392,
+   "PREMIUM": 6068,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "SX4",
+   "fuel": "Diesel",
+   "BASIC": 3589,
+   "STANDARD": 4759,
+   "PREMIUM": 7099,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "SX4",
+   "fuel": "CNG",
+   "BASIC": 3229,
+   "STANDARD": 4399,
+   "PREMIUM": 5839,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Swift",
+   "fuel": "Petrol",
+   "BASIC": 3152,
+   "STANDARD": 3757,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Swift",
+   "fuel": "Diesel",
+   "BASIC": 3252,
+   "STANDARD": 3777,
+   "PREMIUM": 5681,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Swift",
+   "fuel": "CNG",
+   "BASIC": 3152,
+   "STANDARD": 3757,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Versa",
+   "fuel": "Petrol",
+   "BASIC": 2869,
+   "STANDARD": 3949,
+   "PREMIUM": 5209,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Victoris",
+   "fuel": "Petrol",
+   "BASIC": 3521,
+   "STANDARD": 4974,
+   "PREMIUM": 6964,
+   "basis": "Maruti Suzuki Grand Vitara Petrol"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Victoris",
+   "fuel": "Hybrid",
+   "BASIC": 3521,
+   "STANDARD": 4974,
+   "PREMIUM": 6964,
+   "basis": "Maruti Suzuki Grand Vitara Petrol"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Victoris",
+   "fuel": "CNG",
+   "BASIC": 3679,
+   "STANDARD": 4849,
+   "PREMIUM": 6514,
+   "basis": "Maruti Suzuki Grand Vitara CNG"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Wagon R",
+   "fuel": "Petrol",
+   "BASIC": 3036,
+   "STANDARD": 3501,
+   "PREMIUM": 5131,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Wagon R",
+   "fuel": "CNG",
+   "BASIC": 3036,
+   "STANDARD": 3501,
+   "PREMIUM": 5131,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "XL6",
+   "fuel": "Petrol",
+   "BASIC": 3384,
+   "STANDARD": 4139,
+   "PREMIUM": 5389,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "XL6",
+   "fuel": "CNG",
+   "BASIC": 3384,
+   "STANDARD": 4100,
+   "PREMIUM": 5389,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Zen",
+   "fuel": "Petrol",
+   "BASIC": 3049,
+   "STANDARD": 3594,
+   "PREMIUM": 5044,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maruti Suzuki",
+   "model": "Zen",
+   "fuel": "Diesel",
+   "BASIC": 3049,
+   "STANDARD": 3594,
+   "PREMIUM": 5044,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Ghibli",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Ghibli",
+   "fuel": "Diesel",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maserati",
+   "model": "GranCabrio",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maserati",
+   "model": "GranTurismo",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Levante",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "Maserati Ghibli Petrol"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Levante",
+   "fuel": "Diesel",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25961,
+   "basis": "Maserati Ghibli Diesel"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Quattroporte",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Maserati",
+   "model": "Quattroporte",
+   "fuel": "Diesel",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 28796,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "A-Class",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "A-Class",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "AMG GT",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 23531,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "B-Class",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "B-Class",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "C-Class",
+   "fuel": "Petrol",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18176,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "C-Class",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 13021,
+   "PREMIUM": 18176,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "CLA",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20129,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "CLA",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20129,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "CLS",
+   "fuel": "Diesel",
+   "BASIC": 13447,
+   "STANDARD": 17051,
+   "PREMIUM": 21830,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "E-Class",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 15391,
+   "PREMIUM": 18671,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "E-Class",
+   "fuel": "Diesel",
+   "BASIC": 10052,
+   "STANDARD": 14641,
+   "PREMIUM": 17771,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "G-Class",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "G-Class",
+   "fuel": "Diesel",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24098,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GL-Class",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 27824,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLA",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 17861,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLA",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 17861,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLB",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 17861,
+   "basis": "Mercedes-Benz GLA Petrol"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLB",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 17861,
+   "basis": "Mercedes-Benz GLA Diesel"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLC",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 15391,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLC",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 15391,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLE",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21101,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLE",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21101,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLS",
+   "fuel": "Petrol",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24908,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "GLS",
+   "fuel": "Diesel",
+   "BASIC": 15715,
+   "STANDARD": 19319,
+   "PREMIUM": 24908,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "M-Class",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21101,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "R-Class",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21506,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "S-Class",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21101,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "S-Class",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21101,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "SL",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 23531,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "SLK",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 21506,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mercedes-Benz",
+   "model": "V-Class",
+   "fuel": "Diesel",
+   "BASIC": 13609,
+   "STANDARD": 17213,
+   "PREMIUM": 22316,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mini",
+   "model": "Clubman",
+   "fuel": "Petrol",
+   "BASIC": 10733,
+   "STANDARD": 13852,
+   "PREMIUM": 20453,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mini",
+   "model": "Cooper",
+   "fuel": "Petrol",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 18428,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mini",
+   "model": "Countryman",
+   "fuel": "Petrol",
+   "BASIC": 10733,
+   "STANDARD": 13852,
+   "PREMIUM": 19643,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mini",
+   "model": "Countryman",
+   "fuel": "Diesel",
+   "BASIC": 10733,
+   "STANDARD": 13852,
+   "PREMIUM": 19643,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Cedia",
+   "fuel": "Petrol",
+   "BASIC": 2824,
+   "STANDARD": 3724,
+   "PREMIUM": 4939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Lancer",
+   "fuel": "Petrol",
+   "BASIC": 2824,
+   "STANDARD": 3724,
+   "PREMIUM": 4939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Lancer",
+   "fuel": "Diesel",
+   "BASIC": 2824,
+   "STANDARD": 3724,
+   "PREMIUM": 4939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Montero",
+   "fuel": "Diesel",
+   "BASIC": 6064,
+   "STANDARD": 7864,
+   "PREMIUM": 11374,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Outlander",
+   "fuel": "Petrol",
+   "BASIC": 5614,
+   "STANDARD": 7324,
+   "PREMIUM": 10834,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Pajero",
+   "fuel": "Diesel",
+   "BASIC": 5614,
+   "STANDARD": 7324,
+   "PREMIUM": 10834,
+   "basis": "exact"
+  },
+  {
+   "brand": "Mitsubishi",
+   "model": "Pajero Sport",
+   "fuel": "Diesel",
+   "BASIC": 5614,
+   "STANDARD": 7324,
+   "PREMIUM": 10834,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Evalia",
+   "fuel": "Diesel",
+   "BASIC": 4354,
+   "STANDARD": 5704,
+   "PREMIUM": 9259,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "GT-R",
+   "fuel": "Petrol",
+   "BASIC": 13609,
+   "STANDARD": 26805,
+   "PREMIUM": 32053,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Kicks",
+   "fuel": "Petrol",
+   "BASIC": 3764,
+   "STANDARD": 4659,
+   "PREMIUM": 6229,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Kicks",
+   "fuel": "Diesel",
+   "BASIC": 3814,
+   "STANDARD": 4624,
+   "PREMIUM": 6649,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Magnite",
+   "fuel": "Petrol",
+   "BASIC": 3554,
+   "STANDARD": 4482,
+   "PREMIUM": 6080,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Micra",
+   "fuel": "Petrol",
+   "BASIC": 3159,
+   "STANDARD": 3714,
+   "PREMIUM": 5734,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Micra",
+   "fuel": "Diesel",
+   "BASIC": 3604,
+   "STANDARD": 4384,
+   "PREMIUM": 6034,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Micra Active",
+   "fuel": "Petrol",
+   "BASIC": 3159,
+   "STANDARD": 3714,
+   "PREMIUM": 5734,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Sunny",
+   "fuel": "Petrol",
+   "BASIC": 3548,
+   "STANDARD": 4449,
+   "PREMIUM": 6194,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Sunny",
+   "fuel": "Diesel",
+   "BASIC": 4098,
+   "STANDARD": 5204,
+   "PREMIUM": 7484,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Teana",
+   "fuel": "Petrol",
+   "BASIC": 4444,
+   "STANDARD": 5704,
+   "PREMIUM": 7819,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Terrano",
+   "fuel": "Petrol",
+   "BASIC": 4264,
+   "STANDARD": 5614,
+   "PREMIUM": 9169,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "Terrano",
+   "fuel": "Diesel",
+   "BASIC": 4164,
+   "STANDARD": 5239,
+   "PREMIUM": 8269,
+   "basis": "exact"
+  },
+  {
+   "brand": "Nissan",
+   "model": "X-Trail",
+   "fuel": "Petrol",
+   "BASIC": 4759,
+   "STANDARD": 6199,
+   "PREMIUM": 9799,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Nissan",
+   "model": "X-Trail",
+   "fuel": "Diesel",
+   "BASIC": 4759,
+   "STANDARD": 6199,
+   "PREMIUM": 9799,
+   "basis": "exact"
+  },
+  {
+   "brand": "Opel",
+   "model": "Astra",
+   "fuel": "Petrol",
+   "BASIC": 3139,
+   "STANDARD": 4219,
+   "PREMIUM": 6379,
+   "basis": "exact"
+  },
+  {
+   "brand": "Opel",
+   "model": "Astra",
+   "fuel": "Diesel",
+   "BASIC": 3319,
+   "STANDARD": 4489,
+   "PREMIUM": 7189,
+   "basis": "exact"
+  },
+  {
+   "brand": "Opel",
+   "model": "Corsa",
+   "fuel": "Petrol",
+   "BASIC": 3184,
+   "STANDARD": 4264,
+   "PREMIUM": 6424,
+   "basis": "exact"
+  },
+  {
+   "brand": "Opel",
+   "model": "Corsa",
+   "fuel": "Diesel",
+   "BASIC": 3364,
+   "STANDARD": 4534,
+   "PREMIUM": 7234,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "911",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Boxster",
+   "fuel": "Petrol",
+   "BASIC": 16889,
+   "STANDARD": 20372,
+   "PREMIUM": 25151,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Cayenne",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Cayenne",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Cayenne",
+   "fuel": "Hybrid",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Cayman",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 25556,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Macan",
+   "fuel": "Petrol",
+   "BASIC": 11624,
+   "STANDARD": 15958,
+   "PREMIUM": 20453,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Panamera",
+   "fuel": "Petrol",
+   "BASIC": 16160,
+   "STANDARD": 23693,
+   "PREMIUM": 27581,
+   "basis": "exact"
+  },
+  {
+   "brand": "Porsche",
+   "model": "Panamera",
+   "fuel": "Hybrid",
+   "BASIC": 16160,
+   "STANDARD": 23693,
+   "PREMIUM": 27581,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Premier",
+   "model": "Padmini",
+   "fuel": "Petrol",
+   "BASIC": 2549,
+   "STANDARD": 3849,
+   "PREMIUM": 5649,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Premier",
+   "model": "Rio",
+   "fuel": "Petrol",
+   "BASIC": 3094,
+   "STANDARD": 4174,
+   "PREMIUM": 5659,
+   "basis": "exact"
+  },
+  {
+   "brand": "Premier",
+   "model": "Rio",
+   "fuel": "Diesel",
+   "BASIC": 3004,
+   "STANDARD": 3994,
+   "PREMIUM": 6199,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Captur",
+   "fuel": "Petrol",
+   "BASIC": 4264,
+   "STANDARD": 5614,
+   "PREMIUM": 9169,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Captur",
+   "fuel": "Diesel",
+   "BASIC": 4264,
+   "STANDARD": 5614,
+   "PREMIUM": 9169,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Duster",
+   "fuel": "Petrol",
+   "BASIC": 4010,
+   "STANDARD": 4904,
+   "PREMIUM": 6685,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Duster",
+   "fuel": "Diesel",
+   "BASIC": 4068,
+   "STANDARD": 5070,
+   "PREMIUM": 6831,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Fluence",
+   "fuel": "Petrol",
+   "BASIC": 3544,
+   "STANDARD": 4714,
+   "PREMIUM": 6514,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Fluence",
+   "fuel": "Diesel",
+   "BASIC": 3994,
+   "STANDARD": 5344,
+   "PREMIUM": 7954,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Kiger",
+   "fuel": "Petrol",
+   "BASIC": 3854,
+   "STANDARD": 4731,
+   "PREMIUM": 6517,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Koleos",
+   "fuel": "Diesel",
+   "BASIC": 4579,
+   "STANDARD": 6019,
+   "PREMIUM": 9439,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Kwid",
+   "fuel": "Petrol",
+   "BASIC": 2922,
+   "STANDARD": 3386,
+   "PREMIUM": 5011,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Lodgy",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 9304,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Pulse",
+   "fuel": "Petrol",
+   "BASIC": 2959,
+   "STANDARD": 3859,
+   "PREMIUM": 5794,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Pulse",
+   "fuel": "Diesel",
+   "BASIC": 3319,
+   "STANDARD": 4399,
+   "PREMIUM": 7054,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Scala",
+   "fuel": "Petrol",
+   "BASIC": 3679,
+   "STANDARD": 4849,
+   "PREMIUM": 6694,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Scala",
+   "fuel": "Diesel",
+   "BASIC": 4129,
+   "STANDARD": 5479,
+   "PREMIUM": 8134,
+   "basis": "exact"
+  },
+  {
+   "brand": "Renault",
+   "model": "Triber",
+   "fuel": "Petrol",
+   "BASIC": 3504,
+   "STANDARD": 4131,
+   "PREMIUM": 5809,
+   "basis": "exact"
+  },
+  {
+   "brand": "Rolls-Royce",
+   "model": "Cullinan",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "Rolls-Royce Ghost Petrol"
+  },
+  {
+   "brand": "Rolls-Royce",
+   "model": "Dawn",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "Rolls-Royce Wraith Petrol"
+  },
+  {
+   "brand": "Rolls-Royce",
+   "model": "Ghost",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "exact"
+  },
+  {
+   "brand": "Rolls-Royce",
+   "model": "Phantom",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "exact"
+  },
+  {
+   "brand": "Rolls-Royce",
+   "model": "Wraith",
+   "fuel": "Petrol",
+   "BASIC": 21668,
+   "STANDARD": 25151,
+   "PREMIUM": 27986,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Fabia",
+   "fuel": "Petrol",
+   "BASIC": 3597,
+   "STANDARD": 4717,
+   "PREMIUM": 6877,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Fabia",
+   "fuel": "Diesel",
+   "BASIC": 3697,
+   "STANDARD": 5092,
+   "PREMIUM": 8107,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Fabia Scout",
+   "fuel": "Petrol",
+   "BASIC": 3697,
+   "STANDARD": 5092,
+   "PREMIUM": 7477,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Fabia Scout",
+   "fuel": "Diesel",
+   "BASIC": 3697,
+   "STANDARD": 5092,
+   "PREMIUM": 8107,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Kodiaq",
+   "fuel": "Petrol",
+   "BASIC": 4867,
+   "STANDARD": 6397,
+   "PREMIUM": 9682,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Kodiaq",
+   "fuel": "Diesel",
+   "BASIC": 5317,
+   "STANDARD": 8557,
+   "PREMIUM": 10492,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Kushaq",
+   "fuel": "Petrol",
+   "BASIC": 4667,
+   "STANDARD": 5897,
+   "PREMIUM": 8932,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Kylaq",
+   "fuel": "Petrol",
+   "BASIC": 4667,
+   "STANDARD": 5897,
+   "PREMIUM": 8932,
+   "basis": "Skoda Kushaq Petrol"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Laura",
+   "fuel": "Petrol",
+   "BASIC": 3562,
+   "STANDARD": 4777,
+   "PREMIUM": 6532,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Laura",
+   "fuel": "Diesel",
+   "BASIC": 4288,
+   "STANDARD": 5697,
+   "PREMIUM": 8272,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Octavia",
+   "fuel": "Petrol",
+   "BASIC": 4382,
+   "STANDARD": 5837,
+   "PREMIUM": 8302,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Octavia",
+   "fuel": "Diesel",
+   "BASIC": 4450,
+   "STANDARD": 5697,
+   "PREMIUM": 8482,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Rapid",
+   "fuel": "Petrol",
+   "BASIC": 4124,
+   "STANDARD": 5337,
+   "PREMIUM": 7492,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Rapid",
+   "fuel": "Diesel",
+   "BASIC": 4214,
+   "STANDARD": 5697,
+   "PREMIUM": 8452,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Slavia",
+   "fuel": "Petrol",
+   "BASIC": 4622,
+   "STANDARD": 5852,
+   "PREMIUM": 9067,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Superb",
+   "fuel": "Petrol",
+   "BASIC": 5290,
+   "STANDARD": 6927,
+   "PREMIUM": 9307,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Superb",
+   "fuel": "Diesel",
+   "BASIC": 5182,
+   "STANDARD": 6802,
+   "PREMIUM": 10312,
+   "basis": "exact"
+  },
+  {
+   "brand": "Skoda",
+   "model": "Yeti",
+   "fuel": "Diesel",
+   "BASIC": 4552,
+   "STANDARD": 6622,
+   "PREMIUM": 9907,
+   "basis": "exact"
+  },
+  {
+   "brand": "SsangYong",
+   "model": "Rexton",
+   "fuel": "Diesel",
+   "BASIC": 4624,
+   "STANDARD": 5974,
+   "PREMIUM": 8224,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Altroz",
+   "fuel": "Petrol",
+   "BASIC": 3332,
+   "STANDARD": 3992,
+   "PREMIUM": 5467,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Altroz",
+   "fuel": "Diesel",
+   "BASIC": 3532,
+   "STANDARD": 4677,
+   "PREMIUM": 6636,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Altroz",
+   "fuel": "CNG",
+   "BASIC": 3332,
+   "STANDARD": 3992,
+   "PREMIUM": 5467,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Aria",
+   "fuel": "Diesel",
+   "BASIC": 4399,
+   "STANDARD": 5749,
+   "PREMIUM": 7999,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Bolt",
+   "fuel": "Petrol",
+   "BASIC": 2869,
+   "STANDARD": 3769,
+   "PREMIUM": 4804,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Bolt",
+   "fuel": "Diesel",
+   "BASIC": 3319,
+   "STANDARD": 4399,
+   "PREMIUM": 7684,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Curvv",
+   "fuel": "Petrol",
+   "BASIC": 3552,
+   "STANDARD": 4564,
+   "PREMIUM": 6190,
+   "basis": "Tata Motors Nexon Petrol"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Curvv",
+   "fuel": "Diesel",
+   "BASIC": 4138,
+   "STANDARD": 4856,
+   "PREMIUM": 6812,
+   "basis": "Tata Motors Nexon Diesel"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Harrier",
+   "fuel": "Diesel",
+   "BASIC": 4316,
+   "STANDARD": 5484,
+   "PREMIUM": 7784,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Hexa",
+   "fuel": "Diesel",
+   "BASIC": 5084,
+   "STANDARD": 8014,
+   "PREMIUM": 12004,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica",
+   "fuel": "Petrol",
+   "BASIC": 2734,
+   "STANDARD": 3634,
+   "PREMIUM": 4624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica",
+   "fuel": "Diesel",
+   "BASIC": 3004,
+   "STANDARD": 4084,
+   "PREMIUM": 5614,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica V2",
+   "fuel": "Petrol",
+   "BASIC": 2734,
+   "STANDARD": 3634,
+   "PREMIUM": 4624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica V2",
+   "fuel": "Diesel",
+   "BASIC": 3004,
+   "STANDARD": 4084,
+   "PREMIUM": 5614,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica Vista",
+   "fuel": "Petrol",
+   "BASIC": 2749,
+   "STANDARD": 3319,
+   "PREMIUM": 4309,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica Vista",
+   "fuel": "Diesel",
+   "BASIC": 3289,
+   "STANDARD": 4269,
+   "PREMIUM": 6183,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indica eV2",
+   "fuel": "Diesel",
+   "BASIC": 3004,
+   "STANDARD": 4084,
+   "PREMIUM": 5614,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo",
+   "fuel": "Petrol",
+   "BASIC": 2824,
+   "STANDARD": 3814,
+   "PREMIUM": 4669,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo",
+   "fuel": "Diesel",
+   "BASIC": 3094,
+   "STANDARD": 4264,
+   "PREMIUM": 5929,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo CS",
+   "fuel": "Petrol",
+   "BASIC": 2779,
+   "STANDARD": 3769,
+   "PREMIUM": 4624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo CS",
+   "fuel": "Diesel",
+   "BASIC": 3049,
+   "STANDARD": 4219,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo Marina",
+   "fuel": "Petrol",
+   "BASIC": 2779,
+   "STANDARD": 3769,
+   "PREMIUM": 4624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo Marina",
+   "fuel": "Diesel",
+   "BASIC": 3049,
+   "STANDARD": 4219,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo XL",
+   "fuel": "Petrol",
+   "BASIC": 2824,
+   "STANDARD": 3814,
+   "PREMIUM": 4669,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo XL",
+   "fuel": "Diesel",
+   "BASIC": 3094,
+   "STANDARD": 4264,
+   "PREMIUM": 7549,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo eCS",
+   "fuel": "Petrol",
+   "BASIC": 2779,
+   "STANDARD": 3769,
+   "PREMIUM": 4624,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Indigo eCS",
+   "fuel": "Diesel",
+   "BASIC": 3049,
+   "STANDARD": 4219,
+   "PREMIUM": 7504,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Manza",
+   "fuel": "Petrol",
+   "BASIC": 2824,
+   "STANDARD": 3814,
+   "PREMIUM": 5209,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Manza",
+   "fuel": "Diesel",
+   "BASIC": 3558,
+   "STANDARD": 4464,
+   "PREMIUM": 7219,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nano",
+   "fuel": "Petrol",
+   "BASIC": 2849,
+   "STANDARD": 3289,
+   "PREMIUM": 4714,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nano",
+   "fuel": "CNG",
+   "BASIC": 2749,
+   "STANDARD": 2914,
+   "PREMIUM": 3814,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nano GenX",
+   "fuel": "Petrol",
+   "BASIC": 2749,
+   "STANDARD": 2914,
+   "PREMIUM": 3814,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nexon",
+   "fuel": "Petrol",
+   "BASIC": 3552,
+   "STANDARD": 4564,
+   "PREMIUM": 6190,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nexon",
+   "fuel": "Diesel",
+   "BASIC": 4138,
+   "STANDARD": 4856,
+   "PREMIUM": 6812,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Nexon",
+   "fuel": "CNG",
+   "BASIC": 3552,
+   "STANDARD": 4564,
+   "PREMIUM": 6190,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Punch",
+   "fuel": "Petrol",
+   "BASIC": 3404,
+   "STANDARD": 4154,
+   "PREMIUM": 5689,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Punch",
+   "fuel": "CNG",
+   "BASIC": 3404,
+   "STANDARD": 4154,
+   "PREMIUM": 5689,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Safari",
+   "fuel": "Diesel",
+   "BASIC": 4724,
+   "STANDARD": 5994,
+   "PREMIUM": 9109,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Safari Storme",
+   "fuel": "Diesel",
+   "BASIC": 4824,
+   "STANDARD": 6119,
+   "PREMIUM": 9259,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sierra",
+   "fuel": "Petrol",
+   "BASIC": 4316,
+   "STANDARD": 5484,
+   "PREMIUM": 7784,
+   "basis": "Tata Motors Harrier Diesel"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sierra",
+   "fuel": "Diesel",
+   "BASIC": 4316,
+   "STANDARD": 5484,
+   "PREMIUM": 7784,
+   "basis": "Tata Motors Harrier Diesel"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sumo Gold",
+   "fuel": "Diesel",
+   "BASIC": 4849,
+   "STANDARD": 6289,
+   "PREMIUM": 9574,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sumo Grande",
+   "fuel": "Diesel",
+   "BASIC": 4849,
+   "STANDARD": 6289,
+   "PREMIUM": 9574,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sumo Spacio",
+   "fuel": "Diesel",
+   "BASIC": 4849,
+   "STANDARD": 6289,
+   "PREMIUM": 9574,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Sumo Victa",
+   "fuel": "Diesel",
+   "BASIC": 4849,
+   "STANDARD": 6289,
+   "PREMIUM": 9574,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tiago",
+   "fuel": "Petrol",
+   "BASIC": 3552,
+   "STANDARD": 4225,
+   "PREMIUM": 6296,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tiago",
+   "fuel": "Diesel",
+   "BASIC": 3871,
+   "STANDARD": 4670,
+   "PREMIUM": 6509,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tiago",
+   "fuel": "CNG",
+   "BASIC": 3552,
+   "STANDARD": 4225,
+   "PREMIUM": 6296,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tiago NRG",
+   "fuel": "Petrol",
+   "BASIC": 3334,
+   "STANDARD": 4009,
+   "PREMIUM": 5464,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tiago NRG",
+   "fuel": "CNG",
+   "BASIC": 3334,
+   "STANDARD": 4009,
+   "PREMIUM": 5464,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tigor",
+   "fuel": "Petrol",
+   "BASIC": 3359,
+   "STANDARD": 4199,
+   "PREMIUM": 5539,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tigor",
+   "fuel": "Diesel",
+   "BASIC": 3409,
+   "STANDARD": 4579,
+   "PREMIUM": 6559,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Tigor",
+   "fuel": "CNG",
+   "BASIC": 3359,
+   "STANDARD": 4199,
+   "PREMIUM": 5539,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Venture",
+   "fuel": "Petrol",
+   "BASIC": 2549,
+   "STANDARD": 3849,
+   "PREMIUM": 5649,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Winger",
+   "fuel": "Diesel",
+   "BASIC": 3904,
+   "STANDARD": 5164,
+   "PREMIUM": 7369,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Xenon",
+   "fuel": "Diesel",
+   "BASIC": 5209,
+   "STANDARD": 6829,
+   "PREMIUM": 10294,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Zest",
+   "fuel": "Petrol",
+   "BASIC": 3494,
+   "STANDARD": 4192,
+   "PREMIUM": 5509,
+   "basis": "exact"
+  },
+  {
+   "brand": "Tata Motors",
+   "model": "Zest",
+   "fuel": "Diesel",
+   "BASIC": 3423,
+   "STANDARD": 4464,
+   "PREMIUM": 6979,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Alphard",
+   "fuel": "Petrol",
+   "BASIC": 12229,
+   "STANDARD": 15469,
+   "PREMIUM": 21229,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Alphard",
+   "fuel": "Hybrid",
+   "BASIC": 12229,
+   "STANDARD": 15469,
+   "PREMIUM": 21229,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Camry",
+   "fuel": "Petrol",
+   "BASIC": 4894,
+   "STANDARD": 7324,
+   "PREMIUM": 9304,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Camry",
+   "fuel": "Hybrid",
+   "BASIC": 4894,
+   "STANDARD": 7324,
+   "PREMIUM": 9304,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Corolla",
+   "fuel": "Petrol",
+   "BASIC": 3957,
+   "STANDARD": 5149,
+   "PREMIUM": 6949,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Corolla",
+   "fuel": "Diesel",
+   "BASIC": 4264,
+   "STANDARD": 5524,
+   "PREMIUM": 8629,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Corolla Altis",
+   "fuel": "Petrol",
+   "BASIC": 3969,
+   "STANDARD": 5374,
+   "PREMIUM": 7174,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Corolla Altis",
+   "fuel": "Diesel",
+   "BASIC": 4489,
+   "STANDARD": 6109,
+   "PREMIUM": 8854,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios",
+   "fuel": "Petrol",
+   "BASIC": 3334,
+   "STANDARD": 3824,
+   "PREMIUM": 5339,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios",
+   "fuel": "Diesel",
+   "BASIC": 3484,
+   "STANDARD": 4222,
+   "PREMIUM": 6029,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios Cross",
+   "fuel": "Petrol",
+   "BASIC": 2779,
+   "STANDARD": 3679,
+   "PREMIUM": 5074,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios Cross",
+   "fuel": "Diesel",
+   "BASIC": 3229,
+   "STANDARD": 4219,
+   "PREMIUM": 6514,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios Liva",
+   "fuel": "Petrol",
+   "BASIC": 3244,
+   "STANDARD": 3919,
+   "PREMIUM": 5344,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Etios Liva",
+   "fuel": "Diesel",
+   "BASIC": 3494,
+   "STANDARD": 4222,
+   "PREMIUM": 6184,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Fortuner",
+   "fuel": "Petrol",
+   "BASIC": 4688,
+   "STANDARD": 6414,
+   "PREMIUM": 8273,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Fortuner",
+   "fuel": "Diesel",
+   "BASIC": 4988,
+   "STANDARD": 6539,
+   "PREMIUM": 8573,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "GR Supra",
+   "fuel": "Petrol",
+   "BASIC": 14014,
+   "STANDARD": 18428,
+   "PREMIUM": 25799,
+   "basis": "BMW Z4 Petrol"
+  },
+  {
+   "brand": "Toyota",
+   "model": "GR Yaris",
+   "fuel": "Petrol",
+   "BASIC": 2549,
+   "STANDARD": 3849,
+   "PREMIUM": 5649,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Glanza",
+   "fuel": "Petrol",
+   "BASIC": 3224,
+   "STANDARD": 3794,
+   "PREMIUM": 5668,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Glanza",
+   "fuel": "CNG",
+   "BASIC": 2824,
+   "STANDARD": 3724,
+   "PREMIUM": 5839,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Hilux",
+   "fuel": "Diesel",
+   "BASIC": 5479,
+   "STANDARD": 8719,
+   "PREMIUM": 10609,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova",
+   "fuel": "Petrol",
+   "BASIC": 4058,
+   "STANDARD": 5784,
+   "PREMIUM": 7643,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova",
+   "fuel": "Diesel",
+   "BASIC": 4558,
+   "STANDARD": 5909,
+   "PREMIUM": 7793,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova Crysta",
+   "fuel": "Petrol",
+   "BASIC": 3804,
+   "STANDARD": 5284,
+   "PREMIUM": 7304,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova Crysta",
+   "fuel": "Diesel",
+   "BASIC": 4654,
+   "STANDARD": 5859,
+   "PREMIUM": 8197,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova Hycross",
+   "fuel": "Petrol",
+   "BASIC": 4414,
+   "STANDARD": 5744,
+   "PREMIUM": 7864,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Innova Hycross",
+   "fuel": "Hybrid",
+   "BASIC": 4414,
+   "STANDARD": 5744,
+   "PREMIUM": 7864,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Land Cruiser",
+   "fuel": "Petrol",
+   "BASIC": 5929,
+   "STANDARD": 8719,
+   "PREMIUM": 11509,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Land Cruiser",
+   "fuel": "Diesel",
+   "BASIC": 5929,
+   "STANDARD": 8719,
+   "PREMIUM": 11509,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Land Cruiser Prado",
+   "fuel": "Petrol",
+   "BASIC": 5974,
+   "STANDARD": 8764,
+   "PREMIUM": 11554,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Land Cruiser Prado",
+   "fuel": "Diesel",
+   "BASIC": 5974,
+   "STANDARD": 8764,
+   "PREMIUM": 11554,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Qualis",
+   "fuel": "Petrol",
+   "BASIC": 4444,
+   "STANDARD": 5614,
+   "PREMIUM": 8629,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Qualis",
+   "fuel": "Diesel",
+   "BASIC": 4444,
+   "STANDARD": 5614,
+   "PREMIUM": 8629,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Rumion",
+   "fuel": "Petrol",
+   "BASIC": 3280,
+   "STANDARD": 3962,
+   "PREMIUM": 5787,
+   "basis": "Maruti Suzuki Ertiga Petrol"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Rumion",
+   "fuel": "CNG",
+   "BASIC": 3280,
+   "STANDARD": 3941,
+   "PREMIUM": 5766,
+   "basis": "Maruti Suzuki Ertiga CNG"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Sera",
+   "fuel": "Petrol",
+   "BASIC": 4039,
+   "STANDARD": 5659,
+   "PREMIUM": 7189,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser",
+   "fuel": "Petrol",
+   "BASIC": 3374,
+   "STANDARD": 4229,
+   "PREMIUM": 5752,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser Hyryder",
+   "fuel": "Petrol",
+   "BASIC": 3464,
+   "STANDARD": 4284,
+   "PREMIUM": 5840,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser Hyryder",
+   "fuel": "Hybrid",
+   "BASIC": 3464,
+   "STANDARD": 4284,
+   "PREMIUM": 5840,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser Hyryder",
+   "fuel": "CNG",
+   "BASIC": 3364,
+   "STANDARD": 4534,
+   "PREMIUM": 5929,
+   "basis": "exact"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser Taisor",
+   "fuel": "Petrol",
+   "BASIC": 3224,
+   "STANDARD": 3794,
+   "PREMIUM": 5735,
+   "basis": "Maruti Suzuki Fronx Petrol"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Urban Cruiser Taisor",
+   "fuel": "CNG",
+   "BASIC": 3224,
+   "STANDARD": 3794,
+   "PREMIUM": 5735,
+   "basis": "Maruti Suzuki Fronx Petrol"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Vellfire",
+   "fuel": "Hybrid",
+   "BASIC": 12229,
+   "STANDARD": 15469,
+   "PREMIUM": 21229,
+   "basis": "Toyota Alphard Petrol"
+  },
+  {
+   "brand": "Toyota",
+   "model": "Yaris",
+   "fuel": "Petrol",
+   "BASIC": 4074,
+   "STANDARD": 5294,
+   "PREMIUM": 6874,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Ameo",
+   "fuel": "Petrol",
+   "BASIC": 3602,
+   "STANDARD": 4520,
+   "PREMIUM": 6271,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Ameo",
+   "fuel": "Diesel",
+   "BASIC": 3882,
+   "STANDARD": 4812,
+   "PREMIUM": 7237,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Beetle",
+   "fuel": "Petrol",
+   "BASIC": 7297,
+   "STANDARD": 11032,
+   "PREMIUM": 15892,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Cross Polo",
+   "fuel": "Petrol",
+   "BASIC": 3022,
+   "STANDARD": 4102,
+   "PREMIUM": 6307,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Cross Polo",
+   "fuel": "Diesel",
+   "BASIC": 3202,
+   "STANDARD": 4372,
+   "PREMIUM": 7117,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Golf",
+   "fuel": "Petrol",
+   "BASIC": 2549,
+   "STANDARD": 3849,
+   "PREMIUM": 5649,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Golf GTI",
+   "fuel": "Petrol",
+   "BASIC": 13349,
+   "STANDARD": 18349,
+   "PREMIUM": 25349,
+   "basis": "kept current BroCo price (no GoMechanic equivalent)"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Jetta",
+   "fuel": "Petrol",
+   "BASIC": 3157,
+   "STANDARD": 5362,
+   "PREMIUM": 7612,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Jetta",
+   "fuel": "Diesel",
+   "BASIC": 3427,
+   "STANDARD": 5542,
+   "PREMIUM": 8872,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Passat",
+   "fuel": "Petrol",
+   "BASIC": 3112,
+   "STANDARD": 5497,
+   "PREMIUM": 7792,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Passat",
+   "fuel": "Diesel",
+   "BASIC": 3292,
+   "STANDARD": 5677,
+   "PREMIUM": 9052,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Polo",
+   "fuel": "Petrol",
+   "BASIC": 3305,
+   "STANDARD": 4195,
+   "PREMIUM": 6026,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Polo",
+   "fuel": "Diesel",
+   "BASIC": 3651,
+   "STANDARD": 4575,
+   "PREMIUM": 6239,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "T-Roc",
+   "fuel": "Petrol",
+   "BASIC": 4687,
+   "STANDARD": 6217,
+   "PREMIUM": 9502,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Taigun",
+   "fuel": "Petrol",
+   "BASIC": 4667,
+   "STANDARD": 5897,
+   "PREMIUM": 8932,
+   "basis": "Skoda Kushaq Petrol"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Tiguan",
+   "fuel": "Petrol",
+   "BASIC": 4777,
+   "STANDARD": 6847,
+   "PREMIUM": 10132,
+   "basis": "same model, Diesel price"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Tiguan",
+   "fuel": "Diesel",
+   "BASIC": 4777,
+   "STANDARD": 6847,
+   "PREMIUM": 10132,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Vento",
+   "fuel": "Petrol",
+   "BASIC": 3825,
+   "STANDARD": 4569,
+   "PREMIUM": 6295,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Vento",
+   "fuel": "Diesel",
+   "BASIC": 3869,
+   "STANDARD": 4792,
+   "PREMIUM": 6617,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volkswagen",
+   "model": "Virtus",
+   "fuel": "Petrol",
+   "BASIC": 4422,
+   "STANDARD": 5727,
+   "PREMIUM": 8917,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S40",
+   "fuel": "Petrol",
+   "BASIC": 9518,
+   "STANDARD": 12637,
+   "PREMIUM": 18428,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S40",
+   "fuel": "Diesel",
+   "BASIC": 9518,
+   "STANDARD": 12637,
+   "PREMIUM": 18428,
+   "basis": "same model, Petrol price"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S60",
+   "fuel": "Petrol",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S60",
+   "fuel": "Diesel",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S60 Cross Country",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S80",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S80",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 25394,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S90",
+   "fuel": "Petrol",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "S90",
+   "fuel": "Diesel",
+   "BASIC": 11300,
+   "STANDARD": 14824,
+   "PREMIUM": 20534,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V40",
+   "fuel": "Petrol",
+   "BASIC": 11098,
+   "STANDARD": 14216,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V40",
+   "fuel": "Diesel",
+   "BASIC": 10328,
+   "STANDARD": 13447,
+   "PREMIUM": 19238,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V40 Cross Country",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V40 Cross Country",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V60",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 15391,
+   "PREMIUM": 20291,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "V90 Cross Country",
+   "fuel": "Diesel",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 20939,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC40",
+   "fuel": "Petrol",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC40",
+   "fuel": "Diesel",
+   "BASIC": 10652,
+   "STANDARD": 13771,
+   "PREMIUM": 19481,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC60",
+   "fuel": "Petrol",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 20129,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC60",
+   "fuel": "Diesel",
+   "BASIC": 12394,
+   "STANDARD": 15877,
+   "PREMIUM": 20129,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC90",
+   "fuel": "Petrol",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 23774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC90",
+   "fuel": "Diesel",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 23774,
+   "basis": "exact"
+  },
+  {
+   "brand": "Volvo",
+   "model": "XC90",
+   "fuel": "Hybrid",
+   "BASIC": 14662,
+   "STANDARD": 18266,
+   "PREMIUM": 23774,
+   "basis": "same model, Petrol price"
+  }
+ ]
+}
