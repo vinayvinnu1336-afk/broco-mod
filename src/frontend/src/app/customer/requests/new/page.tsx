@@ -647,9 +647,8 @@ function BookingFlow() {
       return null;
     }
     const notes = mode === 'package' ? packageNotes.trim() : problem.trim();
-    // When the garage picks the car up, the slot travels in its own field.
-    const timeNote = slot && !needsPickup ? `Preferred time: ${slot.label.toLowerCase()}.` : '';
-    const description = [notes, timeNote].filter(Boolean).join('\n');
+    // The chosen slot travels in its own field (pick-up or drive-in), so staff screens show it with its hours.
+    const description = notes;
     const body: Record<string, unknown> = {
       vehicleId,
       addressLine1: loc.addressLine1,
@@ -665,7 +664,7 @@ function BookingFlow() {
       preferredServiceDate,
       needsPickup: needsPickup === true,
       pickupNotes: needsPickup ? pickupNotes.trim() || null : null,
-      pickupSlot: needsPickup ? slot?.value ?? null : null,
+      pickupSlot: slot?.value ?? null,
     };
     if (mode === 'package') body.packageCode = packageCode;
     else body.serviceCategories = categories;

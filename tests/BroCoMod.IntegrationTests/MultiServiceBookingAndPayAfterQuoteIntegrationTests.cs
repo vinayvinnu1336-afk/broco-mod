@@ -295,7 +295,7 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
             .ToListAsync();
         advisorNotified.Should().NotBeEmpty().And.OnlyContain(m => m.Contains("Pick-up & drop: Yes, Morning 9-12 - Gate 2, call before coming."));
 
-        // Driving in: notes and slot are dropped, and everyone sees "customer drives in".
+        // Driving in: notes are dropped, the preferred slot is kept, and everyone sees "customer drives in".
         var driveIn = await CreateRequestAsync(customer, Booking(vehicleId, new[] { "AC Service & Repair" }) with
         {
             NeedsPickup = false,
@@ -304,7 +304,7 @@ public class MultiServiceBookingAndPayAfterQuoteIntegrationTests : IClassFixture
         });
         driveIn.NeedsPickup.Should().BeFalse();
         driveIn.PickupNotes.Should().BeNull();
-        driveIn.PickupSlot.Should().BeNull();
+        driveIn.PickupSlot.Should().Be("Evening 3-6");
         var storedDriveIn = await db.ServiceRequests.AsNoTracking().FirstAsync(r => r.Id == driveIn.Id);
         storedDriveIn.PickupSummary.Should().Be("No, customer drives in");
     }

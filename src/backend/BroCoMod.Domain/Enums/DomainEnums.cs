@@ -118,7 +118,7 @@ public enum ServiceJobStatus
     HandedOver = 9,
     Closed = 10,
     Cancelled = 11,
-    /// <summary>After handover: the garage has collected the customer's balance. Comes before Closed.</summary>
+    /// <summary>The garage has collected the customer's balance; comes after VehicleReady and before HandedOver.</summary>
     PaymentReceived = 12
 }
 

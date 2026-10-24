@@ -200,8 +200,10 @@ public class ServiceJob : BaseEntity
 
     public void HandOverVehicle(string? note, Guid userId)
     {
-        if (Status != ServiceJobStatus.VehicleReady)
-            throw new InvalidOperationException($"Cannot hand over vehicle in '{Status}' state. Allowed only when 'VehicleReady'.");
+        if (Status == ServiceJobStatus.VehicleReady)
+            throw new InvalidOperationException("Record the payment received from the customer before handing over the car.");
+        if (Status != ServiceJobStatus.PaymentReceived)
+            throw new InvalidOperationException($"Cannot hand over vehicle in '{Status}' state. Allowed only after the payment is received.");
 
         HandedOverAtUtc = DateTime.UtcNow;
         if (!string.IsNullOrWhiteSpace(note)) CustomerFacingNotes = note.Trim();
@@ -213,8 +215,8 @@ public class ServiceJob : BaseEntity
 
     public void RecordPaymentReceived(decimal amount, string? mode, Guid userId)
     {
-        if (Status != ServiceJobStatus.HandedOver)
-            throw new InvalidOperationException($"Cannot record the payment in '{Status}' state. Allowed only after the car is handed over.");
+        if (Status != ServiceJobStatus.VehicleReady)
+            throw new InvalidOperationException($"Cannot record the payment in '{Status}' state. Allowed only when the car is ready for handover.");
         if (amount < 0)
             throw new ArgumentException("Amount received cannot be negative.", nameof(amount));
         var trimmedMode = string.IsNullOrWhiteSpace(mode) ? null : mode.Trim();
@@ -232,10 +234,8 @@ public class ServiceJob : BaseEntity
 
     public void CloseJob(string? note, Guid userId)
     {
-        if (Status == ServiceJobStatus.HandedOver)
-            throw new InvalidOperationException("Record the payment received from the customer before closing the job.");
-        if (Status != ServiceJobStatus.PaymentReceived)
-            throw new InvalidOperationException($"Cannot close job in '{Status}' state. Allowed only after the payment is received.");
+        if (Status != ServiceJobStatus.HandedOver)
+            throw new InvalidOperationException($"Cannot close job in '{Status}' state. Allowed only when 'HandedOver'.");
 
         ClosedAtUtc = DateTime.UtcNow;
         if (!string.IsNullOrWhiteSpace(note)) GarageInternalNotes = note.Trim();

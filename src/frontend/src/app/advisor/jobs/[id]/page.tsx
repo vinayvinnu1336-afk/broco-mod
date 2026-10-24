@@ -130,12 +130,11 @@ export default function AdvisorJobDetailPage() {
   const activities = job.activities ?? [];
 
   const milestones: { label: string; at?: string | null }[] = [
-    { label: 'Scheduled start', at: job.scheduledStartAtUtc },
-    { label: 'Expected completion', at: job.estimatedCompletionAtUtc },
     { label: 'Car received', at: job.actualVehicleReceivedAtUtc },
     { label: 'Work started', at: job.actualWorkStartedAtUtc },
     { label: 'Work completed', at: job.actualWorkCompletedAtUtc },
     { label: 'Ready for handover', at: job.vehicleReadyAtUtc },
+    { label: 'Payment received', at: job.paymentReceivedAtUtc },
     { label: 'Handed over', at: job.handedOverAtUtc },
     { label: 'Closed', at: job.closedAtUtc },
   ];

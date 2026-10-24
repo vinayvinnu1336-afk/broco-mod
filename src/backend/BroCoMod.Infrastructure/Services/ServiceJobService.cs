@@ -1231,7 +1231,10 @@ public class ServiceJobService : IServiceJobService
             NeedsPickup: job.ServiceRequest?.NeedsPickup ?? false,
             PickupNotes: job.ServiceRequest?.PickupNotes,
             PickupSlot: job.ServiceRequest?.PickupSlot,
-            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate
+            PreferredServiceDate: job.ServiceRequest?.PreferredServiceDate,
+            PaymentReceivedAtUtc: job.PaymentReceivedAtUtc,
+            PaymentReceivedAmount: job.PaymentReceivedAmount,
+            PaymentMode: job.PaymentMode
         );
     }
 

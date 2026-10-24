@@ -208,6 +208,10 @@ export interface AdvisorServiceJobDetailDto {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  preferredServiceDate?: string | null;
+  paymentReceivedAtUtc?: string | null;
+  paymentReceivedAmount?: number | null;
+  paymentMode?: string | null;
 }
 
 export interface ScheduleJobRequest {

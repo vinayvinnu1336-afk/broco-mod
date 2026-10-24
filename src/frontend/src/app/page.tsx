@@ -86,7 +86,7 @@ const WHY = [
   { icon: CreditCard, title: 'Pay 10% to book', desc: 'The rest only after the work is done' },
   { icon: BadgeCheck, title: 'Verified garages', desc: 'Every workshop is checked before joining' },
   { icon: BadgeIndianRupee, title: 'Transparent pricing', desc: 'Garage price = your price. No markup' },
-  { icon: ShieldCheck, title: 'Up to 3,000 km warranty', desc: 'On Basic, Standard & Premium service' },
+  { icon: ShieldCheck, title: 'Up to 1,000 km warranty', desc: 'On Basic, Standard & Premium service' },
 ];
 
 const STEPS = [

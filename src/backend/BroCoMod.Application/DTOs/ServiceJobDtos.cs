@@ -202,7 +202,10 @@ public record AdvisorServiceJobDetailDto(
     bool NeedsPickup = false,
     string? PickupNotes = null,
     string? PickupSlot = null,
-    DateTime? PreferredServiceDate = null
+    DateTime? PreferredServiceDate = null,
+    DateTime? PaymentReceivedAtUtc = null,
+    decimal? PaymentReceivedAmount = null,
+    string? PaymentMode = null
 );
 
 // Command DTOs

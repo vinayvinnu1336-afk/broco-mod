@@ -236,13 +236,14 @@ public class ServiceJobUnitTests
     }
 
     [Fact]
-    public void ServiceJob_HandOverVehicle_TransitionsToHandedOver_FromVehicleReady()
+    public void ServiceJob_HandOverVehicle_TransitionsToHandedOver_OncePaymentIsReceived()
     {
         var job = CreateTestJob();
         job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
         job.StartWork(Guid.NewGuid());
         job.CompleteWork(Guid.NewGuid());
         job.MarkVehicleReady("Ready", Guid.NewGuid());
+        job.RecordPaymentReceived(4184m, "Cash", Guid.NewGuid());
 
         job.HandOverVehicle("Handed keys to customer after road test.", Guid.NewGuid());
 
@@ -258,13 +259,15 @@ public class ServiceJobUnitTests
         job.StartWork(Guid.NewGuid());
         job.CompleteWork(Guid.NewGuid());
         job.MarkVehicleReady("Ready", Guid.NewGuid());
-        job.HandOverVehicle("Handed over", Guid.NewGuid());
         job.RecordPaymentReceived(4184m, "UPI", Guid.NewGuid());
 
         job.Status.Should().Be(ServiceJobStatus.PaymentReceived);
         job.PaymentReceivedAmount.Should().Be(4184m);
         job.PaymentMode.Should().Be("UPI");
         job.PaymentReceivedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
+
+        job.HandOverVehicle("Handed over", Guid.NewGuid());
+        job.Status.Should().Be(ServiceJobStatus.HandedOver);
 
         job.CloseJob("All payment reconciled and warranty registered.", Guid.NewGuid());
 
@@ -288,22 +291,21 @@ public class ServiceJobUnitTests
     }
 
     [Fact]
-    public void ServiceJob_CloseJob_Throws_WhenHandedOverButPaymentNotRecorded()
+    public void ServiceJob_HandOver_Throws_WhenPaymentNotRecorded()
     {
         var job = CreateTestJob();
         job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
         job.StartWork(Guid.NewGuid());
         job.CompleteWork(Guid.NewGuid());
         job.MarkVehicleReady("Ready", Guid.NewGuid());
-        job.HandOverVehicle("Handed over", Guid.NewGuid());
 
-        var act = () => job.CloseJob("Close", Guid.NewGuid());
+        var act = () => job.HandOverVehicle("Handed over", Guid.NewGuid());
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*Record the payment*");
     }
 
     [Fact]
-    public void ServiceJob_RecordPaymentReceived_Throws_BeforeHandover()
+    public void ServiceJob_RecordPaymentReceived_Throws_BeforeTheCarIsReady()
     {
         var job = CreateTestJob();
         job.ReceiveVehicle(15000, null, null, Guid.NewGuid());
@@ -321,7 +323,6 @@ public class ServiceJobUnitTests
         job.StartWork(Guid.NewGuid());
         job.CompleteWork(Guid.NewGuid());
         job.MarkVehicleReady("Ready", Guid.NewGuid());
-        job.HandOverVehicle(null, Guid.NewGuid());
 
         var act = () => job.RecordPaymentReceived(-1m, "Cash", Guid.NewGuid());
 

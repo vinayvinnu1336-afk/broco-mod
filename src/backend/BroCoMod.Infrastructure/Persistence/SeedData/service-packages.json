@@ -176,7 +176,7 @@
       "intervalKm": 10000,
       "intervalMonths": 12,
       "durationHours": 5,
-      "warrantyKm": 2000,
+      "warrantyKm": 1000,
       "warrantyDays": 90,
       "includes": [
         "Fluids & Filters: Engine Oil (5W-30 Synthetic) + Oil Filter Replacement",
@@ -200,7 +200,7 @@
       "intervalKm": 15000,
       "intervalMonths": 12,
       "durationHours": 7,
-      "warrantyKm": 3000,
+      "warrantyKm": 1000,
       "warrantyDays": 90,
       "includes": [
         "Fluids & Filters: Engine Oil (5W-30 Synthetic) + Oil Filter Replacement",

@@ -55,20 +55,19 @@ const JOB_ORDER: ServiceJobStatus[] = [
   'WorkInProgress',
   'WorkCompleted',
   'VehicleReady',
-  'HandedOver',
   'PaymentReceived',
+  'HandedOver',
   'Closed',
 ];
 
 // Customer-facing milestones and the job status index at which each one is reached.
 const JOB_STEPS: { label: string; reachedAt: number }[] = [
   { label: 'Booking confirmed', reachedAt: 0 },
-  { label: 'Drop-off scheduled', reachedAt: 1 },
   { label: 'Car received at garage', reachedAt: 2 },
   { label: 'Work in progress', reachedAt: 4 },
   { label: 'Ready for handover', reachedAt: 7 },
-  { label: 'Handed over', reachedAt: 8 },
-  { label: 'Payment received', reachedAt: 9 },
+  { label: 'Payment received', reachedAt: 8 },
+  { label: 'Handed over', reachedAt: 9 },
 ];
 
 function severityVariant(severity: string): BadgeVariant {
