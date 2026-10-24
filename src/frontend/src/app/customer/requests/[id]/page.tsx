@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { ServiceRequestDetailDto } from '@/types/serviceRequest';
 import { CustomerServiceJobDetailDto, ServiceJobStatus } from '@/types/serviceJob';
+import { GarageLocationCard } from '@/components/customer/GarageLocationCard';
 import { Building2, CheckCircle2, ClipboardList, CreditCard, MessageSquare, Store } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -233,6 +234,7 @@ export default function CustomerRequestDetailPage() {
 
       {/* Where things stand */}
       {job ? (
+        <>
         <Card className="p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -274,6 +276,8 @@ export default function CustomerRequestDetailPage() {
 
           <p className="mt-3 text-xs text-navy-400">Job {job.jobNumber}</p>
         </Card>
+        {job.garageLocation && <GarageLocationCard location={job.garageLocation} />}
+        </>
       ) : (
         <Card className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-navy-900">Where things stand</h2>

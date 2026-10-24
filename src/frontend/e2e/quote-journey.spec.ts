@@ -247,6 +247,18 @@ test('6. customer pays the 10% advance', async ({ browser }) => {
   await expect(page.getByRole('button', { name: /^Pay ₹/ })).toHaveCount(0);
   await checkLayout(page, 'customer quote paid');
 
+  // The customer drives in, so once paid the booking shows where to take the car.
+  await page.goto(`/customer/requests/${state.requestId}`);
+  await expect(page.getByRole('heading', { name: 'Where to take your car' })).toBeVisible();
+  await expect(page.getByText('Central Metro Motors').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Get directions/ })).toHaveAttribute('href', /google\.com\/maps\/dir/);
+  await checkLayout(page, 'customer garage location');
+  const card = page.getByRole('heading', { name: 'Where to take your car' }).locator('xpath=ancestor::section[1]');
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.locator('iframe')).toHaveAttribute('src', /openstreetmap\.org/);
+  await page.waitForTimeout(2500);
+  await card.screenshot({ path: 'e2e-results/customer-garage-location.png' });
+
   await context.close();
 });
 

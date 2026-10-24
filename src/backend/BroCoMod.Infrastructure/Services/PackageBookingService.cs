@@ -198,7 +198,7 @@ public class PackageBookingService : IPackageBookingService
 
         var pickupLine = request.NeedsPickup
             ? $" The garage will pick up your car{(string.IsNullOrWhiteSpace(request.PickupSlot) ? string.Empty : $" ({request.PickupSlot})")} and drop it back for free."
-            : " Drive in to the garage at the scheduled time.";
+            : $" Drive in to {garage.Name}, {garage.Address}. You'll find directions on your booking page.";
         await _notifications.SendInAppNotificationAsync(customerUserId, "Booking confirmed",
             $"Your {request.ServicePackageName} is booked at {garage.Name}.{pickupLine} Pay the balance of ₹{price - request.AdvancePaidAmount:N0} at the garage after the service.",
             "BookingConfirmed", request.Id, nameof(ServiceRequest), cancellationToken: ct);

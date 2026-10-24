@@ -300,6 +300,13 @@ public class PackageBookingWithoutQuotesIntegrationTests : IClassFixture<WebAppl
         dashboard!.Data!.SubmittedQuotes.Should().NotContain(q => q.ServiceRequestId == request.Id);
         dashboard.Data.AvailableRequests.Should().NotContain(r => r.ServiceRequestId == request.Id);
 
+        // Customer drives in and has paid: the booking shows where to take the car.
+        var customerJob = (await customer.GetFromJsonAsync<ApiResponse<CustomerServiceJobDetailDto>>($"/api/v1/customer/requests/{request.Id}/job", JsonOptions))!.Data!;
+        customerJob.GarageLocation.Should().NotBeNull();
+        customerJob.GarageLocation!.Name.Should().Be(CentralMetro);
+        customerJob.GarageLocation.Address.Should().NotBeNullOrWhiteSpace();
+        customerJob.GarageLocation.Latitude.Should().NotBe(0);
+
         // Customer: no quote to accept
         var customerQuotes = await customer.GetFromJsonAsync<ApiResponse<List<CustomerFacingQuotationDto>>>("/api/v1/customer/quotes", JsonOptions);
         customerQuotes!.Data!.Should().NotContain(q => q.ServiceRequestId == request.Id);
