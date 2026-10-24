@@ -329,7 +329,7 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
     public async Task Scenario05_Customer_CanReject_SentQuotation_WithReasonAndCategory()
     {
         // Arrange
-        var (serviceRequestId, _, _, cqId, customerToken, _) = await CreateSentCustomerQuotationAsync();
+        var (serviceRequestId, garageId, garageQuoteId, cqId, customerToken, _) = await CreateSentCustomerQuotationAsync();
         var customerClient = CreateAuthenticatedClient(customerToken);
 
         var rejectRequest = new RejectQuotationRequest(
@@ -362,6 +362,21 @@ public class CustomerDecisionIntegrationTests : IClassFixture<WebApplicationFact
         var serviceRequest = await db.ServiceRequests.FirstOrDefaultAsync(sr => sr.Id == serviceRequestId);
         serviceRequest.Should().NotBeNull();
         serviceRequest!.Status.Should().Be(ServiceRequestStatus.CustomerRejected);
+
+        // The garage sees its quote was declined, and is told so without the customer's private reason.
+        (await db.GarageQuotes.AsNoTracking().FirstAsync(q => q.Id == garageQuoteId)).Status.Should().Be(QuoteStatus.RejectedByCustomer);
+        var garageUserIds = await db.GarageUsers.AsNoTracking().Where(gu => gu.GarageId == garageId).Select(gu => gu.UserId).ToListAsync();
+        var garageNotices = await db.Notifications.AsNoTracking()
+            .Where(n => garageUserIds.Contains(n.UserId) && n.Type == "CustomerQuotationRejected" && n.ReferenceId == serviceRequestId)
+            .ToListAsync();
+        garageNotices.Should().NotBeEmpty();
+        garageNotices.Should().OnlyContain(n => !n.Message.Contains("maintenance budget"));
+        var garageClient = CreateAuthenticatedClient(await AuthenticateAsync("garage.owner@centralmetro.com", "Password123!"));
+        var garageList = (await garageClient.GetFromJsonAsync<ApiResponse<PagedResult<GarageIncomingRequestDto>>>("/api/v1/garage/requests?page=1&pageSize=50", JsonOptions))!.Data!;
+        var row = garageList.Items.Single(r => r.ServiceRequestId == serviceRequestId);
+        row.MyQuoteId.Should().Be(garageQuoteId);
+        row.MyQuoteStatus.Should().Be("RejectedByCustomer");
+        row.VehicleFuel.Should().NotBeNullOrEmpty("the garage needs to know petrol or diesel to quote");
 
         // Assert Advisor can inspect rejection reason
         var advisorToken = await AuthenticateAsync("advisor@brocomod.com", "Password123!");

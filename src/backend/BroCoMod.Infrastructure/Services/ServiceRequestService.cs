@@ -491,16 +491,32 @@ public class ServiceRequestService : IServiceRequestService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var dtos = items.Select(gr => new GarageIncomingRequestDto(
-            gr.Id,
-            gr.ServiceRequestId,
-            gr.ServiceRequest.RequestNumber,
-            $"{gr.ServiceRequest.VehicleYear} {gr.ServiceRequest.VehicleMake} {gr.ServiceRequest.VehicleModel}",
-            gr.ServiceRequest.ProblemDescription,
-            gr.ServiceRequest.ServiceLocation != null ? $"{gr.ServiceRequest.ServiceLocation.City}, {gr.ServiceRequest.ServiceLocation.State}" : "Service Area",
-            gr.DistanceKm,
-            FormatStatus(gr.Status),
-            gr.SentAtUtc)).ToList();
+        // This garage's latest quote per request, so the list offers "View quote" instead of "Create quote".
+        var requestIds = items.Select(gr => gr.Id).ToList();
+        var myQuotes = (await _context.GarageQuotes.AsNoTracking()
+                .Where(q => q.GarageId == garageId && requestIds.Contains(q.GarageRequestId) && q.Status != QuoteStatus.Withdrawn)
+                .Select(q => new { q.Id, q.GarageRequestId, q.Status, q.CreatedAtUtc })
+                .ToListAsync(cancellationToken))
+            .GroupBy(q => q.GarageRequestId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(q => q.CreatedAtUtc).First());
+
+        var dtos = items.Select(gr =>
+        {
+            myQuotes.TryGetValue(gr.Id, out var mine);
+            return new GarageIncomingRequestDto(
+                gr.Id,
+                gr.ServiceRequestId,
+                gr.ServiceRequest.RequestNumber,
+                $"{gr.ServiceRequest.VehicleYear} {gr.ServiceRequest.VehicleMake} {gr.ServiceRequest.VehicleModel}",
+                gr.ServiceRequest.ProblemDescription,
+                gr.ServiceRequest.ServiceLocation != null ? $"{gr.ServiceRequest.ServiceLocation.City}, {gr.ServiceRequest.ServiceLocation.State}" : "Service Area",
+                gr.DistanceKm,
+                FormatStatus(gr.Status),
+                gr.SentAtUtc,
+                MyQuoteId: mine?.Id,
+                MyQuoteStatus: mine?.Status.ToString(),
+                VehicleFuel: gr.ServiceRequest.VehicleFuel);
+        }).ToList();
 
         return new PagedResult<GarageIncomingRequestDto>(dtos, page, pageSize, totalCount);
     }
@@ -529,15 +545,22 @@ public class ServiceRequestService : IServiceRequestService
         gr.MarkViewed();
         await _context.SaveChangesAsync(cancellationToken);
 
-        // The exact address and the customer's contact go only to the garage that holds the confirmed job.
+        // The exact address and the customer's contact go only to the garage that holds the confirmed job,
+        // and only once the customer has paid the 10% advance.
         var job = await _context.ServiceJobs
             .AsNoTracking()
             .Include(j => j.Garage)
             .Where(j => j.ServiceRequestId == gr.ServiceRequestId && j.GarageId == garageId && j.Status != ServiceJobStatus.Cancelled)
             .OrderByDescending(j => j.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
+        var contactVisible = job != null && GarageCustomerLocation.ContactVisibleFor(gr.ServiceRequest);
+        var myQuote = await _context.GarageQuotes.AsNoTracking()
+            .Where(q => q.GarageId == garageId && q.GarageRequestId == gr.Id && q.Status != QuoteStatus.Withdrawn)
+            .OrderByDescending(q => q.CreatedAtUtc)
+            .Select(q => new { q.Id, q.Status })
+            .FirstOrDefaultAsync(cancellationToken);
         User? customerUser = null;
-        if (job != null)
+        if (contactVisible)
         {
             customerUser = await _context.CustomerProfiles
                 .AsNoTracking()
@@ -568,9 +591,12 @@ public class ServiceRequestService : IServiceRequestService
             gr.ServiceRequest.PickupSlot,
             ServiceJobId: job?.Id,
             ServiceJobNumber: job?.JobNumber,
-            CustomerLocation: job != null ? GarageCustomerLocation.For(gr.ServiceRequest, job.Garage) : null,
-            CustomerName: job != null ? customerUser?.FullName : null,
-            CustomerPhone: job != null ? customerUser?.PhoneNumber : null);
+            CustomerLocation: contactVisible ? GarageCustomerLocation.For(gr.ServiceRequest, job!.Garage) : null,
+            CustomerName: contactVisible ? customerUser?.FullName : null,
+            CustomerPhone: contactVisible ? customerUser?.PhoneNumber : null,
+            MyQuoteId: myQuote?.Id,
+            MyQuoteStatus: myQuote?.Status.ToString(),
+            VehicleFuel: gr.ServiceRequest.VehicleFuel);
     }
 
     public async Task<PagedResult<AdvisorServiceRequestSummaryDto>> GetAdvisorRequestsAsync(

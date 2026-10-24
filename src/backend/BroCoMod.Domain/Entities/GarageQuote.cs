@@ -337,6 +337,14 @@ public class GarageQuote : BaseEntity
         MarkSelected();
     }
 
+    /// <summary>The customer declined the quotation BroCo built from this quote.</summary>
+    public void MarkRejectedByCustomer()
+    {
+        Status = QuoteStatus.RejectedByCustomer;
+        UpdatedAtUtc = DateTime.UtcNow;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
     public void MarkRejected()
     {
         Status = QuoteStatus.RejectedByAdvisor;

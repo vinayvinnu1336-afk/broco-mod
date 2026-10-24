@@ -91,6 +91,9 @@ export interface GarageIncomingRequestDto {
   distanceKm: number;
   status: string;
   sentAtUtc: string;
+  myQuoteId?: string | null;
+  myQuoteStatus?: string | null;
+  vehicleFuel?: string | null;
 }
 
 export interface GarageIncomingRequestDetailDto {
@@ -119,6 +122,9 @@ export interface GarageIncomingRequestDetailDto {
   customerLocation?: GarageCustomerLocationDto | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  myQuoteId?: string | null;
+  myQuoteStatus?: string | null;
+  vehicleFuel?: string | null;
 }
 
 export interface DispatchedGarageSummaryDto {

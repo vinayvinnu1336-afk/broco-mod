@@ -9,7 +9,7 @@ import {
   GarageIncomingRequestDetailDto,
   PagedResult,
 } from '@/types/serviceRequest';
-import { Calendar, Car, ChevronLeft, ChevronRight, Clock, FilePlus2, Inbox, MapPin, Navigation, Share2, Wrench } from 'lucide-react';
+import { Calendar, Car, ChevronLeft, ChevronRight, Clock, FilePlus2, FileText, Inbox, MapPin, Navigation, Share2, Wrench } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
@@ -49,6 +49,9 @@ const STATUS_OPTIONS = [
 
 const FILTER_DEFAULTS = { q: '', status: '', range: '', from: '', to: '' };
 const PAGE_SIZE = 10;
+
+const quoteLinkClass =
+  'inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-surface-300 bg-white px-4 text-sm font-semibold text-navy-800 transition hover:bg-surface-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-electric-600 focus-visible:ring-offset-2';
 
 export default function GarageRequestsPage() {
   return (
@@ -135,6 +138,11 @@ function GarageRequests() {
     setShareLoading(false);
   }
 
+  /** "View quote" once this garage has sent one; "Open draft" for a quote it hasn't submitted yet. */
+  function quoteLinkLabel(status: string | null | undefined): string {
+    return String(status ?? '').toLowerCase() === 'draft' ? 'Open draft' : 'View quote';
+  }
+
   function createQuote(garageRequestId: string) {
     router.push(`/garage/quotes/new?requestId=${garageRequestId}`);
   }
@@ -188,11 +196,15 @@ function GarageRequests() {
                   <div className="min-w-0">
                     <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-snug text-navy-900">
                       <Car className="h-4 w-4 shrink-0 text-navy-400" />
-                      <span className="truncate">{r.vehicleSummary || 'Vehicle'}</span>
+                      <span className="truncate">
+                        {r.vehicleSummary || 'Vehicle'}
+                        {r.vehicleFuel ? ` · ${r.vehicleFuel}` : ''}
+                      </span>
                     </h2>
                     <div className="mt-0.5 text-xs text-navy-500">{r.requestNumber}</div>
                   </div>
-                  <StatusBadge status={r.status} />
+                  {/* Once this garage has quoted, its quote's status ("Customer declined", …) says more than the request's. */}
+                  <StatusBadge status={r.myQuoteStatus || r.status} />
                 </div>
 
                 <p className="mt-3 line-clamp-3 text-sm text-navy-700">{r.problemDescription}</p>
@@ -223,13 +235,20 @@ function GarageRequests() {
                   >
                     Details
                   </Button>
-                  <Button
-                    variant={closed ? 'outline' : 'primary'}
-                    onClick={() => createQuote(r.garageRequestId)}
-                    leftIcon={<FilePlus2 className="h-4 w-4" />}
-                  >
-                    Create quote
-                  </Button>
+                  {r.myQuoteId ? (
+                    <Link href={`/garage/quotes/${r.myQuoteId}`} className={quoteLinkClass}>
+                      <FileText className="h-4 w-4" aria-hidden />
+                      {quoteLinkLabel(r.myQuoteStatus)}
+                    </Link>
+                  ) : (
+                    <Button
+                      variant={closed ? 'outline' : 'primary'}
+                      onClick={() => createQuote(r.garageRequestId)}
+                      leftIcon={<FilePlus2 className="h-4 w-4" />}
+                    >
+                      Create quote
+                    </Button>
+                  )}
                 </div>
               </article>
             );
@@ -267,7 +286,7 @@ function GarageRequests() {
         onClose={() => setSelectedRequest(null)}
         title={
           selectedRequest
-            ? `${selectedRequest.vehicleYear} ${selectedRequest.vehicleMake} ${selectedRequest.vehicleModel}`
+            ? `${selectedRequest.vehicleYear} ${selectedRequest.vehicleMake} ${selectedRequest.vehicleModel}${selectedRequest.vehicleFuel ? ` · ${selectedRequest.vehicleFuel}` : ''}`
             : ''
         }
         description={selectedRequest?.requestNumber}
@@ -284,6 +303,11 @@ function GarageRequests() {
                 >
                   <Wrench className="h-4 w-4" aria-hidden />
                   Open job
+                </Link>
+              ) : selectedRequest.myQuoteId ? (
+                <Link href={`/garage/quotes/${selectedRequest.myQuoteId}`} className={`${quoteLinkClass} sm:w-auto`}>
+                  <FileText className="h-4 w-4" aria-hidden />
+                  {quoteLinkLabel(selectedRequest.myQuoteStatus)}
                 </Link>
               ) : (
                 <Button
@@ -326,6 +350,10 @@ function GarageRequests() {
                 <dd className="font-medium text-navy-900">{selectedRequest.vehicleLicensePlate || '—'}</dd>
               </div>
               <div>
+                <dt className="text-xs text-navy-500">Fuel</dt>
+                <dd className="font-medium text-navy-900">{selectedRequest.vehicleFuel || '—'}</dd>
+              </div>
+              <div>
                 <dt className="text-xs text-navy-500">Service type</dt>
                 <dd className="break-words font-medium text-navy-900">{selectedRequest.serviceCategory || '—'}</dd>
               </div>
@@ -365,17 +393,21 @@ function GarageRequests() {
                   <h3 id="request-location-title" className="text-sm font-semibold text-navy-900">
                     Customer location
                   </h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<Share2 className="h-4 w-4" />}
-                    isLoading={shareLoading}
-                    onClick={() => openShare(selectedRequest.serviceJobId!)}
-                  >
-                    Share job details
-                  </Button>
+                  {selectedRequest.customerLocation && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Share2 className="h-4 w-4" />}
+                      isLoading={shareLoading}
+                      onClick={() => openShare(selectedRequest.serviceJobId!)}
+                    >
+                      Share job details
+                    </Button>
+                  )}
                 </div>
-                {selectedRequest.customerLocation ? (
+                {!selectedRequest.customerLocation && !selectedRequest.customerPhone ? (
+                  <p className="rounded-xl bg-surface-50 p-3 text-xs text-navy-600">The customer’s name, phone and address appear here once they pay the 10% BroCo advance.</p>
+                ) : selectedRequest.customerLocation ? (
                   <CustomerLocationCard
                     location={selectedRequest.customerLocation}
                     customerName={selectedRequest.customerName}
