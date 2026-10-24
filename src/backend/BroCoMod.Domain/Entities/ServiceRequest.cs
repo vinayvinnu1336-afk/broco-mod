@@ -188,9 +188,9 @@ public class ServiceRequest : BaseEntity
             throw new ArgumentException($"Pick-up slot must be at most {PickupSlotMaxLength} characters.", nameof(slot));
 
         NeedsPickup = needsPickup;
-        // Notes and slot only mean something when the car is picked up.
+        // Notes only mean something when the car is picked up; the slot is the preferred time either way.
         PickupNotes = needsPickup ? trimmedNotes : null;
-        PickupSlot = needsPickup ? trimmedSlot : null;
+        PickupSlot = trimmedSlot;
     }
 
     public void RecordAdvancePaid(decimal amount, Guid paymentId, DateTime paidAtUtc)

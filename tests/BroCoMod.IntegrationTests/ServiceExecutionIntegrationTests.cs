@@ -319,7 +319,23 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var readyBody = await readyResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         readyBody!.Data!.Status.Should().Be("VehicleReady");
 
-        // Step 9: Hand Over Vehicle
+        // Handing over before the payment is recorded is refused: payment comes first.
+        var earlyHandover = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/handover", new HandOverVehicleRequest(null));
+        earlyHandover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Step 9: Payment received from the customer
+        var paidResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/payment-received",
+            new RecordPaymentReceivedRequest(readyBody.Data.BalanceToCollect, "UPI", "Ref 4471"));
+        paidResp.EnsureSuccessStatusCode();
+        var paidBody = await paidResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
+        paidBody!.Data!.Status.Should().Be("PaymentReceived");
+        paidBody.Data.PaymentReceivedAmount.Should().Be(readyBody.Data.BalanceToCollect);
+        paidBody.Data.PaymentMode.Should().Be("UPI");
+        paidBody.Data.PaymentReceivedAtUtc.Should().NotBeNull();
+        paidBody.Data.Activities.Should().Contain(a => a.ActivityType == "PaymentReceived" && a.IsCustomerVisible);
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("IN_PROGRESS", "the car is still at the garage");
+
+        // Step 10: Hand Over Vehicle
         var handoverResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/handover", new HandOverVehicleRequest(
             "Keys given to customer."
         ));
@@ -346,21 +362,6 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         verifyPay.EnsureSuccessStatusCode();
         var afterPay = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
         afterPay!.Data!.Single(c => c.Id == due.Id).Status.Should().Be("Paid");
-
-        // Closing straight after handover is refused: the payment step comes first.
-        var earlyClose = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/close", new CloseJobRequest(null));
-        earlyClose.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        // Step 10: Payment received from the customer
-        var paidResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/payment-received",
-            new RecordPaymentReceivedRequest(handBody.Data.BalanceToCollect, "UPI", "Ref 4471"));
-        paidResp.EnsureSuccessStatusCode();
-        var paidBody = await paidResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
-        paidBody!.Data!.Status.Should().Be("PaymentReceived");
-        paidBody.Data.PaymentReceivedAmount.Should().Be(handBody.Data.BalanceToCollect);
-        paidBody.Data.PaymentMode.Should().Be("UPI");
-        paidBody.Data.PaymentReceivedAtUtc.Should().NotBeNull();
-        paidBody.Data.Activities.Should().Contain(a => a.ActivityType == "PaymentReceived" && a.IsCustomerVisible);
 
         // Step 11: Close Job
         var closeResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/close", new CloseJobRequest(

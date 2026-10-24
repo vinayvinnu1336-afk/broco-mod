@@ -7,7 +7,6 @@ import { apiFetch } from '@/lib/api';
 import {
   GarageServiceJobDetailDto,
   InspectionSeverity,
-  ScheduleJobRequest,
   ReceiveVehicleRequest,
   CompleteInspectionRequest,
   UpdateJobProgressRequest,
@@ -15,7 +14,6 @@ import {
   CreateAdditionalWorkRequest,
 } from '@/types/serviceJob';
 import {
-  Calendar,
   CarFront,
   Clock,
   IndianRupee,
@@ -71,10 +69,9 @@ type GarageJob = GarageServiceJobDetailDto & {
 const PRE_RECEIPT_STATUSES = ['BookingConfirmed', 'Scheduled'];
 /** Work finished: remind the workshop to collect the balance at handover. */
 const COLLECT_STATUSES = ['WorkCompleted', 'VehicleReady'];
-const AFTER_HANDOVER_STATUSES = ['HandedOver', 'PaymentReceived', 'Closed'];
+const AFTER_HANDOVER_STATUSES = ['HandedOver', 'Closed'];
 
 type ModalKey =
-  | 'schedule'
   | 'receive'
   | 'startInspection'
   | 'completeInspection'
@@ -98,24 +95,19 @@ interface StepAction {
 type Stage = { label: string; statuses: string[]; at?: (j: GarageServiceJobDetailDto) => string | null | undefined };
 
 const STAGES: Stage[] = [
-  { label: 'Booked', statuses: ['BookingConfirmed'] },
-  { label: 'Scheduled', statuses: ['Scheduled'], at: (j) => j.scheduledStartAtUtc },
+  { label: 'Booked', statuses: ['BookingConfirmed', 'Scheduled'] },
   { label: 'Car received', statuses: ['VehicleReceived'], at: (j) => j.actualVehicleReceivedAtUtc },
   { label: 'Inspection', statuses: ['Inspection'], at: (j) => j.inspections?.[0]?.inspectionStartedAtUtc },
   { label: 'Work in progress', statuses: ['WorkStarted', 'WorkInProgress'], at: (j) => j.actualWorkStartedAtUtc },
   { label: 'Work done', statuses: ['WorkCompleted'], at: (j) => j.actualWorkCompletedAtUtc },
   { label: 'Ready for handover', statuses: ['VehicleReady'], at: (j) => j.vehicleReadyAtUtc },
-  { label: 'Handed over', statuses: ['HandedOver'], at: (j) => j.handedOverAtUtc },
   { label: 'Payment received', statuses: ['PaymentReceived'], at: (j) => j.paymentReceivedAtUtc },
+  { label: 'Handed over', statuses: ['HandedOver'], at: (j) => j.handedOverAtUtc },
   { label: 'Closed', statuses: ['Closed'], at: (j) => j.closedAtUtc },
 ];
 
 const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?: StepAction }> = {
   BookingConfirmed: {
-    hint: 'Agree a drop-off time with the customer, then set the schedule.',
-    primary: { modal: 'schedule', label: 'Schedule', icon: <Calendar className="h-4 w-4" /> },
-  },
-  Scheduled: {
     hint: 'When the car arrives, record it with the odometer reading.',
     primary: { modal: 'receive', label: 'Car received', icon: <CarFront className="h-4 w-4" /> },
   },
@@ -144,15 +136,15 @@ const NEXT_STEP: Record<string, { hint: string; primary?: StepAction; secondary?
     primary: { modal: 'vehicleReady', label: 'Ready for handover', icon: <CheckCircle2 className="h-4 w-4" /> },
   },
   VehicleReady: {
-    hint: 'Record the handover when the customer collects the car and keys.',
-    primary: { modal: 'handover', label: 'Hand over car', icon: <KeyRound className="h-4 w-4" /> },
-  },
-  HandedOver: {
-    hint: 'Record the payment the customer made to you, then close the job.',
+    hint: 'Collect the balance from the customer and record the payment, then hand over the car.',
     primary: { modal: 'payment', label: 'Payment received', icon: <IndianRupee className="h-4 w-4" /> },
   },
   PaymentReceived: {
-    hint: 'Payment recorded. Close the job to finish it.',
+    hint: 'Payment recorded. Hand over the car and keys to the customer.',
+    primary: { modal: 'handover', label: 'Hand over car', icon: <KeyRound className="h-4 w-4" /> },
+  },
+  HandedOver: {
+    hint: 'Close the job to finish it.',
     primary: { modal: 'close', label: 'Close job', icon: <Flag className="h-4 w-4" /> },
   },
   Closed: { hint: 'This job is finished. Nothing more to do.' },
@@ -165,15 +157,14 @@ type NextStep = (typeof NEXT_STEP)[string];
 function stagesFor(job: GarageServiceJobDetailDto): Stage[] {
   if (!job.needsPickup) return STAGES;
   return STAGES.map((s) => {
-    if (s.statuses.includes('Scheduled')) return { ...s, label: 'Pick-up set' };
     if (s.statuses.includes('VehicleReceived')) return { ...s, label: 'Car picked up' };
     return s;
   });
 }
 
 /**
- * The next action follows what the customer chose at booking. They already picked drop-off or pick-up and a
- * day/slot, so "Car received" (or "Car picked up") comes first; scheduling is only for changing that time.
+ * The next action follows what the customer chose at booking: drop-off or pick-up, and the day/slot they picked.
+ * There is no separate scheduling step, so "Car received" (or "Car picked up") comes first.
  */
 function nextStepFor(status: string, job: GarageServiceJobDetailDto): NextStep | undefined {
   const base = NEXT_STEP[status];
@@ -184,40 +175,22 @@ function nextStepFor(status: string, job: GarageServiceJobDetailDto): NextStep |
     label: pickup ? 'Car picked up' : 'Car received',
     icon: <CarFront className="h-4 w-4" />,
   };
-  const changeTime: StepAction = { modal: 'schedule', label: 'Change time', icon: <Calendar className="h-4 w-4" /> };
   switch (status) {
     case 'BookingConfirmed':
-      return {
-        hint: pickup
-          ? `Pick up the car from the customer${visit ? ` on ${visit}` : ''}, then record it here.`
-          : `The customer will drop the car at your garage${visit ? ` on ${visit}` : ''}. Record it when it arrives.`,
-        primary: receive,
-        secondary: changeTime,
-      };
     case 'Scheduled':
       return {
-        hint: pickup ? 'Record it once you have picked up the car, with the odometer reading.' : base.hint,
+        hint: pickup
+          ? `Pick up the car from the customer${visit ? ` (${visit})` : ''}, then record it here.`
+          : `The customer will drop the car at your garage${visit ? ` (${visit})` : ''}. Record it when it arrives.`,
         primary: receive,
-        secondary: changeTime,
       };
     case 'WorkCompleted':
       return pickup ? { ...base, hint: 'Let the customer know the car is ready and when you will drop it back.' } : base;
-    case 'VehicleReady':
-      return pickup
-        ? { ...base, hint: 'Record the handover when you drop the car and keys back with the customer.' }
-        : base;
+    case 'PaymentReceived':
+      return pickup ? { ...base, hint: 'Payment recorded. Drop the car and keys back with the customer.' } : base;
     default:
       return base;
   }
-}
-
-/** ISO time → value for `<input type="datetime-local">` in the viewer's local time. */
-function utcIsoToLocalInput(value: string | null | undefined): string {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const PAYMENT_MODE_OPTIONS = [
@@ -260,7 +233,6 @@ const JOB_ACTION_ROUTES: Record<string, string> = {
 };
 
 const SUCCESS_MESSAGES: Record<string, string> = {
-  schedule: 'Job scheduled',
   'receive-vehicle': 'Car marked as received',
   'start-inspection': 'Inspection started',
   'complete-inspection': 'Inspection saved',
@@ -274,12 +246,6 @@ const SUCCESS_MESSAGES: Record<string, string> = {
   'cancellation-request': 'BroCo has been asked to reassign or cancel this job',
   'additional-work': 'Extra work sent to the advisor',
 };
-
-/** `<input type="datetime-local">` gives local wall-clock time; the API expects UTC. */
-function localInputToUtcIso(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toISOString();
-}
 
 /** Suggested answer to "Before or after the service?": before work starts → Before, once it's done → After. */
 function mediaStageFor(status: string): MediaStage | undefined {
@@ -315,11 +281,6 @@ export default function GarageJobDetailPage() {
   const [shareOpen, setShareOpen] = useState(false);
 
   // Form states
-  const [scheduleForm, setScheduleForm] = useState<ScheduleJobRequest>({
-    scheduledStartAtUtc: '',
-    estimatedCompletionAtUtc: '',
-    notes: '',
-  });
 
   const [receiveForm, setReceiveForm] = useState<ReceiveVehicleRequest>({
     currentMileageKm: undefined,
@@ -391,16 +352,6 @@ export default function GarageJobDetailPage() {
     if (key === 'payment' && job) {
       const due = Number(job.balanceToCollect ?? 0);
       setPaymentForm({ amount: due > 0 ? String(Math.round(due * 100) / 100) : '0', mode: 'Cash', notes: '' });
-    }
-    // Start from the customer's chosen time (or the current schedule) so the garage only adjusts it.
-    if (key === 'schedule' && job && !scheduleForm.scheduledStartAtUtc) {
-      const startIso = job.scheduledStartAtUtc || job.preferredServiceDate;
-      const start = utcIsoToLocalInput(startIso);
-      if (start) {
-        const readyIso =
-          job.estimatedCompletionAtUtc || new Date(new Date(startIso!).getTime() + 6 * 60 * 60 * 1000).toISOString();
-        setScheduleForm({ ...scheduleForm, scheduledStartAtUtc: start, estimatedCompletionAtUtc: utcIsoToLocalInput(readyIso) });
-      }
     }
     setActiveModal(key);
   }
@@ -487,10 +438,6 @@ export default function GarageJobDetailPage() {
     </div>
   );
 
-  const scheduleInvalid =
-    !scheduleForm.scheduledStartAtUtc ||
-    !scheduleForm.estimatedCompletionAtUtc ||
-    new Date(scheduleForm.estimatedCompletionAtUtc) <= new Date(scheduleForm.scheduledStartAtUtc);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -593,15 +540,16 @@ export default function GarageJobDetailPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-navy-500">Drop-off</dt>
+              <dt className="text-xs text-navy-500">{job.needsPickup ? 'Pick-up' : 'Drop-off'}</dt>
               <dd className="font-medium text-navy-900">
-                {job.scheduledStartAtUtc ? formatDateTime(job.scheduledStartAtUtc) : 'Not scheduled'}
+                {formatPreferredVisit(job.preferredServiceDate, job.pickupSlot) ??
+                  (job.scheduledStartAtUtc ? formatDateTime(job.scheduledStartAtUtc) : 'Any day')}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-navy-500">Ready by</dt>
+              <dt className="text-xs text-navy-500">Car received</dt>
               <dd className="font-medium text-navy-900">
-                {job.estimatedCompletionAtUtc ? formatDateTime(job.estimatedCompletionAtUtc) : '—'}
+                {job.actualVehicleReceivedAtUtc ? formatDateTime(job.actualVehicleReceivedAtUtc) : 'Not yet'}
               </dd>
             </div>
           </dl>
@@ -733,7 +681,7 @@ export default function GarageJobDetailPage() {
                     </p>
                   )
                 ) : (
-                  (status === 'HandedOver' || status === 'PaymentReceived') && (
+                  status === 'HandedOver' && (
                     <p className="text-sm text-navy-600">
                       BroCo commission for this job is now due —{' '}
                       <Link href="/garage/commission" className="font-semibold text-electric-700 hover:underline">
@@ -951,64 +899,6 @@ export default function GarageJobDetailPage() {
       {/* ===== Sheets ===== */}
 
       <ShareJobSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} text={buildJobShareText(jobShareInput(job))} />
-
-      <Modal
-        isOpen={activeModal === 'schedule'}
-        onClose={closeModal}
-        title="Schedule the job"
-        description={`When will ${job.vehicleLicensePlate || 'the car'} come in, and when will it be ready?`}
-        footer={modalFooter(
-          <Button
-            className="w-full sm:w-auto"
-            isLoading={actionLoading}
-            disabled={scheduleInvalid}
-            onClick={() =>
-              handleAction('schedule', {
-                ...scheduleForm,
-                scheduledStartAtUtc: localInputToUtcIso(scheduleForm.scheduledStartAtUtc),
-                estimatedCompletionAtUtc: localInputToUtcIso(scheduleForm.estimatedCompletionAtUtc),
-              })
-            }
-          >
-            Save schedule
-          </Button>
-        )}
-      >
-        {modalError}
-        <div className="space-y-4">
-          <Input
-            id="schedule-start"
-            type="datetime-local"
-            label="Drop-off"
-            required
-            value={scheduleForm.scheduledStartAtUtc}
-            onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledStartAtUtc: e.target.value })}
-          />
-          <Input
-            id="schedule-ready"
-            type="datetime-local"
-            label="Ready by"
-            required
-            value={scheduleForm.estimatedCompletionAtUtc}
-            onChange={(e) => setScheduleForm({ ...scheduleForm, estimatedCompletionAtUtc: e.target.value })}
-            error={
-              scheduleForm.scheduledStartAtUtc &&
-              scheduleForm.estimatedCompletionAtUtc &&
-              new Date(scheduleForm.estimatedCompletionAtUtc) <= new Date(scheduleForm.scheduledStartAtUtc)
-                ? 'Must be after drop-off.'
-                : undefined
-            }
-          />
-          <Textarea
-            id="schedule-notes"
-            label="Notes (optional)"
-            rows={2}
-            value={scheduleForm.notes}
-            onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
-            placeholder="e.g. Customer drops the car before 10 am"
-          />
-        </div>
-      </Modal>
 
       <Modal
         isOpen={activeModal === 'receive'}
@@ -1261,9 +1151,7 @@ export default function GarageJobDetailPage() {
         onClose={closeModal}
         title="Hand over the car"
         description={
-          balanceToCollect > 0
-            ? `Collect ${formatINR(balanceToCollect)} from the customer, then confirm the car and keys are back with them. BroCo’s commission for this job becomes due after handover.`
-            : 'Confirm the car and keys are back with the customer.'
+          'Confirm the car and keys are back with the customer. BroCo’s commission for this job becomes due after handover.'
         }
         footer={modalFooter(
           <Button className="w-full sm:w-auto" isLoading={actionLoading} onClick={() => handleAction('handover', { handoverNotes })}>

@@ -431,6 +431,7 @@ public class BookingCancellationIntegrationTests : IClassFixture<WebApplicationF
                      ("work/start", new StartWorkRequest("Bay 1")),
                      ("work/complete", new CompleteWorkRequest("Done", "Service done")),
                      ("vehicle-ready", new VehicleReadyRequest("Ready")),
+                     ("payment-received", new RecordPaymentReceivedRequest(0m, "Cash")),
                      ("handover", new HandOverVehicleRequest("Keys given")),
                  })
         {
