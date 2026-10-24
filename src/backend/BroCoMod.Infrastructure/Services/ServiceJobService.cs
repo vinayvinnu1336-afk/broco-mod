@@ -1038,7 +1038,9 @@ public class ServiceJobService : IServiceJobService
     private static GarageServiceJobDetailDto MapToGarageDetailDto(
         ServiceJob job, IReadOnlyList<string>? packageIncludes = null, bool includeCustomerLocation = false)
     {
-        var customerUser = job.ServiceRequest?.CustomerProfile?.User;
+        // The garage gets the customer's name, phone and exact address only once the 10% advance is paid.
+        var contactVisible = GarageCustomerLocation.ContactVisibleFor(job.ServiceRequest);
+        var customerUser = contactVisible ? job.ServiceRequest?.CustomerProfile?.User : null;
         var customerName = customerUser?.FullName ?? "Customer";
 
         return new GarageServiceJobDetailDto(
@@ -1103,7 +1105,7 @@ public class ServiceJobService : IServiceJobService
             PickupNotes: job.ServiceRequest?.PickupNotes,
             PickupSlot: job.ServiceRequest?.PickupSlot,
             // Only the assigned garage reaches this mapper; the exact address is withheld once the job is cancelled.
-            CustomerLocation: includeCustomerLocation && GarageCustomerLocation.IsVisibleFor(job.Status)
+            CustomerLocation: includeCustomerLocation && contactVisible && GarageCustomerLocation.IsVisibleFor(job.Status)
                 ? GarageCustomerLocation.For(job.ServiceRequest, job.Garage)
                 : null,
             ServiceItems: GarageCustomerLocation.ServiceItems(job.ServiceRequest, job.CustomerQuotation, packageIncludes),

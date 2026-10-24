@@ -477,6 +477,15 @@ public class CustomerDecisionService : ICustomerDecisionService
                 quotation.Reject();
                 quotation.ServiceRequest.RejectByCustomer(request.Reason);
 
+                // The garage's own quote shows "Customer declined" in its portal.
+                var assignment = quotation.GarageAssignmentId.HasValue
+                    ? await _context.GarageAssignments.FirstOrDefaultAsync(a => a.Id == quotation.GarageAssignmentId.Value, ct)
+                    : null;
+                var garageQuote = assignment != null
+                    ? await _context.GarageQuotes.FirstOrDefaultAsync(q => q.Id == assignment.SelectedQuoteId, ct)
+                    : null;
+                garageQuote?.MarkRejectedByCustomer();
+
                 decision = new CustomerQuotationDecision(
                     customerQuotationId: quotation.Id,
                     customerQuotationVersionId: activeVersion.Id,
@@ -518,7 +527,26 @@ public class CustomerDecisionService : ICustomerDecisionService
             cancellationToken: ct
         );
 
-        // 7. Notify Advisor (Garage is NOT informed of customer's private rejection reason)
+        // 7. Tell the garage its quote was declined (never the customer's private reason).
+        var garageUserIds = await _context.GarageUsers.AsNoTracking()
+            .Where(gu => gu.GarageId == quotation.AssignedGarageId)
+            .Select(gu => gu.UserId)
+            .ToListAsync(ct);
+        var vehicle = $"{quotation.ServiceRequest.VehicleMake} {quotation.ServiceRequest.VehicleModel}".Trim();
+        foreach (var garageUserId in garageUserIds)
+        {
+            await _notificationService.SendInAppNotificationAsync(
+                userId: garageUserId,
+                title: "Customer declined the quote",
+                message: $"The customer declined the quote for request {quotation.ServiceRequest.RequestNumber}{(vehicle.Length > 0 ? $" ({vehicle})" : string.Empty)}. Your BroCo advisor will follow up if anything changes.",
+                type: "CustomerQuotationRejected",
+                referenceId: quotation.ServiceRequestId,
+                referenceType: "ServiceRequest",
+                cancellationToken: ct
+            );
+        }
+
+        // 8. Notify Advisor (Garage is NOT informed of customer's private rejection reason)
         if (quotation.ServiceRequest.AssignedAdvisorId.HasValue)
         {
             var advisorProfile = await _context.AdvisorProfiles

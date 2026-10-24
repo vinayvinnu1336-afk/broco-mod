@@ -199,6 +199,23 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var receive = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/receive", new ReceiveVehicleRequest(15000, "At the gate"));
         receive.IsSuccessStatusCode.Should().BeFalse();
         (await receive.Content.ReadAsStringAsync()).Should().Contain("booking advance");
+
+        // Until the advance is paid the garage gets no name, phone or exact address for the customer.
+        var detail = (await garageClient.GetFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>($"/api/v1/garage/jobs/{jobId}", JsonOptions))!.Data!;
+        detail.CustomerName.Should().Be("Customer");
+        detail.CustomerPhone.Should().BeEmpty();
+        detail.CustomerLocation.Should().BeNull();
+
+        // The request list knows this garage already sent a quote, so it offers "View quote", not "Create quote".
+        var list = (await garageClient.GetFromJsonAsync<ApiResponse<PagedResult<GarageIncomingRequestDto>>>("/api/v1/garage/requests?page=1&pageSize=50", JsonOptions))!.Data!;
+        var mine = list.Items.Single(r => r.ServiceRequestId == serviceRequestId);
+        mine.MyQuoteId.Should().NotBeNull();
+        mine.MyQuoteStatus.Should().NotBe("Draft");
+        var requestDetail = (await garageClient.GetFromJsonAsync<ApiResponse<GarageIncomingRequestDetailDto>>($"/api/v1/garage/requests/{mine.GarageRequestId}", JsonOptions))!.Data!;
+        requestDetail.MyQuoteId.Should().Be(mine.MyQuoteId);
+        requestDetail.CustomerName.Should().BeNull();
+        requestDetail.CustomerPhone.Should().BeNull();
+        requestDetail.CustomerLocation.Should().BeNull();
     }
 
     [Fact]
@@ -221,6 +238,12 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         jobSummary!.JobNumber.Should().StartWith("JOB-");
         jobSummary.Status.Should().Be("BookingConfirmed");
         jobSummary.GarageId.Should().Be(garageId);
+
+        // The advance is paid, so the garage now gets the customer's contact and exact address.
+        var detail = (await garageClient.GetFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>($"/api/v1/garage/jobs/{jobSummary.Id}", JsonOptions))!.Data!;
+        detail.CustomerName.Should().NotBe("Customer");
+        detail.CustomerPhone.Should().NotBeNullOrEmpty();
+        detail.CustomerLocation.Should().NotBeNull();
 
         // Assert 2: Customer can fetch the service execution status for their service request
         var custJobResponse = await customerClient.GetAsync($"/api/v1/customer/requests/{serviceRequestId}/job");

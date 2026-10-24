@@ -99,7 +99,10 @@ public record GarageIncomingRequestDto(
     string LocationArea,
     double DistanceKm,
     string Status,
-    DateTime SentAtUtc
+    DateTime SentAtUtc,
+    Guid? MyQuoteId = null,
+    string? MyQuoteStatus = null,
+    string? VehicleFuel = null
 );
 
 public record GarageIncomingRequestDetailDto(
@@ -127,7 +130,10 @@ public record GarageIncomingRequestDetailDto(
     string? ServiceJobNumber = null,
     GarageCustomerLocationDto? CustomerLocation = null,
     string? CustomerName = null,
-    string? CustomerPhone = null
+    string? CustomerPhone = null,
+    Guid? MyQuoteId = null,
+    string? MyQuoteStatus = null,
+    string? VehicleFuel = null
 );
 
 public record AdvisorServiceRequestSummaryDto(

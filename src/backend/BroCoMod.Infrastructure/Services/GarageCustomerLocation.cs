@@ -13,6 +13,9 @@ internal static class GarageCustomerLocation
 {
     public static bool IsVisibleFor(ServiceJobStatus status) => status != ServiceJobStatus.Cancelled;
 
+    /// <summary>The customer's name, phone and exact address reach the garage only after the 10% advance is paid.</summary>
+    public static bool ContactVisibleFor(ServiceRequest? request) => request?.IsAdvancePaid == true;
+
     /// <summary>The customer's address and pin plus the workshop's pin. Null when the request has no location at all.</summary>
     public static GarageCustomerLocationDto? For(ServiceRequest? request, Garage? garage)
     {
