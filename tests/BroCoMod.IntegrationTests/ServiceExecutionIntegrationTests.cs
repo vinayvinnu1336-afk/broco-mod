@@ -190,8 +190,13 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
     [Fact]
     public async Task Garage_CannotReceiveVehicle_UntilBookingAdvanceIsPaid()
     {
-        var (serviceRequestId, _, _, _, garageToken, _) = await CreateAcceptedBookingAsync(payAdvance: false);
+        var (serviceRequestId, _, _, custToken, garageToken, _) = await CreateAcceptedBookingAsync(payAdvance: false);
         var garageClient = CreateAuthenticatedClient(garageToken);
+
+        // Nor does the customer get the garage's address before paying the advance.
+        var customerJob = (await CreateAuthenticatedClient(custToken).GetFromJsonAsync<ApiResponse<CustomerServiceJobDetailDto>>(
+            $"/api/v1/customer/requests/{serviceRequestId}/job", JsonOptions))!.Data!;
+        customerJob.GarageLocation.Should().BeNull();
 
         var jobs = await garageClient.GetFromJsonAsync<ApiResponse<List<ServiceJobSummaryDto>>>("/api/v1/garage/jobs", JsonOptions);
         var jobId = jobs!.Data!.First(j => j.ServiceRequestId == serviceRequestId).Id;
