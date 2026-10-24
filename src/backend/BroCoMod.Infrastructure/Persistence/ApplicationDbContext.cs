@@ -791,6 +791,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             builder.Property(j => j.GarageInternalNotes).HasMaxLength(4000);
             builder.Property(j => j.CustomerFacingNotes).HasMaxLength(4000);
             builder.Property(j => j.CancellationReason).HasMaxLength(1000);
+            builder.Property(j => j.PaymentReceivedAmount).HasPrecision(18, 2);
+            builder.Property(j => j.PaymentMode).HasMaxLength(ServiceJob.PaymentModeMaxLength);
             builder.Property(j => j.ConcurrencyToken).IsConcurrencyToken();
 
             builder.HasIndex(j => j.JobNumber).IsUnique();

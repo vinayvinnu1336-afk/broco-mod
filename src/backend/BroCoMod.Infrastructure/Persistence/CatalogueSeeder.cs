@@ -204,7 +204,7 @@ public class CatalogueSeeder
         var firstRun = !await _context.ServicePackagePrices.AnyAsync(ct);
         var models = await _context.VehicleModels.AsNoTracking()
             .Where(m => m.IsActive)
-            .Select(m => new { m.Id, m.Segment, m.Fuels })
+            .Select(m => new { m.Id, m.Name, Brand = m.Manufacturer!.Name, m.Segment, m.Fuels })
             .ToListAsync(ct);
         if (!firstRun) models = models.Where(m => newlyDetailedModels.Contains(m.Id)).ToList();
         if (models.Count == 0) return;
@@ -220,10 +220,14 @@ public class CatalogueSeeder
         var added = 0;
         foreach (var model in models)
         {
-            if (!file.Prices.TryGetValue(model.Segment, out var byFuel)) continue;
+            file.Prices.TryGetValue(model.Segment, out var byFuel);
             foreach (var fuelName in model.Fuels)
             {
-                if (!Enum.TryParse<FuelType>(fuelName, out var fuel) || !byFuel.TryGetValue(fuelName, out var byPackage)) continue;
+                if (!Enum.TryParse<FuelType>(fuelName, out var fuel)) continue;
+                // This model's own price (GoMechanic + ₹350) when listed, else the segment default.
+                IReadOnlyDictionary<string, decimal>? byPackage = ModelPackagePrices.For(model.Brand, model.Name, fuel);
+                if (byPackage == null && byFuel != null && byFuel.TryGetValue(fuelName, out var segmentPrices)) byPackage = segmentPrices;
+                if (byPackage == null) continue;
                 foreach (var package in existing)
                 {
                     if (!byPackage.TryGetValue(package.Code, out var price) || price <= 0) continue;

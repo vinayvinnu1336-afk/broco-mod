@@ -217,16 +217,12 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   await expect(page.getByText(`Customer paid BroCo ${inr(state.advance!, 2)} (10%) online.`)).toBeVisible();
   await checkLayout(page, 'garage job');
 
-  // Schedule: drop-off tomorrow 10:00, ready tomorrow 18:00 (local time).
-  await actionBar(page, /^Schedule$/).click();
-  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
-  const day = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-  await page.getByLabel(/^Drop-off/).fill(`${day}T10:00`);
-  await page.getByLabel(/^Ready by/).fill(`${day}T18:00`);
-  await confirmSheet(page, 'Save schedule');
+  // The customer chose pick-up at booking; there is no scheduling step, so picking the car up comes first.
+  await expect(page.getByText(/^Pick up the car from the customer/)).toBeVisible();
+  await expect(actionBar(page, /^(Schedule|Change time)$/)).toHaveCount(0);
 
   // The advance is paid, so the car can be received.
-  await actionBar(page, /^Car received$/).click();
+  await actionBar(page, /^Car picked up$/).click();
   await page.getByRole('dialog').getByLabel(/^Odometer/).fill('24100');
   await confirmSheet(page, 'Confirm received');
   await actionBar(page, /^Start inspection$/).click();
@@ -240,12 +236,18 @@ test('3. garage runs the job to handover and pays the commission', async ({ brow
   await page.getByRole('dialog').getByLabel(/^Note for the customer/).fill('Oil, filters and checks done as per the package.');
   await confirmSheet(page, 'Mark work done');
   await expect(page.getByText(`Collect ${inr(state.atGarage!, 2)} from the customer at handover.`)).toBeVisible();
-  await actionBar(page, /^Ready for pickup$/).click();
+  await actionBar(page, /^Ready for handover$/).click();
   await confirmSheet(page, 'Notify customer');
 
-  // Handover: collect the balance; BroCo's commission becomes due.
+  // The customer pays the balance before taking the car: record it, then hand over.
+  await actionBar(page, /^Payment received$/).click();
+  await expect(page.getByRole('dialog').getByLabel(/^Amount received/)).toHaveValue(String(state.atGarage));
+  await page.getByRole('dialog').getByLabel(/^Paid by/).selectOption('UPI');
+  await confirmSheet(page, 'Confirm payment');
+  await expect(page.getByText(`Customer paid you ${inr(state.atGarage!, 2)} by UPI`, { exact: false })).toBeVisible();
+
+  // Handover: BroCo's commission becomes due.
   await actionBar(page, /^Hand over car$/).click();
-  await expect(page.getByRole('dialog')).toContainText(`Collect ${inr(state.atGarage!, 2)} from the customer`);
   await confirmSheet(page, 'Confirm handover');
   const due = commission();
   await expect(page.getByText(/BroCo commission .* is now due/)).toContainText(inr(due.total, 2));

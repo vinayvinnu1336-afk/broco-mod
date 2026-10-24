@@ -132,7 +132,7 @@ export default function AdminRequestTimelinePage({ params }: { params: { id: str
             {data.serviceCategory && (
               <p className="mt-2 break-words text-xs text-navy-500">Services: {data.serviceCategory}</p>
             )}
-            <PickupSummary className="mt-3" needsPickup={data.needsPickup} pickupNotes={data.pickupNotes} pickupSlot={data.pickupSlot} />
+            <PickupSummary className="mt-3" needsPickup={data.needsPickup} pickupNotes={data.pickupNotes} pickupSlot={data.pickupSlot} preferredServiceDate={data.preferredServiceDate} />
           </Section>
 
           <Card className="p-4 sm:p-5">

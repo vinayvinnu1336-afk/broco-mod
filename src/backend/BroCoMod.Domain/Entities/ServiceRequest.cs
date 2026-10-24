@@ -188,9 +188,9 @@ public class ServiceRequest : BaseEntity
             throw new ArgumentException($"Pick-up slot must be at most {PickupSlotMaxLength} characters.", nameof(slot));
 
         NeedsPickup = needsPickup;
-        // Notes and slot only mean something when the car is picked up.
+        // Notes only mean something when the car is picked up; the slot is the preferred time either way.
         PickupNotes = needsPickup ? trimmedNotes : null;
-        PickupSlot = needsPickup ? trimmedSlot : null;
+        PickupSlot = trimmedSlot;
     }
 
     public void RecordAdvancePaid(decimal amount, Guid paymentId, DateTime paidAtUtc)
@@ -278,14 +278,15 @@ public class ServiceRequest : BaseEntity
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    public void Cancel(string reason)
+    /// <param name="allowAfterCompletion">BroCo admin may still cancel a handed-over booking (the job is not closed yet).</param>
+    public void Cancel(string reason, bool allowAfterCompletion = false)
     {
         if (Status == ServiceRequestStatus.Cancelled)
         {
             throw new InvalidOperationException("Request is already cancelled.");
         }
 
-        if (Status == ServiceRequestStatus.Completed)
+        if (Status == ServiceRequestStatus.Completed && !allowAfterCompletion)
         {
             throw new InvalidOperationException("Cannot cancel an already completed request.");
         }
@@ -347,6 +348,30 @@ public class ServiceRequest : BaseEntity
     public void ConfirmBooking()
     {
         Status = ServiceRequestStatus.BookingConfirmed;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>The garage has the car (received or working on it). No-op once completed or cancelled.</summary>
+    public void MarkInProgress()
+    {
+        if (Status is ServiceRequestStatus.InProgress or ServiceRequestStatus.Completed or ServiceRequestStatus.Cancelled)
+        {
+            return;
+        }
+
+        Status = ServiceRequestStatus.InProgress;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>The car is back with the customer. No-op once completed or cancelled.</summary>
+    public void MarkCompleted()
+    {
+        if (Status is ServiceRequestStatus.Completed or ServiceRequestStatus.Cancelled)
+        {
+            return;
+        }
+
+        Status = ServiceRequestStatus.Completed;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

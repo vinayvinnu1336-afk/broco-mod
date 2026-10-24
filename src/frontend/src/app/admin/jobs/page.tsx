@@ -27,8 +27,9 @@ const STATUS_OPTIONS = [
   { value: 'WorkStarted', label: 'Work started' },
   { value: 'WorkInProgress', label: 'Work in progress' },
   { value: 'WorkCompleted', label: 'Work completed' },
-  { value: 'VehicleReady', label: 'Ready for pickup' },
+  { value: 'VehicleReady', label: 'Ready for handover' },
   { value: 'HandedOver', label: 'Handed over' },
+  { value: 'PaymentReceived', label: 'Payment received' },
   { value: 'Closed', label: 'Closed' },
   { value: 'Cancelled', label: 'Cancelled' },
 ];

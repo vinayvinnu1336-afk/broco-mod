@@ -422,7 +422,8 @@ public class AdminOperationsService : IAdminOperationsService
             sr.NeedsPickup,
             sr.PickupNotes,
             sr.PickupSlot,
-            sr.City
+            sr.City,
+            sr.PreferredServiceDate
         );
     }
 

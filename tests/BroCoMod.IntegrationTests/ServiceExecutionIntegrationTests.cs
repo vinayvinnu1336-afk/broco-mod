@@ -267,6 +267,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var recvBody = await receiveResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         recvBody!.Data!.Status.Should().Be("VehicleReceived");
         recvBody.Data.CurrentMileageKm.Should().Be(25400);
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("IN_PROGRESS", "the customer's tracker moves to In service once the garage has the car");
 
         // Step 3: Start Inspection
         var startInspResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/inspection/start", new StartInspectionRequest(
@@ -290,6 +291,7 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         startWorkResp.EnsureSuccessStatusCode();
         var workBody = await startWorkResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         workBody!.Data!.Status.Should().Be("WorkStarted");
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("IN_PROGRESS");
 
         // Step 6: Update Progress
         var progressResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/work/progress", new UpdateJobProgressRequest(
@@ -317,13 +319,30 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var readyBody = await readyResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         readyBody!.Data!.Status.Should().Be("VehicleReady");
 
-        // Step 9: Hand Over Vehicle
+        // Handing over before the payment is recorded is refused: payment comes first.
+        var earlyHandover = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/handover", new HandOverVehicleRequest(null));
+        earlyHandover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Step 9: Payment received from the customer
+        var paidResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/payment-received",
+            new RecordPaymentReceivedRequest(readyBody.Data.BalanceToCollect, "UPI", "Ref 4471"));
+        paidResp.EnsureSuccessStatusCode();
+        var paidBody = await paidResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
+        paidBody!.Data!.Status.Should().Be("PaymentReceived");
+        paidBody.Data.PaymentReceivedAmount.Should().Be(readyBody.Data.BalanceToCollect);
+        paidBody.Data.PaymentMode.Should().Be("UPI");
+        paidBody.Data.PaymentReceivedAtUtc.Should().NotBeNull();
+        paidBody.Data.Activities.Should().Contain(a => a.ActivityType == "PaymentReceived" && a.IsCustomerVisible);
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("IN_PROGRESS", "the car is still at the garage");
+
+        // Step 10: Hand Over Vehicle
         var handoverResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/handover", new HandOverVehicleRequest(
             "Keys given to customer."
         ));
         handoverResp.EnsureSuccessStatusCode();
         var handBody = await handoverResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         handBody!.Data!.Status.Should().Be("HandedOver");
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("COMPLETED", "the customer's tracker shows Done at handover");
 
         // Handover bills the garage its BroCo commission, and reminds it to pay.
         var dues = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
@@ -344,13 +363,14 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         var afterPay = await garageClient.GetFromJsonAsync<ApiResponse<List<GarageCommissionDto>>>("/api/v1/garage/commission", JsonOptions);
         afterPay!.Data!.Single(c => c.Id == due.Id).Status.Should().Be("Paid");
 
-        // Step 10: Close Job
+        // Step 11: Close Job
         var closeResp = await garageClient.PostAsJsonAsync($"/api/v1/garage/jobs/{jobId}/close", new CloseJobRequest(
             "Final inspection report archived."
         ));
         closeResp.EnsureSuccessStatusCode();
         var closeBody = await closeResp.Content.ReadFromJsonAsync<ApiResponse<GarageServiceJobDetailDto>>(JsonOptions);
         closeBody!.Data!.Status.Should().Be("Closed");
+        (await CustomerRequestStatusAsync(customerClient, serviceRequestId)).Should().Be("COMPLETED");
 
         // Step 11: Customer Sanitization Verification
         var custStatusResp = await customerClient.GetAsync($"/api/v1/customer/requests/{serviceRequestId}/job");
@@ -474,5 +494,11 @@ public class ServiceExecutionIntegrationTests : IClassFixture<WebApplicationFact
         // Act 2: Customer B tries to view Customer A's job
         var custBAccessResp = await customerBClient.GetAsync($"/api/v1/customer/requests/{serviceRequestId}/job");
         custBAccessResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    private static async Task<string> CustomerRequestStatusAsync(HttpClient customer, Guid requestId)
+    {
+        var res = await customer.GetFromJsonAsync<ApiResponse<ServiceRequestDetailDto>>($"/api/v1/customer/requests/{requestId}", JsonOptions);
+        return res!.Data!.Status;
     }
 }

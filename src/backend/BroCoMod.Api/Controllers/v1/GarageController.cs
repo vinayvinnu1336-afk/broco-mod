@@ -546,6 +546,29 @@ public class GarageController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
     }
 
+    [HttpPost("jobs/{id:guid}/payment-received")]
+    [ProducesResponseType(typeof(ApiResponse<GarageServiceJobDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RecordPaymentReceived(
+        Guid id,
+        [FromBody] RecordPaymentReceivedRequest request,
+        CancellationToken cancellationToken)
+    {
+        var garageId = GetEffectiveGarageId();
+        var userId = GetEffectiveUserId();
+        try
+        {
+            var job = await _serviceJobService.RecordPaymentReceivedAsync(id, garageId, userId, request, cancellationToken);
+            return Ok(ApiResponse<GarageServiceJobDetailDto>.Ok(job, "Payment recorded."));
+        }
+        catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message)); }
+        catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+        catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+    }
+
     [HttpPost("jobs/{id:guid}/close")]
     [ProducesResponseType(typeof(ApiResponse<GarageServiceJobDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]

@@ -8,6 +8,7 @@ export type ServiceJobStatus =
   | 'WorkCompleted'
   | 'VehicleReady'
   | 'HandedOver'
+  | 'PaymentReceived'
   | 'Closed'
   | 'Cancelled';
 
@@ -124,6 +125,9 @@ export interface GarageServiceJobDetailDto {
   serviceCategory?: string | null;
   vehicleFuel?: string | null;
   preferredServiceDate?: string | null;
+  paymentReceivedAtUtc?: string | null;
+  paymentReceivedAmount?: number | null;
+  paymentMode?: string | null;
 }
 
 /** Where the car is, for the garage that holds the job. AddressLine2 carries the area and "Near <landmark>". */
@@ -204,6 +208,10 @@ export interface AdvisorServiceJobDetailDto {
   needsPickup?: boolean;
   pickupNotes?: string | null;
   pickupSlot?: string | null;
+  preferredServiceDate?: string | null;
+  paymentReceivedAtUtc?: string | null;
+  paymentReceivedAmount?: number | null;
+  paymentMode?: string | null;
 }
 
 export interface ScheduleJobRequest {

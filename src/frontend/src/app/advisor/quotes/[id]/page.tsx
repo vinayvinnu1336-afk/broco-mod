@@ -256,7 +256,7 @@ export default function AdvisorQuoteDetailPage() {
         }
       >
         <Link href="/advisor/work-queue?stage=pending-quotes" className={linkButtonPrimary}>
-          Compare quotes
+          Go to work queue
         </Link>
       </ActionBar>
       <ActionBarSpacer />

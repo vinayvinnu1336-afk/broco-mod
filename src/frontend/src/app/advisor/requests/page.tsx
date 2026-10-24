@@ -312,7 +312,7 @@ function AdvisorRequests() {
                             href={`/advisor/requests/${r.id}`}
                             className="inline-flex min-h-[36px] items-center rounded-xl border border-surface-300 bg-white px-3 text-xs font-semibold text-navy-800 transition hover:bg-surface-50"
                           >
-                            {r.servicePackageName ? 'Assign garage' : 'Compare quotes'}
+                            {r.servicePackageName ? 'Assign garage' : 'Open request'}
                           </Link>
                         </div>
                       </TableCell>
@@ -383,7 +383,7 @@ function AdvisorRequests() {
                 Close
               </Button>
               <Link href={`/advisor/requests/${selectedRequest.id}`} className={`${linkButtonPrimary} w-full sm:w-auto`}>
-                {selectedIsPackage ? (selectedRequest.assignedGarageName ? 'Open booking' : 'Assign garage') : 'Compare quotes'}
+                {selectedIsPackage ? (selectedRequest.assignedGarageName ? 'Open booking' : 'Assign garage') : 'Open request'}
               </Link>
             </div>
           ) : undefined
