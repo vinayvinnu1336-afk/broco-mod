@@ -168,6 +168,17 @@ export interface CustomerServiceJobDetailDto {
   customerFacingNotes?: string | null;
   inspection?: CustomerServiceInspectionDto | null;
   timeline: CustomerJobActivityDto[];
+  /** Drive-in bookings, once the advance is paid. */
+  garageLocation?: CustomerGarageLocationDto | null;
+}
+
+export interface CustomerGarageLocationDto {
+  name: string;
+  address: string;
+  city: string;
+  phone?: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 export interface AdvisorServiceJobDetailDto {

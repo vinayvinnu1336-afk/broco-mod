@@ -1168,8 +1168,28 @@ public class ServiceJobService : IServiceJobService
             ClosedAtUtc: job.ClosedAtUtc,
             CustomerFacingNotes: job.CustomerFacingNotes,
             Inspection: inspectionDto,
-            Timeline: visibleActivities
+            Timeline: visibleActivities,
+            GarageLocation: CustomerGarageLocation(job)
         );
+    }
+
+    /// <summary>
+    /// A drive-in customer gets the workshop's address, phone and pin once the 10% advance is paid (the garage gets the
+    /// customer's details at the same point). Pick-up bookings don't need it, and a cancelled job doesn't show it.
+    /// </summary>
+    private static CustomerGarageLocationDto? CustomerGarageLocation(ServiceJob job)
+    {
+        var request = job.ServiceRequest;
+        var garage = job.Garage;
+        if (request == null || garage?.Location == null || request.NeedsPickup || !request.IsAdvancePaid) return null;
+        if (job.Status == ServiceJobStatus.Cancelled) return null;
+        return new CustomerGarageLocationDto(
+            Name: garage.Name,
+            Address: garage.Address,
+            City: garage.City,
+            Phone: string.IsNullOrWhiteSpace(garage.PhoneNumber) ? null : garage.PhoneNumber,
+            Latitude: garage.Location.Y,
+            Longitude: garage.Location.X);
     }
 
     private static AdvisorServiceJobDetailDto MapToAdvisorDetailDto(ServiceJob job)

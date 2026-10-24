@@ -161,7 +161,18 @@ public record CustomerServiceJobDetailDto(
     DateTime? ClosedAtUtc,
     string? CustomerFacingNotes,
     CustomerServiceInspectionDto? Inspection,
-    List<CustomerJobActivityDto> Timeline
+    List<CustomerJobActivityDto> Timeline,
+    CustomerGarageLocationDto? GarageLocation = null
+);
+
+/// <summary>Where to take the car, for a drive-in customer whose 10% advance is paid.</summary>
+public record CustomerGarageLocationDto(
+    string Name,
+    string Address,
+    string City,
+    string? Phone,
+    double Latitude,
+    double Longitude
 );
 
 public record AdvisorServiceJobDetailDto(
