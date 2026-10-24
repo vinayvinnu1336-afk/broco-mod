@@ -418,6 +418,8 @@ export default function GarageJobDetailPage() {
   const balanceToCollect = Number(job.balanceToCollect ?? Math.max(0, serviceValue - advancePaid));
   const advancePct = serviceValue > 0 && advancePaid > 0 ? Math.round((advancePaid / serviceValue) * 100) : 10;
   const awaitingAdvance = job.isAdvancePaid === false && PRE_RECEIPT_STATUSES.includes(status);
+  // The API withholds the customer's contact and address until the advance is paid.
+  const contactHidden = job.isAdvancePaid === false;
   // The API refuses "Car received" until the advance is paid, so hold the button back.
   const receiveBlocked = awaitingAdvance && next?.primary?.modal === 'receive';
   const showPaymentCard = serviceValue > 0 || !!job.servicePackageName || job.isAdvancePaid !== undefined;
@@ -556,7 +558,11 @@ export default function GarageJobDetailPage() {
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-surface-200 pt-3">
             <div className="min-w-0">
               <div className="text-xs text-navy-500">Customer</div>
-              <div className="truncate text-sm font-semibold text-navy-900">{job.customerName || '—'}</div>
+              {contactHidden ? (
+                <div className="text-sm text-navy-500">Shown after the customer pays the advance</div>
+              ) : (
+                <div className="truncate text-sm font-semibold text-navy-900">{job.customerName || '—'}</div>
+              )}
             </div>
             {job.customerPhone && (
               <a
@@ -575,12 +581,18 @@ export default function GarageJobDetailPage() {
           <Section
             title="Customer location"
             action={
-              <Button variant="outline" size="sm" leftIcon={<Share2 className="h-4 w-4" />} onClick={() => setShareOpen(true)}>
-                Share job details
-              </Button>
+              contactHidden ? undefined : (
+                <Button variant="outline" size="sm" leftIcon={<Share2 className="h-4 w-4" />} onClick={() => setShareOpen(true)}>
+                  Share job details
+                </Button>
+              )
             }
           >
-            {job.customerLocation ? (
+            {contactHidden ? (
+              <p className="rounded-2xl border border-dashed border-surface-300 bg-white p-4 text-sm text-navy-500">
+                The customer’s name, phone and address appear here once they pay the 10% BroCo advance.
+              </p>
+            ) : job.customerLocation ? (
               <CustomerLocationCard
                 location={job.customerLocation}
                 customerName={job.customerName}

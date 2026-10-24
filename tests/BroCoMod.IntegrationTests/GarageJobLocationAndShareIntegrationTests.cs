@@ -207,7 +207,7 @@ public class GarageJobLocationAndShareIntegrationTests : IClassFixture<MediaTest
     }
 
     [Fact]
-    public async Task Quoting_garage_sees_only_the_area_until_the_customer_accepts_then_the_request_and_job_show_the_location()
+    public async Task Quoting_garage_sees_only_the_area_until_the_customer_pays_the_advance_then_the_request_and_job_show_the_location()
     {
         var (customer, phone, vehicleId) = await NewCustomerWithCarAsync();
         var request = await BookAsync(customer, Booking(vehicleId, packageCode: null, categories: new[] { "AC Service & Repair" }));
@@ -269,7 +269,29 @@ public class GarageJobLocationAndShareIntegrationTests : IClassFixture<MediaTest
         (await customer.PostAsJsonAsync($"/api/v1/customer/quotes/{quotationId}/accept", new AcceptQuotationRequest(CustomerRemarks: null)))
             .EnsureSuccessStatusCode();
 
-        // Now the garage holds the job: the request sheet links to it and shows where the car is.
+        // The garage now holds the job, but until the 10% advance is paid it still gets no address or contact.
+        var accepted = await garage.GetAsync($"/api/v1/garage/requests/{garageRequestId}");
+        var acceptedJson = await accepted.Content.ReadAsStringAsync();
+        var unpaid = await DataAsync<GarageIncomingRequestDetailDto>(accepted);
+        unpaid.ServiceJobId.Should().NotBeNull();
+        unpaid.CustomerLocation.Should().BeNull();
+        unpaid.CustomerName.Should().BeNull();
+        unpaid.CustomerPhone.Should().BeNull();
+        acceptedJson.Should().NotContain("Plot 12").And.NotContain(phone);
+        var unpaidJob = await DataAsync<GarageServiceJobDetailDto>(await garage.GetAsync($"/api/v1/garage/jobs/{unpaid.ServiceJobId}"));
+        unpaidJob.CustomerLocation.Should().BeNull();
+        unpaidJob.CustomerPhone.Should().BeEmpty();
+        unpaidJob.CustomerName.Should().Be("Customer");
+
+        // A quote booking's 10% advance is paid against the accepted quotation.
+        var pay = await customer.PostAsJsonAsync("/api/v1/customer/payments/initiate", new InitiatePaymentRequestDto(quotationId));
+        pay.EnsureSuccessStatusCode();
+        var checkout = (await pay.Content.ReadFromJsonAsync<ApiResponse<InitiatePaymentResponseDto>>(JsonOptions))!.Data!;
+        (await customer.PostAsJsonAsync("/api/v1/customer/payments/verify",
+            new VerifyPaymentRequestDto(checkout.PaymentId, $"pay_loc_{Guid.NewGuid():N}", "sig_fake_valid", checkout.GatewayOrderId)))
+            .EnsureSuccessStatusCode();
+
+        // Advance paid: the request sheet links to the job and shows where the car is and who to call.
         var after = await DataAsync<GarageIncomingRequestDetailDto>(await garage.GetAsync($"/api/v1/garage/requests/{garageRequestId}"));
         after.ServiceJobId.Should().NotBeNull();
         after.ServiceJobNumber.Should().NotBeNullOrEmpty();
